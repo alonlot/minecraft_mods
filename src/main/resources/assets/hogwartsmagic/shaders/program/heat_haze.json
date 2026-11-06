@@ -1,0 +1,36 @@
+{
+    "vertex": "hogwartsmagic:bloom_quad",
+    "fragment": "hogwartsmagic:heat_haze",
+    "attributes": [
+        "Position"
+    ],
+    "samplers": [
+        {
+            "name": "SceneSampler"
+        },
+        {
+            "name": "MaskSampler"
+        },
+        {
+            "name": "WideSampler"
+        }
+    ],
+    "uniforms": [
+        {
+            "name": "Time",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "Aspect",
+            "type": "float",
+            "count": 1,
+            "values": [
+                1.0
+            ]
+        }
+    ]
+}

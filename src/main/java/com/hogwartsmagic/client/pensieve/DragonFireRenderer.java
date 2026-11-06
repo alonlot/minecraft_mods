@@ -109,12 +109,12 @@ public final class DragonFireRenderer {
     }
 
     private static final ResourceLocation SPRITES = tex("dragon_fire_sprites");
-    private static final RenderType SPRITE_GLOW = ModRenderTypes.ceilingGlow(SPRITES);
+    private static final RenderType SPRITE_GLOW = ModRenderTypes.fireGlow(SPRITES);
     private static final RenderType SPRITE_SMOKE = ModRenderTypes.ceilingLayer(SPRITES);
-    private static final RenderType BODY = ModRenderTypes.ceilingGlow(tex("dragon_fire_body"));
+    private static final RenderType BODY = ModRenderTypes.fireGlow(tex("dragon_fire_body"));
     private static final RenderType SHIMMER = ModRenderTypes.ceilingLayer(tex("dragon_fire_shimmer"));
     private static final RenderType SCORCH = ModRenderTypes.ceilingLayer(tex("dragon_scorch"));
-    private static final RenderType EMBERS = ModRenderTypes.ceilingGlow(tex("dragon_embers"));
+    private static final RenderType EMBERS = ModRenderTypes.fireGlow(tex("dragon_embers"));
     private static final int LIGHT = LightTexture.FULL_BRIGHT;
     private static final int OVERLAY = OverlayTexture.NO_OVERLAY;
 

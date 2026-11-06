@@ -150,7 +150,10 @@ public final class SpellLight {
                 drawSurface(out, m, surface, light, strength, camera);
             }
         }
+        // Light thrown on walls is not itself a glowing thing: it must not bloom.
+        com.hogwartsmagic.client.fx.bloom.Bloom.holdCapture(true);
         buffer.endBatch(ModRenderTypes.AVADA_LIGHT);
+        com.hogwartsmagic.client.fx.bloom.Bloom.holdCapture(false);
     }
 
     /**

@@ -58,7 +58,7 @@ public final class ProtegoMaximaRenderer {
     /** The barrier the server deflects at (ModEvents' PROTEGO_MAXIMA_BARRIER_RADIUS). */
     public static final float RADIUS = 4.5f;
 
-    private static final RenderType HEX = ModRenderTypes.ceilingGlow(
+    private static final RenderType HEX = ModRenderTypes.magicGlow(
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/shield_hex.png"));
     private static final int LIGHT = LightTexture.FULL_BRIGHT;
     private static final int OVERLAY = OverlayTexture.NO_OVERLAY;

@@ -202,6 +202,9 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         if (this.level() instanceof ServerLevel server) {
             server.playSound(null, blockPosition(), com.hogwartsmagic.ModSounds.IRONBELLY_ROAR.get(),
                     SoundSource.HOSTILE, 6.0F, 1.0F);
+            // The chained dragon tears free and bellows: a long low rumble and the ground jumping under it.
+            com.hogwartsmagic.fx.CreatureFx.rumble(server, position(), 1.5F, 44.0F, 56);
+            com.hogwartsmagic.fx.CreatureFx.slam(server, position(), 8.0F, 0.8F);
         }
     }
 

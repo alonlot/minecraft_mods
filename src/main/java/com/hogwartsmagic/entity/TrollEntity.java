@@ -1,6 +1,7 @@
 package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.event.ModEvents;
+import com.hogwartsmagic.fx.Fx;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -186,6 +187,9 @@ public class TrollEntity extends Monster {
                 case ROAR -> {
                     if (t == 4) {
                         this.playSound(com.hogwartsmagic.ModSounds.TROLL_ROAR.get(), 1.6F, 1.0F);
+                        if (this.level() instanceof ServerLevel sl) {
+                            com.hogwartsmagic.fx.CreatureFx.rumble(sl, this.position(), 0.5F, 20.0F, 36);
+                        }
                     }
                     if (t >= ROAR_DURATION) {
                         setAttackState(AttackState.NONE);
@@ -263,17 +267,8 @@ public class TrollEntity extends Monster {
 
         // Visuals + audio.
         this.playSound(com.hogwartsmagic.ModSounds.TROLL_SLAM_IMPACT.get(), 1.8F, 1.0F);
-        sl.sendParticles(ParticleTypes.EXPLOSION, cx, cy + 0.1D, cz, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-        sl.sendParticles(ParticleTypes.POOF, cx, cy + 0.1D, cz, 60, SLAM_RADIUS * 0.6D, 0.2D, SLAM_RADIUS * 0.6D, 0.05D);
-        sl.sendParticles(ParticleTypes.CLOUD, cx, cy + 0.2D, cz, 40, SLAM_RADIUS * 0.5D, 0.1D, SLAM_RADIUS * 0.5D, 0.04D);
-
-        // Camera shake — pulse nausea on nearby players.
-        for (Player p : sl.players()) {
-            if (p.distanceToSqr(cx, cy, cz) < 144.0D) {
-                p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                        net.minecraft.world.effect.MobEffects.CONFUSION, 14, 0, false, false, false));
-            }
-        }
+        // The club comes down: the ground jumps, dust rolls out, chunks fly, the view shudders.
+        com.hogwartsmagic.fx.CreatureFx.slam(sl, new Vec3(cx, cy, cz), (float) SLAM_RADIUS, 1.0F, 1.2F, 14.0F, 14);
     }
 
     private void doSweepImpact() {
@@ -307,9 +302,10 @@ public class TrollEntity extends Monster {
             this.playSound(com.hogwartsmagic.ModSounds.TROLL_CLUB_HIT.get(), 1.3F, 0.95F);
         }
 
-        sl.sendParticles(ParticleTypes.SWEEP_ATTACK,
-                this.getX() + forward.x * 2.0D, this.getY() + 1.2D, this.getZ() + forward.z * 2.0D,
-                1, 0.0D, 0.0D, 0.0D, 0.0D);
+        if (connected) {
+            Fx.shake(sl, this.getX() + forward.x * 2.0D, this.getY() + 1.0D, this.getZ() + forward.z * 2.0D,
+                    0.6F, 10.0F, 9);
+        }
     }
 
     private void interruptIfCaster(LivingEntity victim) {
@@ -344,9 +340,7 @@ public class TrollEntity extends Monster {
                 interruptIfCaster(living);
             }
             if (this.level() instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.POOF,
-                        target.getX(), target.getY(0.45D), target.getZ(),
-                        10, 0.35D, 0.25D, 0.35D, 0.02D);
+                Fx.shake(serverLevel, target.getX(), target.getY(0.45D), target.getZ(), 0.45F, 8.0F, 8);
             }
         }
         return hit;

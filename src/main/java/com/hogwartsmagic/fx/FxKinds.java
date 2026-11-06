@@ -23,4 +23,14 @@ public final class FxKinds {
      * is a boss dying or a Killing Curse landing). Handled by client.fx.Cinematic's owner.
      */
     public static final String MOMENT = "moment";
+
+    // --- Creatures: the big ones hit like the spells do (builder A) ---
+
+    /**
+     * A creature hits the ground at (x, y, z): an expanding ring of dust rolls outwards and settles, chunks of the
+     * ground there are flung up, and a faint shockwave ring crosses the ground. params: radius (blocks the ring
+     * reaches), strength (0.3 a footfall .. 1 a Giant's kick .. 1.5 a dragon landing). Handled by
+     * client.fx.creature.SlamFx.
+     */
+    public static final String SLAM = "slam";
 }

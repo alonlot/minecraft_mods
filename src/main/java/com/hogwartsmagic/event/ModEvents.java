@@ -3585,15 +3585,7 @@ public class ModEvents {
                         net.minecraft.world.effect.MobEffects.INVISIBILITY, 40, 0, false, false, false));
             }
 
-// Spawn ink and smoke particles on the first tick of the flight
-            if (wizard.level() instanceof ServerLevel server && flightJustStarted) {
-                server.sendParticles(ParticleTypes.SQUID_INK,
-                        wizard.getX(), wizard.getY() + wizard.getBbHeight() / 2, wizard.getZ(),
-                        80, 1, 1, 1, 0.2);
-                server.sendParticles(ParticleTypes.SMOKE,
-                        wizard.getX(), wizard.getY() + wizard.getBbHeight() / 2, wizard.getZ(),
-                        60, 1, 1, 1, 0.1);
-            }
+// (The ink and smoke at the start of the flight is the client's now: client.fx.creature.TrailFx.)
 
 // Handle attacking target: smoke-ram behavior (chase -> touch hit -> immediate escape)
             LivingEntity target = wizard.getTarget();
@@ -3706,7 +3698,9 @@ public class ModEvents {
             }
         }
 
-        if (entity.level() instanceof ServerLevel server) {
+        // A Death Eater in smoke flight gets its streaming ribbon of smoke from the client (client.fx.creature.TrailFx,
+        // driven by the synced flying flag), so the server sends no ink dots for it.
+        if (!(entity instanceof com.hogwartsmagic.entity.WizardEntity) && entity.level() instanceof ServerLevel server) {
             Vec3 velocity = entity.getDeltaMovement();
 
             double baseX = entity.getX();

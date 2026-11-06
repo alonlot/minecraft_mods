@@ -1,6 +1,9 @@
 package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.event.ModEvents;
+import com.hogwartsmagic.fx.CreatureFx;
+import com.hogwartsmagic.fx.Fx;
+import com.hogwartsmagic.fx.FxKinds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -408,9 +411,9 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             this.entityData.set(DATA_RAGING, true);
             this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 4.0F, 0.85F);
             if (this.level() instanceof ServerLevel sl) {
-                sl.sendParticles(ParticleTypes.FLAME,
-                        this.getX(), this.getY() + this.getBbHeight() * 0.8D, this.getZ(),
-                        40, 1.2D, 0.8D, 1.2D, 0.05D);
+                // The enraged roar: a long low rumble under the ground, not a puff of flame.
+                CreatureFx.rumble(sl, this.position(), 1.6F, 44.0F, 46);
+                CreatureFx.slam(sl, this.position(), 8.0F, 0.7F);
             }
         }
 
@@ -451,8 +454,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         if (this.getDeltaMovement().horizontalDistanceSqr() < 0.0025D) return;
         if (this.tickCount % 11 != 0) return;
         this.playSound(SoundEvents.RAVAGER_STEP, 1.1F, 0.45F);
-        sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE,
-                this.getX(), this.getY() + 0.1D, this.getZ(), 3, 1.4D, 0.05D, 1.4D, 0.0D);
+        CreatureFx.slam(sl, this.position(), 2.4F, 0.3F, 0.3F, 18.0F, 7);
     }
 
     private void driveState(AttackState state, int t) {
@@ -490,11 +492,9 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     private void tickRoar(int t) {
         if (t == 8) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 6.0F, 0.75F);
         // The roar shoves loose dust and makes the ground shudder — pure theatre, no damage.
-        if (this.level() instanceof ServerLevel sl && t > 8 && t < 34 && t % 3 == 0) {
-            Vec3 mouth = mouthPos();
-            Vec3 dir = this.getLookAngle();
-            sl.sendParticles(ParticleTypes.CLOUD, mouth.x, mouth.y, mouth.z, 0,
-                    dir.x * 0.5D, dir.y * 0.5D, dir.z * 0.5D, 1.0D);
+        if (this.level() instanceof ServerLevel sl && t == 8) {
+            CreatureFx.rumble(sl, this.position(), 1.6F, 44.0F, 44);
+            CreatureFx.slam(sl, this.position(), 8.0F, 0.7F);
         }
         LivingEntity target = this.getTarget();
         if (target != null) faceTowards(target, 5.0F);
@@ -640,11 +640,14 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             this.playSound(SoundEvents.PLAYER_ATTACK_CRIT, 1.4F, 0.6F);
         }
 
-        // Dust kicked up along the arc the spikes are carving.
-        for (int i = 1; i <= 3; i++) {
-            double d = TAIL_INNER + (TAIL_RANGE - TAIL_INNER) * (i / 3.0D);
-            Vec3 pnt = this.position().add(tailDir.scale(d));
-            sl.sendParticles(ParticleTypes.POOF, pnt.x, pnt.y + 0.3D, pnt.z, 2, 0.3D, 0.15D, 0.3D, 0.02D);
+        // The spikes drag through the ground: dust and chunks off the outer end of the arc, the view shuddering.
+        int sweepTick = this.getStateTick();
+        if (sweepTick % 3 == 0) {
+            Vec3 pnt = this.position().add(tailDir.scale(TAIL_RANGE * 0.85D));
+            CreatureFx.slam(sl, pnt, 2.4F, 0.4F);
+        }
+        if (sweepTick % 6 == 0) {
+            Fx.shake(sl, this.position(), 1.1F, 24.0F, 12);
         }
     }
 
@@ -676,14 +679,9 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             interruptIfCaster(victim);
         }
         this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 4.0F, 1.0F);
-        // A visible wall of dust rolling away from the wings.
-        for (int i = 1; i <= 5; i++) {
-            double d = i * 1.4D;
-            Vec3 pnt = this.position().add(flatFwd.scale(d));
-            sl.sendParticles(ParticleTypes.CLOUD, pnt.x, pnt.y + 0.7D, pnt.z, 0,
-                    flatFwd.x * 0.9D, 0.12D, flatFwd.z * 0.9D, 1.0D);
-            sl.sendParticles(ParticleTypes.POOF, pnt.x, pnt.y + 0.3D, pnt.z, 6, 0.9D, 0.25D, 0.9D, 0.06D);
-        }
+        // A wall of dust rolling away from the wings, and the thump of the beat in the ground.
+        CreatureFx.slam(sl, this.position().add(flatFwd.scale(3.0D)), (float) (WING_GUST_RANGE * 0.7D), 0.9F,
+                0.9F, 26.0F, 12);
     }
 
     // -------------------------------------------------------------------------------------------
@@ -840,8 +838,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         if (t == 7 || t == 15 || t == 23) {
             this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 4.0F, 0.85F);
             if (this.level() instanceof ServerLevel sl && this.getY() < this.hoverTargetY - 6.0D) {
-                sl.sendParticles(ParticleTypes.POOF, this.getX(), this.getY() + 0.2D, this.getZ(),
-                        30, 2.0D, 0.2D, 2.0D, 0.12D);
+                // The downdraught of each wingbeat as it heaves itself up.
+                CreatureFx.slam(sl, this.position(), 6.0F, 0.6F, 0.8F, 22.0F, 10);
             }
         }
         LivingEntity target = this.getTarget();
@@ -952,19 +950,10 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         this.setDeltaMovement(v.add(want.subtract(v).scale(0.35D)));
         faceHeading(this.getDeltaMovement(), 18.0F);
 
-        if (this.level() instanceof ServerLevel sl) {
-            // A burning wake behind the stoop.
-            Vec3 back = this.getDeltaMovement().lengthSqr() > 1.0E-4D
-                    ? this.getDeltaMovement().normalize().scale(-0.25D) : Vec3.ZERO;
-            for (int i = 0; i < 3; i++) {
-                sl.sendParticles(ParticleTypes.FLAME,
-                        this.getX() + (this.random.nextDouble() - 0.5D) * 2.0D,
-                        this.getY() + 1.0D + (this.random.nextDouble() - 0.5D) * 1.5D,
-                        this.getZ() + (this.random.nextDouble() - 0.5D) * 2.0D,
-                        0, back.x, back.y + 0.05D, back.z, 1.0D);
-            }
-            sl.sendParticles(ParticleTypes.LARGE_SMOKE, this.getX(), this.getY() + 1.0D, this.getZ(),
-                    2, 0.8D, 0.5D, 0.8D, 0.01D);
+        // The burning wake (fire and heavy smoke streaming off the body) is drawn by the client from the synced DIVE
+        // state (client.fx.creature.TrailFx); the server only scorches the ground where the stoop rakes close over it.
+        if (this.level() instanceof ServerLevel sl && clearance < 5.0D && t % 3 == 0) {
+            Fx.send(sl, FxKinds.MARK_SCORCH, this.getX(), groundBelowY(), this.getZ(), 64.0D, -1, 2.6F, 45.0F);
         }
 
         boolean closeToTarget = this.distanceToSqr(target) < 12.0D;
@@ -999,9 +988,10 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             Vec3 out = new Vec3(Math.cos(a), 0.0D, Math.sin(a));
             sl.sendParticles(ParticleTypes.FLAME, c.x, c.y + 0.3D, c.z, 0,
                     out.x * 0.55D, 0.10D, out.z * 0.55D, 1.0D);
-            sl.sendParticles(ParticleTypes.POOF, c.x + out.x, c.y + 0.2D, c.z + out.z, 3, 0.4D, 0.2D, 0.4D, 0.05D);
         }
-        sl.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y + 0.6D, c.z, 24, 2.0D, 0.6D, 2.0D, 0.05D);
+        Vec3 ground = new Vec3(c.x, groundBelowY(), c.z);
+        CreatureFx.slam(sl, ground, 8.0F, 1.4F, 2.0F, 32.0F, 24);
+        Fx.send(sl, FxKinds.MARK_SCORCH, ground, 64.0D, -1, 5.0F, 90.0F);
     }
 
     private void beginLand() {
@@ -1022,8 +1012,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             this.actionCooldown = isRaging() ? 16 : 32;
             this.playSound(SoundEvents.RAVAGER_STEP, 4.0F, 0.4F);
             if (this.level() instanceof ServerLevel sl) {
-                sl.sendParticles(ParticleTypes.POOF, this.getX(), this.getY() + 0.1D, this.getZ(),
-                        40, 2.2D, 0.15D, 2.2D, 0.12D);
+                // Four tonnes of dragon settle onto the ground.
+                CreatureFx.slam(sl, this.position(), 7.0F, 1.2F, 2.0F, 32.0F, 20);
             }
         }
     }

@@ -3,6 +3,8 @@ package com.hogwartsmagic.entity;
 import com.hogwartsmagic.ModParticles;
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.event.ModEvents;
+import com.hogwartsmagic.fx.CreatureFx;
+import com.hogwartsmagic.fx.Fx;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
@@ -700,6 +702,8 @@ public class WhompingWillowEntity extends Monster {
             }
             sl.sendParticles(ModParticles.BARK_CHIP.get(), tip.x, gy + 0.5D, tip.z, 12, 0.6D, 0.2D, 0.6D, 0.12D);
             sl.sendParticles(ModParticles.WILLOW_LEAF.get(), tip.x, gy + 1.2D, tip.z, 14, 1.0D, 0.5D, 1.0D, 0.06D);
+            // A limb the width of a tree trunk lands: the ground jumps and the view shudders.
+            CreatureFx.slam(sl, new Vec3(tip.x, gy, tip.z), 4.0F, 0.9F, 1.5F, 24.0F, 14);
         }
     }
 
@@ -725,6 +729,8 @@ public class WhompingWillowEntity extends Monster {
                     26, 2.4D, 0.1D, 2.4D, 0.03D);
             sl.sendParticles(ModParticles.WILLOW_LEAF.get(), getX(), getY() + 8.0D, getZ(),
                     30, 3.0D, 1.5D, 3.0D, 0.03D);
+            // The whole tree stamps its roots: the ring is the roots' own reach.
+            CreatureFx.slam(sl, position(), (float) STOMP_RANGE, 1.1F, 1.9F, 28.0F, 16);
         }
     }
 
@@ -787,6 +793,7 @@ public class WhompingWillowEntity extends Monster {
             }
         }
         if (t == SWAT_STRIKE_TICK || any) playSound(ModSounds.WILLOW_WHIP.get(), 2.2F, 0.9F);
+        if (any && this.level() instanceof ServerLevel sl) Fx.shake(sl, position(), 0.8F, 16.0F, 9);
     }
 
     private void swat(Player p) {
@@ -885,6 +892,7 @@ public class WhompingWillowEntity extends Monster {
             if (this.level() instanceof ServerLevel sl) {
                 sl.sendParticles(ModParticles.ROOT_DUST.get(), tip.x, gy + 0.3D, tip.z, 10, 0.7D, 0.1D, 0.7D, 0.05D);
                 sl.sendParticles(ModParticles.BARK_CHIP.get(), tip.x, gy + 0.6D, tip.z, 6, 0.4D, 0.2D, 0.4D, 0.1D);
+                CreatureFx.slam(sl, new Vec3(tip.x, gy, tip.z), 3.0F, 0.7F, 1.2F, 18.0F, 10);
                 if (t == SMASH_BLOW_A) smashBlocks(sl, BlockPos.containing(tip.x, gy, tip.z));
             }
         }

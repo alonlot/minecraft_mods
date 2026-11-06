@@ -2,6 +2,8 @@ package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.event.ModEvents;
+import com.hogwartsmagic.fx.CreatureFx;
+import com.hogwartsmagic.fx.Fx;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
@@ -304,6 +306,10 @@ public class GiantEntity extends Monster {
         if (state == AttackState.NONE && this.tickCount % 12 == 0
                 && this.getDeltaMovement().horizontalDistanceSqr() > 0.004D) {
             this.playSound(ModSounds.GIANT_STEP.get(), 1.4F, 0.7F + this.random.nextFloat() * 0.15F);
+            if (this.level() instanceof ServerLevel sl) {
+                // Every footfall is felt through the ground, and kicks up a little dust.
+                CreatureFx.slam(sl, this.position(), 2.5F, 0.3F, 0.3F, 16.0F, 7);
+            }
         }
     }
 
@@ -390,9 +396,9 @@ public class GiantEntity extends Monster {
             }
         }
 
-        sl.sendParticles(ParticleTypes.CLOUD,
-                this.getX(), this.getY() + this.getBbHeight() * 0.8D, this.getZ(),
-                40, 1.2D, 0.6D, 1.2D, 0.06D);
+        // The roar is a long low rumble in the earth and a ring of dust shaken off him.
+        CreatureFx.rumble(sl, this.position(), 1.3F, 34.0F, 44);
+        CreatureFx.slam(sl, this.position(), 7.0F, 0.6F);
     }
 
     private void doSwipeImpact() {
@@ -416,9 +422,9 @@ public class GiantEntity extends Monster {
             interruptIfCaster(victim);
         }
 
-        sl.sendParticles(ParticleTypes.SWEEP_ATTACK,
-                this.getX() + forward.x * 3.0D, this.getY() + 3.0D, this.getZ() + forward.z * 3.0D,
-                1, 0.0D, 0.0D, 0.0D, 0.0D);
+        // A fist the size of a cart through the air: felt, not seen.
+        Fx.shake(sl, this.getX() + forward.x * 3.0D, this.getY() + 1.0D, this.getZ() + forward.z * 3.0D,
+                1.6F, 20.0F, 11);
     }
 
     private void doKickImpact() {
@@ -445,16 +451,8 @@ public class GiantEntity extends Monster {
         smashBlocks(sl, BlockPos.containing(cx, this.getY(), cz));
 
         this.playSound(ModSounds.GIANT_KICK_SMASH.get(), 2.0F, 0.85F);
-        sl.sendParticles(ParticleTypes.POOF, cx, this.getY() + 0.2D, cz,
-                50, 2.0D, 0.3D, 2.0D, 0.06D);
-
-        // A kick that heavy is felt through the ground.
-        for (Player p : sl.players()) {
-            if (p.distanceToSqr(cx, this.getY(), cz) < 196.0D) {
-                p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                        net.minecraft.world.effect.MobEffects.CONFUSION, 20, 0, false, false, false));
-            }
-        }
+        // A kick that heavy is felt through the ground: the earth jumps, dust rolls out, the view shudders.
+        CreatureFx.slam(sl, new Vec3(cx, this.getY(), cz), 6.0F, 1.2F, 2.5F, 24.0F, 18);
     }
 
     /**
@@ -604,8 +602,7 @@ public class GiantEntity extends Monster {
 
         this.playSound(ModSounds.GIANT_THROW.get(), 2.0F, 0.9F);
         if (this.level() instanceof ServerLevel sl) {
-            sl.sendParticles(ParticleTypes.CLOUD, victim.getX(), victim.getY(), victim.getZ(),
-                    16, 0.4D, 0.4D, 0.4D, 0.1D);
+            Fx.shake(sl, victim.getX(), victim.getY(), victim.getZ(), 0.8F, 14.0F, 8);
         }
     }
 

@@ -199,6 +199,8 @@ public class VoldemortEntity extends WizardEntity {
         if (!this.getPersistentData().getBoolean(com.hogwartsmagic.spell.support.ExpelliarmusSpell.ELDER_WAND_WON_TAG)) {
             this.spawnAtLocation(new ItemStack(ExampleMod.ELDER_WAND.get()));
         }
+        // The memory of him, to pour into a Pensieve: "The Dark Lord" (dark_lord.json).
+        this.spawnAtLocation(new ItemStack(ExampleMod.DARK_LORD_MEMORY.get()));
     }
 
     private void awardKillAdvancement(ServerLevel serverLevel, net.minecraft.world.damagesource.DamageSource damageSource) {

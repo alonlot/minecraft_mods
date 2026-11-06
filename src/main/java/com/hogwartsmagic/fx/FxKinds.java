@@ -23,4 +23,13 @@ public final class FxKinds {
      * is a boss dying or a Killing Curse landing). Handled by client.fx.Cinematic's owner.
      */
     public static final String MOMENT = "moment";
+
+    // ---- Boss first sighting ----
+
+    /**
+     * Sent to ONE player the first time they see a great beast: the black bars, the slow push-in and the title card.
+     * Position is the beast's, entityId its id. params: beast index (into fx.BossBeasts.IDS). Handled by
+     * client.fx.intro.BossIntroClient.
+     */
+    public static final String BOSS_INTRO = "boss_intro";
 }

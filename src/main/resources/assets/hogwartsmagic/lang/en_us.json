@@ -1875,5 +1875,19 @@
   "subtitles.hogwartsmagic.ward.barrier.release": "Protective dome sinks away",
   "subtitles.hogwartsmagic.ward.barrier.hit": "Protective dome deflects",
   "subtitles.hogwartsmagic.ward.barrier.shatter": "Protective dome shatters",
-  "subtitles.hogwartsmagic.ward.barrier.hum": "Protective dome hums"
+  "subtitles.hogwartsmagic.ward.barrier.hum": "Protective dome hums",
+  "hogwartsmagic.boss_intro.hungarian_horntail.name": "Hungarian Horntail",
+  "hogwartsmagic.boss_intro.hungarian_horntail.sub": "the most dangerous of dragons",
+  "hogwartsmagic.boss_intro.ukrainian_ironbelly.name": "Ukrainian Ironbelly",
+  "hogwartsmagic.boss_intro.ukrainian_ironbelly.sub": "heaviest of all the dragons",
+  "hogwartsmagic.boss_intro.basilisk.name": "Basilisk",
+  "hogwartsmagic.boss_intro.basilisk.sub": "king of serpents",
+  "hogwartsmagic.boss_intro.giant.name": "Giant",
+  "hogwartsmagic.boss_intro.giant.sub": "a mountain that walks",
+  "hogwartsmagic.boss_intro.acromantula.name": "Acromantula",
+  "hogwartsmagic.boss_intro.acromantula.sub": "born in the dark of the Forest",
+  "hogwartsmagic.boss_intro.troll.name": "Troll",
+  "hogwartsmagic.boss_intro.troll.sub": "all muscle and no mind",
+  "hogwartsmagic.boss_intro.voldemort.name": "Lord Voldemort",
+  "hogwartsmagic.boss_intro.voldemort.sub": "he who must not be named"
 }

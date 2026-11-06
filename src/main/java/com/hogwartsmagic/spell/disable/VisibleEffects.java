@@ -32,7 +32,9 @@ public final class VisibleEffects {
         // Basilisk stone too: watchers draw the stone tint, and a rescuer's client offers the Mandrake cure.
         // Gillyweed too: GillyweedGillsLayer draws the gills on other players from the effect.
         return effect == ExampleMod.LEVICORPUS_EFFECT.get() || effect == ExampleMod.PETRIFIED.get()
-                || effect == ExampleMod.BASILISK_PETRIFICATION.get() || effect == ExampleMod.GILLYWEED_EFFECT.get();
+                || effect == ExampleMod.BASILISK_PETRIFICATION.get() || effect == ExampleMod.GILLYWEED_EFFECT.get()
+                // Feral too: watchers draw a cursed player's werewolf at the hunting gallop.
+                || effect == ExampleMod.FERAL.get();
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)

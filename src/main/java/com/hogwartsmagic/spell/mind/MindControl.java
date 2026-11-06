@@ -39,6 +39,7 @@ public final class MindControl {
     private static Holder<MobEffect> imperiusHolder;
     private static Holder<MobEffect> possessedHolder;
     private static Holder<MobEffect> rootedHolder;
+    private static Holder<MobEffect> feralHolder;
 
     private MindControl() {
     }
@@ -102,7 +103,7 @@ public final class MindControl {
                 || candidate.getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED));
     }
 
-    /** Under someone else's control: an Imperio thrall or a possessed body. Safe on both sides. */
+    /** Under someone else's control: an Imperio thrall, a possessed body or a feral werewolf. Safe on both sides. */
     public static boolean isControlled(LivingEntity entity) {
         Holder<MobEffect> imperius = imperiusHolder;
         if (imperius == null) {
@@ -115,7 +116,21 @@ public final class MindControl {
         if (possessed == null) {
             possessed = possessedHolder = ExampleMod.POSSESSED.getHolder().orElse(null);
         }
-        return entity.hasEffect(imperius) || (possessed != null && entity.hasEffect(possessed));
+        Holder<MobEffect> feral = feralHolder;
+        if (feral == null) {
+            feral = feralHolder = ExampleMod.FERAL.getHolder().orElse(null);
+        }
+        return entity.hasEffect(imperius) || (possessed != null && entity.hasEffect(possessed))
+                || (feral != null && entity.hasEffect(feral));
+    }
+
+    /** A feral werewolf: the curse, not a wizard, holds the body. Safe on both sides. */
+    public static boolean isFeral(LivingEntity entity) {
+        Holder<MobEffect> feral = feralHolder;
+        if (feral == null) {
+            feral = feralHolder = ExampleMod.FERAL.getHolder().orElse(null);
+        }
+        return feral != null && entity.hasEffect(feral);
     }
 
     /** PvP is off (server setting or team rules) and a player's curse would land on another player. */

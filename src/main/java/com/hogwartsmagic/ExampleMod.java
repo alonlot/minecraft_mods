@@ -259,6 +259,9 @@ public class ExampleMod
                             net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
 
     /** Imperio Master: the possessed body (hidden). A possessed mob's AI is paused; a possessed player's own keys do nothing. */
+    /** The werewolf curse at its worst: the beast drives the player's body (Lycanthropy). Counts as mind control. */
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> FERAL = MOB_EFFECTS.register("feral",
+            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x8B1A1A) {});
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> POSSESSED = MOB_EFFECTS.register("possessed",
             () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x55CC66) {});
     /** Imperio Master: the caster's frozen body (hidden). It makes the body immobile on both sides through LivingEntityStunMixin. */

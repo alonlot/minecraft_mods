@@ -1929,6 +1929,104 @@
       }
     ]
   },
+  "voldemort.entrance": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.entrance",
+    "sounds": [
+      "hogwartsmagic:voldemort/entrance"
+    ]
+  },
+  "voldemort.shockwave_charge": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.shockwave_charge",
+    "sounds": [
+      "hogwartsmagic:voldemort/shockwave_charge"
+    ]
+  },
+  "voldemort.shockwave": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.shockwave",
+    "sounds": [
+      "hogwartsmagic:voldemort/shockwave"
+    ]
+  },
+  "voldemort.curse_gather": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.curse_gather",
+    "sounds": [
+      "hogwartsmagic:voldemort/curse_gather"
+    ]
+  },
+  "voldemort.slash": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.slash",
+    "sounds": [
+      "hogwartsmagic:voldemort/slash"
+    ]
+  },
+  "voldemort.smoke_whoosh": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.smoke_whoosh",
+    "sounds": [
+      "hogwartsmagic:voldemort/smoke_whoosh"
+    ]
+  },
+  "voldemort.strike_warning": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.strike_warning",
+    "sounds": [
+      "hogwartsmagic:voldemort/strike_warning"
+    ]
+  },
+  "voldemort.disintegrate": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.disintegrate",
+    "sounds": [
+      "hogwartsmagic:voldemort/disintegrate"
+    ]
+  },
+  "voldemort.phase_roar": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.phase_roar",
+    "sounds": [
+      "hogwartsmagic:voldemort/phase_roar"
+    ]
+  },
+  "voldemort.voice.entrance": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.voice.entrance",
+    "sounds": [
+      "hogwartsmagic:voldemort/voice/entrance"
+    ]
+  },
+  "voldemort.voice.phase": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.voice.phase",
+    "sounds": [
+      "hogwartsmagic:voldemort/voice/phase"
+    ]
+  },
+  "voldemort.voice.taunt": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.voice.taunt",
+    "sounds": [
+      "hogwartsmagic:voldemort/voice/taunt_1",
+      "hogwartsmagic:voldemort/voice/taunt_2",
+      "hogwartsmagic:voldemort/voice/taunt_3"
+    ]
+  },
+  "voldemort.voice.avada": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.voice.avada",
+    "sounds": [
+      "hogwartsmagic:voldemort/voice/avada"
+    ]
+  },
+  "voldemort.voice.crucio": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.voice.crucio",
+    "sounds": [
+      "hogwartsmagic:voldemort/voice/crucio"
+    ]
+  },
+  "voldemort.voice.death": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.voice.death",
+    "sounds": [
+      "hogwartsmagic:voldemort/voice/death"
+    ]
+  },
+  "voldemort.voice.laugh": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.voice.laugh",
+    "sounds": [
+      "hogwartsmagic:voldemort/voice/laugh"
+    ]
+  },
   "voldemort.hurt": {
     "subtitle": "subtitles.hogwartsmagic.voldemort.hurt",
     "sounds": [

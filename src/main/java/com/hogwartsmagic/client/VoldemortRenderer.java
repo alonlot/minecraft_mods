@@ -42,6 +42,16 @@ public class VoldemortRenderer extends MobRenderer<VoldemortEntity, VoldemortMod
         super.render(entity, yaw, partial, pose, buffers, light);
     }
 
+    /** Dying he stays on his feet (VoldemortEntity.tickDeath): no vanilla topple. */
+    @Override
+    protected void setupRotations(VoldemortEntity entity, PoseStack pose, float bob, float yBodyRot, float partial, float scale) {
+        if (entity.deathTime > 0) {
+            pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F - yBodyRot));
+            return;
+        }
+        super.setupRotations(entity, pose, bob, yBodyRot, partial, scale);
+    }
+
     @Override
     public ResourceLocation getTextureLocation(VoldemortEntity entity) {
         return TEXTURE;

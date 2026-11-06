@@ -1,17 +1,23 @@
 package com.hogwartsmagic.client;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.ModParticles;
 import com.hogwartsmagic.worldgen.ModBiomes;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.ParticleStatus;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FogType;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.ViewportEvent;
@@ -20,20 +26,23 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * Per-biome fog: closes the view down in places that should feel enclosed (the Forbidden Forest, vanilla
- * dark forests, swamps...).
+ * Real fog in places that should feel enclosed (the Forbidden Forest, vanilla dark forests, swamps...).
  *
- * <p>The biome JSON's {@code fog_color} can tint distant fog but cannot pull it in - that is a render-distance
- * decision, so it happens here. Three things make it read as weather rather than a wall:
+ * <p>Vanilla fog is linear - clear, then a ramp to solid - which reads as a short render distance, not weather.
+ * Four things here make it read as fog:
  * <ul>
- *   <li>The biome is <b>sampled around the camera</b> and each entry's weight eases toward its share, so walking
- *       into a dark forest thickens the fog over a couple of seconds instead of snapping at the border.</li>
- *   <li><b>Tinted</b> entries (the vanilla biomes) take their brightness from vanilla's own fog colour, so they
- *       follow day, night, sunrise and storms; only the mod's own biomes keep a fixed colour.</li>
- *   <li><b>Mist</b>: tinted entries thicken at night, most of all just before dawn, and in rain.</li>
+ *   <li><b>Exponential haze.</b> The fog start is sent as a code (see {@code assets/minecraft/shaders/include/
+ *       fog.glsl}) that switches the shader to {@code 1 - exp(-depth * d / far)}: a tree ten blocks off is already
+ *       softened, as in real air, and the far wall dissolves instead of cutting off.</li>
+ *   <li><b>Pale, lit colour.</b> Fog scatters light, so by day it is brighter than the shade under the trees.
+ *       Overworld entries take their brightness from vanilla's own fog colour, so they still go dark at night and
+ *       pick up sunrise.</li>
+ *   <li><b>Ground mist.</b> Big, faint, slow wisps drifting a block or two off the ground, thickest at dawn.</li>
+ *   <li><b>A veiled sky.</b> The sun, moon and stars fade behind the fog (via {@code SkyFogVeilMixin}).</li>
  * </ul>
- * Never touches fog underwater, in lava or powder snow, or under Blindness/Darkness - vanilla's is right there.
- * Client only; every value here is cosmetic.
+ * The biome is sampled in a ring around the camera and each entry's share eases in, so the fog thickens over a
+ * couple of seconds as you walk in rather than snapping at the border. Never touches fog underwater, in lava or
+ * powder snow, or under Blindness/Darkness. Client only; every value here is cosmetic.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class BiomeFogClient {
@@ -41,39 +50,39 @@ public final class BiomeFogClient {
     /**
      * One biome's fog.
      *
-     * @param tint  true: {@code r,g,b} is the colour at full daylight and scales with vanilla's fog brightness;
-     *              false: {@code r,g,b} is the fixed fog colour, day or night
-     * @param near  where the fog starts, in blocks
-     * @param far   where it becomes solid, in blocks (never pushed past the player's own render distance)
-     * @param mist  how much of {@code near}/{@code far} the dawn/night/rain mist can take away at its peak (0..1)
+     * @param tint  true: {@code r,g,b} is the colour at full daylight and follows vanilla's fog brightness through
+     *              the day; false: a fixed colour (underground places and the volcanic glow)
+     * @param far   where the fog is solid, in blocks (never pushed past the player's own render distance)
+     * @param haze  optical depth reached at {@code far}: how thick the air is on the way there (~1.5 light,
+     *              ~3 heavy)
+     * @param mist  how much of {@code far} the dawn/night/rain mist can take away at its peak (0..1)
+     * @param wisps ground-mist wisps per tick at full share (0 = none)
      */
     private record Entry(ResourceKey<Biome> biome, float r, float g, float b, boolean tint,
-                         float near, float far, float mist) {}
+                         float far, float haze, float mist, float wisps) {}
 
     private static final Entry[] ENTRIES = {
-            // Old and unfriendly, but you can see a little way down the aisles of trunks -- enough to read the
-            // shape of the forest and spot what is moving in it.
-            new Entry(ModBiomes.FORBIDDEN_FOREST, 0.07F, 0.09F, 0.08F, false, 12.0F, 80.0F, 0.0F),
-            // Cold grey murk sitting on the water. Tighter than the forest -- the fen is meant to feel like being
-            // lost, and it hides the Dementors until they are already close.
-            new Entry(ModBiomes.DEMENTOR_FEN, 0.29F, 0.32F, 0.31F, false, 1.0F, 30.0F, 0.0F),
-            // Volcanic haze. Kept far back so the crags still read as vast; it is atmosphere, not a wall.
-            new Entry(ModBiomes.HORNTAIL_PEAKS, 0.42F, 0.29F, 0.20F, false, 12.0F, 128.0F, 0.0F),
-            // Sickly green, and the tightest of the lot: in the Chamber you see the next pillar and not the thing
-            // behind it.
-            new Entry(ModBiomes.CHAMBER_DEPTHS, 0.05F, 0.11F, 0.07F, false, 0.5F, 24.0F, 0.0F),
+            // Old and unfriendly: a grey-green murk you can see a little way into, and something could be in it.
+            new Entry(ModBiomes.FORBIDDEN_FOREST, 0.46F, 0.53F, 0.50F, true, 80.0F, 2.4F, 0.30F, 0.9F),
+            // Cold grey murk sitting on the water. The thickest overworld fog -- it hides the Dementors until they
+            // are already close.
+            new Entry(ModBiomes.DEMENTOR_FEN, 0.58F, 0.62F, 0.63F, true, 34.0F, 3.0F, 0.20F, 1.3F),
+            // Volcanic haze, glowing day and night. Kept far back so the crags still read as vast.
+            new Entry(ModBiomes.HORNTAIL_PEAKS, 0.42F, 0.29F, 0.20F, false, 128.0F, 1.5F, 0.0F, 0.0F),
+            // Sickly green and tight: in the Chamber you see the next pillar and not the thing behind it.
+            new Entry(ModBiomes.CHAMBER_DEPTHS, 0.05F, 0.11F, 0.07F, false, 24.0F, 2.5F, 0.0F, 0.3F),
             // Forge-lit soot. Loose enough to still read the shape of a vault.
-            new Entry(ModBiomes.GOBLIN_UNDERCITY, 0.20F, 0.13F, 0.06F, false, 2.0F, 40.0F, 0.0F),
+            new Entry(ModBiomes.GOBLIN_UNDERCITY, 0.20F, 0.13F, 0.06F, false, 40.0F, 2.0F, 0.0F, 0.0F),
 
             // ---- vanilla ----
-            // Murky green-grey under the canopy: a few trunks deep by day, close and black by night.
-            new Entry(Biomes.DARK_FOREST, 0.42F, 0.50F, 0.44F, true, 4.0F, 44.0F, 0.35F),
+            // Grey-green mist between the trunks: a few trees deep by day, close and black by night.
+            new Entry(Biomes.DARK_FOREST, 0.58F, 0.64F, 0.60F, true, 48.0F, 2.6F, 0.35F, 1.0F),
             // Low wet haze over the water; at dawn it sits so thick you lose the far bank.
-            new Entry(Biomes.SWAMP, 0.50F, 0.55F, 0.45F, true, 6.0F, 56.0F, 0.40F),
-            new Entry(Biomes.MANGROVE_SWAMP, 0.46F, 0.52F, 0.44F, true, 4.0F, 40.0F, 0.40F),
+            new Entry(Biomes.SWAMP, 0.66F, 0.70F, 0.62F, true, 60.0F, 2.4F, 0.40F, 1.2F),
+            new Entry(Biomes.MANGROVE_SWAMP, 0.62F, 0.67F, 0.60F, true, 44.0F, 2.6F, 0.40F, 1.1F),
             // Pale mountain mist between the giant trunks -- light and far back, heavy only at dawn.
-            new Entry(Biomes.OLD_GROWTH_PINE_TAIGA, 0.70F, 0.76F, 0.76F, true, 16.0F, 96.0F, 0.45F),
-            new Entry(Biomes.OLD_GROWTH_SPRUCE_TAIGA, 0.70F, 0.76F, 0.76F, true, 16.0F, 96.0F, 0.45F),
+            new Entry(Biomes.OLD_GROWTH_PINE_TAIGA, 0.78F, 0.82F, 0.82F, true, 96.0F, 1.8F, 0.45F, 0.6F),
+            new Entry(Biomes.OLD_GROWTH_SPRUCE_TAIGA, 0.78F, 0.82F, 0.82F, true, 96.0F, 1.8F, 0.45F, 0.6F),
     };
 
     /** Sample ring: the camera's own column (weighted {@link #CENTRE_WEIGHT}) plus eight points this far out. */
@@ -85,16 +94,25 @@ public final class BiomeFogClient {
     /** Vanilla's daytime fog luminance; tinted colours are authored at this brightness. */
     private static final float DAYLIGHT_LUMA = 0.80F;
     /** How much of vanilla's own hue survives under a tint, so sunrise orange still shows through. */
-    private static final float VANILLA_HUE = 0.30F;
+    private static final float VANILLA_HUE = 0.25F;
+    /** The fog start that tells fog.glsl to draw real fog: {@code CODE_BASE - CODE_SCALE * depth}. */
+    private static final float CODE_BASE = -1000.0F;
+    private static final float CODE_SCALE = 100.0F;
+    /** How far "behind the fog" the sun is judged to be when veiling it, in blocks. */
+    private static final float SKY_VEIL_DISTANCE = 40.0F;
 
     private static final float[] weights = new float[ENTRIES.length];
     private static final float[] targets = new float[ENTRIES.length];
     private static float totalWeight;
     private static float mist;
+    private static float skyVeil;
     private static Level lastLevel;
     private static BlockPos lastPos;
+    private static float wispDebt;
 
     private BiomeFogClient() {}
+
+    // ---- state -------------------------------------------------------------------------------------------------
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -127,6 +145,17 @@ public final class BiomeFogClient {
 
         float targetMist = mistAt(mc.level);
         mist = snap ? targetMist : mist + (targetMist - mist) * EASE;
+
+        float veil = 0.0F;
+        for (int i = 0; i < ENTRIES.length; i++) {
+            if (weights[i] > 0.0F) {
+                Entry e = ENTRIES[i];
+                veil += weights[i] * (1.0F - (float) Math.exp(-e.haze() * SKY_VEIL_DISTANCE / effectiveFar(e)));
+            }
+        }
+        skyVeil = Math.min(0.92F, veil);
+
+        spawnWisps(mc);
     }
 
     @SubscribeEvent
@@ -139,6 +168,8 @@ public final class BiomeFogClient {
         java.util.Arrays.fill(targets, 0.0F);
         totalWeight = 0.0F;
         mist = 0.0F;
+        skyVeil = 0.0F;
+        wispDebt = 0.0F;
         lastLevel = null;
         lastPos = null;
     }
@@ -186,36 +217,38 @@ public final class BiomeFogClient {
         return Mth.clamp(m + level.getRainLevel(1.0F) * 0.5F, 0.0F, 1.0F);
     }
 
+    private static float effectiveFar(Entry e) {
+        return Math.max(4.0F, e.far() * (1.0F - e.mist() * mist));
+    }
+
     private static boolean vanillaOwnsFog() {
         Minecraft mc = Minecraft.getInstance();
         return mc.cameraEntity instanceof LivingEntity living
                 && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS));
     }
 
-    /** Pulls the fog in. Returns true when it changed the event (the caller then cancels it). */
+    // ---- fog ---------------------------------------------------------------------------------------------------
+
+    /** Switches the fog to real fog. Returns true when it changed the event (the caller then cancels it). */
     public static boolean renderFog(ViewportEvent.RenderFog event) {
         if (totalWeight <= 0.0F || event.getType() != FogType.NONE || vanillaOwnsFog()) {
             return false;
         }
-        float vanillaNear = event.getNearPlaneDistance();
         float vanillaFar = event.getFarPlaneDistance();
-        float near = (1.0F - totalWeight) * vanillaNear;
         float far = (1.0F - totalWeight) * vanillaFar;
+        float depth = 0.0F;
         for (int i = 0; i < ENTRIES.length; i++) {
             float w = weights[i];
             if (w <= 0.0F) {
                 continue;
             }
             Entry e = ENTRIES[i];
-            float scale = 1.0F - e.mist() * mist;
             // min() so a player on a low render distance never has the fog pushed *further* out than vanilla
             // would have drawn it.
-            float entryFar = Math.min(vanillaFar, e.far() * scale);
-            float entryNear = Math.min(vanillaNear, Math.min(e.near() * scale, entryFar * 0.9F));
-            near += w * entryNear;
-            far += w * entryFar;
+            far += w * Math.min(vanillaFar, effectiveFar(e));
+            depth += w * e.haze();
         }
-        event.setNearPlaneDistance(Math.min(near, far * 0.9F));
+        event.setNearPlaneDistance(CODE_BASE - CODE_SCALE * depth);
         event.setFarPlaneDistance(far);
         return true;
     }
@@ -228,7 +261,7 @@ public final class BiomeFogClient {
         float vr = event.getRed();
         float vg = event.getGreen();
         float vb = event.getBlue();
-        float light = Math.min(1.2F, (0.299F * vr + 0.587F * vg + 0.114F * vb) / DAYLIGHT_LUMA);
+        float light = Math.min(1.15F, (0.299F * vr + 0.587F * vg + 0.114F * vb) / DAYLIGHT_LUMA);
         float r = (1.0F - totalWeight) * vr;
         float g = (1.0F - totalWeight) * vg;
         float b = (1.0F - totalWeight) * vb;
@@ -252,5 +285,82 @@ public final class BiomeFogClient {
         event.setGreen(Mth.clamp(g, 0.0F, 1.0F));
         event.setBlue(Mth.clamp(b, 0.0F, 1.0F));
         return true;
+    }
+
+    /** 0..0.92: how much of the sun, moon and stars the fog hides. Read by SkyFogVeilMixin. */
+    public static float skyVeil() {
+        return vanillaOwnsFog() ? 0.0F : skyVeil;
+    }
+
+    /** The fog colour of the strongest tinted entry here, at daylight, for the mist wisps. */
+    public static float[] wispColour() {
+        float best = 0.0F;
+        Entry pick = null;
+        for (int i = 0; i < ENTRIES.length; i++) {
+            if (weights[i] > best) {
+                best = weights[i];
+                pick = ENTRIES[i];
+            }
+        }
+        if (pick == null || !pick.tint()) {
+            return new float[] {0.82F, 0.84F, 0.82F};
+        }
+        // the mist itself is whiter than the fog behind it: it is lit from all round, not seen through
+        return new float[] {Mth.lerp(0.5F, pick.r(), 1.0F), Mth.lerp(0.5F, pick.g(), 1.0F), Mth.lerp(0.5F, pick.b(), 1.0F)};
+    }
+
+    // ---- ground mist -------------------------------------------------------------------------------------------
+
+    private static void spawnWisps(Minecraft mc) {
+        if (mc.options.particles().get() == ParticleStatus.MINIMAL) {
+            return;
+        }
+        float rate = 0.0F;
+        for (int i = 0; i < ENTRIES.length; i++) {
+            rate += weights[i] * ENTRIES[i].wisps();
+        }
+        if (rate <= 0.01F) {
+            wispDebt = 0.0F;
+            return;
+        }
+        rate *= 0.55F + mist * 0.9F;
+        if (mc.options.particles().get() == ParticleStatus.DECREASED) {
+            rate *= 0.5F;
+        }
+        wispDebt += rate;
+        RandomSource random = mc.level.random;
+        Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
+        while (wispDebt >= 1.0F) {
+            wispDebt -= 1.0F;
+            double angle = random.nextDouble() * Math.PI * 2.0D;
+            double dist = 5.0D + Math.sqrt(random.nextDouble()) * 27.0D;   // even over the area, none in your face
+            int x = Mth.floor(cam.x + Math.cos(angle) * dist);
+            int z = Mth.floor(cam.z + Math.sin(angle) * dist);
+            double ground = groundBelow(mc.level, x, Mth.floor(cam.y) + 6, z);
+            if (Double.isNaN(ground)) {
+                continue;
+            }
+            double y = ground + 0.25D + random.nextDouble() * random.nextDouble() * 2.2D;   // hugs the ground
+            mc.particleEngine.createParticle(ModParticles.GROUND_MIST.get(),
+                    x + random.nextDouble(), y, z + random.nextDouble(), 0.0D, 0.0D, 0.0D);
+        }
+    }
+
+    /** The top of the first solid, non-leaf block at or below {@code fromY} (within 20), or NaN. */
+    private static double groundBelow(Level level, int x, int fromY, int z) {
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, fromY, z);
+        if (!level.hasChunkAt(p)) {
+            return Double.NaN;
+        }
+        for (int i = 0; i < 20; i++, p.move(0, -1, 0)) {
+            BlockState state = level.getBlockState(p);
+            if (!state.getFluidState().isEmpty()) {
+                return p.getY() + 1.0D;                     // mist lies on water too
+            }
+            if (state.blocksMotion() && !state.is(BlockTags.LEAVES)) {
+                return i == 0 ? Double.NaN : p.getY() + 1.0D;
+            }
+        }
+        return Double.NaN;
     }
 }

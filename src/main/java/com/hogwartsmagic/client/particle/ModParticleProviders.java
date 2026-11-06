@@ -41,6 +41,7 @@ public final class ModParticleProviders {
         event.registerSpriteSet(ModParticles.SOFT_SMOKE.get(), sprites -> tinted(sprites, MagicParticleSet.Smoke::new));
         event.registerSpriteSet(ModParticles.GLINT.get(), sprites -> tinted(sprites, MagicParticleSet.Glint::new));
         event.registerSpriteSet(ModParticles.EMBER.get(), sprites -> provider(sprites, MagicParticleSet.Ember::new));
+        event.registerSpriteSet(ModParticles.GROUND_MIST.get(), sprites -> provider(sprites, GroundMist::new));
     }
 
     @FunctionalInterface
@@ -237,6 +238,78 @@ public final class ModParticleProviders {
         @Override
         protected int getLightColor(float partialTick) {
             return 0xF000F0;
+        }
+
+        @Override
+        public ParticleRenderType getRenderType() {
+            return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
+        }
+    }
+
+    /** Ground mist: a big, very faint wisp that drifts low and slow with the wind, swells, and thins away. Lit
+     *  like the world, so it goes dark at night and dim under the canopy. Fades out as the camera walks into it,
+     *  so it never smears across the screen. */
+    static final class GroundMist extends TextureSheetParticle {
+        /** The wind: every wisp alive drifts the same way, which is what makes them read as one body of mist. */
+        private static final double WIND_X = 0.012D;
+        private static final double WIND_Z = 0.006D;
+        private final float startSize;
+        private final float peak;
+        private final float spin;
+
+        GroundMist(ClientLevel level, double x, double y, double z, double dx, double dy, double dz, SpriteSet sprites) {
+            super(level, x, y, z);
+            pickSprite(sprites);
+            this.xd = WIND_X + (this.random.nextDouble() - 0.5D) * 0.008D;
+            this.yd = (this.random.nextDouble() - 0.5D) * 0.002D;
+            this.zd = WIND_Z + (this.random.nextDouble() - 0.5D) * 0.008D;
+            this.gravity = 0.0F;
+            this.friction = 1.0F;
+            this.lifetime = 180 + this.random.nextInt(140);
+            this.startSize = 1.1F + this.random.nextFloat() * 1.0F;
+            this.quadSize = this.startSize;
+            this.peak = 0.10F + this.random.nextFloat() * 0.10F;
+            this.spin = (this.random.nextFloat() - 0.5F) * 0.004F;
+            this.roll = this.random.nextFloat() * Mth.TWO_PI;
+            this.oRoll = this.roll;
+            this.hasPhysics = false;
+            float[] c = com.hogwartsmagic.client.BiomeFogClient.wispColour();
+            float shade = 0.94F + this.random.nextFloat() * 0.06F;
+            setColor(c[0] * shade, c[1] * shade, c[2] * shade);
+            this.alpha = 0.0F;
+        }
+
+        @Override
+        public void tick() {
+            this.xo = this.x;
+            this.yo = this.y;
+            this.zo = this.z;
+            if (this.age++ >= this.lifetime) {
+                remove();
+                return;
+            }
+            move(this.xd, this.yd, this.zd);
+            this.oRoll = this.roll;
+            this.roll += this.spin;
+            float t = (float) this.age / this.lifetime;
+            float life = Mth.clamp(t * 5.0F, 0.0F, 1.0F) * Mth.clamp((1.0F - t) * 3.0F, 0.0F, 1.0F);
+            var cam = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+            double near = Math.sqrt(cam.distanceToSqr(this.x, this.y, this.z));
+            float approach = (float) Mth.clamp((near - 2.0D) / 4.0D, 0.0D, 1.0D);
+            this.alpha = this.peak * life * approach;
+        }
+
+        @Override
+        public float getQuadSize(float partialTick) {
+            float t = (this.age + partialTick) / this.lifetime;
+            return this.startSize * (1.0F + t * 0.6F);
+        }
+
+        /** The box is a point but the quad is blocks wide: culling by the box would pop wisps at the screen
+         *  edge. There are only a few hundred, so draw them all. */
+        @Override
+        public boolean shouldCull() {
+            return false;
         }
 
         @Override

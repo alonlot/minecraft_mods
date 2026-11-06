@@ -46,6 +46,8 @@ public final class ModParticles {
             tinted("glint", MagicParticleOptions.GLINT);
     /** A full-bright spark of fire: drifts up, flickers and cools from yellow to deep red. */
     public static final RegistryObject<SimpleParticleType> EMBER = simple("ember");
+    /** A big faint wisp of ground mist that drifts low and slow; spawned client-side by BiomeFogClient. */
+    public static final RegistryObject<SimpleParticleType> GROUND_MIST = simple("ground_mist");
 
     private static RegistryObject<ParticleType<MagicParticleOptions>> tinted(String name, int kind) {
         return PARTICLE_TYPES.register(name, () -> new ParticleType<MagicParticleOptions>(false) {

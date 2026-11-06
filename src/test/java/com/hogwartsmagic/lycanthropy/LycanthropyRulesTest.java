@@ -52,6 +52,27 @@ class LycanthropyRulesTest {
     }
 
     @Test
+    void twoFullMoonsSleptThroughInARowStarveTheWolf() {
+        int skipped = 0;
+        assertFalse(LycanthropyRules.feralDue(skipped));
+        skipped = LycanthropyRules.afterSleptThroughFullMoon(skipped);
+        assertEquals(1, skipped);
+        assertFalse(LycanthropyRules.feralDue(skipped), "one full moon slept away is forgiven");
+        assertFalse(LycanthropyRules.bedRefuses(skipped, 0));
+        skipped = LycanthropyRules.afterSleptThroughFullMoon(skipped);
+        assertTrue(LycanthropyRules.feralDue(skipped), "two in a row: the next full moon takes you");
+        assertTrue(LycanthropyRules.bedRefuses(skipped, 0), "and no bed will take you that night");
+        assertFalse(LycanthropyRules.bedRefuses(skipped, 3), "any other night you can still sleep");
+        assertEquals(LycanthropyRules.SKIPPED_MOONS_BEFORE_FERAL, LycanthropyRules.afterSleptThroughFullMoon(skipped),
+                "the count stops at the threshold");
+    }
+
+    @Test
+    void aFeralBeastChasesFasterThanItWanders() {
+        assertTrue(LycanthropyRules.FERAL_CHASE_SPEED > LycanthropyRules.FERAL_WANDER_SPEED);
+    }
+
+    @Test
     void beastEffectsAreToppedUpBeforeTheyRunOut() {
         assertTrue(LycanthropyRules.BEAST_EFFECT_REFRESH_BELOW > LycanthropyRules.CHECK_INTERVAL_TICKS);
         assertTrue(LycanthropyRules.BEAST_EFFECT_REFRESH_BELOW < LycanthropyRules.BEAST_EFFECT_TICKS);

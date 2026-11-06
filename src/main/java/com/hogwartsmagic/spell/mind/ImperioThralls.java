@@ -769,7 +769,7 @@ public final class ImperioThralls {
     }
 
     /** Would the next step in this direction land in lava, fire or a damaging block, or off a drop over 3 blocks? */
-    private static boolean unsafeStep(LivingEntity mover, double dx, double dz) {
+    public static boolean unsafeStep(LivingEntity mover, double dx, double dz) {
         Level level = mover.level();
         double len = Math.sqrt(dx * dx + dz * dz);
         if (len < 1.0E-4) {

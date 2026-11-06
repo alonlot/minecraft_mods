@@ -19,6 +19,7 @@ import net.minecraft.util.Mth;
 public final class MindControlOverlay {
     private static final int STRIPS = 20;
     private static final int IMPERIUS_GREEN = 0x2FAF3F;
+    private static final int FERAL_RED = 0x8B1A1A;
     private static final ResourceLocation HOTBAR_SPRITE = ResourceLocation.withDefaultNamespace("hud/hotbar");
     private static final ResourceLocation HOTBAR_SELECTION_SPRITE = ResourceLocation.withDefaultNamespace("hud/hotbar_selection");
 
@@ -31,7 +32,12 @@ public final class MindControlOverlay {
         if (player == null || minecraft.options.hideGui) {
             return;
         }
-        if (MindControl.isControlled(player)) {
+        if (MindControl.isFeral(player)) {
+            float pulse = 0.8F + 0.2F * Mth.sin(player.tickCount * 0.3F);
+            vignette(graphics, FERAL_RED, (int) (190 * pulse));
+            graphics.drawCenteredString(minecraft.font, Component.translatable("gui." + ExampleMod.MODID + ".lycanthropy.feral"),
+                    graphics.guiWidth() / 2, 14, 0xFFFF7A6A);
+        } else if (MindControl.isControlled(player)) {
             float pulse = 0.85F + 0.15F * Mth.sin(player.tickCount * 0.2F);
             vignette(graphics, IMPERIUS_GREEN, (int) (170 * pulse));
             if (PossessionClient.isVictim()) {

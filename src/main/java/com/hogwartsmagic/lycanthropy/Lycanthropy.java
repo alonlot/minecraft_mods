@@ -42,6 +42,12 @@ public final class Lycanthropy {
     private static final String RESTLESS = "Restless";
     /** The day index (dayTime / 24000) whose restless night was already announced. */
     private static final String STIRRED_DAY = "StirredDay";
+    /** Full moons slept through in a row (see LycanthropyRules.SKIPPED_MOONS_BEFORE_FERAL). */
+    private static final String SKIPPED_MOONS = "SkippedMoons";
+    /** The day index the last slept-through full moon was skipped into (so its dawn does not count as lived). */
+    private static final String SKIPPED_INTO_DAY = "SkippedIntoDay";
+    /** This full moon the starved wolf drives the body. */
+    private static final String FERAL = "Feral";
 
     /** What a client is told about a player (the packet's action byte). */
     public static final byte SHOW_HUMAN = 0;
@@ -52,6 +58,21 @@ public final class Lycanthropy {
 
     /** Server: ticks left of a player's transformation into the beast (for the slow and the climax howl). */
     private static final Map<UUID, Integer> MORPHING = new ConcurrentHashMap<>();
+
+    /** Server: the feral beasts being driven, and what each is hunting. */
+    private static final Map<UUID, FeralDrive> FERAL_DRIVES = new ConcurrentHashMap<>();
+
+    private static final class FeralDrive {
+        double lastY;
+        boolean pushed;
+        double pushX, pushY, pushZ;
+        long pushAt;
+        float wanderYaw;
+        long turnAt;
+        long preyPickedAt = Long.MIN_VALUE / 2;
+        @javax.annotation.Nullable
+        LivingEntity prey;
+    }
 
     private Lycanthropy() {
     }
@@ -133,6 +154,7 @@ public final class Lycanthropy {
         boolean wasBeast = curse.getBoolean(BEAST);
         write(player, new CompoundTag());
         MORPHING.remove(player.getUUID());
+        endFeral(player);
         if (wasBeast) {
             sync(player, MORPH_TO_HUMAN);
         }
@@ -165,6 +187,10 @@ public final class Lycanthropy {
             return;
         }
         tickMorph(player);
+        FeralDrive drive = FERAL_DRIVES.get(player.getUUID());
+        if (drive != null && !MORPHING.containsKey(player.getUUID()) && player.isAlive()) {
+            driveFeral(player, drive);
+        }
         if (player.tickCount % LycanthropyRules.CHECK_INTERVAL_TICKS != 0) {
             return;
         }
@@ -188,13 +214,19 @@ public final class Lycanthropy {
             curse.putBoolean(BEAST, shouldBe);
             write(player, curse);
             if (shouldBe) {
-                turnBeast(player);
+                turnBeast(player, curse);
             } else {
-                turnHuman(player);
+                turnHuman(player, curse);
             }
         }
         if (shouldBe) {
-            tickBeast(player);
+            tickBeast(player, curse.getBoolean(FERAL));
+        }
+        // The starved wolf's full moon: no bed holds you, even one you lay down in at dusk.
+        if (night && natural && player.isSleeping()
+                && LycanthropyRules.bedRefuses(curse.getInt(SKIPPED_MOONS), phase)) {
+            player.stopSleepInBed(true, true);
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.lycanthropy.no_sleep"), true);
         }
 
         boolean restless = able && LycanthropyRules.isRestless(true, awaiting, night, natural, phase);
@@ -204,8 +236,9 @@ public final class Lycanthropy {
                 long day = level.getDayTime() / 24000L;
                 if (!curse.contains(STIRRED_DAY) || curse.getLong(STIRRED_DAY) != day) {
                     curse.putLong(STIRRED_DAY, day);
-                    player.displayClientMessage(Component.translatable(LycanthropyRules.warnsOfFullMoon(phase)
-                            ? "message.hogwartsmagic.lycanthropy.eve" : "message.hogwartsmagic.lycanthropy.restless"), false);
+                    String key = !LycanthropyRules.warnsOfFullMoon(phase) ? "restless"
+                            : LycanthropyRules.feralDue(curse.getInt(SKIPPED_MOONS)) ? "eve_feral" : "eve";
+                    player.displayClientMessage(Component.translatable("message.hogwartsmagic.lycanthropy." + key), false);
                 }
             } else {
                 clearBeastEffects(player);
@@ -235,25 +268,204 @@ public final class Lycanthropy {
         }
     }
 
-    private static void turnBeast(ServerPlayer player) {
+    private static void turnBeast(ServerPlayer player, CompoundTag curse) {
+        boolean feral = LycanthropyRules.feralDue(curse.getInt(SKIPPED_MOONS));
+        if (feral) {
+            curse.putBoolean(FERAL, true);
+            curse.putInt(SKIPPED_MOONS, 0); // the wolf has been fed
+            write(player, curse);
+        }
         MORPHING.put(player.getUUID(), LycanthropyRules.MORPH_TO_WOLF_TICKS);
         player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, LycanthropyRules.MORPH_TO_WOLF_TICKS, 3, false, false, false));
         sync(player, MORPH_TO_BEAST);
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(), ModSounds.WEREWOLF_HURT.get(),
                 SoundSource.PLAYERS, 1.0F, 0.6F);
-        player.displayClientMessage(Component.translatable("message.hogwartsmagic.lycanthropy.turn_full_moon"), true);
+        player.displayClientMessage(Component.translatable(feral
+                ? "message.hogwartsmagic.lycanthropy.feral" : "message.hogwartsmagic.lycanthropy.turn_full_moon"), feral ? false : true);
         com.hogwartsmagic.event.ModEvents.interruptActiveCasting(player);
+        if (feral) {
+            startFeral(player);
+        }
     }
 
-    private static void turnHuman(ServerPlayer player) {
+    private static void turnHuman(ServerPlayer player, CompoundTag curse) {
+        boolean wasFeral = curse.getBoolean(FERAL);
+        curse.remove(FERAL);
+        Level level = player.level();
+        long day = level.getDayTime() / 24000L;
+        boolean skipped = curse.contains(SKIPPED_INTO_DAY) && curse.getLong(SKIPPED_INTO_DAY) == day;
+        if (!wasFeral && player.isAlive() && level.isDay() && isNatural(level) && !skipped) {
+            curse.putInt(SKIPPED_MOONS, 0); // a full moon lived through as the beast: the wolf is content
+        }
+        write(player, curse);
         MORPHING.remove(player.getUUID());
+        endFeral(player);
         sync(player, MORPH_TO_HUMAN);
         clearBeastEffects(player);
         if (player.isAlive()) {
             player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, LycanthropyRules.DAWN_WEAKNESS_TICKS, 0));
             player.addEffect(new MobEffectInstance(MobEffects.HUNGER, LycanthropyRules.DAWN_HUNGER_TICKS, 1));
-            player.displayClientMessage(Component.translatable("message.hogwartsmagic.lycanthropy.dawn"), true);
+            player.displayClientMessage(Component.translatable(wasFeral
+                    ? "message.hogwartsmagic.lycanthropy.feral_dawn" : "message.hogwartsmagic.lycanthropy.dawn"), !wasFeral);
         }
+    }
+
+    // ---- sleeping through the full moon ---------------------------------------------------------------------------
+
+    /** The starved wolf's full moon: the bed refuses a cursed player. */
+    @SubscribeEvent
+    public static void onSleepInBed(net.minecraftforge.event.entity.player.PlayerSleepInBedEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || !isNatural(player.level())) {
+            return;
+        }
+        CompoundTag curse = read(player);
+        if (curse.getBoolean(CURSED)
+                && LycanthropyRules.bedRefuses(curse.getInt(SKIPPED_MOONS), player.level().getMoonPhase())) {
+            event.setResult(net.minecraft.world.entity.player.Player.BedSleepingProblem.OTHER_PROBLEM);
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.lycanthropy.no_sleep"), true);
+        }
+    }
+
+    /** The night is being slept away: every cursed sleeper skipping a full moon feeds the wolf's hunger. */
+    @SubscribeEvent
+    public static void onSleepFinished(net.minecraftforge.event.level.SleepFinishedTimeEvent event) {
+        // Fired before the clock moves, so the moon phase is still the night being skipped.
+        if (!(event.getLevel() instanceof ServerLevel level) || !isNatural(level)
+                || level.getMoonPhase() != LycanthropyRules.FULL_MOON_PHASE) {
+            return;
+        }
+        long intoDay = event.getNewTime() / 24000L;
+        for (ServerPlayer player : level.players()) {
+            if (!player.isSleeping()) {
+                continue;
+            }
+            CompoundTag curse = read(player);
+            if (!curse.getBoolean(CURSED) || curse.getBoolean(AWAITING_DUSK)) {
+                continue;
+            }
+            int skipped = LycanthropyRules.afterSleptThroughFullMoon(curse.getInt(SKIPPED_MOONS));
+            curse.putInt(SKIPPED_MOONS, skipped);
+            curse.putLong(SKIPPED_INTO_DAY, intoDay);
+            write(player, curse);
+            player.displayClientMessage(Component.translatable(LycanthropyRules.feralDue(skipped)
+                    ? "message.hogwartsmagic.lycanthropy.slept_moon_starved" : "message.hogwartsmagic.lycanthropy.slept_moon"), false);
+        }
+    }
+
+    // ---- the feral beast -------------------------------------------------------------------------------------------
+
+    private static void startFeral(ServerPlayer player) {
+        FeralDrive drive = new FeralDrive();
+        drive.lastY = player.getY();
+        drive.wanderYaw = player.getYRot();
+        FERAL_DRIVES.put(player.getUUID(), drive);
+        ExampleMod.FERAL.getHolder().ifPresent(h -> player.addEffect(
+                new MobEffectInstance(h, LycanthropyRules.BEAST_EFFECT_TICKS, 0, true, false, true)));
+        com.hogwartsmagic.spell.mind.MindControl.closeOpenContainer(player);
+        if (player.isUsingItem()) {
+            player.stopUsingItem();
+        }
+    }
+
+    private static void endFeral(ServerPlayer player) {
+        FERAL_DRIVES.remove(player.getUUID());
+        ExampleMod.FERAL.getHolder().ifPresent(player::removeEffect);
+    }
+
+    /** One tick of the starved wolf at the wheel: hunt the nearest living thing, or roam. */
+    private static void driveFeral(ServerPlayer player, FeralDrive drive) {
+        ServerLevel level = player.serverLevel();
+        long now = level.getGameTime();
+        LivingEntity prey = drive.prey;
+        double range = LycanthropyRules.FERAL_HUNT_RANGE;
+        if (prey == null || !prey.isAlive() || prey.level() != level || !isPrey(player, prey)
+                || prey.distanceToSqr(player) > range * range * 2.25 || now - drive.preyPickedAt >= 20) {
+            prey = findPrey(player);
+            drive.prey = prey;
+            drive.preyPickedAt = now;
+        }
+        double previousY = drive.lastY;
+        drive.lastY = player.getY();
+        double wx = 0.0;
+        double wz = 0.0;
+        float yaw;
+        double dist = 0.0;
+        if (prey != null) {
+            double dx = prey.getX() - player.getX();
+            double dz = prey.getZ() - player.getZ();
+            dist = player.distanceTo(prey);
+            yaw = (float) (net.minecraft.util.Mth.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0F;
+            double flat = Math.sqrt(dx * dx + dz * dz);
+            if (dist > LycanthropyRules.FERAL_REACH - 0.4 && flat > 1.0E-3) {
+                wx = dx / flat * LycanthropyRules.FERAL_CHASE_SPEED;
+                wz = dz / flat * LycanthropyRules.FERAL_CHASE_SPEED;
+            }
+        } else {
+            if (now >= drive.turnAt) {
+                drive.wanderYaw = player.getRandom().nextFloat() * 360.0F;
+                drive.turnAt = now + LycanthropyRules.FERAL_WANDER_TURN_TICKS;
+            }
+            yaw = drive.wanderYaw;
+            double rad = Math.toRadians(yaw);
+            wx = -Math.sin(rad) * LycanthropyRules.FERAL_WANDER_SPEED;
+            wz = Math.cos(rad) * LycanthropyRules.FERAL_WANDER_SPEED;
+        }
+        player.setYRot(yaw);
+        player.setYHeadRot(yaw);
+        if ((wx != 0.0 || wz != 0.0) && com.hogwartsmagic.spell.mind.ImperioThralls.unsafeStep(player, wx, wz)) {
+            wx = 0.0;
+            wz = 0.0;
+            drive.turnAt = now; // a wandering beast turns away from the drop or the lava
+        }
+        double vy = com.hogwartsmagic.spell.mind.ForcedPlayerMovement.verticalVelocity(player, previousY,
+                player.horizontalCollision && (wx != 0.0 || wz != 0.0));
+        if (com.hogwartsmagic.spell.mind.ImperioRules.needsPush(drive.pushed, drive.pushX, drive.pushY, drive.pushZ,
+                wx, vy, wz, drive.pushAt, now)) {
+            com.hogwartsmagic.spell.mind.ForcedPlayerMovement.push(player, wx, vy, wz);
+            drive.pushed = true;
+            drive.pushX = wx;
+            drive.pushY = vy;
+            drive.pushZ = wz;
+            drive.pushAt = now;
+        }
+        if (prey != null && dist <= LycanthropyRules.FERAL_REACH
+                && player.getAttackStrengthScale(0.5F) >= LycanthropyRules.FERAL_SWING_CHARGE) {
+            com.hogwartsmagic.spell.mind.MindControl.forcedAttack(player, prey);
+        }
+    }
+
+    @javax.annotation.Nullable
+    private static LivingEntity findPrey(ServerPlayer player) {
+        double range = LycanthropyRules.FERAL_HUNT_RANGE;
+        LivingEntity best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (LivingEntity candidate : player.serverLevel().getEntitiesOfClass(LivingEntity.class,
+                player.getBoundingBox().inflate(range), e -> isPrey(player, e))) {
+            double d = candidate.distanceToSqr(player);
+            if (d < bestDist && d <= range * range && player.hasLineOfSight(candidate)) {
+                best = candidate;
+                bestDist = d;
+            }
+        }
+        return best;
+    }
+
+    /** Anything alive it can hurt, except its own kind (werewolves and other beast players). */
+    private static boolean isPrey(ServerPlayer beast, LivingEntity e) {
+        if (e == beast || !e.isAlive() || e.isSpectator() || !e.attackable() || e.isInvulnerable()
+                || e instanceof net.minecraft.world.entity.decoration.ArmorStand) {
+            return false;
+        }
+        if (e instanceof com.hogwartsmagic.entity.LycanthropeVillagerEntity wolf && wolf.isWerewolfForm()) {
+            return false;
+        }
+        if (e instanceof net.minecraft.world.entity.player.Player other) {
+            if (other.isCreative() || (other instanceof ServerPlayer sp && isBeast(sp))) {
+                return false;
+            }
+            return beast.server.isPvpAllowed() && beast.canHarmPlayer(other);
+        }
+        return true;
     }
 
     private static void tickMorph(ServerPlayer player) {
@@ -274,7 +486,13 @@ public final class Lycanthropy {
     }
 
     /** Every check while a beast: keep its strength up, and now and then a howl. */
-    private static void tickBeast(ServerPlayer player) {
+    private static void tickBeast(ServerPlayer player, boolean feral) {
+        if (feral) {
+            if (!FERAL_DRIVES.containsKey(player.getUUID())) {
+                startFeral(player); // logged back in mid-night: the wolf still has them
+            }
+            ExampleMod.FERAL.getHolder().ifPresent(h -> topUp(player, h, 0, LycanthropyRules.BEAST_EFFECT_TICKS));
+        }
         int amp = LycanthropyRules.BEAST_AMPLIFIER;
         topUp(player, MobEffects.DAMAGE_BOOST, amp, LycanthropyRules.BEAST_EFFECT_TICKS);
         topUp(player, MobEffects.MOVEMENT_SPEED, amp, LycanthropyRules.BEAST_EFFECT_TICKS);
@@ -377,5 +595,6 @@ public final class Lycanthropy {
     @SubscribeEvent
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         MORPHING.remove(event.getEntity().getUUID());
+        FERAL_DRIVES.remove(event.getEntity().getUUID());
     }
 }

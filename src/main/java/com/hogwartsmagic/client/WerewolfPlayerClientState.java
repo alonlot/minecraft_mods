@@ -126,7 +126,8 @@ public final class WerewolfPlayerClientState {
         surrogate.xo = player.xo;
         surrogate.yo = player.yo;
         surrogate.zo = player.zo;
-        surrogate.setAggressive(player.isSprinting() && !beast.leaving);
+        // The hunting gallop: sprinting, or a feral beast the curse is driving.
+        surrogate.setAggressive((player.isSprinting() || com.hogwartsmagic.spell.mind.MindControl.isFeral(player)) && !beast.leaving);
         PolyjuiceClientState.advanceLiving(player, surrogate, 1.0F);
         boolean swinging = player.swinging;
         if (swinging && !beast.lastSwinging && !beast.leaving) {

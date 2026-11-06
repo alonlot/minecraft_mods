@@ -46,6 +46,22 @@ public final class LycanthropyRules {
     public static final int FULL_MOON_PHASE = 0;
     public static final int EVE_OF_FULL_MOON_PHASE = 7;
 
+    /**
+     * Sleeping through this many full moons in a row starves the wolf: the next full moon no bed will take the
+     * player, and the beast takes them over completely (the server drives the body until dawn).
+     */
+    public static final int SKIPPED_MOONS_BEFORE_FERAL = 2;
+    /** A feral beast hunts whatever lives within this many blocks, nearest first. */
+    public static final double FERAL_HUNT_RANGE = 20.0;
+    /** Its velocity (blocks per tick) chasing prey, and wandering when there is none. */
+    public static final double FERAL_CHASE_SPEED = 0.30;
+    public static final double FERAL_WANDER_SPEED = 0.18;
+    /** Melee reach; it swings once its attack has recharged this far. */
+    public static final double FERAL_REACH = 3.0;
+    public static final float FERAL_SWING_CHARGE = 0.9F;
+    /** A wandering feral beast picks a new heading this often (ticks). */
+    public static final int FERAL_WANDER_TURN_TICKS = 60;
+
     /** A Wolfsbane Potion drunk without the curse: a few seconds of nausea and nothing else. */
     public static final int UNCURSED_DRINK_NAUSEA_TICKS = 20 * 5;
 
@@ -85,6 +101,21 @@ public final class LycanthropyRules {
     /** The restless night before the full moon carries a warning. */
     public static boolean warnsOfFullMoon(int moonPhase) {
         return moonPhase == EVE_OF_FULL_MOON_PHASE;
+    }
+
+    /** The count of full moons slept through in a row, after one more. */
+    public static int afterSleptThroughFullMoon(int skippedInARow) {
+        return Math.min(skippedInARow + 1, SKIPPED_MOONS_BEFORE_FERAL);
+    }
+
+    /** Whether this full moon the beast takes over: enough full moons in a row were slept away. */
+    public static boolean feralDue(int skippedInARow) {
+        return skippedInARow >= SKIPPED_MOONS_BEFORE_FERAL;
+    }
+
+    /** A cursed player can lie down to sleep unless the starved wolf is due and tonight is the full moon. */
+    public static boolean bedRefuses(int skippedInARow, int moonPhase) {
+        return feralDue(skippedInARow) && moonPhase == FULL_MOON_PHASE;
     }
 
     /** A bite during the night waits for the next dusk; a bite by day turns the victim this very night. */

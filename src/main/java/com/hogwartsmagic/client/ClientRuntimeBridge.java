@@ -101,6 +101,7 @@ public final class ClientRuntimeBridge {
                     (com.hogwartsmagic.pensieve.net.PensieveRecordingPacket) payload);
             case "pensieveGhosts" -> com.hogwartsmagic.client.pensieve.SilverGhosts.set(
                     ((com.hogwartsmagic.pensieve.net.PensieveGhostsPacket) payload).ghosts());
+            case "fx" -> com.hogwartsmagic.client.fx.FxClient.dispatch((SpellPackets.FxPacket) payload);
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }

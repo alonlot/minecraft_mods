@@ -1271,6 +1271,8 @@ public class ExampleMod
 
         // Register our mod's ForgeConfigSpec so that Forge can create and load the config file for us
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        // How strong the cinematic effects are (shake, bloom, moments...): each player's own choice.
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, com.hogwartsmagic.fx.FxConfig.SPEC);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event)

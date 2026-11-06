@@ -44,7 +44,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(16)
+            .networkProtocolVersion(17)
             .simpleChannel();
 
     public static void register() {
@@ -763,6 +763,36 @@ public class SpellPackets {
                 })
                 .decoder(buf -> new MandrakePullPacket(buf.readInt(), buf.readBlockPos(), buf.readByte()))
                 .consumerMainThread(MandrakePullPacket::handle)
+                .add();
+        // The generic cinematic effect (shakes, slams, marks, moments: see fx.Fx). Last, so every earlier
+        // discriminator stays put.
+        CHANNEL.messageBuilder(FxPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeUtf(p.kind, 64);
+                    buf.writeDouble(p.x);
+                    buf.writeDouble(p.y);
+                    buf.writeDouble(p.z);
+                    buf.writeInt(p.entityId);
+                    int n = Math.min(p.params.length, com.hogwartsmagic.fx.Fx.MAX_PARAMS);
+                    buf.writeByte(n);
+                    for (int i = 0; i < n; i++) {
+                        buf.writeFloat(p.params[i]);
+                    }
+                })
+                .decoder(buf -> {
+                    String kind = buf.readUtf(64);
+                    double x = buf.readDouble();
+                    double y = buf.readDouble();
+                    double z = buf.readDouble();
+                    int entityId = buf.readInt();
+                    int n = Math.min(buf.readUnsignedByte(), com.hogwartsmagic.fx.Fx.MAX_PARAMS);
+                    float[] params = new float[n];
+                    for (int i = 0; i < n; i++) {
+                        params[i] = buf.readFloat();
+                    }
+                    return new FxPacket(kind, x, y, z, entityId, params);
+                })
+                .consumerMainThread(FxPacket::handle)
                 .add();
     }
 
@@ -1926,6 +1956,17 @@ public class SpellPackets {
     public record MusicStingPacket(byte sting) {
         public static void handle(MusicStingPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("musicSting", p));
+        }
+    }
+
+    /**
+     * Server to client: a cinematic effect of {@code kind} at (x, y, z), about {@code entityId} (-1 for none), with up
+     * to {@link com.hogwartsmagic.fx.Fx#MAX_PARAMS} numbers whose meaning is the kind's own. Sent by
+     * {@code fx.Fx}; handled by {@code client.fx.FxClient}, which ignores kinds it does not know.
+     */
+    public record FxPacket(String kind, double x, double y, double z, int entityId, float[] params) {
+        public static void handle(FxPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("fx", p));
         }
     }
 

@@ -623,6 +623,7 @@ public final class SpellBeamClientState {
                     * (1.0f - since / 14.0f) : 0.0f;
             shake = Math.max(shake, (rumble + jolt) * near);
         }
+        shake *= (float) com.hogwartsmagic.fx.FxConfig.get(com.hogwartsmagic.fx.FxConfig.CAMERA_SHAKE);
         if (shake <= 0.001f) {
             return;
         }

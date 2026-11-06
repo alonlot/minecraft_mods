@@ -168,15 +168,15 @@ public final class ReparoManager {
         Vec3 c = Vec3.atCenterOf(impactPos);
         int intensity = Math.min(repairedCount, 8);
         level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-        level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 30 + intensity * 6, 0.45, 0.45, 0.45, 0.04);
-        level.sendParticles(ParticleTypes.ENCHANT, c.x, c.y, c.z, 24 + intensity * 4, 0.8, 0.8, 0.8, 0.6);
-        level.sendParticles(ParticleTypes.WAX_ON, c.x, c.y, c.z, 18 + intensity * 3, 0.6, 0.6, 0.6, 0.04);
+        level.sendParticles(MagicParticles.MOTE_WHITE, c.x, c.y, c.z, 30 + intensity * 6, 0.45, 0.45, 0.45, 0.04);
+        level.sendParticles(MagicParticles.MOTE_GOLD, c.x, c.y, c.z, 24 + intensity * 4, 0.8, 0.8, 0.8, 0.6);
+        level.sendParticles(MagicParticles.GLINT_GOLD, c.x, c.y, c.z, 18 + intensity * 3, 0.6, 0.6, 0.6, 0.04);
         // Outward shockwave ring of sparkles so the spell visibly *reaches* the rubble.
         int ringSteps = 24;
         double ringRadius = 1.8 + 0.18 * intensity;
         for (int i = 0; i < ringSteps; i++) {
             double a = (Math.PI * 2.0 * i) / ringSteps;
-            level.sendParticles(ParticleTypes.END_ROD,
+            level.sendParticles(MagicParticles.MOTE_WHITE,
                     c.x + Math.cos(a) * ringRadius, c.y + 0.2, c.z + Math.sin(a) * ringRadius,
                     1, 0, 0, 0, 0);
         }
@@ -216,8 +216,8 @@ public final class ReparoManager {
             if (distance < 0.3D || flight.ticks >= FLIGHT_MAX_TICKS) {
                 if (level.getBlockState(flight.targetPos).canBeReplaced() && flight.state.canSurvive(level, flight.targetPos)) {
                     level.setBlock(flight.targetPos, flight.state, 3);
-                    level.sendParticles(ParticleTypes.ENCHANT, target.x, target.y, target.z, 16, 0.18, 0.18, 0.18, 0.02);
-                    level.sendParticles(ParticleTypes.END_ROD, target.x, target.y, target.z, 12, 0.12, 0.12, 0.12, 0.01);
+                    level.sendParticles(MagicParticles.MOTE_GOLD, target.x, target.y, target.z, 16, 0.18, 0.18, 0.18, 0.02);
+                    level.sendParticles(MagicParticles.MOTE_WHITE, target.x, target.y, target.z, 12, 0.12, 0.12, 0.12, 0.01);
                     level.playSound(null, flight.targetPos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 0.65f, 1.55f);
                 }
                 itemEntity.discard();
@@ -232,9 +232,9 @@ public final class ReparoManager {
             // Magical comet trail behind the flying rubble — golden sparkle every other tick
             // gives a clear visual of the spell pulling the piece into its old slot.
             if ((flight.ticks & 1) == 0) {
-                level.sendParticles(ParticleTypes.WAX_ON,
+                level.sendParticles(MagicParticles.GLINT_GOLD,
                         current.x, current.y + 0.1, current.z, 2, 0.05, 0.05, 0.05, 0.01);
-                level.sendParticles(ParticleTypes.END_ROD,
+                level.sendParticles(MagicParticles.MOTE_WHITE,
                         current.x, current.y + 0.1, current.z, 1, 0.04, 0.04, 0.04, 0.005);
             }
         }
@@ -291,7 +291,7 @@ public final class ReparoManager {
         ACTIVE_FLIGHTS.put(flier.getUUID(),
                 new ActiveRepairFlight(level.dimension().location().toString(), target.immutable(), state));
 
-        level.sendParticles(ParticleTypes.WITCH, start.x, start.y, start.z, 6, 0.1, 0.1, 0.1, 0.01);
+        level.sendParticles(MagicParticles.MOTE_VIOLET, start.x, start.y, start.z, 6, 0.1, 0.1, 0.1, 0.01);
         level.playSound(null, target, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 0.45f, 1.35f);
         return true;
     }
@@ -306,7 +306,7 @@ public final class ReparoManager {
         level.addFreshEntity(entity);
         ACTIVE_FLIGHTS.put(entity.getUUID(), new ActiveRepairFlight(level.dimension().location().toString(), record.pos, record.state));
 
-        level.sendParticles(ParticleTypes.WITCH, start.x, start.y, start.z, 8, 0.15, 0.15, 0.15, 0.01);
+        level.sendParticles(MagicParticles.MOTE_VIOLET, start.x, start.y, start.z, 8, 0.15, 0.15, 0.15, 0.01);
         level.playSound(null, player.blockPosition(), SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 0.45f, 1.35f);
     }
 

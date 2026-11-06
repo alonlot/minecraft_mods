@@ -1,5 +1,7 @@
 package com.hogwartsmagic.block.entity;
 
+import com.hogwartsmagic.util.MagicParticles;
+
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.FlooFireplaceBlock;
 import com.hogwartsmagic.network.SpellPackets;
@@ -32,11 +34,8 @@ import java.util.UUID;
 public class FlooFireplaceBlockEntity extends BlockEntity {
     private static final int MAX_LINKED_FIREPLACES = 256;
 
-    private static final DustColorTransitionOptions FLOO_GLOW = new DustColorTransitionOptions(
-            new Vector3f(0.15f, 0.95f, 0.55f),
-            new Vector3f(0.45f, 1.0f, 0.85f),
-            1.2f
-    );
+    private static final com.hogwartsmagic.MagicParticleOptions FLOO_GLOW =
+            com.hogwartsmagic.MagicParticleOptions.mote(0.3f, 1.0f, 0.65f, 1.2f);
     private final List<BlockPos> linkedPositions = new ArrayList<>();
     private UUID owner;
     private String fireplaceName = "";
@@ -70,17 +69,17 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
                     pos.getY() + 0.75,
                     pos.getZ() + 0.5,
                     5, 0.2, 0.08, 0.2, 0.008);
-            serverLevel.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
+            serverLevel.sendParticles(MagicParticles.SMOKE_GREEN,
                     pos.getX() + 0.5,
                     pos.getY() + 0.92,
                     pos.getZ() + 0.5,
                     6, 0.26, 0.16, 0.26, 0.012);
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK,
+            serverLevel.sendParticles(MagicParticles.SMOKE_DARK,
                     pos.getX() + 0.5,
                     pos.getY() + 0.82,
                     pos.getZ() + 0.5,
                     3, 0.18, 0.22, 0.18, 0.005);
-            serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER,
+            serverLevel.sendParticles(MagicParticles.MOTE_GREEN,
                     pos.getX() + 0.5,
                     pos.getY() + 0.95,
                     pos.getZ() + 0.5,
@@ -101,7 +100,7 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
                 fireplace.setActiveBlockState(false);
             }
         } else if (!fireplace.fireplaceName.isBlank() && serverLevel.getGameTime() % 8L == 0L) {
-            serverLevel.sendParticles(ParticleTypes.SMOKE,
+            serverLevel.sendParticles(MagicParticles.SMOKE_GREY,
                     pos.getX() + 0.5,
                     pos.getY() + 0.75,
                     pos.getZ() + 0.5,
@@ -157,12 +156,12 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
                 worldPosition.getY() + 0.75,
                 worldPosition.getZ() + 0.5,
                 26, 0.25, 0.14, 0.25, 0.01);
-        level.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
+        level.sendParticles(MagicParticles.SMOKE_GREEN,
                 worldPosition.getX() + 0.5,
                 worldPosition.getY() + 0.9,
                 worldPosition.getZ() + 0.5,
                 18, 0.24, 0.2, 0.24, 0.01);
-        level.sendParticles(ParticleTypes.SQUID_INK,
+        level.sendParticles(MagicParticles.SMOKE_DARK,
                 worldPosition.getX() + 0.5,
                 worldPosition.getY() + 0.88,
                 worldPosition.getZ() + 0.5,

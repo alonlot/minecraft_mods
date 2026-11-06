@@ -1,5 +1,7 @@
 package com.hogwartsmagic.event;
 
+import com.hogwartsmagic.util.MagicParticles;
+
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.entity.LycanthropeVillagerEntity;
 import com.hogwartsmagic.ExampleMod;
@@ -680,9 +682,9 @@ public class ModEvents {
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, debuffTicks, 1));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 20 * 10, 0));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 20 * 12, 0));
-        targetLevel.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 0.9D, player.getZ(), 26, 0.3, 0.45, 0.3, 0.02);
-        targetLevel.sendParticles(ParticleTypes.SOUL, player.getX(), player.getY() + 1.0D, player.getZ(), 24, 0.35, 0.55, 0.35, 0.025);
-        targetLevel.sendParticles(ParticleTypes.DRAGON_BREATH, player.getX(), player.getY() + 0.75D, player.getZ(), 14, 0.2, 0.25, 0.2, 0.04);
+        targetLevel.sendParticles(MagicParticles.SMOKE_DARK, player.getX(), player.getY() + 0.9D, player.getZ(), 26, 0.3, 0.45, 0.3, 0.02);
+        targetLevel.sendParticles(MagicParticles.MOTE_ICE, player.getX(), player.getY() + 1.0D, player.getZ(), 24, 0.35, 0.55, 0.35, 0.025);
+        targetLevel.sendParticles(MagicParticles.SMOKE_VIOLET, player.getX(), player.getY() + 0.75D, player.getZ(), 14, 0.2, 0.25, 0.2, 0.04);
         targetLevel.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), SoundSource.PLAYERS, 0.75f, 1.7f);
         targetLevel.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.9f, 0.6f);
         player.displayClientMessage(Component.literal("Your soul claws its way back through the Horcrux.")
@@ -708,11 +710,11 @@ public class ModEvents {
             HorcruxData.applyMaxHealthPenalty(player);
         }
         player.setHealth(Math.min(player.getHealth(), Math.max(1.0F, player.getMaxHealth())));
-        level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0D, player.getZ(),
+        level.sendParticles(MagicParticles.SMOKE_DARK, player.getX(), player.getY() + 1.0D, player.getZ(),
                 18, 0.22D, 0.35D, 0.22D, 0.03D);
-        level.sendParticles(ParticleTypes.SOUL, pos.getX() + 0.5D, pos.getY() + 1.05D, pos.getZ() + 0.5D,
+        level.sendParticles(MagicParticles.MOTE_ICE, pos.getX() + 0.5D, pos.getY() + 1.05D, pos.getZ() + 0.5D,
                 14, 0.25D, 0.35D, 0.25D, 0.02D);
-        level.sendParticles(ParticleTypes.DRAGON_BREATH, pos.getX() + 0.5D, pos.getY() + 0.9D, pos.getZ() + 0.5D,
+        level.sendParticles(MagicParticles.SMOKE_VIOLET, pos.getX() + 0.5D, pos.getY() + 0.9D, pos.getZ() + 0.5D,
                 8, 0.2D, 0.15D, 0.2D, 0.02D);
         level.playSound(null, pos, net.minecraft.sounds.SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 0.9F, 0.45F);
         level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.SOUL_ESCAPE.value(), SoundSource.PLAYERS, 0.7F, 0.55F);
@@ -1376,7 +1378,7 @@ public class ModEvents {
             // Sparks off the Dementor itself, not the cone -- this is hit feedback, so it stays
             // as particles. Throttled: at 20Hz a pinned swarm floods the connection for nothing.
             if (gameTime % 3L == 0L) {
-                level.sendParticles(ParticleTypes.END_ROD,
+                level.sendParticles(MagicParticles.MOTE_WHITE,
                         dementor.getX(), dementor.getY() + dementor.getBbHeight() * 0.5D, dementor.getZ(),
                         4, 0.35D, 0.45D, 0.35D, 0.02D);
             }
@@ -1644,10 +1646,10 @@ public class ModEvents {
         }
 
         if (caster.level() instanceof ServerLevel serverLevel && caster.tickCount % 2 == 0) {
-            serverLevel.sendParticles(ParticleTypes.ENCHANT,
+            serverLevel.sendParticles(MagicParticles.MOTE_GOLD,
                     target.getX(), target.getY() + target.getBbHeight() * 0.5D, target.getZ(),
                     8, 0.25D, 0.35D, 0.25D, 0.02D);
-            serverLevel.sendParticles(ParticleTypes.WITCH,
+            serverLevel.sendParticles(MagicParticles.MOTE_VIOLET,
                     target.getX(), target.getY() + target.getBbHeight() * 0.5D, target.getZ(),
                     4, 0.2D, 0.25D, 0.2D, 0.01D);
         }
@@ -1837,7 +1839,7 @@ public class ModEvents {
             mob.getNavigation().stop();
         }
         if (player.level() instanceof ServerLevel sl && now % 2 == 0) {
-            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD,
+            sl.sendParticles(MagicParticles.SMOKE_WHITE,
                     raw.getX(), raw.getY() + raw.getBbHeight() * 0.5D, raw.getZ(), 2, 0.1D, 0.1D, 0.1D, 0.01D);
         }
     }
@@ -2144,7 +2146,7 @@ public class ModEvents {
             double x = centerX + PROTEGO_MAXIMA_BARRIER_RADIUS * Math.sin(phi) * Math.cos(theta);
             double y = centerY + PROTEGO_MAXIMA_BARRIER_RADIUS * Math.cos(phi);
             double z = centerZ + PROTEGO_MAXIMA_BARRIER_RADIUS * Math.sin(phi) * Math.sin(theta);
-            level.sendParticles(ParticleTypes.END_ROD, x, y, z, 0, 0.0D, -1.0D, 0.0D, 0.025D);
+            level.sendParticles(MagicParticles.MOTE_WHITE, x, y, z, 0, 0.0D, -1.0D, 0.0D, 0.025D);
         }
     }
 
@@ -2157,7 +2159,7 @@ public class ModEvents {
             if (applyProtegoMaximaImpact(level, player, impact, impact * 0.38f, beam.position())) {
                 return;
             }
-            level.sendParticles(ParticleTypes.END_ROD, beam.getX(), beam.getY(), beam.getZ(), 10, 0.18D, 0.18D, 0.18D, 0.01D);
+            level.sendParticles(MagicParticles.MOTE_WHITE, beam.getX(), beam.getY(), beam.getZ(), 10, 0.18D, 0.18D, 0.18D, 0.01D);
             beam.discard();
         }
 
@@ -2178,7 +2180,7 @@ public class ModEvents {
             Vec3 push = away.normalize().scale(0.9D);
             projectile.setDeltaMovement(push.x, Math.max(0.15D, push.y + 0.15D), push.z);
             projectile.hurtMarked = true;
-            level.sendParticles(ParticleTypes.CRIT, projectile.getX(), projectile.getY(), projectile.getZ(), 6, 0.12D, 0.12D, 0.12D, 0.01D);
+            level.sendParticles(MagicParticles.SPARK_WHITE, projectile.getX(), projectile.getY(), projectile.getZ(), 6, 0.12D, 0.12D, 0.12D, 0.01D);
         }
     }
 
@@ -2205,14 +2207,14 @@ public class ModEvents {
         data.put("PlayerPersisted", persisted);
         SpellPackets.CHANNEL.send(new SpellPackets.SyncManaPacket(newMana, maxMana), PacketDistributor.PLAYER.with(player));
 
-        level.sendParticles(ParticleTypes.GLOW, impactPos.x, impactPos.y, impactPos.z, 6, 0.16D, 0.16D, 0.16D, 0.01D);
+        level.sendParticles(MagicParticles.MOTE_GOLD, impactPos.x, impactPos.y, impactPos.z, 6, 0.16D, 0.16D, 0.16D, 0.01D);
         // The ripple over the shell where it struck, and how bright the shell still burns.
         SpellPackets.CHANNEL.send(new SpellPackets.ProtegoMaximaImpactPacket(player.getId(), impactPos.x, impactPos.y,
                         impactPos.z, bubbleHealth / PROTEGO_MAXIMA_MAX_HEALTH),
                 PacketDistributor.TRACKING_ENTITY_AND_SELF.with(player));
 
         if (bubbleHealth <= 0.0f || newMana <= 0.0f) {
-            level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + player.getBbHeight() * 0.7D, player.getZ(), 40, 2.2D, 2.0D, 2.2D, 0.12D);
+            level.sendParticles(MagicParticles.MOTE_WHITE, player.getX(), player.getY() + player.getBbHeight() * 0.7D, player.getZ(), 40, 2.2D, 2.0D, 2.2D, 0.12D);
             level.playSound(null, player.getX(), player.getY(), player.getZ(), net.minecraft.sounds.SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.0f, 0.7f);
             // Shattered, not dropped: the dome bursts into shards (the channel's own stop is then a no-op on it).
             com.hogwartsmagic.spell.support.ProtegoShield.remove(player, com.hogwartsmagic.spell.support.ProtegoShield.SHATTERED);
@@ -2366,7 +2368,7 @@ public class ModEvents {
                     ));
                     player.level().playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 0.85f, 0.7f);
                     if (player.level() instanceof ServerLevel serverLevel) {
-                        serverLevel.sendParticles(ParticleTypes.WITCH, player.getX(), player.getY() + 1.0D, player.getZ(), 35, 0.35D, 0.6D, 0.35D, 0.05D);
+                        serverLevel.sendParticles(MagicParticles.MOTE_VIOLET, player.getX(), player.getY() + 1.0D, player.getZ(), 35, 0.35D, 0.6D, 0.35D, 0.05D);
                     }
                     syncPolyjuice(player);
                 } else {
@@ -2426,8 +2428,8 @@ public class ModEvents {
         if (!(player.level() instanceof ServerLevel serverLevel) || player.tickCount % 3 != 0) {
             return;
         }
-        serverLevel.sendParticles(ParticleTypes.WITCH, player.getX(), player.getY() + 1.0D, player.getZ(), 8, 0.25D, 0.5D, 0.25D, 0.03D);
-        serverLevel.sendParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1.0D, player.getZ(), 10, 0.35D, 0.6D, 0.35D, 0.02D);
+        serverLevel.sendParticles(MagicParticles.MOTE_VIOLET, player.getX(), player.getY() + 1.0D, player.getZ(), 8, 0.25D, 0.5D, 0.25D, 0.03D);
+        serverLevel.sendParticles(MagicParticles.MOTE_GOLD, player.getX(), player.getY() + 1.0D, player.getZ(), 10, 0.35D, 0.6D, 0.35D, 0.02D);
     }
 
     private static void tickPolyjuiceMobReactions(ServerPlayer player) {
@@ -2701,9 +2703,9 @@ public class ModEvents {
                 SpellPackets.CHANNEL.send(new SpellPackets.StartHorcruxDeathSequencePacket(soul.getId(), player.position(), horcrux.getBlockPos()),
                         PacketDistributor.PLAYER.with(player));
             }
-            level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 0.9D, player.getZ(), 36, 0.35, 0.55, 0.35, 0.03);
-            level.sendParticles(ParticleTypes.SOUL, player.getX(), player.getY() + 1.05D, player.getZ(), 24, 0.28, 0.4, 0.28, 0.025);
-            level.sendParticles(ParticleTypes.DRAGON_BREATH, player.getX(), player.getY() + 0.75D, player.getZ(), 18, 0.24, 0.28, 0.24, 0.04);
+            level.sendParticles(MagicParticles.SMOKE_DARK, player.getX(), player.getY() + 0.9D, player.getZ(), 36, 0.35, 0.55, 0.35, 0.03);
+            level.sendParticles(MagicParticles.MOTE_ICE, player.getX(), player.getY() + 1.05D, player.getZ(), 24, 0.28, 0.4, 0.28, 0.025);
+            level.sendParticles(MagicParticles.SMOKE_VIOLET, player.getX(), player.getY() + 0.75D, player.getZ(), 18, 0.24, 0.28, 0.24, 0.04);
             level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.9f, 0.45f);
             level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0f, 0.55f);
         }
@@ -3713,7 +3715,7 @@ public class ModEvents {
                 double offsetZ = (entity.getRandom().nextDouble() - 0.5) * 0.8;
 
                 server.sendParticles(
-                    ParticleTypes.SQUID_INK,
+                    MagicParticles.SMOKE_DARK,
                     baseX + offsetX,
                     baseY + offsetY,
                     baseZ + offsetZ,
@@ -3726,7 +3728,7 @@ public class ModEvents {
 
                 if (i % 3 == 0) {
                     server.sendParticles(
-                        ParticleTypes.LARGE_SMOKE,
+                        MagicParticles.SMOKE_DARK,
                         baseX + offsetX,
                         baseY + offsetY,
                         baseZ + offsetZ,

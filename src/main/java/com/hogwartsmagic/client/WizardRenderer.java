@@ -8,7 +8,6 @@ import net.minecraft.resources.ResourceLocation;
 
 public class WizardRenderer<T extends WizardEntity> extends MobRenderer<T, WizardModel<T>> {
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("hogwartsmagic", "textures/entity/texture.png");
-    private static final ResourceLocation VOLDEMORT_TEXTURE = ResourceLocation.fromNamespaceAndPath("hogwartsmagic", "textures/entity/voldemort.png");
 
     public WizardRenderer(EntityRendererProvider.Context context) {
         super(context, new WizardModel<>(context.bakeLayer(WizardModel.LAYER_LOCATION)), 0.5f);
@@ -25,9 +24,6 @@ public class WizardRenderer<T extends WizardEntity> extends MobRenderer<T, Wizar
 
     @Override
     public ResourceLocation getTextureLocation(T entity) {
-        if (entity instanceof com.hogwartsmagic.entity.VoldemortEntity) {
-            return VOLDEMORT_TEXTURE;
-        }
         return TEXTURE;
     }
 }

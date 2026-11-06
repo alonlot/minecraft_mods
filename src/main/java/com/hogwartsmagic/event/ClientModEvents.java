@@ -530,6 +530,7 @@ public class ClientModEvents {
                 if (mc.level instanceof net.minecraft.client.multiplayer.ClientLevel clientLevel) {
                     for (net.minecraft.client.player.AbstractClientPlayer p : clientLevel.players()) {
                         PolyjuiceClientState.advanceSurrogateOneGameTick(p);
+                        com.hogwartsmagic.client.WerewolfPlayerClientState.tick(p);
                     }
                 }
                 InvisibilityCloakClientState.tick();
@@ -706,6 +707,23 @@ public class ClientModEvents {
                 event.setCanceled(true);
                 return;
             }
+            if (com.hogwartsmagic.client.WerewolfPlayerClientState.isShown(event.getEntity())) {
+                // The werewolf curse: the beast is drawn in the player's place, over any Polyjuice disguise.
+                event.setCanceled(true);
+                net.minecraft.world.entity.Entity beast =
+                        com.hogwartsmagic.client.WerewolfPlayerClientState.surrogateFor(event.getEntity(), event.getPartialTick());
+                if (beast != null) {
+                    @SuppressWarnings("unchecked")
+                    net.minecraft.client.renderer.entity.EntityRenderer<net.minecraft.world.entity.Entity> beastRenderer =
+                            (net.minecraft.client.renderer.entity.EntityRenderer<net.minecraft.world.entity.Entity>)
+                                    Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(beast);
+                    if (beastRenderer != null) {
+                        beastRenderer.render(beast, beast.getYRot(), event.getPartialTick(), event.getPoseStack(),
+                                event.getMultiBufferSource(), event.getPackedLight());
+                    }
+                }
+                return;
+            }
             if (!PolyjuiceClientState.hasDisguise(event.getEntity().getUUID())
                     || PolyjuiceClientState.isRevealed(event.getEntity().getUUID(), event.getEntity().level().getGameTime())) {
                 // No disguise, or Revelio (Master) is showing the real player: vanilla draws them, true name and all.
@@ -766,6 +784,10 @@ public class ClientModEvents {
             Minecraft minecraft = Minecraft.getInstance();
             if (minecraft.player != null && InvisibilityCloakClientState.shouldHidePlayerCompletely(minecraft.player)) {
                 event.setCanceled(true);
+                return;
+            }
+            if (com.hogwartsmagic.client.WerewolfPlayerClientState.localIsBeast()) {
+                event.setCanceled(true); // a beast has no human hands to look at
             }
         }
 
@@ -1030,7 +1052,7 @@ public class ClientModEvents {
                         : -1,
                 ExampleMod.WIGGENWELD_POTION.get(), ExampleMod.PEPPERUP_POTION.get(), ExampleMod.FAILED_POTION.get(),
                 ExampleMod.ESSENCE_OF_DITTANY.get(), ExampleMod.FELIX_FELICIS.get(), ExampleMod.MANDRAKE_DRAUGHT.get(),
-                ExampleMod.POTION_OF_REMORSE.get(), ExampleMod.VERITASERUM.get());
+                ExampleMod.POTION_OF_REMORSE.get(), ExampleMod.VERITASERUM.get(), ExampleMod.WOLFSBANE_POTION.get());
         event.register(
                 (stack, tintIndex) -> tintIndex == 0 && stack.getItem() instanceof com.hogwartsmagic.item.SplashBrewItem splash
                         ? net.minecraft.util.FastColor.ARGB32.opaque(splash.kind().color())
@@ -1051,6 +1073,7 @@ public class ClientModEvents {
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.NIMBUS_LAYER, com.hogwartsmagic.client.BroomModelV2::createNimbusLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.FIREBOLT_LAYER, com.hogwartsmagic.client.BroomModelV2::createFireboltLayer);
         event.registerLayerDefinition(WizardModel.LAYER_LOCATION, WizardModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.VoldemortModel.LAYER_LOCATION, com.hogwartsmagic.client.model.VoldemortModel::createBodyLayer);
         event.registerLayerDefinition(StudentModel.LAYER_LOCATION, StudentModel::createBodyLayer);
         event.registerLayerDefinition(AcromantulaModel.LAYER_LOCATION, AcromantulaModel::createBodyLayer);
         event.registerLayerDefinition(BasiliskModel.LAYER_LOCATION, BasiliskModel::createBodyLayer);
@@ -1127,7 +1150,7 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.renderer.CaveBoatRenderer::new);
         event.registerEntityRenderer(ModEntities.BROOM.get(), BroomRenderer::new);
         event.registerEntityRenderer(ModEntities.WIZARD.get(), WizardRenderer::new);
-        event.registerEntityRenderer(ModEntities.VOLDEMORT.get(), context -> new WizardRenderer<com.hogwartsmagic.entity.VoldemortEntity>(context));
+        event.registerEntityRenderer(ModEntities.VOLDEMORT.get(), com.hogwartsmagic.client.VoldemortRenderer::new);
         event.registerEntityRenderer(ModEntities.STUDENT.get(), StudentRenderer::new);
         event.registerEntityRenderer(ModEntities.ACROMANTULA.get(), AcromantulaRenderer::new);
         event.registerEntityRenderer(ModEntities.BASILISK.get(), BasiliskRenderer::new);

@@ -28,7 +28,7 @@ PAIRS = [
     ('merperson', 'merchieftainess'), ('minator', 'minator'), ('patronus', 'patronus_form'),
     ('snake', 'snake'), ('troll', 'troll'), ('willow', 'whomping_willow'),
     ('lycan', 'lycan_werewolf'), ('cart', 'gringotts_cart'), ('owl', 'owl'),
-    ('wizard', 'texture'), ('wizard', 'voldemort'), ('student', 'student_gryffindor'),
+    ('wizard', 'texture'), ('voldemort', 'voldemort'), ('student', 'student_gryffindor'),
     ('student', 'student_hufflepuff'), ('student', 'student_ravenclaw'),
     ('student', 'student_slytherin'), ('statue', 'living_statue'), ('snitch', 'golden_snitch'),
     ('broom_training', 'broom_shooting_star_v2'), ('broom_nimbus', 'broom_nimbus_2000_v2'),

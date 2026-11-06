@@ -31,5 +31,7 @@ public abstract class BasiliskGazeGuiMixin {
         com.hogwartsmagic.client.DementorDread.render(guiGraphics);
         com.hogwartsmagic.client.TravelFxClient.render(guiGraphics);
         com.hogwartsmagic.client.AvadaChargeOverlay.render(guiGraphics);
+        // The cinematic overlays (letterbox, flashes, broom wind...): last, over everything.
+        com.hogwartsmagic.client.fx.FxOverlays.render(guiGraphics, deltaTracker);
     }
 }

@@ -12,4 +12,15 @@ public final class FxKinds {
 
     /** The view shakes. params: strength, radius (blocks), duration (ticks), frequency (1 = normal). */
     public static final String SHAKE = "shake";
+
+    /** A soot scorch on the faces round (x, y, z). params: radius (blocks), seconds. Handled by client.fx.Marks. */
+    public static final String MARK_SCORCH = "mark_scorch";
+    /** Glacius frost on the faces round (x, y, z). params: radius (blocks), seconds. Handled by client.fx.Marks. */
+    public static final String MARK_FROST = "mark_frost";
+
+    /**
+     * A big moment at (x, y, z) about entityId (a killing blow, a boss falling). params: weight (0..1: how big; 1
+     * is a boss dying or a Killing Curse landing). Handled by client.fx.Cinematic's owner.
+     */
+    public static final String MOMENT = "moment";
 }

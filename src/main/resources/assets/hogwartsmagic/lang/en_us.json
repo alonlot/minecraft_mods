@@ -1224,6 +1224,7 @@
   "commands.hogwartsmagic.lycanthropy.infected": "%s now carries the werewolf curse",
   "commands.hogwartsmagic.lycanthropy.cured": "Lifted the werewolf curse from %s",
   "commands.hogwartsmagic.lycanthropy.not_cursed": "%s is not cursed",
+  "commands.hogwartsmagic.lycanthropy.starved": "%s will be taken by the wolf at the next full moon",
   "message.hogwartsmagic.veritaserum.already": "The villager has told you all it has to tell today",
   "message.hogwartsmagic.veritaserum.villager": "The villager admits its prices were padded",
   "message.hogwartsmagic.veritaserum.resists": "This one is too strong to be made to talk",

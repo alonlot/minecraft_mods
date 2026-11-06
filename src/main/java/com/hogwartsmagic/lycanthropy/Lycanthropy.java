@@ -128,6 +128,20 @@ public final class Lycanthropy {
     }
 
     /** Curses the player (the command and the bite). */
+    /**
+     * Testing: as if the player had slept through enough full moons in a row, so the next time they turn under the
+     * full moon the wolf takes them over. False when not cursed.
+     */
+    public static boolean starve(ServerPlayer player) {
+        CompoundTag curse = read(player);
+        if (!curse.getBoolean(CURSED)) {
+            return false;
+        }
+        curse.putInt(SKIPPED_MOONS, LycanthropyRules.SKIPPED_MOONS_BEFORE_FERAL);
+        write(player, curse);
+        return true;
+    }
+
     public static void infect(ServerPlayer player) {
         CompoundTag curse = read(player);
         if (curse.getBoolean(CURSED)) {

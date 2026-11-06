@@ -13,6 +13,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Gui.class)
 public abstract class MindControlGuiMixin {
 
+    /** Before any HUD: a feral werewolf sees the world shrunk into a window deep inside its head. */
+    @Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
+            at = @At("HEAD"))
+    private void hogwartsmagic$renderFeralView(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+        com.hogwartsmagic.client.FeralView.render(guiGraphics);
+    }
+
     @Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
             at = @At("TAIL"))
     private void hogwartsmagic$renderMindControl(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {

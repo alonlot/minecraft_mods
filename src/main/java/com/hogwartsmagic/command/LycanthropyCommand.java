@@ -10,7 +10,10 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
-/** {@code /lycanthropy status|infect|cure <player>} -- inspect or force the werewolf curse while testing. Op-only. */
+/**
+ * {@code /lycanthropy status|infect|cure|starve <player>} -- inspect or force the werewolf curse while testing.
+ * starve: as if two full moons had been slept through, so the next full moon the wolf takes control. Op-only.
+ */
 public class LycanthropyCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -24,7 +27,10 @@ public class LycanthropyCommand {
                                 .executes(LycanthropyCommand::infect)))
                 .then(Commands.literal("cure")
                         .then(Commands.argument("player", EntityArgument.player())
-                                .executes(LycanthropyCommand::cure))));
+                                .executes(LycanthropyCommand::cure)))
+                .then(Commands.literal("starve")
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(LycanthropyCommand::starve))));
     }
 
     private static int status(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
@@ -39,6 +45,18 @@ public class LycanthropyCommand {
         ServerPlayer player = EntityArgument.getPlayer(ctx, "player");
         Lycanthropy.infect(player);
         ctx.getSource().sendSuccess(() -> Component.translatable("commands.hogwartsmagic.lycanthropy.infected",
+                player.getDisplayName()), true);
+        return 1;
+    }
+
+    private static int starve(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = EntityArgument.getPlayer(ctx, "player");
+        if (!Lycanthropy.starve(player)) {
+            ctx.getSource().sendFailure(Component.translatable("commands.hogwartsmagic.lycanthropy.not_cursed",
+                    player.getDisplayName()));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable("commands.hogwartsmagic.lycanthropy.starved",
                 player.getDisplayName()), true);
         return 1;
     }

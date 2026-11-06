@@ -164,7 +164,6 @@ public class VoldemortEntity extends WizardEntity {
                 spawnThreatLightning(serverLevel);
             }
 
-            emitAura(serverLevel);
         }
 
         if (isCastingLockedOut() && this.queuedSpell != null) {
@@ -336,30 +335,78 @@ public class VoldemortEntity extends WizardEntity {
         }
     }
 
-    /**
-     * Continuous dark aura — a thin smoky halo of soul-fire and squid-ink particles
-     * that orbits Voldemort and trails a wisp upward. Drastically cheaper than the
-     * casting warning particles since it ticks every server tick. The AK windup has
-     * its own hand-drawn effect on the clients (AvadaChargeFx), so the aura stays as it is.
-     */
-    private void emitAura(ServerLevel serverLevel) {
-        // Orbiting ring around the chest.
-        int ringCount = 3;
-        for (int i = 0; i < ringCount; i++) {
-            double angle = (this.tickCount * 0.18D) + (Math.PI * 2.0D * i) / ringCount;
-            double r = 0.55D;
-            double x = this.getX() + Math.cos(angle) * r;
-            double y = this.getY() + 1.2D;
-            double z = this.getZ() + Math.sin(angle) * r;
-            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+    /** Client only: whether he was smoke last tick (null until the first tick, so joining mid-flight is no edge). */
+    @Nullable
+    private Boolean clientWasFlying;
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (this.level().isClientSide) {
+            clientFx();
         }
-        // Wispy ground smoke that drifts upward — gives a "robe trailing dark mist" look.
-        if (this.tickCount % 2 == 0) {
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK,
-                    this.getX() + (this.getRandom().nextDouble() - 0.5D) * 0.6D,
-                    this.getY() + 0.15D,
-                    this.getZ() + (this.getRandom().nextDouble() - 0.5D) * 0.6D,
-                    1, 0.0D, 0.02D, 0.0D, 0.01D);
+    }
+
+    /**
+     * His presence, drawn on each client from his synced state (nothing is sent for it): black smoke curling off
+     * the robe's hem and streaming from the cape as he moves, the old soul-fire ring orbiting his chest, and a
+     * burst of smoke each time Tenebris Flight takes him apart or puts him back together (it flies outward as he
+     * dissolves and is drawn in as he re-forms). The AK wind-up has its own effect (AvadaChargeFx).
+     */
+    private void clientFx() {
+        Level level = this.level();
+        var random = this.getRandom();
+        boolean flying = this.isFlying();
+        if (this.clientWasFlying != null && this.clientWasFlying != flying) {
+            smokeBurst(level, !flying);
+        }
+        this.clientWasFlying = flying;
+        if (flying) {
+            return;
+        }
+
+        for (int i = 0; i < 3; i++) {
+            double angle = this.tickCount * 0.18D + Math.PI * 2.0D * i / 3.0D;
+            level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, this.getX() + Math.cos(angle) * 0.55D,
+                    this.getY() + 1.2D, this.getZ() + Math.sin(angle) * 0.55D, 0.0D, 0.0D, 0.0D);
+        }
+
+        double moved = Math.hypot(this.getX() - this.xo, this.getZ() - this.zo);
+        int hem = moved > 0.02D ? 2 : (this.tickCount % 2 == 0 ? 1 : 0);
+        for (int i = 0; i < hem; i++) {
+            double a = random.nextDouble() * Math.PI * 2.0D;
+            double r = 0.28D + random.nextDouble() * 0.1D;
+            level.addParticle(ParticleTypes.SQUID_INK, this.getX() + Math.cos(a) * r, this.getY() + 0.05D + random.nextDouble() * 0.2D,
+                    this.getZ() + Math.sin(a) * r, Math.cos(a) * 0.012D, 0.012D + random.nextDouble() * 0.01D, Math.sin(a) * 0.012D);
+        }
+        if (moved > 0.02D) {
+            // The cape's foot trails smoke behind him.
+            float yaw = this.yBodyRot * Mth.DEG_TO_RAD;
+            double bx = Mth.sin(yaw) * 0.32D;
+            double bz = -Mth.cos(yaw) * 0.32D;
+            level.addParticle(ParticleTypes.LARGE_SMOKE, this.getX() + bx + (random.nextDouble() - 0.5D) * 0.3D,
+                    this.getY() + 0.15D + random.nextDouble() * 0.5D, this.getZ() + bz + (random.nextDouble() - 0.5D) * 0.3D,
+                    bx * 0.04D, 0.005D, bz * 0.04D);
+        }
+    }
+
+    /** A shell of black smoke round his body, drawn in ({@code inward}) as he re-forms or thrown out as he goes. */
+    private void smokeBurst(Level level, boolean inward) {
+        var random = this.getRandom();
+        double cx = this.getX();
+        double cy = this.getY() + 1.0D;
+        double cz = this.getZ();
+        for (int i = 0; i < 46; i++) {
+            double u = random.nextDouble() * 2.0D - 1.0D;
+            double a = random.nextDouble() * Math.PI * 2.0D;
+            double s = Math.sqrt(1.0D - u * u);
+            double dx = s * Math.cos(a);
+            double dy = u * 0.9D;
+            double dz = s * Math.sin(a);
+            double r = inward ? 1.6D + random.nextDouble() * 0.6D : 0.3D;
+            double v = inward ? -0.11D : 0.16D + random.nextDouble() * 0.08D;
+            level.addParticle(i % 3 == 0 ? ParticleTypes.LARGE_SMOKE : ParticleTypes.SQUID_INK,
+                    cx + dx * r, cy + dy * r, cz + dz * r, dx * v, dy * v, dz * v);
         }
     }
 

@@ -11,8 +11,8 @@ the graves; he turns to the camera and leaves as smoke under the Mark.
 
 Shot list (start, length, framing, move):
   S1   0.0  5.4  wide high over the graves, fov 80        drifts in, panning down with the smoke comet
-  S2   5.4  3.6  low angle at his feet, fov 60            slow push; he re-forms at 6.0 under a strike
-  S3   9.0  5.0  chest-height orbit, r 3.2, fov 60        spline arc across his front; ARMS_SPREAD at 10
+  S2   5.4  3.6  low angle at his feet, fov 60            slow push; he re-forms at 6.0 under a strike (ENTRANCE)
+  S3   9.0  5.0  chest-height orbit, r 3.2, fov 60        spline arc across his front; ARMS_SPREAD at 9.2
   S4  14.0  3.0  close on the face, fov 38, roll 4        creeping push; LAUGH at 14.8
   S5  17.0  4.0  over his shoulder, fov 75                drift; Death Eaters land 18.0 to 19.0 and kneel
   S6  21.0  4.0  low front-left, fov 70 -> 85             CONJURE, Morsmordre at 23, tilt up to the Mark
@@ -181,7 +181,7 @@ voldemort = {
              K(LEAVE, V), K(42.4, [0, 2.5, -2.5], 'spline'), K(43.6, [2, 12, -13], 'spline'),
              K(45.0, [6, 26, -30], 'spline')],
     'look': [Y(0, 0), Y(32.6, 0), Y(33.3, -45), Y(37.2, -45), Y(38.2, 0)],
-    'anims': [A(0, 'IDLE'), A(10.0, 'ARMS_SPREAD', 8), A(13.6, 'IDLE', 10), A(14.8, 'LAUGH', 4), A(17.2, 'IDLE', 6),
+    'anims': [A(0, 'IDLE'), A(6.0, 'ENTRANCE', 2), A(9.2, 'ARMS_SPREAD', 8), A(13.6, 'IDLE', 10), A(14.8, 'LAUGH', 4), A(17.2, 'IDLE', 6),
               A(21.0, 'CONJURE', 8), A(25.0, 'IDLE', 8), A(26.1, 'CAST', 2), A(26.9, 'POINT', 4),
               A(AVADA_AT, 'AVADA', 4), A(32.6, 'IDLE', 8), A(33.3, 'CAST', 2), A(34.2, 'POINT', 4),
               A(37.0, 'IDLE', 10), A(39.2, 'ARMS_SPREAD', 10), A(LEAVE - 0.6, 'IDLE', 8)],
@@ -252,12 +252,16 @@ for t_, at in [(0.8, [-16, 0, -22]), (6.0, [-3, 0, -6]), (12.4, [17, 0, -18]), (
                (29.4, [8, 0, -16]), (35.6, [-20, 0, -14]), (42.6, [4, 0, -24])]:
     fx(t_, 'lightning', at)
 # the re-forming
-ev(6.0, 'sound', 'hogwartsmagic:spell.morsmordre', at=[0, 1, 0], volume=1.2, pitch=0.6)
+ev(6.0, 'sfx', 'hogwartsmagic:voldemort.entrance', volume=1.0)
+ev(6.6, 'voice', 'hogwartsmagic:voldemort.voice.entrance', volume=1.0)
 ev(6.05, 'sound', 'minecraft:entity.wither.spawn', at=[0, 1, 0], volume=0.5, pitch=0.6)
 ev(6.0, 'particles', 'minecraft:squid_ink', at=[0, 1.1, 0], count=90, spread=[0.5, 0.9, 0.5])
 ev(6.0, 'particles', 'minecraft:large_smoke', at=[0, 0.6, 0], count=70, spread=[1.2, 0.3, 1.2])
 ev(6.1, 'particles', 'minecraft:soul', at=[0, 0.2, 0], count=24, spread=[1.4, 0.1, 1.4])
-ev(14.8, 'sound', 'hogwartsmagic:voldemort.ambient', at=[0, 1.8, 0], volume=1.0, pitch=0.9)
+ev(14.8, 'voice', 'hogwartsmagic:voldemort.voice.laugh', volume=1.0)
+ev(CURSE - 0.15, 'voice', 'hogwartsmagic:voldemort.voice.avada', volume=1.0)
+ev(33.2, 'sfx', 'hogwartsmagic:voldemort.curse_gather', volume=0.9)
+ev(LEAVE, 'sfx', 'hogwartsmagic:voldemort.smoke_whoosh', volume=0.9)
 for i, (land, _, t_land) in enumerate(KNEEL_AT):
     ev(t_land + 0.15, 'particles', 'minecraft:squid_ink', at=[land[0], 1.0, land[2]], count=40, spread=[0.4, 0.8, 0.4])
     ev(t_land + 0.15, 'sound', 'minecraft:entity.phantom.flap', at=[land[0], 1, land[2]], volume=0.8, pitch=0.6)
@@ -290,8 +294,10 @@ def line(t, text, dur=3.2):
 
 
 say(1.0, 'There are names that are still only whispered.', 3.6)
+line(6.6, 'At last... Let the world kneel.', 2.6)
 line(19.8, 'Kneel.', 2.2)
-line(31.6, 'Who else will stand against me?', 3.0)
+line(CURSE - 0.15, 'Avada Kedavra!', 1.8)
+line(31.9, 'Who else will stand against me?', 3.0)
 say(42.4, 'Lord Voldemort', 2.6, 3)
 
 

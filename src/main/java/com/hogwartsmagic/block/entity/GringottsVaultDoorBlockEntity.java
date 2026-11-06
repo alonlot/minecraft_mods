@@ -1,5 +1,7 @@
 package com.hogwartsmagic.block.entity;
 
+import com.hogwartsmagic.util.MagicParticles;
+
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.block.GringottsVaultDoorBlock;
@@ -380,9 +382,9 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
     private void beatTouch(ServerLevel level, int t) {
         double f = t / (double) TOUCH;
         Vec3 p = this.touch.add(0.0D, this.maxRadius * (0.5D - f) * 1.4D, 0.0D);
-        level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.x, p.y, p.z, 2, 0.04D, 0.04D, 0.04D, 0.0D);
+        level.sendParticles(MagicParticles.SPARK_METAL, p.x, p.y, p.z, 2, 0.04D, 0.04D, 0.04D, 0.0D);
         if (t % 4 == 0) {
-            level.sendParticles(ParticleTypes.WAX_OFF, p.x, p.y, p.z, 1, 0.1D, 0.1D, 0.1D, 0.0D);
+            level.sendParticles(MagicParticles.GLINT_GOLD, p.x, p.y, p.z, 1, 0.1D, 0.1D, 0.1D, 0.0D);
         }
     }
 
@@ -395,9 +397,9 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         double front = (t / (double) RIPPLE) * (this.maxRadius + 3.0D);
         for (int i = 0; i < 14; i++) {
             Vec3 p = at(i * 2.0D * Math.PI / 14.0D, front);
-            level.sendParticles(ParticleTypes.WAX_OFF, p.x, p.y, p.z, 1, 0.02D, 0.02D, 0.02D, 0.0D);
+            level.sendParticles(MagicParticles.GLINT_GOLD, p.x, p.y, p.z, 1, 0.02D, 0.02D, 0.02D, 0.0D);
             if (i % 3 == 0) {
-                level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.x, p.y, p.z, 1,
+                level.sendParticles(MagicParticles.SPARK_METAL, p.x, p.y, p.z, 1,
                         0.05D, 0.05D, 0.05D, 0.0D);
             }
         }
@@ -413,7 +415,7 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
             // Four vents in the frame, on the diagonals so they do not line up with the bolts.
             for (int i = 0; i < 4; i++) {
                 Vec3 p = at(Math.PI / 4.0D + i * Math.PI / 2.0D, this.maxRadius + 0.6D);
-                level.sendParticles(ParticleTypes.CLOUD, p.x, p.y, p.z, 6,
+                level.sendParticles(MagicParticles.SMOKE_GREY, p.x, p.y, p.z, 6,
                         0.05D, 0.05D, 0.05D, 0.03D);
             }
         }
@@ -431,8 +433,8 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         }
         double a = -Math.PI + index * 2.0D * Math.PI / BOLT_COUNT;
         Vec3 p = at(a, this.maxRadius * 0.85D);
-        level.sendParticles(ParticleTypes.CRIT, p.x, p.y, p.z, 8, 0.10D, 0.10D, 0.10D, 0.08D);
-        level.sendParticles(ParticleTypes.SMOKE, p.x, p.y, p.z, 3, 0.08D, 0.08D, 0.08D, 0.01D);
+        level.sendParticles(MagicParticles.SPARK_METAL, p.x, p.y, p.z, 8, 0.10D, 0.10D, 0.10D, 0.08D);
+        level.sendParticles(MagicParticles.SMOKE_GREY, p.x, p.y, p.z, 3, 0.08D, 0.08D, 0.08D, 0.01D);
         // Identical noise twenty-four times is a rattle. Climbing, it is a sequence.
         level.playSound(null, BlockPos.containing(p), SoundEvents.IRON_TRAPDOOR_OPEN,
                 SoundSource.BLOCKS, 0.55F, 0.5F + 0.02F * index);
@@ -447,12 +449,12 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         // Green vapour, pooling along the floor rather than rising: the vault has been shut a
         // long time and what comes out of it is heavier than air.
         Vec3 mouth = Vec3.atCenterOf(this.worldPosition);
-        level.sendParticles(ParticleTypes.SCULK_SOUL, mouth.x, mouth.y - 0.4D, mouth.z, 4,
+        level.sendParticles(MagicParticles.SMOKE_GREEN, mouth.x, mouth.y - 0.4D, mouth.z, 4,
                 0.8D, 0.2D, 0.8D, 0.005D);
-        level.sendParticles(ParticleTypes.COMPOSTER, mouth.x, mouth.y - 0.8D, mouth.z, 3,
+        level.sendParticles(MagicParticles.MOTE_GREEN, mouth.x, mouth.y - 0.8D, mouth.z, 3,
                 1.0D, 0.1D, 1.0D, 0.002D);
         if (t % 6 == 0) {
-            level.sendParticles(ParticleTypes.LARGE_SMOKE, mouth.x, mouth.y, mouth.z, 3,
+            level.sendParticles(MagicParticles.SMOKE_DARK, mouth.x, mouth.y, mouth.z, 3,
                     this.maxRadius * 0.5D, this.maxRadius * 0.5D, this.maxRadius * 0.5D, 0.01D);
         }
     }
@@ -497,7 +499,7 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
                 continue;
             }
             setPhase(level, pos, GringottsVaultDoorBlock.SHUT);
-            level.sendParticles(ParticleTypes.CRIT, pos.getX() + 0.5D, pos.getY() + 0.5D,
+            level.sendParticles(MagicParticles.SPARK_METAL, pos.getX() + 0.5D, pos.getY() + 0.5D,
                     pos.getZ() + 0.5D, 4, 0.3D, 0.3D, 0.3D, 0.02D);
             done++;
         }

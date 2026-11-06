@@ -1,5 +1,7 @@
 package com.hogwartsmagic.block.entity;
 
+import com.hogwartsmagic.util.MagicParticles;
+
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.item.BroomItem;
 import com.hogwartsmagic.menu.BroomWorkbenchMenu;
@@ -353,14 +355,14 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         double y = pos.getY() + 0.72;
         double z = pos.getZ() + 0.5;
         if (level instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.END_ROD, x, y, z, 10, 0.35, 0.2, 0.35, 0.04);
-            serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y, z, 8, 0.4, 0.15, 0.4, 0.0);
-            serverLevel.sendParticles(ParticleTypes.CLOUD, x, y, z, 14, 0.45, 0.18, 0.45, 0.02);
-            serverLevel.sendParticles(ParticleTypes.ENCHANT, x, y + 0.1, z, 12, 0.5, 0.25, 0.5, 0.03);
+            serverLevel.sendParticles(MagicParticles.MOTE_WHITE, x, y, z, 10, 0.35, 0.2, 0.35, 0.04);
+            serverLevel.sendParticles(MagicParticles.GLINT_GOLD, x, y, z, 8, 0.4, 0.15, 0.4, 0.0);
+            serverLevel.sendParticles(MagicParticles.SMOKE_WHITE, x, y, z, 14, 0.45, 0.18, 0.45, 0.02);
+            serverLevel.sendParticles(MagicParticles.MOTE_GOLD, x, y + 0.1, z, 12, 0.5, 0.25, 0.5, 0.03);
             if (quality == AlatusRules.QUALITY_MASTERWORK) {
-                serverLevel.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, x, y + 0.2, z, 24, 0.4, 0.3, 0.4, 0.15);
+                serverLevel.sendParticles(MagicParticles.GLINT_GOLD, x, y + 0.2, z, 24, 0.4, 0.3, 0.4, 0.15);
             } else if (quality == AlatusRules.QUALITY_FINE) {
-                serverLevel.sendParticles(ParticleTypes.WAX_ON, x, y + 0.2, z, 16, 0.4, 0.3, 0.4, 0.05);
+                serverLevel.sendParticles(MagicParticles.GLINT_GOLD, x, y + 0.2, z, 16, 0.4, 0.3, 0.4, 0.05);
             }
         }
         level.playSound(null, x, y, z, SoundEvents.PLAYER_LEVELUP, SoundSource.BLOCKS, 0.28f, 1.35f);
@@ -375,8 +377,8 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         double cx = pos.getX() + 0.5;
         double cy = pos.getY() + 0.58;
         double cz = pos.getZ() + 0.5;
-        level.sendParticles(ParticleTypes.ENCHANT, cx, cy + 0.15, cz, 12, 0.4, 0.22, 0.4, 0.03);
-        level.sendParticles(ParticleTypes.CLOUD, cx, cy, cz, 8, 0.35, 0.12, 0.35, 0.02);
+        level.sendParticles(MagicParticles.MOTE_GOLD, cx, cy + 0.15, cz, 12, 0.4, 0.22, 0.4, 0.03);
+        level.sendParticles(MagicParticles.SMOKE_WHITE, cx, cy, cz, 8, 0.35, 0.12, 0.35, 0.02);
         for (int i = 0; i < 8; i++) {
             double a = (i / 8.0) * Math.PI * 2;
             double px = cx + Math.cos(a) * 0.55;
@@ -398,9 +400,9 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
             double ox = (rand.nextDouble() - 0.5) * 1.1;
             double oy = rand.nextDouble() * 0.9;
             double oz = (rand.nextDouble() - 0.5) * 1.1;
-            level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, cx + ox, cy + oy * 0.35, cz + oz, 1, 0.06, 0.04, 0.06, 0.003);
+            level.sendParticles(MagicParticles.SMOKE_WHITE, cx + ox, cy + oy * 0.35, cz + oz, 1, 0.06, 0.04, 0.06, 0.003);
             if (rand.nextFloat() < 0.45f) {
-                level.sendParticles(ParticleTypes.ENCHANT, cx + ox * 0.9, cy + oy * 0.4, cz + oz * 0.9, 1, 0.1, 0.06, 0.1, 0.015);
+                level.sendParticles(MagicParticles.MOTE_GOLD, cx + ox * 0.9, cy + oy * 0.4, cz + oz * 0.9, 1, 0.1, 0.06, 0.1, 0.015);
             }
         }
 
@@ -411,9 +413,9 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
             double px = cx + Math.cos(ang) * r;
             double pz = cz + Math.sin(ang) * r;
             double py = cy + rand.nextDouble() * 0.45;
-            level.sendParticles(ParticleTypes.CLOUD, px, py, pz, 1, 0.08, 0.05, 0.08, 0.008);
+            level.sendParticles(MagicParticles.SMOKE_WHITE, px, py, pz, 1, 0.08, 0.05, 0.08, 0.008);
             if (s % 2 == 0) {
-                level.sendParticles(ParticleTypes.WHITE_SMOKE, px, py, pz, 1, 0.06, 0.04, 0.06, 0.004);
+                level.sendParticles(MagicParticles.SMOKE_WHITE, px, py, pz, 1, 0.06, 0.04, 0.06, 0.004);
             }
         }
 
@@ -421,7 +423,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
             level.sendParticles(ParticleTypes.SMALL_GUST, cx, cy + 0.1, cz, 2, 0.4, 0.12, 0.4, 0.02);
         }
         if (elapsed > total / 2 && this.craftTicksRemaining % 10 == 0) {
-            level.sendParticles(ParticleTypes.END_ROD, cx, cy + 0.2, cz, 2, 0.25, 0.1, 0.25, 0.025);
+            level.sendParticles(MagicParticles.MOTE_WHITE, cx, cy + 0.2, cz, 2, 0.25, 0.1, 0.25, 0.025);
         }
 
         this.craftAccentPhase++;

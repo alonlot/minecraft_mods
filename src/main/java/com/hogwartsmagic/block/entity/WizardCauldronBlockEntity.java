@@ -1,5 +1,7 @@
 package com.hogwartsmagic.block.entity;
 
+import com.hogwartsmagic.util.MagicParticles;
+
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.WizardCauldronBlock;
 import com.hogwartsmagic.brewing.AdvancedPotions;
@@ -177,7 +179,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         if (ruined) {
             reset();
             level.playSound(null, worldPosition, SoundEvents.BUCKET_FILL, SoundSource.BLOCKS, 1.0f, 0.8f);
-            level.sendParticles(ParticleTypes.SMOKE, cx(), surfaceY(), cz(), 8, 0.2, 0.05, 0.2, 0.01);
+            level.sendParticles(MagicParticles.SMOKE_GREY, cx(), surfaceY(), cz(), 8, 0.2, 0.05, 0.2, 0.01);
             tell(player, "poured");
             changed();
             return;
@@ -295,7 +297,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
             if (BrewQuality.preciseStir(previousWasStir, gap)) {
                 preciseStirs++;
                 level.playSound(null, worldPosition, SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.BLOCKS, 0.5f, 1.6f);
-                level.sendParticles(ParticleTypes.ENCHANT, cx(), surfaceY(), cz(), 4, 0.2, 0.1, 0.2, 0.1);
+                level.sendParticles(MagicParticles.MOTE_GOLD, cx(), surfaceY(), cz(), 4, 0.2, 0.1, 0.2, 0.1);
             }
             lastActionTick = now;
         }
@@ -403,7 +405,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         resetQuality();
         level.playSound(null, worldPosition, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.8f, 0.7f);
         level.playSound(null, worldPosition, SoundEvents.NOTE_BLOCK_BASS.value(), SoundSource.BLOCKS, 1.0f, 0.5f);
-        level.sendParticles(ParticleTypes.SMOKE, cx(), surfaceY(), cz(), 16, 0.25, 0.1, 0.25, 0.02);
+        level.sendParticles(MagicParticles.SMOKE_GREY, cx(), surfaceY(), cz(), 16, 0.25, 0.1, 0.25, 0.02);
         if (player != null) {
             tell(player, "ruin");
             BrewAdvancements.grant(player, BrewAdvancements.RUINED_BREW);
@@ -414,7 +416,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         doses = recipe.doses();
         level.playSound(null, worldPosition, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 1.0f, 1.2f);
         level.playSound(null, worldPosition, SoundEvents.BREWING_STAND_BREW, SoundSource.BLOCKS, 0.8f, 1.0f);
-        level.sendParticles(ParticleTypes.END_ROD, cx(), surfaceY() + 0.1, cz(), 16, 0.25, 0.2, 0.25, 0.02);
+        level.sendParticles(MagicParticles.MOTE_WHITE, cx(), surfaceY() + 0.1, cz(), 16, 0.25, 0.2, 0.25, 0.02);
         if (player != null) {
             Component name = Component.translatable("brew.hogwartsmagic." + recipe.id());
             tell(player, "finished_quality", name,
@@ -525,7 +527,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
                 level.playSound(null, worldPosition, SoundEvents.LAVA_POP, SoundSource.BLOCKS, 0.6f, 1.0f);
             }
             if (BrewRules.match(history).status() == BrewRules.Status.FINISHED) {
-                level.sendParticles(ParticleTypes.END_ROD, cx(), surfaceY() + 0.1, cz(), 2, 0.2, 0.1, 0.2, 0.01);
+                level.sendParticles(MagicParticles.MOTE_WHITE, cx(), surfaceY() + 0.1, cz(), 2, 0.2, 0.1, 0.2, 0.01);
             }
             setChanged();
         }

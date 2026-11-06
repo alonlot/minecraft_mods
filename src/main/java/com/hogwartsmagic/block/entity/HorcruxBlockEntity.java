@@ -1,5 +1,7 @@
 package com.hogwartsmagic.block.entity;
 
+import com.hogwartsmagic.util.MagicParticles;
+
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.HorcruxBlock;
 import com.hogwartsmagic.entity.DementorEntity;
@@ -42,14 +44,14 @@ public class HorcruxBlockEntity extends BlockEntity {
             horcrux.flareTicks--;
         }
         if ((horcrux.active || horcrux.primed) && serverLevel.getGameTime() % 4L == 0L) {
-            serverLevel.sendParticles(ParticleTypes.SOUL,
+            serverLevel.sendParticles(MagicParticles.MOTE_GREEN,
                     pos.getX() + 0.5, pos.getY() + 1.05, pos.getZ() + 0.5,
                     2, 0.18, 0.14, 0.18, 0.005);
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK,
+            serverLevel.sendParticles(MagicParticles.SMOKE_DARK,
                     pos.getX() + 0.5, pos.getY() + 0.75, pos.getZ() + 0.5,
                     1, 0.14, 0.06, 0.14, 0.004);
             if (serverLevel.random.nextInt(horcrux.active ? 5 : 3) == 0) {
-                serverLevel.sendParticles(ParticleTypes.DRAGON_BREATH,
+                serverLevel.sendParticles(MagicParticles.SMOKE_GREEN,
                         pos.getX() + 0.5, pos.getY() + 0.9, pos.getZ() + 0.5,
                         1, 0.12, 0.1, 0.12, 0.002);
             }
@@ -101,9 +103,9 @@ public class HorcruxBlockEntity extends BlockEntity {
         flareTicks = 0;
         setChanged();
         syncToClients();
-        level.sendParticles(ParticleTypes.SQUID_INK, worldPosition.getX() + 0.5, worldPosition.getY() + 0.8, worldPosition.getZ() + 0.5,
+        level.sendParticles(MagicParticles.SMOKE_DARK, worldPosition.getX() + 0.5, worldPosition.getY() + 0.8, worldPosition.getZ() + 0.5,
                 18, 0.28, 0.2, 0.28, 0.02);
-        level.sendParticles(ParticleTypes.DRAGON_BREATH, worldPosition.getX() + 0.5, worldPosition.getY() + 0.75, worldPosition.getZ() + 0.5,
+        level.sendParticles(MagicParticles.SMOKE_GREEN, worldPosition.getX() + 0.5, worldPosition.getY() + 0.75, worldPosition.getZ() + 0.5,
                 16, 0.25, 0.18, 0.25, 0.03);
         level.playSound(null, worldPosition, com.hogwartsmagic.ModSounds.HORCRUX_SHATTER.get(), SoundSource.BLOCKS, 1.0f, 1.0f);
         level.destroyBlock(worldPosition, false);
@@ -115,9 +117,9 @@ public class HorcruxBlockEntity extends BlockEntity {
         }
         suppressForcedBreakEffects = true;
         boolean hostileBreak = ownerUuid != null && breaker != null && !ownerUuid.equals(breaker.getUUID());
-        level.sendParticles(ParticleTypes.SQUID_INK, worldPosition.getX() + 0.5, worldPosition.getY() + 0.85, worldPosition.getZ() + 0.5,
+        level.sendParticles(MagicParticles.SMOKE_DARK, worldPosition.getX() + 0.5, worldPosition.getY() + 0.85, worldPosition.getZ() + 0.5,
                 30, 0.35, 0.24, 0.35, 0.03);
-        level.sendParticles(ParticleTypes.LARGE_SMOKE, worldPosition.getX() + 0.5, worldPosition.getY() + 0.85, worldPosition.getZ() + 0.5,
+        level.sendParticles(MagicParticles.SMOKE_DARK, worldPosition.getX() + 0.5, worldPosition.getY() + 0.85, worldPosition.getZ() + 0.5,
                 20, 0.24, 0.18, 0.24, 0.02);
         level.playSound(null, worldPosition, com.hogwartsmagic.ModSounds.HORCRUX_BREAK.get(), SoundSource.BLOCKS, 1.0f, 1.0f);
         if (hostileBreak) {
@@ -140,7 +142,7 @@ public class HorcruxBlockEntity extends BlockEntity {
         dementor.finalizeSpawn(level, level.getCurrentDifficultyAt(worldPosition), MobSpawnType.EVENT, null);
         dementor.setTarget(breaker);
         level.addFreshEntity(dementor);
-        level.sendParticles(ParticleTypes.SOUL, worldPosition.getX() + 0.5, worldPosition.getY() + 1.1, worldPosition.getZ() + 0.5,
+        level.sendParticles(MagicParticles.MOTE_GREEN, worldPosition.getX() + 0.5, worldPosition.getY() + 1.1, worldPosition.getZ() + 0.5,
                 26, 0.35, 0.55, 0.35, 0.02);
         level.playSound(null, worldPosition, com.hogwartsmagic.ModSounds.HORCRUX_SCREAM.get(), SoundSource.HOSTILE, 1.0f, 1.0f);
     }

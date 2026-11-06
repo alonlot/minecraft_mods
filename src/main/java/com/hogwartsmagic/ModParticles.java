@@ -1,7 +1,10 @@
 package com.hogwartsmagic;
 
+import com.mojang.serialization.MapCodec;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -28,6 +31,39 @@ public final class ModParticles {
     public static final RegistryObject<SimpleParticleType> ROOT_DUST = simple("root_dust");
     /** The tell: a sickly glint rising off the ground where a limb is about to land. */
     public static final RegistryObject<SimpleParticleType> WILLOW_GLINT = simple("willow_glint");
+
+    /** A soft glowing dot that drifts and twinkles, coloured per spawn (MagicParticleOptions.mote). */
+    public static final RegistryObject<ParticleType<MagicParticleOptions>> MAGIC_MOTE =
+            tinted("magic_mote", MagicParticleOptions.MOTE);
+    /** A short bright streak stretched along its velocity, coloured per spawn. */
+    public static final RegistryObject<ParticleType<MagicParticleOptions>> SPARK =
+            tinted("spark", MagicParticleOptions.SPARK);
+    /** A big soft puff that grows, turns slowly and fades, tinted per spawn. */
+    public static final RegistryObject<ParticleType<MagicParticleOptions>> SOFT_SMOKE =
+            tinted("soft_smoke", MagicParticleOptions.SMOKE);
+    /** A four point star twinkle, coloured per spawn. */
+    public static final RegistryObject<ParticleType<MagicParticleOptions>> GLINT =
+            tinted("glint", MagicParticleOptions.GLINT);
+    /** A full-bright spark of fire: drifts up, flickers and cools from yellow to deep red. */
+    public static final RegistryObject<SimpleParticleType> EMBER = simple("ember");
+
+    private static RegistryObject<ParticleType<MagicParticleOptions>> tinted(String name, int kind) {
+        return PARTICLE_TYPES.register(name, () -> new ParticleType<MagicParticleOptions>(false) {
+            private final MapCodec<MagicParticleOptions> codec = MagicParticleOptions.codec(kind);
+            private final StreamCodec<RegistryFriendlyByteBuf, MagicParticleOptions> stream =
+                    MagicParticleOptions.streamCodec(kind);
+
+            @Override
+            public MapCodec<MagicParticleOptions> codec() {
+                return codec;
+            }
+
+            @Override
+            public StreamCodec<? super RegistryFriendlyByteBuf, MagicParticleOptions> streamCodec() {
+                return stream;
+            }
+        });
+    }
 
     private static RegistryObject<SimpleParticleType> simple(String name) {
         // overrideLimiter false: these are spawned in bursts and should respect the client's

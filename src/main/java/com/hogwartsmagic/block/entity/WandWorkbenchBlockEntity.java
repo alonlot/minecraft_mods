@@ -1,5 +1,7 @@
 package com.hogwartsmagic.block.entity;
 
+import com.hogwartsmagic.util.MagicParticles;
+
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.menu.WandWorkbenchMenu;
@@ -64,8 +66,8 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
     /** Players feel the vortex but are nudged less than mobs (still readable in PvE / co-op). */
     private static final double TORNADO_PLAYER_STRENGTH_MULT = 0.42;
 
-    private static final DustParticleOptions MAGIC_SPARK_GOLD = new DustParticleOptions(new Vector3f(0.96f, 0.84f, 0.38f), 1.2f);
-    private static final DustParticleOptions MAGIC_SPARK_VIOLET = new DustParticleOptions(new Vector3f(0.58f, 0.42f, 0.92f), 1.1f);
+    private static final com.hogwartsmagic.MagicParticleOptions MAGIC_SPARK_GOLD = MagicParticles.SPARK_GOLD;
+    private static final com.hogwartsmagic.MagicParticleOptions MAGIC_SPARK_VIOLET = MagicParticles.SPARK_VIOLET;
 
     private int craftTicksRemaining;
     private int craftAccentPhase;
@@ -266,56 +268,56 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
             double x = cx + (rand.nextDouble() - 0.5) * 0.45;
             double y = pos.getY() + 0.55 + rand.nextDouble() * 0.75;
             double z = cz + (rand.nextDouble() - 0.5) * 0.45;
-            level.sendParticles(ParticleTypes.ENCHANT, x, y, z, 2, 0.28, 0.16, 0.28, 0.03);
+            level.sendParticles(MagicParticles.MOTE_GOLD, x, y, z, 2, 0.28, 0.16, 0.28, 0.03);
             if (rand.nextFloat() < 0.45f) {
                 level.sendParticles(MAGIC_SPARK_GOLD, x, y, z, 1, 0.12, 0.08, 0.12, 0.02);
             }
         }
         if (this.craftTicksRemaining % 5 == 0) {
-            level.sendParticles(ParticleTypes.DRAGON_BREATH, cx, cy + 0.1, cz, 1, 0.35, 0.2, 0.35, 0.015);
+            level.sendParticles(MagicParticles.SMOKE_VIOLET, cx, cy + 0.1, cz, 1, 0.35, 0.2, 0.35, 0.015);
         }
         if (rand.nextFloat() < 0.2f) {
             double x = cx + (rand.nextDouble() - 0.5) * WIND_BOX_HALF;
             double y = pos.getY() + 0.25 + rand.nextDouble() * WIND_HEIGHT;
             double z = cz + (rand.nextDouble() - 0.5) * WIND_BOX_HALF;
-            level.sendParticles(ParticleTypes.WITCH, x, y, z, 1, 0.28, 0.12, 0.28, 0.01);
+            level.sendParticles(MagicParticles.MOTE_VIOLET, x, y, z, 1, 0.28, 0.12, 0.28, 0.01);
         }
         if (rand.nextFloat() < 0.16f) {
             double x = cx + (rand.nextDouble() - 0.5) * WIND_BOX_HALF;
             double y = pos.getY() + 0.25 + rand.nextDouble() * WIND_HEIGHT;
             double z = cz + (rand.nextDouble() - 0.5) * WIND_BOX_HALF;
-            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 1, 0.25, 0.1, 0.25, 0.025);
+            level.sendParticles(MagicParticles.SPARK_VIOLET, x, y, z, 1, 0.25, 0.1, 0.25, 0.025);
             if (rand.nextFloat() < 0.35f) {
                 level.sendParticles(MAGIC_SPARK_VIOLET, x, y, z, 1, 0.1, 0.06, 0.1, 0.015);
             }
         }
         if (rand.nextFloat() < 0.22f) {
-            level.sendParticles(ParticleTypes.PORTAL, cx, cy, cz, 2, 0.5, 0.28, 0.5, 0.025);
+            level.sendParticles(MagicParticles.MOTE_VIOLET, cx, cy, cz, 2, 0.5, 0.28, 0.5, 0.025);
         }
         if (this.craftTicksRemaining % 12 == 0) {
-            level.sendParticles(ParticleTypes.REVERSE_PORTAL, cx, cy + 0.2, cz, 3, 0.42, 0.3, 0.42, 0.015);
+            level.sendParticles(MagicParticles.MOTE_ICE, cx, cy + 0.2, cz, 3, 0.42, 0.3, 0.42, 0.015);
         }
         if (elapsed > total / 2 && this.craftTicksRemaining % 9 == 0) {
-            level.sendParticles(ParticleTypes.NAUTILUS, cx, cy + 0.25, cz, 2, 0.4, 0.22, 0.4, 0.04);
+            level.sendParticles(MagicParticles.MOTE_TEAL, cx, cy + 0.25, cz, 2, 0.4, 0.22, 0.4, 0.04);
         }
 
         ItemStack core = this.inventory.getStackInSlot(SLOT_CORE);
         if (core.is(ExampleMod.DRAGON_HEARTSTRING_CORE.get()) && rand.nextFloat() < 0.12f) {
-            level.sendParticles(ParticleTypes.FLAME, cx + (rand.nextDouble() - 0.5) * 0.4, cy, cz + (rand.nextDouble() - 0.5) * 0.4, 1, 0.2, 0.06, 0.2, 0.01);
+            level.sendParticles(MagicParticles.ember(), cx + (rand.nextDouble() - 0.5) * 0.4, cy, cz + (rand.nextDouble() - 0.5) * 0.4, 1, 0.2, 0.06, 0.2, 0.01);
         } else if (core.is(ExampleMod.PHOENIX_FEATHER_CORE.get()) && rand.nextFloat() < 0.1f) {
-            level.sendParticles(ParticleTypes.FIREWORK, cx, cy + 0.1, cz, 1, 0.2, 0.08, 0.2, 0.01);
+            level.sendParticles(MagicParticles.SPARK_GOLD, cx, cy + 0.1, cz, 1, 0.2, 0.08, 0.2, 0.01);
         }
 
         if (this.craftTicksRemaining % 14 == 0) {
             level.sendParticles(ParticleTypes.GUST, cx, cy, cz, 1, 0.45, 0.18, 0.45, 0.02);
             level.sendParticles(ParticleTypes.SMALL_GUST, cx, cy + 0.08, cz, 2, 0.5, 0.2, 0.5, 0.02);
-            level.sendParticles(ParticleTypes.END_ROD, cx, cy + 0.12, cz, 2, 0.25, 0.12, 0.25, 0.03);
+            level.sendParticles(MagicParticles.MOTE_WHITE, cx, cy + 0.12, cz, 2, 0.25, 0.12, 0.25, 0.03);
         }
         if (this.craftTicksRemaining % 32 == 0) {
             level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, cx, pos.getY() + 0.65, cz, 1, 0.08, 0.06, 0.08, 0.0);
         }
         if (this.craftTicksRemaining % 22 == 0) {
-            level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, cx, cy + 0.35, cz, 1, 0.15, 0.08, 0.15, 0.0);
+            level.sendParticles(MagicParticles.GLINT_GOLD, cx, cy + 0.35, cz, 1, 0.15, 0.08, 0.15, 0.0);
         }
 
         if (this.craftTicksRemaining % CHIME_INTERVAL_TICKS == 0) {
@@ -409,7 +411,7 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
         double cy = pos.getY() + 0.55;
         double cz = pos.getZ() + 0.5;
         level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, cx, cy, cz, 1, 0.06, 0.05, 0.06, 0.0);
-        level.sendParticles(ParticleTypes.ENCHANT, cx, cy + 0.2, cz, 8, 0.35, 0.2, 0.35, 0.04);
+        level.sendParticles(MagicParticles.MOTE_GOLD, cx, cy + 0.2, cz, 8, 0.35, 0.2, 0.35, 0.04);
         level.sendParticles(MAGIC_SPARK_GOLD, cx, cy + 0.15, cz, 6, 0.3, 0.15, 0.3, 0.02);
         double r = 0.75;
         for (int i = 0; i < 10; i++) {
@@ -418,10 +420,10 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
             double pz = cz + Math.sin(a) * r;
             level.sendParticles(ParticleTypes.SMALL_GUST, px, cy, pz, 1, 0.15, 0.08, 0.15, 0.015);
             if (i % 2 == 0) {
-                level.sendParticles(ParticleTypes.WHITE_SMOKE, px, cy + 0.04, pz, 1, 0.12, 0.06, 0.12, 0.008);
+                level.sendParticles(MagicParticles.SMOKE_WHITE, px, cy + 0.04, pz, 1, 0.12, 0.06, 0.12, 0.008);
             }
             if (i % 3 == 0) {
-                level.sendParticles(ParticleTypes.END_ROD, px, cy + 0.08, pz, 1, 0.08, 0.04, 0.08, 0.02);
+                level.sendParticles(MagicParticles.MOTE_WHITE, px, cy + 0.08, pz, 1, 0.08, 0.04, 0.08, 0.02);
             }
         }
     }
@@ -438,16 +440,16 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
             double py = cy + rand.nextDouble() * 0.6 + Math.sin(a * 2) * 0.06;
             level.sendParticles(ParticleTypes.SMALL_GUST, px, py, pz, 1, 0.12, 0.08, 0.12, 0.012);
             if (i % 2 == 0) {
-                level.sendParticles(ParticleTypes.WHITE_SMOKE, px, py, pz, 1, 0.1, 0.06, 0.1, 0.005);
+                level.sendParticles(MagicParticles.SMOKE_WHITE, px, py, pz, 1, 0.1, 0.06, 0.1, 0.005);
             }
             if (i % 3 == 0) {
-                level.sendParticles(ParticleTypes.ENCHANT, px, py + 0.06, pz, 1, 0.1, 0.06, 0.1, 0.02);
+                level.sendParticles(MagicParticles.MOTE_GOLD, px, py + 0.06, pz, 1, 0.1, 0.06, 0.1, 0.02);
             }
             if (i % 4 == 0) {
                 level.sendParticles(MAGIC_SPARK_VIOLET, px, py + 0.04, pz, 1, 0.06, 0.04, 0.06, 0.01);
             }
             if (i % 5 == 0) {
-                level.sendParticles(ParticleTypes.DRAGON_BREATH, px, py - 0.02, pz, 1, 0.1, 0.06, 0.1, 0.01);
+                level.sendParticles(MagicParticles.SMOKE_VIOLET, px, py - 0.02, pz, 1, 0.1, 0.06, 0.1, 0.01);
             }
         }
     }
@@ -458,15 +460,15 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
             double ox = (rand.nextDouble() - 0.5) * 2.0 * WIND_BOX_HALF;
             double oy = rand.nextDouble() * WIND_HEIGHT;
             double oz = (rand.nextDouble() - 0.5) * 2.0 * WIND_BOX_HALF;
-            level.sendParticles(ParticleTypes.WHITE_SMOKE, cx + ox, cy + oy * 0.45, cz + oz, 1, 0.15, 0.08, 0.15, 0.004);
+            level.sendParticles(MagicParticles.SMOKE_WHITE, cx + ox, cy + oy * 0.45, cz + oz, 1, 0.15, 0.08, 0.15, 0.004);
             if (rand.nextFloat() < 0.55f) {
-                level.sendParticles(ParticleTypes.ENCHANT, cx + ox * 0.85, cy + oy * 0.5, cz + oz * 0.85, 1, 0.14, 0.08, 0.14, 0.015);
+                level.sendParticles(MagicParticles.MOTE_GOLD, cx + ox * 0.85, cy + oy * 0.5, cz + oz * 0.85, 1, 0.14, 0.08, 0.14, 0.015);
             }
             if (rand.nextFloat() < 0.35f) {
                 level.sendParticles(MAGIC_SPARK_GOLD, cx + ox * 0.8, cy + oy * 0.48, cz + oz * 0.8, 1, 0.08, 0.05, 0.08, 0.012);
             }
             if (rand.nextFloat() < 0.2f) {
-                level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, cx + ox * 0.75, cy + oy * 0.42, cz + oz * 0.75, 1, 0.06, 0.04, 0.06, 0.008);
+                level.sendParticles(MagicParticles.MOTE_TEAL, cx + ox * 0.75, cy + oy * 0.42, cz + oz * 0.75, 1, 0.06, 0.04, 0.06, 0.008);
             }
         }
     }
@@ -478,15 +480,15 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
             double sx = cx + Math.cos(t) * sr;
             double sz = cz + Math.sin(t) * sr;
             double sy = baseY + i * 0.1;
-            level.sendParticles(ParticleTypes.ENCHANT, sx, sy, sz, 2, 0.12, 0.07, 0.12, 0.025);
+            level.sendParticles(MagicParticles.MOTE_GOLD, sx, sy, sz, 2, 0.12, 0.07, 0.12, 0.025);
             if (i % 2 == 0) {
-                level.sendParticles(ParticleTypes.PORTAL, sx, sy, sz, 1, 0.08, 0.05, 0.08, 0.012);
+                level.sendParticles(MagicParticles.MOTE_VIOLET, sx, sy, sz, 1, 0.08, 0.05, 0.08, 0.012);
             }
             if (i % 3 == 0) {
                 level.sendParticles(ParticleTypes.SMALL_GUST, sx, sy, sz, 1, 0.1, 0.05, 0.1, 0.01);
             }
             if (i % 4 == 0) {
-                level.sendParticles(ParticleTypes.END_ROD, sx, sy + 0.04, sz, 1, 0.06, 0.03, 0.06, 0.015);
+                level.sendParticles(MagicParticles.MOTE_WHITE, sx, sy + 0.04, sz, 1, 0.06, 0.03, 0.06, 0.015);
             }
             if (i % 5 == 0) {
                 level.sendParticles(MAGIC_SPARK_VIOLET, sx, sy, sz, 1, 0.05, 0.03, 0.05, 0.01);
@@ -502,9 +504,9 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
             double ox = (rand.nextDouble() - 0.5) * 1.65;
             double oz = (rand.nextDouble() - 0.5) * 1.65;
             double py = cy + rand.nextDouble() * 0.55;
-            level.sendParticles(ParticleTypes.SWEEP_ATTACK, cx + ox, py, cz + oz, 1, 0.08, 0.03, 0.08, 0.0);
+            level.sendParticles(MagicParticles.SPARK_WHITE, cx + ox, py, cz + oz, 1, 0.08, 0.03, 0.08, 0.0);
             if (s == 0) {
-                level.sendParticles(ParticleTypes.CRIT, cx + ox * 0.9, py, cz + oz * 0.9, 2, 0.12, 0.05, 0.12, 0.0);
+                level.sendParticles(MagicParticles.SPARK_WHITE, cx + ox * 0.9, py, cz + oz * 0.9, 2, 0.12, 0.05, 0.12, 0.0);
             }
         }
     }
@@ -538,16 +540,16 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
                         double py = y - 0.05 + ring * 0.06;
                         serverLevel.sendParticles(ParticleTypes.SMALL_GUST, px, py, pz, 1, 0.15, 0.08, 0.15, 0.015);
                         if (i % 2 == 0) {
-                            serverLevel.sendParticles(ParticleTypes.WHITE_SMOKE, px, py + 0.04, pz, 1, 0.12, 0.06, 0.12, 0.005);
+                            serverLevel.sendParticles(MagicParticles.SMOKE_WHITE, px, py + 0.04, pz, 1, 0.12, 0.06, 0.12, 0.005);
                         }
                         if (i % 3 == 0) {
-                            serverLevel.sendParticles(ParticleTypes.ENCHANT, px, py + 0.08, pz, 1, 0.08, 0.04, 0.08, 0.012);
+                            serverLevel.sendParticles(MagicParticles.MOTE_GOLD, px, py + 0.08, pz, 1, 0.08, 0.04, 0.08, 0.012);
                         }
                     }
                 }
-                serverLevel.sendParticles(ParticleTypes.END_ROD, x, y, z, 6, 0.35, 0.18, 0.35, 0.03);
-                serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y, z, 4, 0.3, 0.12, 0.3, 0.0);
-                serverLevel.sendParticles(ParticleTypes.PORTAL, x, y, z, 5, 0.35, 0.15, 0.35, 0.02);
+                serverLevel.sendParticles(MagicParticles.MOTE_WHITE, x, y, z, 6, 0.35, 0.18, 0.35, 0.03);
+                serverLevel.sendParticles(MagicParticles.GLINT_GOLD, x, y, z, 4, 0.3, 0.12, 0.3, 0.0);
+                serverLevel.sendParticles(MagicParticles.MOTE_VIOLET, x, y, z, 5, 0.35, 0.15, 0.35, 0.02);
                 serverLevel.sendParticles(MAGIC_SPARK_GOLD, x, y + 0.1, z, 10, 0.45, 0.2, 0.45, 0.03);
                 serverLevel.sendParticles(MAGIC_SPARK_VIOLET, x, y, z, 8, 0.4, 0.18, 0.4, 0.025);
                 this.applyCraftTornadoToMobs(serverLevel, pos, 2.4);

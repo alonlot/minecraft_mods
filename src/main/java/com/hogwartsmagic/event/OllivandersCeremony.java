@@ -1,6 +1,12 @@
 package com.hogwartsmagic.event;
 
+import com.hogwartsmagic.util.MagicParticles;
+
 import net.minecraft.ChatFormatting;
+import com.hogwartsmagic.MagicParticleOptions;
+import com.hogwartsmagic.sorting.HogwartsHouse;
+import com.hogwartsmagic.sorting.HousePerks;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -40,10 +46,11 @@ import java.util.List;
  *       than the last: paper everywhere, then a bang, then a wretched fizzle. Snatched back before
  *       the customer can apologise.</li>
  *   <li><b>The one that will.</b> Holly, phoenix feather, eleven inches. Warm light gathers in and
- *       the wind gets up inside the shop.</li>
+ *       the wind gets up inside the shop. The room holds its breath, then the wand chooses: a
+ *       flash, sparks, rings of motes thrown out across the floor and glints left hanging.</li>
  *   <li><b>Curious.</b> The quiet beat: one other feather, one brother wand, and where it left its
- *       mark. This is the beat the whole scene is built to arrive at, so it is the only one with no
- *       effects in it at all -- just his voice and a very still camera.</li>
+ *       mark. This is the beat the whole scene is built to arrive at, so once the afterglow of the
+ *       choosing has died it has no effects in it at all -- just his voice and a very still camera.</li>
  *   <li><b>Release.</b></li>
  * </ol>
  *
@@ -85,6 +92,17 @@ public final class OllivandersCeremony {
     private static final int T_CHOSEN = T_TRY3 + CHOSEN;
     private static final int T_CURIOUS = T_CHOSEN + CURIOUS;
     private static final int TOTAL = T_CURIOUS + RELEASE;
+
+    /** Dust hanging in the shop light: tiny, dim, warm. */
+    private static final MagicParticleOptions DUST_MOTE = MagicParticleOptions.mote(1.0F, 0.93F, 0.75F, 0.45F);
+    /** The held-breath tell: one big slow glint over the wand. */
+    private static final MagicParticleOptions GLINT_BREATH = MagicParticleOptions.glint(1.0F, 0.95F, 0.8F, 2.2F);
+    /** Phoenix gold, the wand's own colour. */
+    private static final int PHOENIX_GOLD = 0xFFC94A;
+    /** Phoenix flame, used when the customer has no house yet. */
+    private static final int PHOENIX_FLAME = 0xFF6A2A;
+    /** How long the room holds its breath between the light arriving and the burst. */
+    private static final int BREATH = 12;
 
     private static final String FLAG = "hogwartsmagic:ollivanders_done";
 
@@ -292,8 +310,8 @@ public final class OllivandersCeremony {
             // Dust hanging in the light, all the way through -- the shop has not been swept in
             // several centuries and it is the cheapest way to make the air read as still.
             if (t % 3 == 0) {
-                level.sendParticles(ParticleTypes.WHITE_ASH, centre.x, centre.y, centre.z,
-                        2, 1.4D, 1.0D, 1.4D, 0.005D);
+                level.sendParticles(DUST_MOTE, centre.x, centre.y, centre.z,
+                        2, 1.4D, 1.0D, 1.4D, 0.004D);
             }
 
             if (t == T_STILL) {
@@ -311,7 +329,7 @@ public final class OllivandersCeremony {
                 double u = (t - T_REMEMBER) / (double) MEASURE;
                 double a = u * Math.PI * 6.0D;
                 double r = 0.75D;
-                level.sendParticles(ParticleTypes.END_ROD,
+                level.sendParticles(MagicParticles.MOTE_WHITE,
                         stand.x + Math.cos(a) * r, stand.y + 0.2D + u * 1.9D, stand.z + Math.sin(a) * r,
                         1, 0.0D, 0.0D, 0.0D, 0.0D);
                 if (t % 12 == 0) {
@@ -347,29 +365,66 @@ public final class OllivandersCeremony {
             } else if (t == T_TRY3 + 26) {
                 say(11, "Holly. Phoenix feather. Eleven inches, and very supple indeed.");
             }
-            if (t > T_TRY3 + 26 && t <= T_CHOSEN) {
+            if (t > T_TRY3 + 26 && t <= T_CHOSEN - BREATH) {
                 // Light gathers IN rather than bursting out. A burst is a firework; converging
-                // light is something choosing you.
-                double u = (t - (T_TRY3 + 26)) / (double) (CHOSEN - 26);
-                double r = 3.2D * (1.0D - u) + 0.4D;
+                // light is something choosing you. Every mote is thrown at the wand, so the
+                // whole room leans toward it, and the three arms tighten as the voice goes quiet.
+                double u = (t - (T_TRY3 + 26)) / (double) (CHOSEN - BREATH - 26);
+                double r = 3.2D * (1.0D - u) + 0.5D;
+                Vec3 wand = stand.add(0.0D, 1.25D, 0.0D);
                 for (int i = 0; i < 3; i++) {
                     double a = (t * 0.35D) + i * (Math.PI * 2.0D / 3.0D);
-                    level.sendParticles(ParticleTypes.END_ROD,
-                            stand.x + Math.cos(a) * r, stand.y + 1.0D + Math.sin(u * Math.PI) * 0.9D,
-                            stand.z + Math.sin(a) * r, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                    double px = stand.x + Math.cos(a) * r;
+                    double py = stand.y + 1.0D + Math.sin(u * Math.PI) * 0.9D;
+                    double pz = stand.z + Math.sin(a) * r;
+                    // thrown at the wand with a sideways curl, so each mote spirals in
+                    double ix = wand.x - px;
+                    double iy = wand.y - py;
+                    double iz = wand.z - pz;
+                    double il = Math.max(0.001D, Math.sqrt(ix * ix + iy * iy + iz * iz));
+                    double tx = -Math.sin(a) * 0.5D;
+                    double tz = Math.cos(a) * 0.5D;
+                    ParticleOptions arm = i == 0 ? MagicParticles.MOTE_WHITE : (i == 1 ? gold(1.0F) : accent(1.0F));
+                    level.sendParticles(arm, px, py, pz, 0,
+                            ix / il + tx, iy / il, iz / il + tz, 0.05D + 0.06D * u);
                 }
                 if (t % 6 == 0) {
-                    level.sendParticles(ParticleTypes.GLOW, stand.x, stand.y + 1.2D, stand.z,
+                    level.sendParticles(gold(0.9F), stand.x, stand.y + 1.2D, stand.z,
                             4, 0.35D, 0.5D, 0.35D, 0.01D);
+                }
+                // fine sparks racing in along the floor, more of them as it nears
+                if (t % 4 == 0 && u > 0.35D) {
+                    double a = level.random.nextDouble() * Math.PI * 2.0D;
+                    level.sendParticles(MagicParticles.SPARK_GOLD,
+                            stand.x + Math.cos(a) * 2.2D, stand.y + 0.6D + level.random.nextDouble() * 1.2D,
+                            stand.z + Math.sin(a) * 2.2D, 0, -Math.cos(a), 0.05D, -Math.sin(a), 0.14D);
                 }
                 if (t == T_TRY3 + 34) {
                     sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_CHOSEN.get(), 1.0F, 1.0F);
                 }
             }
 
+            // --- a held breath ---------------------------------------------------------------------
+            // Everything stops. One glint hangs over the wand and swells: the tell.
+            if (t == T_CHOSEN - BREATH + 1 || t == T_CHOSEN - 5) {
+                level.sendParticles(GLINT_BREATH, stand.x, stand.y + 1.25D, stand.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            }
+
+            // --- and the wand chooses ----------------------------------------------------------------
+            if (t == T_CHOSEN) {
+                choose(level);
+            } else if (t > T_CHOSEN && t <= T_CHOSEN + 30 && t % 3 == 0) {
+                // the afterglow: glints hang where the light was and a few motes settle through them
+                level.sendParticles(MagicParticles.GLINT_GOLD, stand.x, stand.y + 1.3D, stand.z,
+                        1, 1.5D, 0.7D, 1.5D, 0.0D);
+                level.sendParticles(gold(0.7F), stand.x, stand.y + 1.3D, stand.z,
+                        2, 1.3D, 0.6D, 1.3D, 0.0D);
+            }
+
             // --- curious ------------------------------------------------------------------------
-            // Deliberately empty of effects. Everything before this beat was noise so that this one
-            // can be quiet, and a shower of particles over the best line in the scene would waste it.
+            // Deliberately empty of effects (the afterglow above has died away). Everything before
+            // this beat was noise so that this one can be quiet, and a shower of particles over the
+            // best line in the scene would waste it.
             if (t == T_CHOSEN + 10) {
                 title(Component.literal("Curious").withStyle(ChatFormatting.GOLD), null, 10, 45, 15);
                 say(12, "Curious. Very curious.");
@@ -387,6 +442,60 @@ public final class OllivandersCeremony {
             }
         }
 
+        /** The customer's house colour if they have one, otherwise the phoenix's flame. */
+        private int accentRgb() {
+            HogwartsHouse house = HousePerks.getHouse(player);
+            if (house == HogwartsHouse.GRYFFINDOR) {
+                return 0xE0302A;
+            } else if (house == HogwartsHouse.RAVENCLAW) {
+                return 0x4F7BFF;
+            } else if (house == HogwartsHouse.HUFFLEPUFF) {
+                return 0xFFD83A;
+            } else if (house == HogwartsHouse.SLYTHERIN) {
+                return 0x3DDB74;
+            }
+            return PHOENIX_FLAME;
+        }
+
+        private ParticleOptions accent(float scale) {
+            return MagicParticleOptions.mote(accentRgb(), scale);
+        }
+
+        private ParticleOptions gold(float scale) {
+            return MagicParticleOptions.mote(PHOENIX_GOLD, scale);
+        }
+
+        /**
+         * The wand chooses. A flash, a sphere of gold sparks, rings of motes thrown out across the
+         * floor, a column of light, and glints left hanging in the air afterwards. In the wand's
+         * gold and the customer's house colour (the phoenix's flame if they have none yet). The
+         * ground gives a short, light shudder, no more.
+         */
+        private void choose(ServerLevel level) {
+            Vec3 w = stand.add(0.0D, 1.25D, 0.0D);
+            int rgb = accentRgb();
+            com.hogwartsmagic.fx.Fx.shake(level, w, 0.5F, 14.0F, 14);
+            level.sendParticles(ParticleTypes.FLASH, w.x, w.y, w.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            // sparks in every direction, gold and the house colour
+            MagicParticles.sphere(level, MagicParticles.SPARK_GOLD, w.x, w.y, w.z, 34, 0.55D, level.random);
+            MagicParticles.sphere(level, MagicParticleOptions.spark(rgb, 1.0F), w.x, w.y, w.z, 22, 0.42D, level.random);
+            // rings of motes: fast gold at the height of the wand, a slower house one below, a white one above
+            MagicParticles.ring(level, gold(1.5F), w.x, w.y, w.z, 40, 0.34D);
+            MagicParticles.ring(level, accent(1.3F), w.x, w.y - 0.15D, w.z, 28, 0.2D);
+            MagicParticles.ring(level, MagicParticles.MOTE_WHITE, w.x, w.y + 0.2D, w.z, 24, 0.12D);
+            // a column of light climbing out of the wand
+            for (int i = 0; i < 14; i++) {
+                level.sendParticles(MagicParticles.MOTE_WHITE, w.x, w.y + i * 0.14D, w.z, 0,
+                        0.0D, 1.0D, 0.0D, 0.06D + level.random.nextDouble() * 0.05D);
+            }
+            // glints thrown wide, to hang where they stop
+            level.sendParticles(MagicParticles.GLINT_WHITE, w.x, w.y, w.z, 12, 1.4D, 0.8D, 1.4D, 0.0D);
+            level.sendParticles(MagicParticles.GLINT_GOLD, w.x, w.y, w.z, 10, 1.9D, 1.0D, 1.9D, 0.0D);
+            level.sendParticles(MagicParticleOptions.glint(rgb, 1.2F), w.x, w.y, w.z, 8, 1.7D, 0.9D, 1.7D, 0.0D);
+            // a warm puff of light smoke where the light broke
+            level.sendParticles(MagicParticles.SMOKE_GOLD, w.x, w.y, w.z, 5, 0.3D, 0.2D, 0.3D, 0.02D);
+        }
+
         /** A wand arrives out of the stacks and hangs in front of the customer. */
         private void offer(ServerLevel level, String line) {
             say(4, line);
@@ -395,7 +504,7 @@ public final class OllivandersCeremony {
             for (int i = 0; i <= 12; i++) {
                 double u = i / 12.0D;
                 Vec3 p = from.lerp(stand.add(0.0D, 1.3D, 0.0D), u);
-                level.sendParticles(ParticleTypes.ENCHANT, p.x, p.y, p.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                level.sendParticles(MagicParticles.MOTE_GOLD, p.x, p.y, p.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             }
         }
 
@@ -404,16 +513,16 @@ public final class OllivandersCeremony {
             Vec3 at = stand.add(0.0D, 1.3D, 0.0D);
             switch (which) {
                 case 0 -> {         // paper, everywhere
-                    level.sendParticles(ParticleTypes.ENCHANT, at.x, at.y, at.z, 60, 1.6D, 1.0D, 1.6D, 0.6D);
+                    level.sendParticles(MagicParticles.MOTE_GOLD, at.x, at.y, at.z, 60, 1.6D, 1.0D, 1.6D, 0.6D);
                     sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_PAPER.get(), 1.0F, 1.0F);
                 }
                 case 1 -> {         // a bang
                     level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 3, 0.6D, 0.4D, 0.6D, 0.0D);
-                    level.sendParticles(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z, 40, 1.2D, 0.8D, 1.2D, 0.05D);
+                    level.sendParticles(MagicParticles.SMOKE_DARK, at.x, at.y, at.z, 40, 1.2D, 0.8D, 1.2D, 0.05D);
                     sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_BANG.get(), 1.0F, 1.0F);
                 }
                 default -> {        // a wretched fizzle, which is worse than the bang
-                    level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 50, 0.5D, 0.5D, 0.5D, 0.02D);
+                    level.sendParticles(MagicParticles.SMOKE_GREY, at.x, at.y, at.z, 50, 0.5D, 0.5D, 0.5D, 0.02D);
                     sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_FIZZLE.get(), 1.0F, 1.0F);
                 }
             }

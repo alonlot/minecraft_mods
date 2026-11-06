@@ -1,6 +1,7 @@
 package com.hogwartsmagic.client.particle;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.MagicParticleOptions;
 import com.hogwartsmagic.ModParticles;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
@@ -34,6 +35,22 @@ public final class ModParticleProviders {
         event.registerSpriteSet(ModParticles.BARK_CHIP.get(), sprites -> provider(sprites, Chip::new));
         event.registerSpriteSet(ModParticles.ROOT_DUST.get(), sprites -> provider(sprites, Dust::new));
         event.registerSpriteSet(ModParticles.WILLOW_GLINT.get(), sprites -> provider(sprites, Glint::new));
+        // the film-quality magic set
+        event.registerSpriteSet(ModParticles.MAGIC_MOTE.get(), sprites -> tinted(sprites, MagicParticleSet.Mote::new));
+        event.registerSpriteSet(ModParticles.SPARK.get(), sprites -> tinted(sprites, MagicParticleSet.Spark::new));
+        event.registerSpriteSet(ModParticles.SOFT_SMOKE.get(), sprites -> tinted(sprites, MagicParticleSet.Smoke::new));
+        event.registerSpriteSet(ModParticles.GLINT.get(), sprites -> tinted(sprites, MagicParticleSet.Glint::new));
+        event.registerSpriteSet(ModParticles.EMBER.get(), sprites -> provider(sprites, MagicParticleSet.Ember::new));
+    }
+
+    @FunctionalInterface
+    private interface TintedFactory {
+        Particle make(ClientLevel level, double x, double y, double z, double dx, double dy, double dz,
+                      SpriteSet sprites, MagicParticleOptions options);
+    }
+
+    private static ParticleProvider<MagicParticleOptions> tinted(SpriteSet sprites, TintedFactory f) {
+        return (o, level, x, y, z, dx, dy, dz) -> f.make(level, x, y, z, dx, dy, dz, sprites, o);
     }
 
     @FunctionalInterface

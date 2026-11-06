@@ -544,6 +544,11 @@ public class ClientModEvents {
                 event.getWindow().getGuiScaledWidth(),
                 event.getWindow().getGuiScaledHeight()
             );
+            com.hogwartsmagic.client.SoulMeterOverlay.render(
+                event.getGuiGraphics(),
+                event.getWindow().getGuiScaledWidth(),
+                event.getWindow().getGuiScaledHeight()
+            );
             com.hogwartsmagic.client.BroomHudOverlay.render(
                 event.getGuiGraphics(),
                 event.getWindow().getGuiScaledWidth(),

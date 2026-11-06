@@ -1262,6 +1262,7 @@
   "gui.hogwartsmagic.dark.tier.tainted": "Tainted",
   "gui.hogwartsmagic.dark.tier.corrupted": "Corrupted",
   "gui.hogwartsmagic.dark.tier.lost": "Lost",
+  "gui.hogwartsmagic.dark.hud": "Soul: %s",
   "gui.hogwartsmagic.dark.tier_up": "Your soul darkens. You are now %s.",
   "gui.hogwartsmagic.dark.tier_down": "Your soul lightens. You are now %s.",
   "gui.hogwartsmagic.dark.innocent": "An innocent dies by your hand. Your soul darkens.",

@@ -365,6 +365,7 @@ public final class SpellBeamClientState {
             beam.goneAt = now;
         }
         IMPACTS.add(new Impact(pos, dir, style, packet.kind(), now));
+        com.hogwartsmagic.client.fx.marks.MarkSpells.onImpact(spell, packet.kind(), pos, dir);
     }
 
     public static void acceptClash(SpellPackets.BeamClashPacket packet) {

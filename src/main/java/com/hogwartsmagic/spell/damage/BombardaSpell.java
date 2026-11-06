@@ -1,5 +1,7 @@
 package com.hogwartsmagic.spell.damage;
 
+import com.hogwartsmagic.fx.Fx;
+import com.hogwartsmagic.fx.FxKinds;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.spell.combat.CombatEffects;
 import com.hogwartsmagic.spell.disable.DisableSupport;
@@ -63,7 +65,15 @@ public final class BombardaSpell {
         level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS,
                 2.0f + (float) radius * 0.3f, 0.9f + level.random.nextFloat() * 0.2f);
         splash(level, impact, caster, primary, rank, radius);
-        return queueBlocks(level, center, caster, rank, radius, masteryEligible);
+        int queued = queueBlocks(level, center, caster, rank, radius, masteryEligible);
+        // The blast scorches what it leaves: the mark waits for the blocks to go (a few dozen a tick), then lies on the crater.
+        int delay = Math.min(40, queued / BombardaRules.BLOCKS_PER_TICK + 3);
+        Fx.send(level, FxKinds.MARK_SCORCH, impact, 64.0, -1, (float) radius * 1.15f + 0.5f, 75.0f, (float) delay);
+        if (radius >= 2.5) {
+            // The big blasts thud through the ground as well as the beam's own jolt.
+            Fx.shake(level, impact, 0.4f + 0.15f * (float) radius, 18.0f, 14);
+        }
+        return queued;
     }
 
     private static void splash(ServerLevel level, Vec3 impact, @Nullable Entity caster, @Nullable LivingEntity primary,

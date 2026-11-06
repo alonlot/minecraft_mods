@@ -1,6 +1,8 @@
 package com.hogwartsmagic.spell.damage;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.fx.Fx;
+import com.hogwartsmagic.fx.FxKinds;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.spell.combat.CombatEffects;
 import com.hogwartsmagic.spell.disable.DisableSupport;
@@ -58,6 +60,9 @@ public final class ConfringoSpell {
         } finally {
             activeBrittleBonus = 1.0f;
         }
+        // The blast scorches the ground and walls it hits, and weighs on the view of whoever is near.
+        Fx.send(level, FxKinds.MARK_SCORCH, at, 64.0, -1, power * 1.1f + 0.4f, 60.0f);
+        Fx.shake(level, at, 0.25f + 0.2f * power, 14.0f, 10);
         double radius = ConfringoRules.splashIgniteRadius(rank);
         if (radius <= 0.0) {
             return;

@@ -26,8 +26,9 @@ import net.minecraftforge.fml.common.Mod;
  * Decides which deaths are cinematic moments and tells the nearby players ({@link FxKinds#MOMENT}); what the player
  * sees (freeze-frame, flash, colour drain, letterbox, slow motion, shake) is the client's business.
  * <ul>
- * <li>A boss dies (the Horntail, the Ironbelly, the Basilisk, a Giant, an Acromantula, a Troll, Voldemort, anything
+ * <li>A boss dies (the Horntail, the Ironbelly, the Basilisk, a Giant, Voldemort, anything
  * in the {@code bosses} tag): weight 1 to players within 64 blocks.</li>
+ * <li>An ordinary Acromantula or Troll (they spawn naturally): weight 0.35 to the killer alone.</li>
  * <li>A Killing Curse kills anything: weight 1, green-white, to the caster and everyone within 32 blocks.</li>
  * <li>A player's spell kills a Death Eater: weight 0.5 to the killer alone.</li>
  * </ul>
@@ -45,7 +46,9 @@ public final class CinematicMoments {
     /** A second moment of the same kind within this many ticks (a pack of Acromantulas dying) is not sent. */
     private static final long BOSS_COOLDOWN_TICKS = 60L;
 
-    private static long lastBossTick = Long.MIN_VALUE;
+    private static long lastBossTick = 0L;
+    /** False until the first boss moment, so the cooldown never subtracts from a sentinel. */
+    private static boolean bossFired = false;
 
     private CinematicMoments() {
     }
@@ -73,11 +76,18 @@ public final class CinematicMoments {
 
         if (isBoss(victim)) {
             long now = level.getGameTime();
-            if (now - lastBossTick < BOSS_COOLDOWN_TICKS && now >= lastBossTick) {
+            if (bossFired && now >= lastBossTick && now - lastBossTick < BOSS_COOLDOWN_TICKS) {
                 return;
             }
+            bossFired = true;
             lastBossTick = now;
             Fx.sendAbout(victim, FxKinds.MOMENT, BOSS_RANGE, 1.0f);
+            return;
+        }
+
+        if ((victim instanceof AcromantulaEntity || victim instanceof TrollEntity) && owner instanceof ServerPlayer killer) {
+            // An ordinary spider or troll: a small beat for the killer alone.
+            Fx.sendTo(killer, FxKinds.MOMENT, victim.getX(), victim.getY(), victim.getZ(), victim.getId(), 0.35f);
             return;
         }
 
@@ -95,8 +105,6 @@ public final class CinematicMoments {
                 || victim instanceof HungarianHorntailEntity
                 || victim instanceof BasiliskEntity
                 || victim instanceof GiantEntity
-                || victim instanceof AcromantulaEntity
-                || victim instanceof TrollEntity
                 || victim instanceof VoldemortEntity;
     }
 }

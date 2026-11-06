@@ -175,6 +175,9 @@ public final class SlamFx {
         if (event.phase != TickEvent.Phase.END) {
             return;
         }
+        if (Minecraft.getInstance().isPaused()) {
+            return;
+        }
         clientTick++;
         if (SLAMS.isEmpty()) {
             return;

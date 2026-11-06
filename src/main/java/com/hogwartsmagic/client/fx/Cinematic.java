@@ -108,7 +108,7 @@ public final class Cinematic {
 
     /** A full-screen flash of colour (0..1 rgb) at {@code strength} (0..1), fading over {@code ticks}. */
     public static void flash(float r, float g, float b, float strength, int ticks) {
-        if (blocked() || strength <= 0.0f || ticks <= 0) {
+        if (blocked() || strength <= 0.0f || ticks <= 0 || !FxConfig.get(FxConfig.CINEMATIC_MOMENTS)) {
             return;
         }
         long t = now();
@@ -121,7 +121,7 @@ public final class Cinematic {
 
     /** The world's colour drains by {@code amount} (0..1, 1 = grey) and comes back over {@code ticks}. */
     public static void drain(float amount, int ticks) {
-        if (blocked() || amount <= 0.0f || ticks <= 0) {
+        if (blocked() || amount <= 0.0f || ticks <= 0 || !FxConfig.get(FxConfig.CINEMATIC_MOMENTS)) {
             return;
         }
         long t = now();

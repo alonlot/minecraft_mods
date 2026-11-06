@@ -8,7 +8,7 @@ import java.util.Optional;
  * so the mod's glow stands aside while one is in use. Looked up by reflection, never a hard dependency: without
  * Oculus installed this is always false.
  */
-final class ShaderPacks {
+public final class ShaderPacks {
     private static boolean looked;
     private static Object api;
     private static Method inUse;
@@ -18,7 +18,7 @@ final class ShaderPacks {
     private ShaderPacks() {
     }
 
-    static boolean inUse() {
+    public static boolean inUse() {
         if (!looked) {
             looked = true;
             find();

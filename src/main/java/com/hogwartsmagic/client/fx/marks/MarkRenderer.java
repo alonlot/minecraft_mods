@@ -98,7 +98,9 @@ public final class MarkRenderer {
         List<ScorchDecal.Face> faces;
         int[] light;
         ScorchDecal.Baked base, glow;
-        long lastRecheck = Long.MIN_VALUE;
+        /** Game ticks of the last recheck and light refresh; half of MIN_VALUE so subtracting never overflows. */
+        long lastRecheck = Long.MIN_VALUE / 2;
+        long lastLightTick = Long.MIN_VALUE / 2;
 
         Mark(boolean frost, Vec3 at, double radius, double start, double life, int seed) {
             this.frost = frost;
@@ -243,7 +245,11 @@ public final class MarkRenderer {
                 builds++;
             }
             if (mk.faces.isEmpty()) continue;
-            if (mk.light == null || ((long) age) % 20 == 0) refreshLight(level, mk);
+            long gameTick = (long) now;
+            if (mk.light == null || gameTick - mk.lastLightTick >= 20) {
+                mk.lastLightTick = gameTick;
+                refreshLight(level, mk);
+            }
             live.add(mk);
         }
         if (live.isEmpty()) return;

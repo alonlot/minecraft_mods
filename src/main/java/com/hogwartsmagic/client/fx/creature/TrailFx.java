@@ -118,6 +118,9 @@ public final class TrailFx {
         if (event.phase != TickEvent.Phase.END) {
             return;
         }
+        if (Minecraft.getInstance().isPaused()) {
+            return;
+        }
         clientTick++;
         Minecraft mc = Minecraft.getInstance();
         ClientLevel level = mc.level;

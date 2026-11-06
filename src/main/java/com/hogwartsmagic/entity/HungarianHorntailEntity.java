@@ -1068,10 +1068,29 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         return to.lengthSqr() > 1.0E-4D ? to.normalize() : lookDir();
     }
 
+    /** How far below the dragon the floor is searched for before falling back to the surface heightmap. */
+    private static final int GROUND_SCAN_DEPTH = 24;
+
+    /**
+     * The top of the floor under the dragon: scanned down from its own height (so a roof or a cave ceiling above
+     * it is ignored: Gringotts, not the grass over Gringotts), skipping leaves; the surface heightmap only when
+     * nothing solid lies within {@link #GROUND_SCAN_DEPTH} blocks (high in the open sky).
+     */
     private double groundBelowY() {
-        BlockPos pos = this.blockPosition();
         if (this.level() instanceof ServerLevel sl) {
-            return sl.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ());
+            BlockPos start = this.blockPosition();
+            BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+            int minY = sl.getMinBuildHeight();
+            for (int i = 0; i <= GROUND_SCAN_DEPTH; i++) {
+                int y = start.getY() - i;
+                if (y < minY) break;
+                m.set(start.getX(), y, start.getZ());
+                net.minecraft.world.level.block.state.BlockState st = sl.getBlockState(m);
+                if (!st.getCollisionShape(sl, m).isEmpty() && !st.is(net.minecraft.tags.BlockTags.LEAVES)) {
+                    return y + 1.0D;
+                }
+            }
+            return sl.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, start.getX(), start.getZ());
         }
         return this.getY();
     }

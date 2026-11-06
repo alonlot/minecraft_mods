@@ -82,6 +82,9 @@ public final class BossIntroDetector {
 
     @SubscribeEvent
     public static void onLeave(EntityLeaveLevelEvent event) {
+        if (event.getLevel().isClientSide()) {
+            return; // single player: the client thread must never touch the server-only set
+        }
         if (!BEASTS.isEmpty() && event.getEntity() instanceof LivingEntity living) {
             BEASTS.remove(living);
         }

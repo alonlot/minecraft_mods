@@ -1,5 +1,6 @@
 package com.hogwartsmagic.client.fx.moments;
 
+import com.hogwartsmagic.client.fx.bloom.ShaderPacks;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -42,7 +43,7 @@ public final class FreezeFrame {
 
     /** Ask for a freeze of {@code frames} frames, starting from the next finished world picture. */
     public static void request(int frames) {
-        if (failed) {
+        if (failed || ShaderPacks.inUse()) {
             return;
         }
         pending = Math.max(pending, Math.min(frames, MAX_FRAMES));
@@ -51,6 +52,10 @@ public final class FreezeFrame {
     /** Called when the level has just been drawn (main thread, render thread): takes the picture if one is wanted. */
     public static void captureIfWanted() {
         if (pending <= 0) {
+            return;
+        }
+        if (ShaderPacks.inUse()) {
+            pending = 0;
             return;
         }
         int frames = pending;
@@ -86,6 +91,10 @@ public final class FreezeFrame {
         if (showing <= 0 || copy == null) {
             return;
         }
+        if (ShaderPacks.inUse()) {
+            showing = 0;
+            return;
+        }
         if (System.nanoTime() > deadline) {
             showing = 0;
             return;
@@ -111,8 +120,8 @@ public final class FreezeFrame {
         buffer.addVertex(pose, w, 0, 0).setUv(1, 1);
         buffer.addVertex(pose, 0, 0, 0).setUv(0, 1);
         BufferUploader.drawWithShader(buffer.buildOrThrow());
+        // The Gui pass runs with blend on and depth test off; leave it exactly so (depth test must not leak on).
         RenderSystem.enableBlend();
-        RenderSystem.enableDepthTest();
     }
 
     private static void release() {

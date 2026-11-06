@@ -1,6 +1,7 @@
 package com.hogwartsmagic.client.fx.moments;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.client.fx.bloom.ShaderPacks;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
@@ -22,6 +23,12 @@ import org.slf4j.Logger;
  * <p>Self-contained: its own chain, its own failure flag. If the chain cannot be built it logs once and does
  * nothing from then on. After the pass the main target is bound for writing again and the blend and depth state
  * the level render expects are put back.
+ *
+ * <p>Depth note: the chain's last pass blits to {@code minecraft:main}, and a post pass clears its output target
+ * (colour and depth) before drawing, so main's depth buffer is wiped by this pass. That is harmless where it runs
+ * (after the level is drawn, before the HUD, nothing later reads the world depth), but it means this pass must
+ * stay AFTER Bloom, which samples the world depth, and must never be moved before anything that still needs it.
+ * Skipped entirely while a shader pack is in use, like Bloom.
  */
 public final class DrainPost {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -38,7 +45,7 @@ public final class DrainPost {
 
     /** Run the pass at {@code amount} (0..1). Does nothing for a negligible amount. */
     public static void process(float amount) {
-        if (failed || amount < 0.004f) {
+        if (failed || amount < 0.004f || ShaderPacks.inUse()) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();

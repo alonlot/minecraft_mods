@@ -116,8 +116,8 @@ public final class CameraShake {
     @SubscribeEvent(priority = EventPriority.LOW)
     public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (SHAKES.isEmpty() || minecraft.level == null) {
-            return;
+        if (SHAKES.isEmpty() || minecraft.level == null || minecraft.isPaused()) {
+            return; // a paused world does not shake
         }
         double now = minecraft.level.getGameTime() + event.getPartialTick();
         Vec3 camera = event.getCamera().getPosition();
@@ -125,7 +125,9 @@ public final class CameraShake {
         float yaw = 0.0f;
         float roll = 0.0f;
         float energy = 0.0f;
-        float t = (float) (now % 20000.0); // absolute world time would saturate Mth.sin's table in an old world
+        // The noise runs on real time (in 50 ms units) so /tick freeze cannot hold a constant tilt; game time only
+        // drives the envelope. Wrapped so a long session cannot saturate Mth.sin's table.
+        float t = (float) ((System.nanoTime() / 50_000_000.0) % 20000.0);
         for (Shake shake : SHAKES) {
             float f = shake.felt(camera, now);
             if (f <= 0.0f) {

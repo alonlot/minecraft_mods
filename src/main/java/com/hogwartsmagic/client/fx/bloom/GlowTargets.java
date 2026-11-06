@@ -38,6 +38,8 @@ final class GlowTargets {
     int sceneTex = -1;
     int sceneFbo = -1;
     private boolean hdr = true;
+    /** The main depth texture id the capture framebuffer was last verified complete with (-1: not yet). */
+    private int checkedDepth = -1;
 
     GlowTargets() {
         java.util.Arrays.fill(levelTex, -1);
@@ -55,10 +57,15 @@ final class GlowTargets {
             release();
             allocate(main.width, main.height);
             fresh = true;
+            checkedDepth = -1;
         }
         GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, captureFbo);
+        int depthId = main.getDepthTextureId();
         GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL11.GL_TEXTURE_2D,
-                main.getDepthTextureId(), 0);
+                depthId, 0);
+        if (depthId == checkedDepth) {
+            return fresh; // same attachment as the last verified frame: no driver round trip to re-check it
+        }
         int status = GlStateManager.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
         if (status != GL30.GL_FRAMEBUFFER_COMPLETE && hdr) {
             // Some drivers will not pair half-float colour with this depth format: fall back to 8-bit.
@@ -67,13 +74,14 @@ final class GlowTargets {
             allocate(main.width, main.height);
             GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, captureFbo);
             GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL11.GL_TEXTURE_2D,
-                    main.getDepthTextureId(), 0);
+                    depthId, 0);
             status = GlStateManager.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
             fresh = true;
         }
         if (status != GL30.GL_FRAMEBUFFER_COMPLETE) {
             throw new IllegalStateException("glow capture framebuffer incomplete: 0x" + Integer.toHexString(status));
         }
+        checkedDepth = depthId;
         return fresh;
     }
 

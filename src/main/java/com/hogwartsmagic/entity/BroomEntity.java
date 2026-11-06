@@ -450,7 +450,11 @@ public class BroomEntity extends Entity {
 
         // Density scales with speed; capped so we don't flood at boost.
         float intensity = Mth.clamp(horizSpeed * 0.55F + (boosting ? 0.6F : 0.0F), 0.0F, 1.6F);
-        int trailEmits = 1 + (int) (intensity * 2.5F);
+        // With the speed effects on, the bristle contrail ribbon (client.fx.broom) carries the trail and the wind
+        // streaks carry the speed, so the particles shrink to a few sparks and the cheap smoke and pixels go.
+        boolean ribbon = com.hogwartsmagic.fx.FxConfig.get(com.hogwartsmagic.fx.FxConfig.BROOM_SPEED_FX);
+        int trailEmits = ribbon ? (this.random.nextFloat() < 0.5F ? 1 : 0) + (int) (intensity * 0.8F)
+                : 1 + (int) (intensity * 2.5F);
 
         ParticleOptions trail;
         if (type == 2) {
@@ -458,7 +462,7 @@ public class BroomEntity extends Entity {
         } else if (type == 1) {
             trail = ParticleTypes.SOUL_FIRE_FLAME; // Nimbus 2000 — blue magical wisp.
         } else {
-            trail = ParticleTypes.CAMPFIRE_COSY_SMOKE; // Training — wispy smoke.
+            trail = ribbon ? ParticleTypes.ELECTRIC_SPARK : ParticleTypes.CAMPFIRE_COSY_SMOKE; // Training — smoke / pale sparks.
         }
 
         for (int i = 0; i < trailEmits; i++) {
@@ -469,7 +473,7 @@ public class BroomEntity extends Entity {
         }
 
         // Speed-line streaks while boosting — bright end-rod pixels shooting straight backward.
-        if (boosting) {
+        if (boosting && !ribbon) {
             int streakEmits = 2 + (int) (horizSpeed * 0.6F);
             for (int i = 0; i < streakEmits; i++) {
                 double offX = (this.random.nextDouble() - 0.5D) * 1.4D;

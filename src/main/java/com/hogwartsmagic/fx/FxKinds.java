@@ -25,4 +25,13 @@ public final class FxKinds {
     public static final String MOMENT = "moment";
     // Lingering marks (client.fx.Marks): MARK_SCORCH takes an optional third param, a delay in ticks before it appears
     // (a Bombarda blast waits for the blocks it breaks).
+
+    // ---- Boss first sighting ----
+
+    /**
+     * Sent to ONE player the first time they see a great beast: the black bars, the slow push-in and the title card.
+     * Position is the beast's, entityId its id. params: beast index (into fx.BossBeasts.IDS). Handled by
+     * client.fx.intro.BossIntroClient.
+     */
+    public static final String BOSS_INTRO = "boss_intro";
 }

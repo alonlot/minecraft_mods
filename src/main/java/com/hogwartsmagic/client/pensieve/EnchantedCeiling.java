@@ -6,7 +6,6 @@ import com.hogwartsmagic.client.ambience.AmbienceClock;
 import com.hogwartsmagic.client.ambience.WorldAmbience;
 import com.hogwartsmagic.client.ambience.WorldCeilingReveal;
 import com.hogwartsmagic.client.ModRenderTypes;
-import com.hogwartsmagic.mixin.client.LevelRendererAccessor;
 import com.hogwartsmagic.pensieve.scene.CeilingSky;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -215,7 +214,8 @@ public final class EnchantedCeiling {
             this.startT = startT;
             this.revealT = startT;
             this.seed = seed;
-            this.stars = CeilingSky.stars(seed, hx, hz, CeilingSky.starCount(hx, hz));
+            // The flat star field is the night and storm styles' (the real sky draws vanilla's own stars).
+            this.stars = real ? new float[0][] : CeilingSky.stars(seed, hx, hz, CeilingSky.starCount(hx, hz));
             this.tints = tints(seed, stars.length);
             this.farStars = storm ? CeilingSky.stars(seed ^ 0x5F3759DFL, hx + CeilingSky.FAR_REACH,
                     hz + CeilingSky.FAR_REACH, FAR_STARS) : null;
@@ -483,8 +483,8 @@ public final class EnchantedCeiling {
             drawShootingStar(shot, p.ax, p.ay - STARS_DROP, p.az, m, buffer);
         }
         if (Float.isFinite(f.cloudAbove) && f.cloudAbove > p.ay - CLOUDS_DROP) {
-            float ticks = (mc.levelRenderer instanceof LevelRendererAccessor r ? r.hogwartsmagic$ticks()
-                    : (float) (level.getGameTime() % 1_000_000L)) + partial;
+            // Vanilla's clouds drift on the renderer's own tick counter, so these keep pace with the ones outdoors.
+            float ticks = (float) mc.levelRenderer.getTicks() + partial;
             CeilingSky.cloudBase(cam.x, cam.z, ticks, CLOUD_BASE);
             windowGrid(buffer, VANILLA_CLOUDS, m, p, CLOUDS_DROP, GRID_CLOUD, f);
         }
@@ -500,7 +500,7 @@ public final class EnchantedCeiling {
         f.fogG = safe(fog.length > 1 ? fog[1] : 0f);
         f.fogB = safe(fog.length > 2 ? fog[2] : 0f);
         f.fogA = fog.length > 3 ? safe(fog[3]) : 1f;
-        f.skyFogEnd = safe(mc.gameRenderer.getRenderDistance());
+        f.skyFogEnd = CeilingSky.skyFogEnd(mc.gameRenderer.getRenderDistance());
         f.fogStart = RenderSystem.getShaderFogStart();
         f.fogEnd = RenderSystem.getShaderFogEnd();
         if (f.normal) {
@@ -528,12 +528,15 @@ public final class EnchantedCeiling {
             float[] flash = CeilingSky.flash(sky.seed, local);
             if (flash != null) f.flash = FLASH_MIX * safe(flash[2]);
         }
+        // Seen from below the cloud shows its underside: Fancy shades it as vanilla's buildClouds does, Fast not.
+        CloudStatus clouds = mc.options.getCloudsType();
+        float shade = CeilingSky.cloudUnderside(clouds == CloudStatus.FANCY);
         Vec3 cloud = level.getCloudColor(partial);
-        f.cloudR = safe((float) cloud.x);
-        f.cloudG = safe((float) cloud.y);
-        f.cloudB = safe((float) cloud.z);
+        f.cloudR = safe((float) cloud.x) * shade;
+        f.cloudG = safe((float) cloud.y) * shade;
+        f.cloudB = safe((float) cloud.z) * shade;
         float height = level.effects().getCloudHeight();
-        f.cloudAbove = mc.options.getCloudsType() == CloudStatus.OFF || !Float.isFinite(height) ? Float.NaN
+        f.cloudAbove = clouds == CloudStatus.OFF || !Float.isFinite(height) ? Float.NaN
                 : (float) (height + CeilingSky.CLOUD_LIFT - cam.y);
     }
 

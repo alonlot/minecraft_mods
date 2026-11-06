@@ -207,6 +207,33 @@ class CeilingSkyWindowTest {
     }
 
     @Test
+    void theRenderersSkyFogEndIsADistanceSoTheWindowShowsTheSkyColour() {
+        // The renderer takes its fog end through skyFogEnd from the render distance in blocks (12 chunks: 192).
+        assertEquals(32f, CeilingSky.skyFogEnd(32f), 0f, "a distance, not clamped to 0..1");
+        for (float rd : new float[]{128f, 192f, 512f}) {
+            float end = CeilingSky.skyFogEnd(rd);
+            assertEquals(rd, end, 0f, "a distance, not clamped to 0..1");
+            // A ray up from the hall floor to the middle of the ceiling (16 up, a few blocks across): mostly sky colour.
+            float len = (float) Math.sqrt(16f * 16f + 4f * 4f);
+            assertTrue(CeilingSky.skyFog(16f / len, 4f / len, end) < 0.1f, "zenith-ish at render distance " + rd);
+            // Straight up is all but pure sky colour; a ray toward the far end of the hall (40 out) a little hazier.
+            assertTrue(CeilingSky.skyFog(1f, 0f, end) < 0.05f);
+            float far = (float) Math.sqrt(16f * 16f + 40f * 40f);
+            assertTrue(CeilingSky.skyFog(16f / far, 40f / far, end) < 0.5f);
+        }
+        assertEquals(CeilingSky.SKY_FOG_END_FALLBACK, CeilingSky.skyFogEnd(Float.NaN), 0f);
+        assertEquals(CeilingSky.SKY_FOG_END_FALLBACK, CeilingSky.skyFogEnd(0f), 0f);
+        assertEquals(CeilingSky.SKY_FOG_END_FALLBACK, CeilingSky.skyFogEnd(-5f), 0f);
+        assertEquals(CeilingSky.SKY_FOG_END_FALLBACK, CeilingSky.skyFogEnd(Float.POSITIVE_INFINITY), 0f);
+    }
+
+    @Test
+    void fancyCloudUndersidesAreShadedAsVanillaShadesThem() {
+        assertEquals(0.7f, CeilingSky.cloudUnderside(true), 0f);
+        assertEquals(1f, CeilingSky.cloudUnderside(false), 0f);
+    }
+
+    @Test
     void motesStayUnderTheCeilingAndFade() {
         float[] m = new float[4], again = new float[4];
         for (int i = 0; i < CeilingSky.moteCount(16f, 36.5f); i++) {

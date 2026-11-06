@@ -622,6 +622,26 @@ public final class CeilingSky {
         return smooth(0f, fogEnd, dist);
     }
 
+    /** The sky fog's end the window uses when the render distance it is given is not a finite positive number. */
+    public static final float SKY_FOG_END_FALLBACK = 192f;
+
+    /**
+     * The end of vanilla's sky fog ({@code FOG_SKY} ends at the render distance, in blocks) for a render distance of
+     * {@code renderDistance} blocks: that, or {@link #SKY_FOG_END_FALLBACK} when it is NaN, infinite or not positive.
+     * Never clamped to 0..1: it is a distance.
+     */
+    public static float skyFogEnd(float renderDistance) {
+        return Float.isFinite(renderDistance) && renderDistance > 0f ? renderDistance : SKY_FOG_END_FALLBACK;
+    }
+
+    /** Fancy clouds' undersides, which is what the ceiling sees from below: vanilla shades them 0.7 of the colour. */
+    public static final float CLOUD_UNDERSIDE_FANCY = 0.7f;
+
+    /** How vanilla shades a cloud layer seen from below: {@link #CLOUD_UNDERSIDE_FANCY} with Fancy clouds, 1 with Fast. */
+    public static float cloudUnderside(boolean fancy) {
+        return fancy ? CLOUD_UNDERSIDE_FANCY : 1f;
+    }
+
     /**
      * Vanilla's fog on a point {@code dist} (cylinder distance) away with the terrain fog from {@code start} to
      * {@code end}: 0 inside the start, then the shader's smoothstep, 1 past the end.

@@ -7,7 +7,7 @@ Block (16x16 unless noted):
   pensieve_surface.png  the silver surface, 8-frame strip, flowing bands over a seamless loop (+ .mcmeta)
   pensieve_swirl.png    32x32 spiral disc the block entity renderer spins over the surface (translucent)
 Item (32x32, 8-frame strip, + .mcmeta): chamber_memory.png (green-tinged silver wisps) and summoning_memory.png
-(sickly green and black) and patronus_memory.png (silvery blue), both the corked phial of generate_cave_memory_texture.py with a different palette.
+(sickly green and black), patronus_memory.png (silvery blue) and dark_lord_memory.png (black smoke, red glints), both the corked phial of generate_cave_memory_texture.py with a different palette.
 
 Fully deterministic: no randomness, so a re-run produces identical files.
 """
@@ -148,6 +148,12 @@ PALETTES = {
         OUT_LIT="#6f8fc4", OUT_MID="#46639b", OUT_DARK="#243a66",
         G_HI="#f2fbff", G_RIM_LIT="#a9c8f0", G_RIM_MID="#5f82bd", G_RIM_DARK="#34508a",
         G_TINT=("#d4ecff", 150), G_SHADE=("#5f82bd", 120)),
+    # Black smoke with a red glint in it: the Dark Lord himself, his eyes in the dark.
+    "dark_lord_memory": dict(
+        M=("#020202", "#0b0708", "#1c0d0e", "#4a1214", "#a3221e", "#ff5a44"),
+        OUT_LIT="#4a3a3c", OUT_MID="#261c1e", OUT_DARK="#0c0809",
+        G_HI="#e2c4c0", G_RIM_LIT="#6e5456", G_RIM_MID="#3a2a2c", G_RIM_DARK="#140e0f",
+        G_TINT=("#120b0c", 215), G_SHADE=("#050304", 190)),
 }
 
 

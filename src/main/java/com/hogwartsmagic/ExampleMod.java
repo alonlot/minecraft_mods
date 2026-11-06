@@ -893,6 +893,10 @@ public class ExampleMod
     public static final RegistryObject<Item> PATRONUS_MEMORY = ITEMS.register("patronus_memory",
             () -> new com.hogwartsmagic.pensieve.StoryMemoryItem(new Item.Properties(), "lake_patronus"));
 
+    /** "The Dark Lord" (dark_lord.json), the cinematic of Voldemort; he drops it when he falls. */
+    public static final RegistryObject<Item> DARK_LORD_MEMORY = ITEMS.register("dark_lord_memory",
+            () -> new com.hogwartsmagic.pensieve.StoryMemoryItem(new Item.Properties(), "dark_lord"));
+
     public static final RegistryObject<Block> PENSIEVE = BLOCKS.register("pensieve",
             () -> new com.hogwartsmagic.pensieve.PensieveBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.STONE)
@@ -1072,6 +1076,7 @@ public class ExampleMod
                 output.accept(CHAMBER_MEMORY.get());
                 output.accept(SUMMONING_MEMORY.get());
                 output.accept(PATRONUS_MEMORY.get());
+                output.accept(DARK_LORD_MEMORY.get());
                 output.accept(PENSIEVE_ITEM.get());
         output.accept(PHOENIX_CORE_WAND.get());
         output.accept(UNICORN_CORE_WAND.get());

@@ -1,10 +1,12 @@
 package com.hogwartsmagic.spell;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.entity.StudentEntity;
 import com.hogwartsmagic.entity.VoldemortEntity;
 import com.hogwartsmagic.network.SpellPackets;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -28,7 +30,7 @@ import java.util.UUID;
  * Priori Incantatem: two duellists who cast at each other at the same moment don't cancel out, their beams lock.
  * A bead of light sits where the two spells meet; each fresh cast a duellist makes pushes it toward the other
  * (NPCs push at their own strength, the Dark Lord hardest). Whoever's wand the bead reaches takes the other's
- * spell; if neither breaks within the time limit the lock blows apart between them. Both are held nearly still
+ * spell; at the time limit whoever is ahead still takes it, and only a dead heat blows apart between them. Both are held nearly still
  * while it lasts and can cast nothing else.
  *
  * <p>Server side: who is locked, the bead, the pushes and the outcome. The clients draw it from {@code
@@ -43,10 +45,9 @@ public final class PrioriIncantatem {
     /** Two beams this close in age count as cast at the same moment. */
     private static final int SAME_MOMENT_TICKS = 8;
     private static final double MAX_DISTANCE = 40.0;
-    private static final int MAX_TICKS = 300;
-    private static final float PLAYER_PUSH = 0.045f;
-    private static final float NPC_PUSH = 0.03f;
-    private static final float VOLDEMORT_PUSH = 0.045f;
+    /** The tug-of-war meter goes to each locked player this often. */
+    private static final int METER_EVERY = 3;
+    private static final int METER_CELLS = 21;
 
     private static final List<Lock> LOCKS = new ArrayList<>();
     private static int nextId = 1;
@@ -175,25 +176,31 @@ public final class PrioriIncantatem {
             hold(a);
             hold(b);
             // At most one press a tick counts, however many packets arrive.
-            float pushA = Math.min(lock.pushesA, 1) * PLAYER_PUSH + npcPush(a, lock.level);
-            float pushB = Math.min(lock.pushesB, 1) * PLAYER_PUSH + npcPush(b, lock.level);
+            float pushA = Math.min(lock.pushesA, 1) * PrioriRules.PLAYER_PUSH + npcPush(a, lock.level);
+            float pushB = Math.min(lock.pushesB, 1) * PrioriRules.PLAYER_PUSH + npcPush(b, lock.level);
             lock.pushesA = 0;
             lock.pushesB = 0;
             // A's pushes drive the bead toward B (+1), B's toward A (-1), and it never sits quite still.
-            lock.bead += pushA - pushB + (lock.level.getRandom().nextFloat() - 0.5f) * 0.01f;
-            if (lock.bead >= 1.0f || lock.bead <= -1.0f) {
-                boolean aWins = lock.bead >= 1.0f;
+            lock.bead = PrioriRules.step(lock.bead, pushA, pushB,
+                    (lock.level.getRandom().nextFloat() - 0.5f) * 0.01f);
+            int outcome = PrioriRules.outcome(lock.bead, lock.age);
+            if (outcome == PrioriRules.A_WINS || outcome == PrioriRules.B_WINS) {
+                boolean aWins = outcome == PrioriRules.A_WINS;
                 finish(lock, aWins ? a : b, aWins ? b : a, aWins ? lock.spellA : lock.spellB);
                 it.remove();
                 continue;
             }
-            if (lock.age >= MAX_TICKS) {
+            if (outcome == PrioriRules.BLOW_APART) {
                 blowApart(lock, a, b);
                 it.remove();
                 continue;
             }
             if (lock.age % 2 == 0) {
                 send(lock, UPDATE);
+            }
+            if (lock.age % METER_EVERY == 0) {
+                meter(lock, a, true);
+                meter(lock, b, false);
             }
         }
     }
@@ -208,9 +215,39 @@ public final class PrioriIncantatem {
         if (entity instanceof Player) {
             return 0.0f;
         }
-        float strength = entity instanceof VoldemortEntity ? VOLDEMORT_PUSH : NPC_PUSH;
-        // Pushes come in surges, as a duellist's would.
-        return level.getRandom().nextFloat() < 0.45f ? strength : 0.0f;
+        float pressure = entity instanceof VoldemortEntity ? PrioriRules.VOLDEMORT_PRESSURE
+                : entity instanceof StudentEntity ? PrioriRules.STUDENT_PRESSURE : PrioriRules.WIZARD_PRESSURE;
+        return PrioriRules.npcPush(pressure, level.getRandom().nextFloat());
+    }
+
+    /**
+     * The locked player's tug-of-war, on the action bar: their own stream from the left, the bead, the other's
+     * stream from the right. Green while the bead is on the far half, red while it is on theirs.
+     */
+    private static void meter(Lock lock, LivingEntity entity, boolean isA) {
+        if (!(entity instanceof ServerPlayer player)) {
+            return;
+        }
+        // Toward the opponent is +1 from this player's side.
+        float lead = isA ? lock.bead : -lock.bead;
+        int at = Math.round((lead + 1.0f) * 0.5f * (METER_CELLS - 1));
+        ChatFormatting tone = lead > 0.15f ? ChatFormatting.GREEN : lead < -0.15f ? ChatFormatting.RED
+                : ChatFormatting.GOLD;
+        MutableComponent bar = Component.translatable("gui." + ExampleMod.MODID + ".priori.you")
+                .withStyle(ChatFormatting.YELLOW).append(" ");
+        bar.append(Component.literal("|".repeat(at)).withStyle(tone));
+        bar.append(Component.literal("◆").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+        bar.append(Component.literal("|".repeat(METER_CELLS - 1 - at)).withStyle(ChatFormatting.DARK_GRAY));
+        bar.append(" ").append(Component.translatable("gui." + ExampleMod.MODID + ".priori.push")
+                .withStyle(lock.age / 6 % 2 == 0 ? ChatFormatting.GOLD : ChatFormatting.YELLOW));
+        player.displayClientMessage(bar, true);
+    }
+
+    private static void tell(LivingEntity entity, String key, ChatFormatting colour) {
+        if (entity instanceof ServerPlayer player) {
+            player.displayClientMessage(Component.translatable("gui." + ExampleMod.MODID + ".priori." + key)
+                    .withStyle(colour, ChatFormatting.BOLD), true);
+        }
     }
 
     /** The bead reached the loser's wand: the winner's spell takes them, and the lock bursts at their wand. */
@@ -228,6 +265,11 @@ public final class PrioriIncantatem {
         SpellBeamFx.clash(a, spellA, b, spellB, at, aToB, aToB.scale(-1.0), outcome);
         spell.applyHitEffect(loser, winner, dir, true);
         SpellBeamFx.react(loser, spell, dir, SpellBeamFx.REACT_HIT);
+        // The loser is thrown back off their feet by the light that reached them.
+        loser.push(dir.x * 0.8, 0.3, dir.z * 0.8);
+        loser.hurtMarked = true;
+        tell(winner, "won", ChatFormatting.GREEN);
+        tell(loser, "lost", ChatFormatting.RED);
     }
 
     /** Neither broke: it blows apart between them and throws them both back. */
@@ -242,6 +284,7 @@ public final class PrioriIncantatem {
             away = away.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 0.0, 1.0) : away.normalize();
             entity.push(away.x * 0.9, 0.35, away.z * 0.9);
             entity.hurtMarked = true;
+            tell(entity, "draw", ChatFormatting.GOLD);
         }
     }
 

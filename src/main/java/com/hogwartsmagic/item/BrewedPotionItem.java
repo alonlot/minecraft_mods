@@ -41,7 +41,9 @@ public class BrewedPotionItem extends Item {
         FELIX("felix_felicis", 0xFFD966),
         MANDRAKE("mandrake_draught", 0x5FD3C0),
         REMORSE("potion_of_remorse", 0x8FA8C8),
-        VERITASERUM("veritaserum", 0xEEF4F6);
+        VERITASERUM("veritaserum", 0xEEF4F6),
+        /** Crafted, not brewed: lifts the werewolf's curse. */
+        WOLFSBANE("wolfsbane_potion", 0x6E4FA3);
 
         private final String id;
         private final int color;
@@ -159,6 +161,8 @@ public class BrewedPotionItem extends Item {
             if (drinker instanceof Player player) {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.felix.drink"), true);
             }
+        } else if (kind == Kind.WOLFSBANE) {
+            com.hogwartsmagic.lycanthropy.Lycanthropy.drinkWolfsbane(drinker);
         } else if (kind == Kind.REMORSE) {
             drinkRemorse(drinker, grade);
         } else if (kind == Kind.VERITASERUM) {

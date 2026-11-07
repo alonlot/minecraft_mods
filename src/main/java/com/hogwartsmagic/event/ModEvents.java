@@ -3494,6 +3494,9 @@ public class ModEvents {
                     student.setInvisible(false); // make visible again when flight effect ends
                 }
             }
+            if (entity instanceof Player flyer) {
+                flyer.getPersistentData().remove("hogwartsmagic:tenebris_started");
+            }
             if (entity instanceof Player player && !player.isCreative() && !player.isSpectator()) {
                 if (player.getAbilities().mayfly && player.getPersistentData().getBoolean("hogwartsmagic:tenebris_flying")) {
                     player.getAbilities().mayfly = false;
@@ -3549,6 +3552,23 @@ public class ModEvents {
             if (!player.getAbilities().mayfly) {
                 player.getAbilities().mayfly = true;
                 player.getPersistentData().putBoolean("hogwartsmagic:tenebris_flying", true);
+                player.onUpdateAbilities();
+            }
+            // No double-tap: the smoke form simply flies. On the first tick it lifts a grounded player off
+            // (client side, where player movement is decided), and whenever the player is airborne without
+            // flying (cast mid-jump, walked off a ledge after landing) flying switches itself on. Landing still
+            // drops out of flight the vanilla way; one jump takes off again.
+            boolean firstTick = !player.getPersistentData().getBoolean("hogwartsmagic:tenebris_started");
+            if (firstTick) {
+                player.getPersistentData().putBoolean("hogwartsmagic:tenebris_started", true);
+                if (player.isLocalPlayer() && player.onGround() && !player.isPassenger()) {
+                    Vec3 motion = player.getDeltaMovement();
+                    player.setDeltaMovement(motion.x, Math.max(motion.y, 0.42D), motion.z);
+                }
+            }
+            if (player.getAbilities().mayfly && !player.getAbilities().flying && !player.onGround()
+                    && !player.isPassenger() && !player.isFallFlying() && !player.isSpectator() && !player.isCreative()) {
+                player.getAbilities().flying = true;
                 player.onUpdateAbilities();
             }
             if (player.getAbilities().flying) {

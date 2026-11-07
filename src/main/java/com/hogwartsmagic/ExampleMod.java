@@ -738,6 +738,9 @@ public class ExampleMod
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> UNICORN_HAIR_CORE = ITEMS.register("unicorn_hair_core",
             () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> UNICORN_BLOOD = ITEMS.register("unicorn_blood",
+            () -> new com.hogwartsmagic.item.UnicornBloodItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.RARE)));
     public static final RegistryObject<Item> DRAGON_HEARTSTRING_CORE = ITEMS.register("dragon_heartstring_core",
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> OWL_ROUTE_TAG = ITEMS.register("owl_route_tag",
@@ -862,6 +865,9 @@ public class ExampleMod
 
     public static final RegistryObject<Item> HIPPOGRIFF_SPAWN_EGG = ITEMS.register("hippogriff_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.HIPPOGRIFF, 0x7A6A54, 0xD3C8B8, new Item.Properties()));
+
+    public static final RegistryObject<Item> UNICORN_SPAWN_EGG = ITEMS.register("unicorn_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.UNICORN, 0xF2F4FB, 0xE3B54A, new Item.Properties()));
 
     public static final RegistryObject<Item> ACROMANTULA_SPAWN_EGG = ITEMS.register("acromantula_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.ACROMANTULA, 0x1A1A1A, 0x4D0000, new Item.Properties()));
@@ -1176,6 +1182,7 @@ public class ExampleMod
                 output.accept(DRAUGHT_OF_LIVING_DEATH.get());
                 output.accept(PHOENIX_FEATHER_CORE.get());
                 output.accept(UNICORN_HAIR_CORE.get());
+                output.accept(UNICORN_BLOOD.get());
                 output.accept(DRAGON_HEARTSTRING_CORE.get());
                 output.accept(SORTING_HAT.get()); // Sorting Hat
                 output.accept(GRYFFINDOR_ROBES.get());
@@ -1197,6 +1204,7 @@ public class ExampleMod
                 output.accept(STUDENT_SPAWN_EGG.get()); // Student Spawn Egg
                 output.accept(OWL_SPAWN_EGG.get()); // Owl Spawn Egg
                 output.accept(HIPPOGRIFF_SPAWN_EGG.get()); // Hippogriff Spawn Egg
+                output.accept(UNICORN_SPAWN_EGG.get()); // Unicorn Spawn Egg
                 output.accept(ACROMANTULA_SPAWN_EGG.get()); // Acromantula Spawn Egg
                 output.accept(DEMENTOR_SPAWN_EGG.get()); // Dementor Spawn Egg
                 output.accept(MINATOR_SPAWN_EGG.get()); // Minator Spawn Egg

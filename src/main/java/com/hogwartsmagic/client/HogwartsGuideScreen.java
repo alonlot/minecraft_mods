@@ -285,6 +285,7 @@ public class HogwartsGuideScreen extends Screen {
                 page("creatures", "friends_and_terrors", 2),
                 page("creatures", "warnings", 3),
                 page("creatures", "hippogriffs", 2),
+                page("creatures", "unicorns", 4),
                 page("creatures", "house_elves", 4),
                 page("creatures", "basilisk", 4),
                 page("creatures", "merpeople", 8),

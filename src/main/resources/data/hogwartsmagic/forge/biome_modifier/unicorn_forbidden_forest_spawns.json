@@ -1,0 +1,12 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": "hogwartsmagic:forbidden_forest",
+  "spawners": [
+    {
+      "type": "hogwartsmagic:unicorn",
+      "weight": 6,
+      "minCount": 1,
+      "maxCount": 3
+    }
+  ]
+}

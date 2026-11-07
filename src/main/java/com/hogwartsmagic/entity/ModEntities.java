@@ -222,6 +222,13 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("hippogriff"));
 
+    public static final RegistryObject<EntityType<UnicornEntity>> UNICORN =
+            ENTITY_TYPES.register("unicorn",
+                    () -> EntityType.Builder.<UnicornEntity>of(UnicornEntity::new, MobCategory.CREATURE)
+                            .sized(1.3f, 1.9f)
+                            .clientTrackingRange(10)
+                            .build("unicorn"));
+
     public static final RegistryObject<EntityType<FlyingMobEntity>> FLYING_MOB =
             ENTITY_TYPES.register("flying_mob",
                     () -> EntityType.Builder.<FlyingMobEntity>of(FlyingMobEntity::new, MobCategory.CREATURE)

@@ -37,6 +37,39 @@ public final class LeftoversGameTests {
     private LeftoversGameTests() {
     }
 
+    /**
+     * A spider baked into a structure template keeps the size the template gives it. The game
+     * loads a template entity from its NBT and then calls finalizeSpawn on it; finalizeSpawn used
+     * to roll a random size over the stored one, so the Acromantula Hollow's brood mother came out
+     * any size from 0.2 to 1.2. A spider with no stored size must still get a random one.
+     */
+    @GameTest(template = EMPTY, timeoutTicks = 20)
+    public static void acromantulaKeepsStructureScale(GameTestHelper helper) {
+        net.minecraft.server.level.ServerLevel level = helper.getLevel();
+        com.hogwartsmagic.entity.AcromantulaEntity mother =
+                new com.hogwartsmagic.entity.AcromantulaEntity(ModEntities.ACROMANTULA.get(), level);
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        tag.putFloat("SpiderScale", 1.6F);
+        mother.readAdditionalSaveData(tag);
+        mother.finalizeSpawn(level, level.getCurrentDifficultyAt(helper.absolutePos(BlockPos.ZERO)),
+                net.minecraft.world.entity.MobSpawnType.STRUCTURE, null);
+        helper.assertTrue(Math.abs(mother.getSpiderScale() - 1.6F) < 1.0E-4F,
+                "a stored SpiderScale of 1.6 should survive finalizeSpawn, got " + mother.getSpiderScale());
+        helper.assertTrue(Math.abs(mother.getMaxHealth() - 160.0F) < 1.0E-3F,
+                "health should follow the stored scale (160), got " + mother.getMaxHealth());
+
+        java.util.Set<Float> seen = new java.util.HashSet<>();
+        for (int i = 0; i < 40; i++) {
+            com.hogwartsmagic.entity.AcromantulaEntity wild =
+                    new com.hogwartsmagic.entity.AcromantulaEntity(ModEntities.ACROMANTULA.get(), level);
+            wild.finalizeSpawn(level, level.getCurrentDifficultyAt(helper.absolutePos(BlockPos.ZERO)),
+                    net.minecraft.world.entity.MobSpawnType.NATURAL, null);
+            seen.add(wild.getSpiderScale());
+        }
+        helper.assertTrue(seen.size() > 1, "spiders with no stored size should still get random sizes, got " + seen);
+        helper.succeed();
+    }
+
     /** With mobGriefing off, a caster-less Fiendfyre must not light a single block. */
     @GameTest(template = EMPTY, timeoutTicks = 200, batch = "leftovers_griefing")
     public static void groundFireRespectsMobGriefing(GameTestHelper helper) {

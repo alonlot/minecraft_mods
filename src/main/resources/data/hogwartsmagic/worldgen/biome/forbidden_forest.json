@@ -125,7 +125,7 @@
         "type": "hogwartsmagic:acromantula",
         "maxCount": 6,
         "minCount": 3,
-        "weight": 110
+        "weight": 60
       },
       {
         "type": "hogwartsmagic:minator",

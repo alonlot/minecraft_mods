@@ -2527,6 +2527,227 @@ def troll_pen():
                entity(4.5, 1.0, 4.5, 'hogwartsmagic:goblin', dict(keep))]
 
 
+# --- Forbidden Forest: the Acromantula Hollow ---------------------------------------------------------
+# The acromantula is the forest's commonest monster and had nowhere of its own. This is the colony: a
+# bowl sunk into the forest floor under a roof of web strung from the branches of dead spruces, with
+# the brood mother in the middle, egg sacs round her, and what is left of the people who came looking.
+# The web roof is the silhouette; it is what makes the place readable from the trees.
+
+HOLLOW_SINK = 5                          # template y=5 is the natural surface
+HOLLOW_C = (16, 16)
+HOLLOW_W = 33
+HOLLOW_R = 11.0                          # radius of the bowl
+HOLLOW_SILK = 'minecraft:white_wool'
+
+
+def hollow_r(x, z):
+    return math.hypot(x - HOLLOW_C[0], z - HOLLOW_C[1])
+
+
+def hollow_floor(x, z):
+    """Height of the bowl floor's top block: y=1 in the middle, the surface (5) at the rim."""
+    r = hollow_r(x, z) + 1.2 * (vnoise(x, z, 3, 1501) - 0.5)
+    if r >= HOLLOW_R:
+        return HOLLOW_SINK
+    return 1 + int(round((HOLLOW_SINK - 1) * (max(r, 0.0) / HOLLOW_R) ** 1.6))
+
+
+def hollow_footprint(x, z):
+    return hollow_r(x, z) <= 15.0 + 1.5 * (vnoise(x, z, 4, 1502) - 0.5)
+
+
+def web_line(b, a, c, sag):
+    """Cobweb along a thread from a to c, sagging in the middle. Never overwrites a solid block."""
+    (x0, y0, z0), (x1, y1, z1) = a, c
+    steps = int(max(abs(x1 - x0), abs(z1 - z0), abs(y1 - y0)) * 1.5) + 1
+    for i in range(steps + 1):
+        t = i / steps
+        pos = (int(round(x0 + (x1 - x0) * t)),
+               int(round(y0 + (y1 - y0) * t - sag * math.sin(math.pi * t))),
+               int(round(z0 + (z1 - z0) * t)))
+        if pos not in b or b[pos][0] == 'minecraft:air':
+            put(b, pos, 'minecraft:cobweb')
+
+
+def dead_spruce(b, x, z, height, salt):
+    """A dead spruce on the rim: bare trunk, a few stubs, and one long branch over the bowl.
+
+    Returns the tip of the long branch, which the web is strung from.
+    """
+    base = HOLLOW_SINK
+    for y in range(base - 2, base + height + 1):
+        # One log, not a mix: stripped and bark logs block by block came out as a striped pole.
+        put(b, (x, y, z), 'minecraft:spruce_log', {'axis': 'y'})
+    dx, dz = HOLLOW_C[0] - x, HOLLOW_C[1] - z
+    n = math.hypot(dx, dz)
+    ux, uz = dx / n, dz / n
+    axis = 'x' if abs(ux) >= abs(uz) else 'z'
+    # The long branch climbs as it reaches over the bowl, one row up every second block: a level
+    # beam off the top of a bare trunk read as a gallows.
+    start = base + height - 3
+    reach = 5 + int(noise(x, 0, z, salt + 1) * 2)
+    tip = (x, start, z)
+    for i in range(1, reach + 1):
+        tip = (int(round(x + ux * i)), start + i // 2, int(round(z + uz * i)))
+        put(b, tip, 'minecraft:spruce_log', {'axis': axis})
+    # A fork off the trunk's crown, climbing the other way, and two short stubs lower down.
+    side_axis = 'z' if axis == 'x' else 'x'
+    for i in range(1, 3):
+        put(b, (int(round(x - uz * i)), base + height - 1 + i // 2, int(round(z + ux * i))),
+            'minecraft:spruce_log', {'axis': side_axis})
+    for k, h in enumerate((base + height // 2, base + height // 2 - 2)):
+        sx, sz = (int(round(x + uz)), int(round(z - ux))) if k == 0 else (int(round(x - ux)), int(round(z - uz)))
+        put(b, (sx, h, sz), 'minecraft:spruce_log', {'axis': side_axis if k == 0 else axis})
+    return tip
+
+
+def egg_sac(b, x, z, size, salt):
+    """A clutch of eggs: a rounded lump of silk on the bowl floor with web drawn over it."""
+    # Big enough to read as a clutch from the rim: a two-block single lump read as a dropped box.
+    f = max(hollow_floor(x + dx, z + dz) for dx in (-1, 0, 1) for dz in (-1, 0, 1))
+    cells = [(0, 0, 0), (1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, 1, 0),
+             (1, 0, 1), (-1, 0, -1), (1, 1, 0), (0, 1, 1)][:size]
+    for dx, dy, dz in cells:
+        put(b, (x + dx, f + 1 + dy, z + dz), HOLLOW_SILK)
+        for y in range(hollow_floor(x + dx, z + dz) + 1, f + 1 + dy):
+            put(b, (x + dx, y, z + dz), HOLLOW_SILK)      # no gap under a lump on the slope
+    for dx, dz in ((-2, 0), (2, 1), (0, 2), (1, -2)):
+        pos = (x + dx, hollow_floor(x + dx, z + dz) + 1, z + dz)
+        if pos not in b or b[pos][0] == 'minecraft:air':
+            put(b, pos, 'minecraft:cobweb')
+
+
+def cocoon(b, x, y_branch, z, length):
+    """A wrapped victim hanging from a branch on a strand: chain, then silk two blocks long."""
+    put(b, (x, y_branch - 1, z), 'minecraft:chain', {'axis': 'y'})
+    for i in range(length):
+        put(b, (x, y_branch - 2 - i, z), HOLLOW_SILK)
+    put(b, (x, y_branch - 2 - length, z), 'minecraft:cobweb')
+
+
+def victim_pack(b, x, z, facing, salt):
+    """What one of the searchers was carrying, under the web that caught him. Front left open."""
+    f = hollow_floor(x, z)
+    chest(b, (x, f + 1, z), facing, 'hogwartsmagic:chests/acromantula_hollow')
+    fx, _, fz = DIRS[facing]
+    put(b, (x + fx, f + 1, z + fz), 'minecraft:air')    # the lid has to open, whatever else is near
+    for dx, dz in ((-fx, -fz), (fz, fx), (-fz, -fx)):
+        pos = (x + dx, hollow_floor(x + dx, z + dz) + 1, z + dz)
+        if pos not in b or b[pos][0] == 'minecraft:air':
+            put(b, pos, 'minecraft:cobweb')
+    put(b, (x, f + 2, z), 'minecraft:cobweb')
+    put(b, (x - fz, f + 1, z + fx), 'minecraft:bone_block', {'axis': 'y'})
+
+
+def acromantula_hollow():
+    """Forbidden Forest: the acromantula colony. A web-roofed bowl, the brood mother at its centre."""
+    b = {}
+    W = HOLLOW_W
+    for x in range(W):
+        for z in range(W):
+            if not hollow_footprint(x, z):
+                continue
+            r = hollow_r(x, z)
+            f = hollow_floor(x, z)
+            if f < HOLLOW_SINK:
+                for y in range(0, f + 1):
+                    if y == f:
+                        block = 'minecraft:gravel' if vnoise(x, z, 3, 1503) < 0.3 else 'minecraft:packed_mud'
+                    else:
+                        block = 'minecraft:mud_bricks' if y == f - 1 and noise(x, y, z, 1504) < 0.1 \
+                            else 'minecraft:packed_mud'
+                    put(b, (x, y, z), block)
+                for y in range(f + 1, HOLLOW_SINK + 6):
+                    put(b, (x, y, z), 'minecraft:air')
+            else:
+                # The rim: the forest floor, trampled and webbed, carried down two rows so the bowl's
+                # side is solid wherever the natural ground happens to sit lower.
+                # Trampled bare near the lip, back to the forest's own grass toward the edge, so the
+                # build does not end in a hard brown disc.
+                edge = r + 1.5 * (vnoise(x, z, 3, 1506) - 0.5)
+                if edge > 13.0:
+                    put(b, (x, HOLLOW_SINK, z), 'minecraft:grass_block', {'snowy': 'false'})
+                elif vnoise(x, z, 4, 1505) < 0.5:
+                    put(b, (x, HOLLOW_SINK, z), 'minecraft:podzol', {'snowy': 'false'})
+                else:
+                    put(b, (x, HOLLOW_SINK, z), 'minecraft:coarse_dirt')
+                for y in (HOLLOW_SINK - 2, HOLLOW_SINK - 1):
+                    put(b, (x, y, z), 'minecraft:dirt')
+                if r < 13.5:
+                    for y in (HOLLOW_SINK + 1, HOLLOW_SINK + 2):
+                        put(b, (x, y, z), 'minecraft:air')
+
+    # Dead spruces round the rim, their branches over the bowl, and the web roof hung from them.
+    tips = []
+    for k in range(6):
+        a = k * math.pi / 3 + 0.35 * (noise(k, 0, 0, 1510) - 0.5)
+        x = int(round(HOLLOW_C[0] + 12.3 * math.cos(a)))
+        z = int(round(HOLLOW_C[1] + 12.3 * math.sin(a)))
+        tips.append(dead_spruce(b, x, z, 9 + int(4 * noise(k, 1, 0, 1511)), 1512 + k))
+    # Twelve radial threads: one from each branch tip, one from each trunk between them. Rings are
+    # strung across the radials. Six threads and two rings came out as a single tangle over the
+    # middle -- the roof has to cover the bowl to read as a roof.
+    hub = (HOLLOW_C[0], HOLLOW_SINK + 9, HOLLOW_C[1])
+    anchors = []
+    for i, tip in enumerate(tips):
+        anchors.append(tip)
+        nxt = tips[(i + 1) % len(tips)]
+        mid_a = math.atan2((tip[2] + nxt[2]) / 2 - HOLLOW_C[1], (tip[0] + nxt[0]) / 2 - HOLLOW_C[0])
+        anchors.append((int(round(HOLLOW_C[0] + 9.5 * math.cos(mid_a))), hub[1] + 1,
+                        int(round(HOLLOW_C[1] + 9.5 * math.sin(mid_a)))))
+    broken = {8, 9}                                       # a torn sector, over the second pack
+    for i, a in enumerate(anchors):
+        if i not in broken:
+            web_line(b, a, hub, 1.5)
+
+    def along(a, frac):
+        return (int(round(a[0] + (hub[0] - a[0]) * frac)),
+                int(round(a[1] + (hub[1] - a[1]) * frac - 1.5 * math.sin(math.pi * frac))),
+                int(round(a[2] + (hub[2] - a[2]) * frac)))
+    for frac in (0.25, 0.5, 0.75):
+        pts = [along(a, frac) for a in anchors]
+        for i in range(len(pts)):
+            j = (i + 1) % len(pts)
+            if {i, j} <= broken | {7, 10} and frac < 0.6:
+                continue
+            web_line(b, pts[i], pts[j], 0.6)
+    # The drop line: a single strand from the hub down toward the mother.
+    for y in range(hollow_floor(*HOLLOW_C) + 4, hub[1]):
+        put(b, (HOLLOW_C[0], y, HOLLOW_C[1]), 'minecraft:cobweb')
+
+    # Wrapped victims hanging from three of the branches.
+    for i, length in ((0, 2), (2, 2), (5, 1)):
+        tx, ty, tz = tips[i]
+        if b.get((tx, ty, tz), ('',))[0].endswith('_log'):
+            cocoon(b, tx, ty, tz, length)
+
+    # The clutch round the mother, bones, two of the searchers' packs.
+    for (x, z, size, s) in ((11, 13, 10, 1), (21, 12, 8, 2), (20, 21, 10, 3), (11, 21, 7, 4)):
+        egg_sac(b, x, z, size, 1520 + s)
+    for (x, z, ax) in ((13, 17, 'x'), (21, 15, 'z'), (17, 22, 'x'), (10, 16, 'z'), (18, 8, 'x'), (24, 18, 'z')):
+        put(b, (x, hollow_floor(x, z) + 1, z), 'minecraft:bone_block', {'axis': ax})
+    victim_pack(b, 9, 10, 'south', 1530)
+    victim_pack(b, 23, 22, 'west', 1531)
+    for (x, z) in ((14, 23), (22, 9), (8, 18)):
+        put(b, (x, hollow_floor(x, z) + 1, z), 'minecraft:cobweb')
+
+    keep = {'PersistenceRequired': ('byte', 1)}
+
+    def spider(x, z, scale):
+        # On the slope a wide spider has to stand on the highest floor under its body, or the
+        # uphill side of the bowl is inside it.
+        half = 0.8 * scale
+        under = [hollow_floor(cx, cz)
+                 for cx in range(math.floor(x + 0.5 - half), math.ceil(x + 0.5 + half))
+                 for cz in range(math.floor(z + 0.5 - half), math.ceil(z + 0.5 + half))]
+        tags = dict(keep)
+        tags['SpiderScale'] = ('float', scale)
+        return entity(x + 0.5, float(max(under) + 1), z + 0.5, 'hogwartsmagic:acromantula', tags)
+
+    return b, [spider(16, 16, 1.6), spider(13, 11, 0.8), spider(21, 18, 1.0),
+               spider(10, 19, 0.6), spider(18, 13, 0.4)]
+
+
 DROWNED = [('minecraft:stone_bricks', 6), ('minecraft:mossy_stone_bricks', 6),
            ('minecraft:cracked_stone_bricks', 4), ('minecraft:prismarine', 2)]
 
@@ -4379,6 +4600,7 @@ BUILDS = {
     'black_lake_ruin': black_lake_ruin,
     'merfolk_village': merfolk_village,
     'willow_clearing': willow_clearing,
+    'acromantula_hollow': acromantula_hollow,
     'death_eater_camp': death_eater_camp,
     'hogwarts_ruin_camp': hogwarts_ruin_camp,
     'locket_cave': locket_cave,
@@ -4498,7 +4720,8 @@ def audit_entities(blocks, entities, size):
 # single-cell check above passes a 3-wide dragon whose wings are inside a spire; this one checks the
 # whole box.
 ENTITY_BOX = {'hogwartsmagic:hungarian_horntail': (3.0, 3.2), 'hogwartsmagic:dementor': (1.0, 3.0),
-              'hogwartsmagic:troll': (1.75, 3.25)}
+              'hogwartsmagic:troll': (1.75, 3.25),
+              'hogwartsmagic:acromantula': (1.6, 1.2)}      # times its SpiderScale, if it has one
 
 
 def audit_entity_room(blocks, entities):
@@ -4508,6 +4731,8 @@ def audit_entity_room(blocks, entities):
         if eid not in ENTITY_BOX:
             continue
         w, h = ENTITY_BOX[eid]
+        scale = e['nbt'][1].get('SpiderScale', ('float', 1.0))[1]
+        w, h = w * scale, h * scale
         x, y, z = [v[1] for v in e['pos'][2]]
         for bx in range(math.floor(x - w / 2), math.ceil(x + w / 2)):
             for bz in range(math.floor(z - w / 2), math.ceil(z + w / 2)):

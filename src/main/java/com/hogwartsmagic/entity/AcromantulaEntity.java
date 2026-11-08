@@ -300,6 +300,14 @@ public class AcromantulaEntity extends Monster {
         this.entityData.set(DATA_FLAGS_ID, b0);
     }
 
+    /**
+     * True when the entity was loaded with a SpiderScale already in its data. A structure template
+     * stores its spiders that way (the Acromantula Hollow's brood mother), and the game calls
+     * finalizeSpawn on template entities after loading them -- so without this the stored size
+     * would be thrown away for a random one.
+     */
+    private boolean presetScale;
+
     public float getSpiderScale() {
         return this.entityData.get(DATA_SCALE);
     }
@@ -330,9 +338,14 @@ public class AcromantulaEntity extends Monster {
     @Override
     public net.minecraft.world.entity.SpawnGroupData finalizeSpawn(net.minecraft.world.level.ServerLevelAccessor level, net.minecraft.world.DifficultyInstance difficulty, net.minecraft.world.entity.MobSpawnType reason, @javax.annotation.Nullable net.minecraft.world.entity.SpawnGroupData spawnData) {
         net.minecraft.world.entity.SpawnGroupData data = super.finalizeSpawn(level, difficulty, reason, spawnData);
-        float[] scales = {0.2F, 0.4F, 0.6F, 0.8F, 1.0F, 1.2F};
-        float scale = scales[this.random.nextInt(scales.length)];
-        this.entityData.set(DATA_SCALE, scale);
+        float scale;
+        if (this.presetScale) {
+            scale = this.getSpiderScale();
+        } else {
+            float[] scales = {0.2F, 0.4F, 0.6F, 0.8F, 1.0F, 1.2F};
+            scale = scales[this.random.nextInt(scales.length)];
+            this.entityData.set(DATA_SCALE, scale);
+        }
 
         this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(100.0D * scale);
         this.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(10.0D * scale);
@@ -352,6 +365,7 @@ public class AcromantulaEntity extends Monster {
         super.readAdditionalSaveData(tag);
         if (tag.contains("SpiderScale")) {
             this.entityData.set(DATA_SCALE, tag.getFloat("SpiderScale"));
+            this.presetScale = true;
         }
     }
 

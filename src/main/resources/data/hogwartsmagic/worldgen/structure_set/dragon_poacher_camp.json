@@ -1,0 +1,18 @@
+{
+  "structures": [
+    {
+      "structure": "hogwartsmagic:dragon_poacher_camp",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 18,
+    "separation": 7,
+    "salt": 741220018,
+    "exclusion_zone": {
+      "other_set": "hogwartsmagic:horntail_nest",
+      "chunk_count": 3
+    }
+  }
+}

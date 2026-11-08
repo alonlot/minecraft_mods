@@ -19,7 +19,7 @@
   "start_pool": "hogwartsmagic:horntail_nest",
   "size": 1,
   "start_height": {
-    "absolute": 0
+    "absolute": -3
   },
   "max_distance_from_center": 80,
   "use_expansion_hack": false,

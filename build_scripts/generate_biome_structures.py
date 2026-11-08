@@ -513,47 +513,558 @@ def fen_gibbet():
 
 CRAG = [('minecraft:blackstone', 6), ('minecraft:polished_blackstone', 3), ('minecraft:basalt', 3)]
 
+# --- Horntail Peaks ---------------------------------------------------------------------------------
+# Two builds share this biome and tell one story. Up on the crag a Horntail broods on her clutch in a
+# bowl of rock and woven branches. Lower down, egg poachers have pitched camp with one stolen egg
+# already caged on a sledge, and the dragon has already been down once to burn a tent. The lair has
+# the dragon and the eggs; the camp has the wizards who spawn in the biome; the scorch marks join them.
+#
+# Both surface palettes stay inside the biome's own ground (blackstone, basalt, tuff, from
+# ModSurfaceRules.horntailPeaks) so neither build looks pasted onto the mountain. Contrast comes from
+# coherent patches -- dark scorch streaks through pale ash drifts -- never from a one-block mix of the
+# two, which is 60+ luma apart and reads as a chessboard.
+
+# Rows of the lair template below the natural surface. The structure JSON's start_height is minus
+# this, so the plug of rock under the bowl is buried and the build grows out of the mountain rather
+# than sitting on it. LAIR_G is the first row of air: where feet, eggs and bones stand.
+LAIR_SINK = 3
+LAIR_G = LAIR_SINK + 1
+LAIR_W = 35
+LAIR_C = (17, 18)                       # centre of the bowl
+
+SCORCH = [('minecraft:blackstone', 8), ('minecraft:polished_blackstone', 2)]
+ASH = [('minecraft:tuff', 1)]
+SPIRE = [('minecraft:basalt', 8), ('minecraft:polished_basalt', 2)]
+# Branches the dragon dragged up the mountain. Wood is the one thing on the crag that is not rock,
+# which is exactly why it reads as a nest and not as a crater.
+WEAVE = ['minecraft:dark_oak_log', 'minecraft:spruce_log', 'minecraft:stripped_dark_oak_log']
+# Things that catch fire. A lit fire block is only ever placed well clear of every one of these --
+# fire on netherrack never goes out, and it spreads to anything flammable within a few blocks.
+FLAMMABLE = ('_log', '_planks', '_wool', '_carpet', 'hay_block', '_slab', '_stairs', '_fence',
+             'ladder', 'barrel', 'chest')
+
+
+def rock(b, pos, block, axis='y'):
+    """Place a crag block. Basalt is a pillar block and takes an axis; the rest do not."""
+    pillar = block in ('minecraft:basalt', 'minecraft:polished_basalt')
+    b[pos] = (block, {'axis': axis} if pillar else None, None)
+
+
+def polar(x, z, c):
+    dx, dz = x - c[0], z - c[1]
+    return math.hypot(dx, dz), math.atan2(dz, dx)
+
+
+def egg(b, x, y, z, speckled):
+    """A dragon egg: a full block with a wall post on top, so it narrows toward the crown.
+
+    Tuff is the grey, speckled egg; gilded blackstone is a dark one flecked with gold. Either way the
+    taper is what reads -- a cube on a cube is a pillar, a cube under a post is an egg.
+    """
+    if speckled:
+        put(b, (x, y, z), 'minecraft:tuff')
+        put(b, (x, y + 1, z), 'minecraft:tuff_wall')
+    else:
+        put(b, (x, y, z), 'minecraft:gilded_blackstone')
+        put(b, (x, y + 1, z), 'minecraft:blackstone_wall')
+
+
+def ember(b, x, y, z):
+    """A patch of ground still burning: netherrack, so the fire on it never goes out."""
+    put(b, (x, y, z), 'minecraft:netherrack')
+    b[(x, y + 1, z)] = ('minecraft:fire', {'age': '0', 'east': 'false', 'north': 'false',
+                                          'south': 'false', 'up': 'false', 'west': 'false'}, None)
+
+
+def smoke_vent(b, x, y, z, salt):
+    """A fissure with smoke pouring out of it, sunk into the ground.
+
+    A campfire on a hay bale is a signal fire, and its smoke climbs far higher than a normal fire's.
+    That column is what makes the lair findable from the next ridge, by day and by night. Sunk one
+    row and ringed with a kerb so it reads as a crack in the rock, not as a cooking fire.
+    """
+    for dx in (-1, 0, 1):                                     # its own plug, wherever it sits
+        for dz in (-1, 0, 1):
+            for yy in range(0, y - 1):
+                put(b, (x + dx, yy, z + dz), tex(SCORCH, x + dx, yy, z + dz, salt + 2))
+    put(b, (x, y - 1, z), 'minecraft:hay_block', {'axis': 'y'})
+    put(b, (x, y, z), 'minecraft:campfire',
+        {'facing': 'north', 'lit': 'true', 'signal_fire': 'true', 'waterlogged': 'false'})
+    for dx, dz, facing in ((1, 0, 'east'), (-1, 0, 'west'), (0, 1, 'south'), (0, -1, 'north')):
+        stair(b, (x + dx, y + 1, z + dz), 'minecraft:polished_blackstone_stairs', facing)
+    for dx in (-1, 1):
+        for dz in (-1, 1):
+            rock(b, (x + dx, y + 1, z + dz), tex(SPIRE, x + dx, y + 1, z + dz, salt))
+            put(b, (x + dx, y, z + dz), tex(SCORCH, x + dx, y, z + dz, salt))
+    for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        put(b, (x + dx, y, z + dz), tex(SCORCH, x + dx, y, z + dz, salt + 1))
+
+
+def lair_footprint(x, z):
+    """The outline of the crag the lair sits on: a ragged disc, never a circle."""
+    r, _ = polar(x, z, LAIR_C)
+    return r <= 12.5 + 3.5 * vnoise(x, z, 4, 901)
+
+
+def lair_ground(b):
+    """Ground row and the buried plug under it.
+
+    Pale ash drifts lie over the outer crag, blown out of the bowl by wing beats. Five dark streaks
+    radiate from the bowl through them -- fire breath, aimed at whatever came up the mountain. The
+    plug narrows with depth so terrain adaptation has a taper to blend into, not a slab edge.
+    """
+    G = LAIR_G
+    for x in range(LAIR_W):
+        for z in range(LAIR_W):
+            if not lair_footprint(x, z):
+                continue
+            r, ang = polar(x, z, LAIR_C)
+            for y in range(G - 1):
+                if r <= 15.5 - (G - 2 - y) * 2.5:
+                    put(b, (x, y, z), tex(SCORCH, x, y, z, 902))
+            streak = math.cos(ang * 5 + 1.3 * vnoise(x, z, 5, 903)) > 0.72
+            ash = vnoise(x, z, 5, 904) > 0.42 and r > 10 and not streak
+            put(b, (x, G - 1, z), tex(ASH if ash else SCORCH, x, G - 1, z, 905))
+
+
+def lair_bowl(b):
+    """The nest itself: a raised bowl with a rim of rock woven through with branches.
+
+    Floor one row above the ground, so the bowl reads as built up, not dug down. The rim is three to
+    five rows high and jagged; a gap in it on the south side is the only walk-in, and it is the side
+    the dragon faces. The flank outside the rim steps down to the ground in ones, so the gap and every
+    climb up the rim are single steps.
+    """
+    G = LAIR_G
+    for x in range(LAIR_W):
+        for z in range(LAIR_W):
+            r, ang = polar(x, z, LAIR_C)
+            if r > 11.6:
+                continue
+            gap = abs(ang - math.pi / 2) < 0.38               # the south entry
+            if r <= 5.6:
+                top, cap = G, None
+            elif r <= 8.4:
+                top = G if gap else G + 1 + int(noise(x // 2, 0, z // 2, 911) * 2.99)
+                cap = None
+            else:
+                fall = (11.6 - r) / 3.2                       # 0 at the foot, 1 at the rim
+                top = G - 1 + int(round(fall * (1 if gap else 2) + noise(x, 0, z, 912) * 0.6))
+                cap = None
+            for y in range(G - 1, top + 1):
+                rock(b, (x, y, z), tex(SPIRE if y > G else SCORCH, x, y, z, 913))
+            if r <= 5.6:
+                # Bowl floor: warm magma under the clutch, scorched rock around it.
+                put(b, (x, top, z), 'minecraft:magma_block' if r <= 4.2 and z <= LAIR_C[1] - 1
+                    and noise(x, top, z, 918) < 0.75
+                    else tex(SCORCH, x, top, z, 917))
+
+    nest_branches(b)
+
+    # The clutch, a little north of centre, on the warm magma.
+    # Mostly the pale speckled kind: the bowl floor is near black, and a dark egg on it vanished
+    # entirely in the first render. One gold-flecked egg is the odd one out, at the back.
+    for ex, ez, speckled in ((16, 16, True), (18, 17, True), (17, 14, False), (19, 15, True),
+                             (15, 14, True)):
+        egg(b, ex, G + 1, ez, speckled)
+    # Scraped-up rock heaped against the eggs, the way a hen pulls nesting material in close.
+    for sx, sz in ((14, 15), (20, 17), (16, 13), (18, 13), (17, 17)):
+        slab(b, (sx, G + 1, sz), 'minecraft:polished_blackstone_slab')
+
+
+def nest_branches(b):
+    """Branches laid across the rim, one stroke at a time.
+
+    The first pass capped every rim cell with a log and the rim read as a ring of crates: wood at
+    one-block frequency is a wall, not a nest. Separate strokes, three to five logs long, each laid
+    along its own direction and resting on whatever is under it, read as sticks. Gaps between them
+    are what make them sticks.
+    """
+    G = LAIR_G
+    cx, cz = LAIR_C
+    for i in range(16):
+        ang = (i + noise(i, 0, 0, 940) * 0.6) * (2 * math.pi / 16)
+        if abs(math.atan2(math.sin(ang - math.pi / 2), math.cos(ang - math.pi / 2))) < 0.8:
+            continue                                          # keep the south entry clear
+        r = 6.4 + noise(i, 1, 0, 941) * 1.6
+        length = 3 + int(noise(i, 2, 0, 942) * 2.99)
+        # Mostly along the rim, sometimes slewed across it.
+        along = 'x' if abs(math.sin(ang)) > 0.7 else 'z'
+        axis = along if noise(i, 3, 0, 943) < 0.7 else ('z' if along == 'x' else 'x')
+        wood = WEAVE[int(noise(i, 4, 0, 944) * len(WEAVE))]
+        x0 = int(round(cx + r * math.cos(ang)))
+        z0 = int(round(cz + r * math.sin(ang)))
+        for k in range(-(length // 2), length - length // 2):
+            x, z = (x0 + k, z0) if axis == 'x' else (x0, z0 + k)
+            y = G + 1
+            while (x, y, z) in b and y < G + 8:
+                y += 1
+            put(b, (x, y, z), wood, {'axis': axis})
+
+
+def ground_everything(b, G=None, top=None):
+    """Anything standing at ground level gets ground under it, down to the bottom of the plug.
+
+    The disc's ragged edge does not know where the bones and the fallen column were put, and a
+    tail bone hanging over thin air is just as wrong as a lantern hanging from nothing.
+    """
+    G = LAIR_G if G is None else G
+    top = ASH if top is None else top
+    for (x, y, z) in [p for p in b if p[1] == G]:
+        if (x, G - 1, z) not in b:
+            put(b, (x, G - 1, z), tex(top, x, G - 1, z, 950))
+            for yy in range(G - 1):
+                put(b, (x, yy, z), tex(SCORCH, x, yy, z, 951))
+
+
+def basalt_spire(b, cx, cz, base_r, top_r, h, lean, salt):
+    """A leaning basalt column with a flared foot.
+
+    Equal heights at equal spacing read as fence posts, so every spire gets its own height, radius
+    and lean. The foot flares where it meets the rock -- a column without one looks dropped on.
+    """
+    G = LAIR_G
+    for y in range(0, G + h):
+        t = max(0.0, (y - G) / float(h))
+        r = top_r + (base_r - top_r) * (1 - t) ** 2
+        if y < G + 2:
+            r += 1.2 - 0.5 * max(0, y - G + 1)
+        ox, oz = cx + lean[0] * t, cz + lean[1] * t
+        for x in range(int(ox - r - 1), int(ox + r + 2)):
+            for z in range(int(oz - r - 1), int(oz + r + 2)):
+                if not (0 <= x < LAIR_W and 0 <= z < LAIR_W):
+                    continue
+                d = math.hypot(x - ox, z - oz)
+                if d > r + 0.35 * (noise(x, y, z, salt) - 0.5):
+                    continue
+                if y >= G + h - 2 and noise(x, y, z, salt + 1) > 0.6:
+                    continue                                  # broken, uneven crown
+                rock(b, (x, y, z), tex(SPIRE, x, y, z, salt + 2))
+
+
+def carcass(b):
+    """What the dragon ate: a ribcage on its belly to the east, spine on top, ribs to the ground.
+
+    The single biggest silhouette at eye level after the spires. Ribs shrink toward the tail and two
+    of them are snapped off on one side, so it reads as remains and not as a fence.
+    """
+    G = LAIR_G
+    sx = 31
+    for z in range(17, 27):
+        put(b, (sx, G + 3, z), 'minecraft:bone_block', {'axis': 'z'})
+    for i, z in enumerate((18, 20, 22, 24)):
+        drop = i // 2                                         # tail ribs are shorter
+        for side in (-1, 1):
+            if (z, side) in ((20, 1), (24, -1)):              # snapped
+                put(b, (sx + side, G + 3, z), 'minecraft:bone_block', {'axis': 'x'})
+                continue
+            put(b, (sx + side, G + 3, z), 'minecraft:bone_block', {'axis': 'x'})
+            for y in range(G + drop, G + 3):
+                put(b, (sx + 2 * side, y, z), 'minecraft:bone_block', {'axis': 'y'})
+    # Skull at the north end, lying on its side, and a pelvis at the south.
+    fill(b, sx - 1, G, 14, sx + 1, G + 1, 15, 'minecraft:bone_block', {'axis': 'z'})
+    put(b, (sx, G + 2, 15), 'minecraft:bone_block', {'axis': 'z'})
+    put(b, (sx, G, 13), 'minecraft:bone_block', {'axis': 'z'})
+    for x in (sx - 1, sx + 1):
+        put(b, (x, G + 2, 26), 'minecraft:bone_block', {'axis': 'y'})
+    for z in (27, 28):                                        # tail, trailing into the ash
+        put(b, (sx, G + 2 if z == 27 else G + 1, z), 'minecraft:bone_block', {'axis': 'z'})
+    put(b, (sx - 1, G, 29), 'minecraft:bone_block', {'axis': 'z'})
+
+
+def poacher_remains(b):
+    """Just inside the entry: the last poacher who walked up here, and what he was carrying."""
+    G = LAIR_G
+    for pos, axis in (((14, G + 1, 21), 'x'), ((13, G + 1, 20), 'z'), ((15, G + 1, 22), 'z')):
+        put(b, pos, 'minecraft:bone_block', {'axis': axis})
+    put(b, (14, G + 2, 21), 'minecraft:skeleton_skull', {'rotation': '6'})
+    # The cage he meant to carry an egg down in, dropped and buckled.
+    for pos in ((12, G + 1, 18), (12, G + 2, 18), (13, G + 1, 17)):
+        put(b, pos, 'minecraft:iron_bars')
+    put(b, (13, G + 1, 19), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+    chest(b, (21, G + 1, 21), 'west', 'hogwartsmagic:chests/horntail_nest')
+
 
 def horntail_nest():
-    """Horntail Peaks: a scorched eyrie. An uneven, broken crest is what sells it as a nest."""
+    """Horntail Peaks: the dragon's lair -- a woven nest on a crag under leaning basalt spires.
+
+    Replaces a 14x14 ring of rubble five blocks high, which a 320-HP boss with a 3-block body could
+    barely stand in. The structure id is unchanged, so old worlds, the tome tags and /locate still
+    find it. Read from far away it is three things: the spires, the smoke, and the ribcage.
+    """
     b = {}
-    cx = cz = 7
-    for x in range(15):
-        for z in range(15):
-            d2 = (x - cx) ** 2 + (z - cz) ** 2
-            if d2 > 46:
+    G = LAIR_G
+    lair_ground(b)
+    # Spires on the north side, behind the clutch, so the dragon is framed against them from the
+    # entry. The tallest is the perch. The stump is what is left of one the dragon knocked down.
+    basalt_spire(b, 9, 7, 2.6, 1.2, 13, (-1.5, -1.0), 921)
+    basalt_spire(b, 16, 4, 3.0, 1.4, 19, (0.5, -1.5), 922)
+    basalt_spire(b, 24, 6, 2.2, 1.0, 10, (2.0, 0.5), 923)
+    basalt_spire(b, 4, 21, 1.8, 1.4, 4, (0.0, 0.0), 924)
+    # The fallen column, lying where it broke off the east spire.
+    for x in range(27, 34):
+        for z in (7, 8):
+            if noise(x, 0, z, 925) < 0.85:
+                rock(b, (x, G, z), tex(SPIRE, x, G, z, 926), 'x')
+    for x in (27, 30, 32):
+        rock(b, (x, G + 1, 7), tex(SPIRE, x, G + 1, 7, 927), 'x')
+    lair_bowl(b)
+    carcass(b)
+    poacher_remains(b)
+    smoke_vent(b, 7, G - 1, 28, 931)
+    smoke_vent(b, 25, G - 1, 31, 932)
+    # Embers along the fire streaks, far enough out that nothing flammable is in reach.
+    for x, z in ((3, 11), (12, 32), (33, 10), (2, 16)):
+        if lair_footprint(x, z):
+            ember(b, x, G - 1, z)
+
+    ground_everything(b)
+
+    # The dragon stands in the bowl between her clutch and the entry, facing out of it. Baked with
+    # persistence because the lair is pointless without her and a spawn cycle might never fire.
+    return b, [entity(17.5, float(G + 1), 21.5, 'hogwartsmagic:hungarian_horntail',
+                      {'PersistenceRequired': ('byte', 1),
+                       'Rotation': ('list', 'float', [('float', 0.0), ('float', 0.0)])})]
+
+
+CAMP_SINK = 1
+CAMP_G = CAMP_SINK + 1
+CAMP_W, CAMP_D = 31, 27
+CAMP_C = (15, 13)
+
+# Brown and grey wool sit within twenty luma of each other, so a tent made of both reads as patched
+# canvas. Brown with light grey, eighty apart, reads as a chequered tablecloth.
+POACHER_CANVAS = [('minecraft:brown_wool', 8), ('minecraft:gray_wool', 2)]
+CAMP_DIRT = [('minecraft:coarse_dirt', 7), ('minecraft:dirt', 2), ('minecraft:rooted_dirt', 1)]
+
+
+def camp_footprint(x, z):
+    dx, dz = (x - CAMP_C[0]) / 15.5, (z - CAMP_C[1]) / 12.0
+    return math.hypot(dx, dz) <= 0.86 + 0.18 * vnoise(x, z, 4, 960)
+
+
+def scorch_line(x, z):
+    """Distance from the line the dragon's breath took across the camp, north-east to south-west."""
+    (x0, z0), (x1, z1) = (30, 5), (4, 23)
+    lx, lz = x1 - x0, z1 - z0
+    t = max(0.0, min(1.0, ((x - x0) * lx + (z - z0) * lz) / float(lx * lx + lz * lz)))
+    return math.hypot(x - (x0 + t * lx), z - (z0 + t * lz))
+
+
+def trodden(x, z):
+    """Where feet have worn the crag down to the earth they carried up: round the fire, the tent
+    mouths, and the lane to the sledge. The first pass laid earth over the whole camp and the brown
+    was louder than anything standing on it."""
+    wobble = 1.6 * vnoise(x, z, 3, 969)
+    near = lambda cx, cz, r: math.hypot(x - cx, z - cz) < r + wobble
+    return (near(16, 12, 4.0) or near(12, 7, 2.0) or near(12, 20, 1.5) or near(20, 18, 2.0)
+            or (14 <= x <= 21 and abs(z - 12) < 1 + wobble * 0.6))
+
+
+def poacher_ground(b):
+    """Trodden earth carried up for the camp, over the crag; a burnt stripe across it.
+
+    The earth is the poachers' -- nothing else on the mountain is brown -- and it stops at the edge
+    of the camp in a ragged line, giving way to the biome's own blackstone and ash.
+    """
+    G = CAMP_G
+    for x in range(CAMP_W):
+        for z in range(CAMP_D):
+            if not camp_footprint(x, z):
                 continue
-            put(b, (x, 0, z), tex(CRAG, x, 0, z, 1))
-            if d2 <= 6:                                    # hot centre
-                put(b, (x, 0, z), 'minecraft:magma_block' if noise(x, 0, z, 2) > 0.35
-                    else 'minecraft:blackstone')
-            elif 20 <= d2 <= 46:
-                # Rim height varies with angle so the crest is jagged, not a smooth donut.
-                crest = 1 + int(noise(x // 2, 0, z // 2, 8) * 3)
-                for y in range(1, crest + 1):
-                    put(b, (x, y, z), tex(CRAG, x, y, z, 3))
-                if noise(x, 0, z, 12) > 0.62:              # broken teeth along the crest
-                    put(b, (x, crest + 1, z), 'minecraft:basalt', {'axis': 'y'})
-                elif noise(x, 0, z, 13) > 0.72:
-                    stair(b, (x, crest + 1, z),
-                          'minecraft:polished_blackstone_stairs',
-                          'east' if x < cx else 'west', 'bottom')
+            put(b, (x, 0, z), tex(SCORCH, x, 0, z, 961))
+            d = scorch_line(x, z) + 0.8 * (vnoise(x, z, 3, 962) - 0.5)
+            if d < 1.6:
+                block = tex(SCORCH, x, G - 1, z, 963)
+            elif d < 2.6:
+                block = tex(ASH, x, G - 1, z, 964)
+            elif trodden(x, z):
+                block = tex(CAMP_DIRT, x, G - 1, z, 967)
+            elif vnoise(x, z, 4, 965) > 0.55:
+                block = tex(SCORCH, x, G - 1, z, 966)
+            else:
+                block = tex(ASH, x, G - 1, z, 968)
+            put(b, (x, G - 1, z), block)
 
-    for ex, ez in [(6, 6), (8, 7), (7, 9)]:                # eggs, on a scraped-up mound
-        put(b, (ex, 0, ez), 'minecraft:polished_blackstone')
-        put(b, (ex, 1, ez), 'minecraft:gilded_blackstone')
-        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            if noise(ex + dx, 1, ez + dz, 17) > 0.55:
-                slab(b, (ex + dx, 1, ez + dz), 'minecraft:polished_blackstone_slab')
 
-    for bx, by, bz, axis in [(5, 1, 9, 'x'), (9, 1, 5, 'z'), (10, 1, 9, 'x'), (4, 1, 6, 'z')]:
-        put(b, (bx, by, bz), 'minecraft:bone_block', {'axis': axis})
-    put(b, (10, 2, 8), 'minecraft:magma_block')
-    chest(b, (4, 1, 8), 'east', 'minecraft:chests/nether_bridge')
+def poacher_tent(b, cx, cz, open_dir, salt, burnt=False):
+    """An A-frame canvas tent: ridge along x, closed at the back, open toward the fire.
 
-    # The dragon is fire-immune, so sitting it on the magma at the centre of its own nest is safe.
-    return b, [entity(7.5, 1.0, 4.5, 'hogwartsmagic:hungarian_horntail',
-                      {'PersistenceRequired': ('byte', 1)})]
+    Same proportions as the Death Eater tents (wall to 2, roof to 3, ridge to 4) for the same reason:
+    a shallower pitch reads as a beam lying on the ground. A burnt tent is the same tent with most of
+    the canvas gone and the rest charred black, standing in the scorch stripe.
+    """
+    G = CAMP_G
+
+    def cloth(x, y, z):
+        if burnt:
+            roll = noise(x, y, z, salt + 1)
+            if roll > 0.45 or (y >= G + 2 and roll > 0.25):
+                return
+            put(b, (x, y, z), 'minecraft:black_wool' if roll < 0.32 else 'minecraft:gray_wool')
+        else:
+            put(b, (x, y, z), tex(POACHER_CANVAS, x, y, z, salt))
+
+    back = cx - open_dir * 2
+    for x in range(cx - 2, cx + 3):
+        gable = (x == back)
+        for dz in (-2, -1, 0, 1, 2):
+            z = cz + dz
+            if abs(dz) == 2:
+                cloth(x, G, z)
+                cloth(x, G + 1, z)
+            elif abs(dz) == 1:
+                cloth(x, G + 2, z)
+                if gable:
+                    cloth(x, G, z)
+                    cloth(x, G + 1, z)
+            else:
+                if not burnt or noise(x, 0, z, salt + 2) < 0.6:
+                    put(b, (x, G + 3, z), 'minecraft:spruce_log', {'axis': 'x'})
+                if gable:
+                    for y in (G, G + 1, G + 2):
+                        cloth(x, y, z)
+    porch = cx + open_dir * 3
+    put(b, (porch, G + 3, cz), 'minecraft:spruce_log', {'axis': 'x'})
+    fill(b, porch, G, cz, porch, G + 2, cz, 'minecraft:spruce_fence')
+    for x in range(cx - 1, cx + 2):
+        put(b, (x, G, cz), 'minecraft:black_carpet' if burnt else 'minecraft:brown_carpet')
+    if not burnt:
+        put(b, (back + open_dir, G, cz + 1), 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+
+
+def poacher_fire(b):
+    """The cooking fire, kerbed and raised, with a spit across it. The camp is arranged round it."""
+    G = CAMP_G
+    cx, cz = 16, 12
+    for dx, dz, facing in ((0, -1, 'north'), (0, 1, 'south'), (-1, 0, 'west'), (1, 0, 'east')):
+        stair(b, (cx + dx, G, cz + dz), 'minecraft:polished_blackstone_brick_stairs', facing)
+    for dx in (-1, 1):
+        for dz in (-1, 1):
+            put(b, (cx + dx, G, cz + dz), 'minecraft:chiseled_polished_blackstone')
+    put(b, (cx, G, cz), 'minecraft:polished_blackstone_bricks')
+    put(b, (cx, G + 1, cz), 'minecraft:campfire',
+        {'facing': 'north', 'lit': 'true', 'signal_fire': 'false', 'waterlogged': 'false'})
+    for x in (cx - 2, cx + 2):
+        fill(b, x, G, cz, x, G + 1, cz, 'minecraft:spruce_fence')
+    for x in range(cx - 2, cx + 3):
+        b[(x, G + 2, cz)] = ('minecraft:chain', {'axis': 'x', 'waterlogged': 'false'}, None)
+    # Log seats on three sides, open to the east where the cage is.
+    for x in (15, 16, 17):
+        put(b, (x, G, 15), 'minecraft:stripped_spruce_log', {'axis': 'x'})
+    for x in (15, 16):
+        put(b, (x, G, 9), 'minecraft:stripped_spruce_log', {'axis': 'x'})
+    for z in (11, 12, 13):
+        put(b, (12, G, z), 'minecraft:stripped_spruce_log', {'axis': 'z'})
+
+
+def egg_sledge(b):
+    """The point of the camp: a stolen egg in a barred crate, lashed to a sledge for the way down.
+
+    A sledge, not a cart -- nothing on wheels gets down these slopes. Raised two rows on its skids and
+    bed so the cage stands clear of everything else in the camp, with the egg on hay inside it.
+    """
+    G = CAMP_G
+    for z in (10, 14):
+        for x in range(20, 28):
+            put(b, (x, G, z), 'minecraft:spruce_log', {'axis': 'x'})
+    fill(b, 21, G + 1, 10, 26, G + 1, 14, 'minecraft:spruce_planks')
+    x0, x1, z0, z1 = 21, 25, 10, 14
+    for y in (G + 2, G + 3, G + 4):
+        for x in range(x0, x1 + 1):
+            for z in range(z0, z1 + 1):
+                edge_x, edge_z = x in (x0, x1), z in (z0, z1)
+                if edge_x and edge_z:
+                    put(b, (x, y, z), 'minecraft:dark_oak_log', {'axis': 'y'})
+                elif edge_x or edge_z:
+                    # Connections spelled out: bars run along the face they are in. Left bare they
+                    # are single posts until a neighbour update fixes them, and render that way.
+                    along_x = 'true' if edge_z else 'false'
+                    along_z = 'true' if edge_x else 'false'
+                    b[(x, y, z)] = ('minecraft:iron_bars',
+                                    {'east': along_x, 'west': along_x, 'north': along_z,
+                                     'south': along_z, 'waterlogged': 'false'}, None)
+    # A frame round the top, not a lid: with a slab roof it read as a garden gazebo, and the egg --
+    # the whole point -- was hidden under it.
+    for x in range(x0, x1 + 1):
+        for z in (z0, z1):
+            put(b, (x, G + 5, z), 'minecraft:dark_oak_log', {'axis': 'x'})
+    for z in range(z0 + 1, z1):
+        for x in (x0, x1):
+            put(b, (x, G + 5, z), 'minecraft:dark_oak_log', {'axis': 'z'})
+
+    put(b, (23, G + 2, 12), 'minecraft:hay_block', {'axis': 'y'})
+    egg(b, 23, G + 3, 12, True)
+    # Tow chains off the front of the sledge to a stake.
+    for x in (27, 28):
+        b[(x, G + 1, 12)] = ('minecraft:chain', {'axis': 'x', 'waterlogged': 'false'}, None)
+    fill(b, 29, G, 12, 29, G + 1, 12, 'minecraft:spruce_fence')
+
+
+def poacher_stores(b):
+    """Supplies stacked by the sledge: food, feed, tackle, and the chest."""
+    G = CAMP_G
+    for pos in ((23, G, 19), (23, G, 20), (24, G, 20), (23, G + 1, 20)):
+        put(b, pos, 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    put(b, (24, G + 1, 20), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+    for pos in ((24, G, 21), (25, G, 21), (24, G + 1, 21)):
+        put(b, pos, 'minecraft:hay_block', {'axis': 'x'})
+    put(b, (21, G, 22), 'minecraft:chipped_anvil', {'facing': 'north'})
+    for y in (G, G + 1):                                      # a coil of spare chain on a post
+        b[(26, y, 19)] = ('minecraft:chain', {'axis': 'y', 'waterlogged': 'false'}, None)
+    put(b, (26, G - 1, 19), tex(CAMP_DIRT, 26, G - 1, 19, 970))
+    chest(b, (22, G, 20), 'west', 'hogwartsmagic:chests/dragon_poacher_camp')
+
+
+def lookout(b):
+    """A spotting platform on the downhill edge. Somebody has to watch for the dragon coming back."""
+    G = CAMP_G
+    for x, z in ((2, 12), (4, 12), (2, 14), (4, 14)):
+        fill(b, x, G, z, x, G + 3, z, 'minecraft:spruce_log', {'axis': 'y'})
+    for x in range(2, 5):
+        for z in range(12, 15):
+            slab(b, (x, G + 4, z), 'minecraft:spruce_slab')
+    for y in range(G, G + 4):
+        put(b, (5, y, 14), 'minecraft:ladder', {'facing': 'east', 'waterlogged': 'false'})
+    for x in range(2, 5):
+        for z in range(12, 15):
+            if (x in (2, 4) or z in (12, 14)) and (x, z) != (4, 14):
+                put(b, (x, G + 5, z), 'minecraft:spruce_fence')
+    put(b, (2, G + 6, 12), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+
+
+def dragon_poacher_camp():
+    """Horntail Peaks: dark wizards camped below the lair with one egg already caged.
+
+    The egg on its sledge is the centre of the camp and the reason for it. The burnt tent and the
+    stripe of scorched ground through the middle say the dragon has already found them once.
+    """
+    b = {}
+    G = CAMP_G
+    poacher_ground(b)
+    poacher_tent(b, 8, 7, +1, 971)
+    poacher_tent(b, 8, 20, +1, 972, burnt=True)
+    poacher_fire(b)
+    egg_sledge(b)
+    poacher_stores(b)
+    lookout(b)
+    for x, z in ((11, 4), (19, 17)):                          # lantern posts
+        fill(b, x, G, z, x, G + 1, z, 'minecraft:spruce_fence')
+        put(b, (x, G + 2, z), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+    # Spare bars and a dropped egg-crate lid: what they brought for the next egg.
+    for pos in ((19, G, 21), (19, G + 1, 21), (20, G, 21)):
+        put(b, pos, 'minecraft:iron_bars')
+    for x in (17, 18):
+        slab(b, (x, G, 23), 'minecraft:dark_oak_slab')
+
+    ground_everything(b, G, CAMP_DIRT)
+
+    wizard = {'PersistenceRequired': ('byte', 1)}
+    return b, [
+        entity(12.5, float(G), 9.5, 'hogwartsmagic:wizard', dict(wizard)),
+        entity(19.5, float(G), 15.5, 'hogwartsmagic:wizard', dict(wizard)),
+        entity(19.5, float(G), 7.5, 'hogwartsmagic:wizard', dict(wizard)),
+    ]
 
 
 # --- the Chamber of Secrets -----------------------------------------------------------------------
@@ -3084,6 +3595,7 @@ def audit_locket_cave(blocks):
 BUILDS = {
     'fen_gibbet': fen_gibbet,
     'horntail_nest': horntail_nest,
+    'dragon_poacher_camp': dragon_poacher_camp,
     'chamber_hall': chamber_hall,
     'goblin_vault': goblin_vault,
     'black_lake_ruin': black_lake_ruin,
@@ -3201,6 +3713,48 @@ def audit_entities(blocks, entities, size):
             problems.append('%s baked at %s is standing inside %s' % (eid, bp, feet))
         elif not PASSABLE.search(head):
             problems.append('%s baked at %s has %s at head height' % (eid, bp, head))
+    return problems
+
+
+# Entities wider or taller than one block, as (width, height) of their hitbox in ModEntities. The
+# single-cell check above passes a 3-wide dragon whose wings are inside a spire; this one checks the
+# whole box.
+ENTITY_BOX = {'hogwartsmagic:hungarian_horntail': (3.0, 3.2)}
+
+
+def audit_entity_room(blocks, entities):
+    problems = []
+    for e in entities:
+        eid = e['nbt'][1]['id'][1]
+        if eid not in ENTITY_BOX:
+            continue
+        w, h = ENTITY_BOX[eid]
+        x, y, z = [v[1] for v in e['pos'][2]]
+        for bx in range(math.floor(x - w / 2), math.ceil(x + w / 2)):
+            for bz in range(math.floor(z - w / 2), math.ceil(z + w / 2)):
+                for by in range(math.floor(y), math.ceil(y + h)):
+                    here = blocks.get((bx, by, bz), ('minecraft:air',))[0]
+                    if not PASSABLE.search(here):
+                        problems.append('%s at %s has %s inside its body at %s'
+                                        % (eid, (x, y, z), here, (bx, by, bz)))
+    return problems
+
+
+def audit_fire(blocks):
+    """Fire on netherrack never burns out, and fire spreads. Nothing flammable may be within reach."""
+    problems = []
+    for (x, y, z), (block, _, _) in blocks.items():
+        if block != 'minecraft:fire':
+            continue
+        if blocks.get((x, y - 1, z), (None,))[0] != 'minecraft:netherrack':
+            problems.append('fire at %s is not on netherrack and will go out' % ((x, y, z),))
+        for dx in range(-4, 5):
+            for dz in range(-4, 5):
+                for dy in range(-1, 5):
+                    other = blocks.get((x + dx, y + dy, z + dz), (None,))[0]
+                    if other and other.endswith(FLAMMABLE):
+                        problems.append('fire at %s can reach %s at %s'
+                                        % ((x, y, z), other, (x + dx, y + dy, z + dz)))
     return problems
 
 
@@ -3331,7 +3885,8 @@ if __name__ == '__main__':
         blocks, entities = built if isinstance(built, tuple) else (built, [])
         size = [max(p[i] for p in blocks) + 1 for i in range(3)]
         problems = (audit(name, blocks) + audit_entities(blocks, entities, size)
-                    + audit_paintings(blocks, entities))
+                    + audit_paintings(blocks, entities) + audit_entity_room(blocks, entities)
+                    + audit_fire(blocks))
         if name == 'chamber_hall':
             problems += audit_chamber_seal(blocks, size)
         if name == 'locket_cave':

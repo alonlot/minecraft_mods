@@ -511,6 +511,516 @@ def fen_gibbet():
                       {'PersistenceRequired': ('byte', 1)})]
 
 
+# --- Dementor Fen: the sunken prison -----------------------------------------------------------------
+# A Ministry holding tower that the bog has half swallowed. The Dementors who guarded it never left;
+# the prisoners who died in the cells below the waterline came back as Inferi. The two creatures of
+# the biome now share one building: Dementors in the dry rooms above, Inferi in the flooded cell block
+# below, and the confiscated-property chest down there with them, so the loot is behind both.
+#
+# The tower is an octagon of deepslate (dark, so it reads as a silhouette against the pale fen sky),
+# standing in a moat of black water, with an awash causeway to its one door. The north-east quarter of
+# the crown has fallen into the moat, which is what makes it read as a ruin from a distance and opens
+# the upper cells to view.
+
+PRISON_SINK = 6                         # template y=6 is the natural surface; y=7 the first air
+PRISON_C = (14, 14)
+PRISON_W = 29
+P_BASE = 1                              # basement floor; flooded y=2..5
+P_GROUND = 6                            # ground-floor floor (and basement ceiling)
+P_FIRST = 11
+P_SECOND = 16
+P_CROWN = 21
+P_TOP = 26                              # top course of an intact wall
+
+PRISON_WALL = [('minecraft:deepslate_bricks', 9), ('minecraft:cracked_deepslate_bricks', 3)]
+PRISON_FLOOR = [('minecraft:deepslate_tiles', 6), ('minecraft:cracked_deepslate_tiles', 2),
+                ('minecraft:polished_deepslate', 2)]
+PRISON_FOOT = [('minecraft:cobbled_deepslate', 1)]
+FEN_MUD = [('minecraft:mud', 6), ('minecraft:packed_mud', 1)]
+
+# Blocks that carry a waterlogged state. The global WATERLOGGABLE list misses the last four, which
+# never sat underwater in a build before this one.
+SUBMERSIBLE = ('_stairs', '_slab', '_wall', '_fence', 'iron_bars', 'chain',
+               'ladder', 'lantern', 'minecraft:chest', 'seagrass')
+
+
+def octagon(x, z):
+    """(max-norm, taxicab) distance from the tower axis. Faces at 7, chamfers at a taxicab 11."""
+    dx, dz = abs(x - PRISON_C[0]), abs(z - PRISON_C[1])
+    return max(dx, dz), dx + dz
+
+
+def tower_outer(x, z):
+    m, s = octagon(x, z)
+    return m <= 7 and s <= 11
+
+
+def tower_inner(x, z):
+    m, s = octagon(x, z)
+    return m <= 6 and s <= 10
+
+
+def batter_ring(x, z):
+    m, s = octagon(x, z)
+    return m <= 8 and s <= 12 and not tower_outer(x, z)
+
+
+def facing_in(x, z):
+    """The horizontal direction from (x, z) toward the tower axis, by the dominant axis."""
+    dx, dz = x - PRISON_C[0], z - PRISON_C[1]
+    if abs(dx) >= abs(dz):
+        return 'west' if dx > 0 else 'east'
+    return 'north' if dz > 0 else 'south'
+
+
+def collapse(x, z):
+    """0..1: how much of the crown has fallen here. Peaks in the north-east, fades by the sides."""
+    a = math.atan2(z - PRISON_C[1], x - PRISON_C[0])
+    off = abs((a + math.pi / 4 + math.pi) % (2 * math.pi) - math.pi)
+    return max(0.0, min(1.0, 1.0 - off / 1.2))
+
+
+def wall_top(x, z):
+    c = collapse(x, z)
+    # Per-cell noise, not smooth noise: a smooth fall-off came out as a neat staircase down the
+    # break, which reads as built, not fallen.
+    top = P_TOP - int(round(c * 11 + c * 4 * noise(x, 0, z, 1201)))     # never below floor one
+    if c == 0.0:
+        top -= int(vnoise(x, z, 3, 1202) * 1.6)      # weathered, not fallen
+    return top
+
+
+def moat_r(x, z):
+    r = math.hypot(x - PRISON_C[0], z - PRISON_C[1])
+    return r - 2.0 * (vnoise(x, z, 4, 1210) - 0.5)
+
+
+def prison_footprint(x, z):
+    return moat_r(x, z) <= 13.4
+
+
+def in_moat(x, z):
+    return moat_r(x, z) <= 11.0 and not tower_outer(x, z) and not batter_ring(x, z)
+
+
+def connect_bars(b):
+    """Spell out every iron bar's connections from its neighbours, as the game would on an update.
+
+    A template stores states verbatim. Bars left with the default state are four separate posts in
+    the world until something updates them.
+    """
+    def attaches(pos):
+        other = b.get(pos)
+        if other is None:
+            return False
+        name = other[0]
+        if name == 'minecraft:iron_bars' or name.endswith('_wall'):
+            return True
+        return not (name in ('minecraft:air', 'minecraft:water', 'minecraft:cobweb', 'minecraft:vine',
+                             'minecraft:chain', 'minecraft:ladder', 'minecraft:seagrass',
+                             'minecraft:chest', 'minecraft:barrel')
+                    or name in LANTERNS
+                    or name.endswith(('_stairs', '_slab', '_fence', '_trapdoor', '_carpet')))
+    for (x, y, z), (name, props, be) in list(b.items()):
+        if name != 'minecraft:iron_bars':
+            continue
+        p = dict(props or {})
+        for d, (dx, _, dz) in DIRS.items():
+            p[d] = 'true' if attaches((x + dx, y, z + dz)) else 'false'
+        p.setdefault('waterlogged', 'false')
+        b[(x, y, z)] = (name, p, be)
+
+
+def submerge(b, cells):
+    """Water into every empty cell given, and waterlogged=true on anything there that can carry it."""
+    for pos in cells:
+        cur = b.get(pos)
+        if cur is None or cur[0] == 'minecraft:air':
+            b[pos] = ('minecraft:water', {'level': '0'}, None)
+        elif cur[0].endswith(SUBMERSIBLE):
+            props = dict(cur[1] or {})
+            props['waterlogged'] = 'true'
+            b[pos] = (cur[0], props, cur[2])
+
+
+def prison_ground(b):
+    """Moat, bank and the footing under the tower.
+
+    The bank is mud carried down three rows, so the moat has a solid side wherever the fen around
+    it happens to be lower. Natural terrain is left alone under the bank and the moat bed.
+    """
+    for x in range(PRISON_W):
+        for z in range(PRISON_W):
+            if not prison_footprint(x, z):
+                continue
+            if tower_outer(x, z) or batter_ring(x, z):
+                fill_tex(b, x, 0, z, x, 2, z, PRISON_FOOT, 1211)
+                continue
+            if in_moat(x, z):
+                put(b, (x, 4, z), tex(FEN_MUD, x, 4, z, 1212))
+                for y in (5, 6, 7, 8):            # water placed later; clear any hump of bank
+                    put(b, (x, y, z), 'minecraft:air')
+            else:
+                for y in (4, 5, 6):
+                    block = 'minecraft:mud' if y == 6 and vnoise(x, z, 4, 1213) < 0.78 \
+                        else 'minecraft:coarse_dirt' if y == 6 else 'minecraft:dirt'
+                    put(b, (x, y, z), block)
+
+
+def prison_shell(b):
+    """The octagon: battered base, string course at the first floor, ragged crown with a parapet."""
+    for x in range(PRISON_W):
+        for z in range(PRISON_W):
+            if batter_ring(x, z):
+                for y in range(3, P_GROUND + 2):
+                    mossy = vnoise(x, z + 3 * y, 3, 1220) < 0.42 and y <= P_GROUND
+                    put(b, (x, y, z), 'minecraft:mossy_cobblestone' if mossy
+                        else tex(PRISON_FOOT, x, y, z, 1221))
+                stair(b, (x, P_GROUND + 2, z), 'minecraft:cobbled_deepslate_stairs', facing_in(x, z))
+                if collapse(x, z) < 0.3:              # string course: a shadow line at floor one
+                    stair(b, (x, P_FIRST, z), 'minecraft:deepslate_brick_stairs', facing_in(x, z), 'top')
+                continue
+            if not tower_outer(x, z) or tower_inner(x, z):
+                continue
+            top = wall_top(x, z)
+            c = collapse(x, z)
+            for y in range(P_BASE - 1, top + 1):
+                if y > top - 3 and y > P_FIRST + 1 and noise(x, y, z, 1225) < 0.35 * c:
+                    continue                          # loose blocks gone from the broken edge
+                put(b, (x, y, z), tex(PRISON_WALL, x, y, z, 1222))
+            # Quoins at the eight vertices, polished: they catch the light and draw the shape.
+            if octagon(x, z) == (7, 11):
+                for y in range(P_GROUND, top + 1):
+                    put(b, (x, y, z), 'minecraft:polished_deepslate')
+
+    # Corbelled parapet round the intact part of the crown: the crown is wider than the shaft.
+    for x in range(PRISON_W):
+        for z in range(PRISON_W):
+            if not batter_ring(x, z):
+                continue
+            c = collapse(x, z)
+            if c > 0.0:                               # a corbel needs the full wall behind it
+                continue
+            stair(b, (x, P_TOP - 1, z), 'minecraft:deepslate_brick_stairs', facing_in(x, z), 'top')
+            put(b, (x, P_TOP, z), tex(PRISON_WALL, x, P_TOP, z, 1223))
+            if (x + z) % 2 == 0:
+                put(b, (x, P_TOP + 1, z), tex(PRISON_WALL, x, P_TOP + 1, z, 1224))
+
+
+def prison_floors(b):
+    """Floors, ceilings and the hollow inside. Air is placed explicitly: the fen may stand higher."""
+    for x in range(PRISON_W):
+        for z in range(PRISON_W):
+            if not tower_inner(x, z):
+                continue
+            put(b, (x, P_BASE, z), tex(PRISON_FLOOR, x, P_BASE, z, 1230))
+            put(b, (x, P_BASE - 1, z), tex(PRISON_FOOT, x, 0, z, 1231))
+            for y in range(P_BASE + 1, P_TOP + 3):
+                put(b, (x, y, z), 'minecraft:air')
+            put(b, (x, P_GROUND, z), tex(PRISON_FLOOR, x, P_GROUND, z, 1232))
+            put(b, (x, P_FIRST, z), tex(PRISON_FLOOR, x, P_FIRST, z, 1233))
+            r = math.hypot(x - 14, z - 14)
+            c = collapse(x, z) if r >= 2.5 else 0.0
+            if c < 0.4:
+                put(b, (x, P_CROWN, z), tex(PRISON_FLOOR, x, P_CROWN, z, 1234))
+            if c < 0.7:
+                put(b, (x, P_SECOND, z), tex(PRISON_FLOOR, x, P_SECOND, z, 1237))
+            if c >= 0.4 and noise(x, 0, z, 1235) < 0.35:      # what fell, on the floor below
+                low = P_FIRST if c >= 0.7 else P_SECOND
+                put(b, (x, low + 1, z), tex(PRISON_WALL, x, low + 1, z, 1236))
+
+
+def prison_openings(b):
+    """Door, slits, barred windows, and the holes the floors need for stairs and for falling in."""
+    G = P_GROUND
+    # The door, south face: three wide, three high, a stepped arch with a portcullis jammed in its
+    # crown, and a frame that stands out over the causeway. Flush with the wall, the first version was
+    # a slot under the string course that nobody would take for the way in.
+    for x in (13, 14, 15):
+        for y in (G + 1, G + 2, G + 3):
+            put(b, (x, y, 21), 'minecraft:air')
+    stair(b, (13, G + 4, 21), 'minecraft:deepslate_brick_stairs', 'west', 'top')
+    stair(b, (15, G + 4, 21), 'minecraft:deepslate_brick_stairs', 'east', 'top')
+    put(b, (14, G + 4, 21), 'minecraft:iron_bars')
+    for x in (12, 16):
+        for y in range(G + 1, G + 6):
+            put(b, (x, y, 21), 'minecraft:polished_deepslate')
+    put(b, (14, G + 5, 21), 'minecraft:chiseled_deepslate')
+    for x in (12, 16):                                  # the frame, one block proud
+        for y in range(G, G + 6):
+            put(b, (x, y, 22), 'minecraft:polished_deepslate')
+    for x in (13, 15):
+        put(b, (x, G + 5, 22), 'minecraft:polished_deepslate')
+    put(b, (14, G + 5, 22), 'minecraft:chiseled_deepslate')
+    for x in (13, 14, 15):
+        for y in (G + 3, G + 4):
+            put(b, (x, y, 22), 'minecraft:air')
+    put(b, (14, G + 4, 22), 'minecraft:soul_lantern', {'hanging': 'true'})
+    # Through the batter for the causeway.
+    for x in (13, 14, 15):
+        for y in (G, G + 1, G + 2):
+            put(b, (x, y, 22), 'minecraft:air')
+
+    # Arrow slits on the ground floor, barred windows to the cells above.
+    for (x, z) in ((7, 14), (21, 14), (14, 7)):
+        for y in (G + 2, G + 3):
+            put(b, (x, y, z), 'minecraft:air')
+    for (x, z, f) in ((7, 12, P_FIRST), (7, 16, P_FIRST), (21, 16, P_FIRST), (12, 7, P_FIRST),
+                      (16, 7, P_FIRST), (12, 21, P_FIRST), (16, 21, P_FIRST), (21, 12, P_FIRST),
+                      (7, 14, P_SECOND), (14, 21, P_SECOND), (21, 15, P_SECOND)):
+        for y in (f + 2, f + 3):
+            if b.get((x, y, z), ('',))[0].startswith('minecraft:deepslate') or \
+                    b.get((x, y, z), ('',))[0].startswith('minecraft:cracked'):
+                put(b, (x, y, z), 'minecraft:iron_bars')
+
+    # Stairwell down into the water, straight in from the door.
+    for z in (16, 17, 18):
+        put(b, (14, G, z), 'minecraft:air')
+    for i, z in enumerate((19, 18, 17, 16, 15)):
+        stair(b, (14, G - i, z), 'minecraft:deepslate_tile_stairs', 'south')
+    # Where the floor gave way above the north end of the cell corridor.
+    for x, z in ((13, 11), (14, 11), (14, 10), (13, 10), (15, 11)):
+        put(b, (x, G, z), 'minecraft:air')
+    for x, z in ((12, 11), (13, 12), (15, 10), (14, 12)):
+        put(b, (x, G, z), 'minecraft:cracked_deepslate_tiles')
+
+    # Up the east wall to floor one, up the west wall to the crown.
+    for i, z in enumerate((17, 16, 15, 14, 13)):
+        stair(b, (20, G + 1 + i, z), 'minecraft:deepslate_tile_stairs', 'north')
+    for z in (14, 15, 16):
+        put(b, (20, P_FIRST, z), 'minecraft:air')
+    for z in (14, 15, 16):
+        put(b, (19, P_FIRST + 1, z), 'minecraft:deepslate_brick_wall')
+    for i, z in enumerate((18, 17, 16, 15, 14)):
+        stair(b, (8, P_FIRST + 1 + i, z), 'minecraft:deepslate_tile_stairs', 'north')
+    for z in (15, 16, 17):
+        put(b, (8, P_SECOND, z), 'minecraft:air')
+    # Floor two to the crown along the south wall, clear of the fall in the north-east.
+    for i, x in enumerate((17, 16, 15, 14, 13)):
+        stair(b, (x, P_SECOND + 1 + i, 20), 'minecraft:deepslate_tile_stairs', 'west')
+    for x in (14, 15, 16):
+        put(b, (x, P_CROWN, 20), 'minecraft:air')
+        put(b, (x, P_CROWN + 1, 19), 'minecraft:deepslate_brick_wall')
+
+
+def cell_block(b, y0, fronts, dividers, broken, salt):
+    """Bars across each cell mouth (three high, stone lintel over), stone walls between cells."""
+    for (x0, z0, x1, z1) in dividers:
+        for x in range(x0, x1 + 1):
+            for z in range(z0, z1 + 1):
+                if tower_inner(x, z):
+                    fill_tex(b, x, y0, z, x, y0 + 3, z, PRISON_WALL, salt)
+    for (x0, z0, x1, z1) in fronts:
+        for x in range(x0, x1 + 1):
+            for z in range(z0, z1 + 1):
+                for y in range(y0, y0 + 3):
+                    if (x, y, z) not in broken:
+                        put(b, (x, y, z), 'minecraft:iron_bars')
+                put(b, (x, y0 + 3, z), tex(PRISON_WALL, x, y0 + 3, z, salt + 1))
+
+
+def prison_cells(b):
+    B = P_BASE + 1
+    # The flooded block: a corridor down the middle (x 13..15), three cells each side.
+    cell_block(b, B,
+               fronts=[(12, 8, 12, 11), (12, 13, 12, 15), (12, 17, 12, 20),
+                       (16, 8, 16, 11), (16, 13, 16, 15), (16, 17, 16, 20)],
+               dividers=[(8, 12, 12, 12), (8, 16, 12, 16), (16, 12, 20, 12), (16, 16, 20, 16)],
+               broken={(12, B, 14), (12, B + 1, 14), (12, B + 1, 13),      # the evidence store
+                       (16, B, 13), (16, B + 1, 13), (16, B + 2, 13),     # an inferius got out
+                       (12, B, 18), (16, B + 1, 9)},
+               salt=1240)
+    # Floor one: three cells along the north wall. The fallen crown took the east one open.
+    F = P_FIRST + 1
+    cell_block(b, F,
+               fronts=[(8, 11, 11, 11), (13, 11, 15, 11), (17, 11, 20, 11)],
+               dividers=[(12, 8, 12, 11), (16, 8, 16, 11)],
+               broken={(14, F, 11), (14, F + 1, 11)},
+               salt=1250)
+    for pos in list(b):
+        x, y, z = pos
+        if F <= y <= F + 3 and z <= 11 and x >= 16 and collapse(x, z) > 0.55 \
+                and b[pos][0] in ('minecraft:iron_bars',) + tuple(n for n, _ in PRISON_WALL):
+            if tower_inner(x, z):
+                put(b, pos, 'minecraft:air')
+
+
+def prison_dressing(b):
+    """What the place was used for, and what is left in it."""
+    G = P_GROUND
+    B = P_BASE + 1
+    # Basement: the evidence store, shackles, bones and the one light still burning.
+    chest(b, (9, B, 14), 'east', 'hogwartsmagic:chests/fen_prison')
+    for pos in ((10, B, 13), (11, B, 15)):
+        put(b, pos, 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    for (x, z) in ((9, 18), (19, 14), (18, 9), (9, 9)):
+        put(b, (x, B, z), 'minecraft:bone_block', {'axis': 'x' if (x + z) % 2 else 'z'})
+    for (x, z) in ((10, 19), (19, 18), (18, 13)):
+        put(b, (x, B, z), 'minecraft:seagrass')
+    for (x, z) in ((8, 17), (20, 10), (8, 10)):
+        for y in (B + 2, B + 3):
+            put(b, (x, y, z), 'minecraft:chain', {'axis': 'y'})
+    put(b, (14, P_GROUND - 1, 13), 'minecraft:soul_lantern', {'hanging': 'true'})
+
+    # Ground floor: the guard post. A desk and its chair, the duty lectern, racks, hanging chains.
+    for x in (9, 10):
+        stair(b, (x, G + 1, 18), 'minecraft:dark_oak_stairs', 'south', 'top')
+    stair(b, (9, G + 1, 17), 'minecraft:dark_oak_stairs', 'north')       # chair, back to the room
+    put(b, (11, G + 1, 19), 'minecraft:lectern', {'facing': 'north', 'has_book': 'false', 'powered': 'false'})
+    for pos in ((19, G + 1, 19), (18, G + 1, 19), (19, G + 2, 19)):
+        put(b, pos, 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    for (x, z) in ((10, 10), (17, 11), (11, 15)):
+        put(b, (x, P_FIRST - 1, z), 'minecraft:chain', {'axis': 'y'})
+        put(b, (x, P_FIRST - 2, z), 'minecraft:chain', {'axis': 'y'})
+    put(b, (17, P_FIRST - 1, 17), 'minecraft:soul_lantern', {'hanging': 'true'})
+    put(b, (10, P_FIRST - 1, 13), 'minecraft:soul_lantern', {'hanging': 'true'})
+    for pos in ((8, P_FIRST - 1, 12), (19, P_FIRST - 1, 10), (16, P_FIRST - 1, 19)):
+        put(b, pos, 'minecraft:cobweb')
+
+    # Floor one: what the prisoners had, which is nothing.
+    F = P_FIRST + 1
+    for (x, z) in ((10, 9), (14, 9)):
+        put(b, (x, F, z), 'minecraft:bone_block', {'axis': 'y'})
+        put(b, (x, F + 2, z - 1), 'minecraft:chain', {'axis': 'x'})
+    for pos in ((9, F + 2, 9), (15, F + 2, 10), (11, F, 10), (13, F + 3, 8)):
+        put(b, pos, 'minecraft:cobweb')
+    put(b, (12, P_SECOND - 1, 17), 'minecraft:soul_lantern', {'hanging': 'true'})
+    put(b, (17, P_SECOND - 1, 15), 'minecraft:soul_lantern', {'hanging': 'true'})
+
+    # Floor two: the warden's room, what is left of it.
+    S = P_SECOND + 1
+    put(b, (9, S, 12), 'minecraft:bookshelf')
+    put(b, (9, S + 1, 12), 'minecraft:bookshelf')
+    put(b, (9, S, 13), 'minecraft:chiseled_bookshelf', {'facing': 'east', **{f'slot_{i}_occupied': 'false' for i in range(6)}})
+    put(b, (11, S, 17), 'minecraft:cauldron')
+    for pos in ((10, S, 9), (17, P_CROWN - 1, 18), (9, P_CROWN - 1, 17)):
+        put(b, pos, 'minecraft:cobweb')
+    put(b, (14, P_CROWN - 1, 15), 'minecraft:soul_lantern', {'hanging': 'true'})
+
+    # The crown: open to the sky, and the one place a Dementor rests.
+    C = P_CROWN + 1
+    rubble(b, [(11, C, 17), (10, C, 15), (16, C, 17), (12, C, 12)], PRISON_WALL, 1260)
+    for (x, z) in ((9, 18), (19, 18)):
+        put(b, (x, C, z), 'minecraft:soul_lantern', {'hanging': 'false'})
+
+
+def prison_outside(b):
+    """Causeway, the fallen crown in the moat, vines down the dry faces, posts at the landing."""
+    G = P_GROUND
+    for z in range(22, PRISON_W):
+        for x in (13, 14, 15):
+            if not prison_footprint(x, z):
+                continue
+            sunk = noise(x, 0, z, 1270) < 0.22 and z not in (22, 23)
+            if sunk:
+                put(b, (x, G, z), 'minecraft:air')            # a stone gone: water there later
+            else:
+                put(b, (x, G, z), 'minecraft:cobbled_deepslate' if noise(x, 1, z, 1271) < 0.6
+                    else 'minecraft:deepslate_tiles')
+            for y in (4, 5):
+                put(b, (x, y, z), 'minecraft:cobbled_deepslate')
+    # Landing posts with soul lanterns, where the causeway meets the bank.
+    for x in (12, 16):
+        z = 26
+        fill(b, x, G + 1, z, x, G + 3, z, 'minecraft:dark_oak_fence')
+        put(b, (x, G, z), 'minecraft:cobbled_deepslate')
+        put(b, (x, 5, z), 'minecraft:cobbled_deepslate')
+        put(b, (x, 4, z), 'minecraft:cobbled_deepslate')
+        put(b, (x, G + 4, z), 'minecraft:soul_lantern', {'hanging': 'false'})
+
+    # The crown fell north-east: blocks standing out of the water, slabs of parapet lying flat.
+    for i, (x, z, h) in enumerate(((22, 7, 3), (21, 5, 2), (23, 9, 2), (18, 5, 1), (24, 11, 1),
+                                   (20, 4, 1))):
+        if not in_moat(x, z):
+            continue
+        for y in range(5, 5 + h + 1):
+            put(b, (x, y, z), tex(PRISON_WALL, x, y, z, 1280 + i))
+        if noise(x, 0, z, 1290) > 0.4:
+            slab(b, (x, 6 + h, z), 'minecraft:deepslate_brick_slab')
+
+    # Vines down the west and south faces, in a few hanging columns.
+    for x in range(PRISON_W):
+        for z in range(PRISON_W):
+            if not (batter_ring(x, z) and collapse(x, z) < 0.2):
+                continue
+            d = facing_in(x, z)
+            if d not in ('east', 'north'):              # cells west and south of the tower
+                continue
+            if vnoise(x, z, 2, 1300) < 0.6:
+                continue
+            dx, dz = {'east': (1, 0), 'north': (0, -1)}[d]
+            wall = (x + dx, z + dz)
+            length = 4 + int(6 * noise(x, 0, z, 1301))
+            top = min(wall_top(*wall), P_TOP - 2)
+            for y in range(top, max(P_GROUND + 2, top - length), -1):
+                behind = b.get((wall[0], y, wall[1]), (None,))[0]
+                if behind is None or not behind.startswith(('minecraft:deepslate', 'minecraft:cracked',
+                                                             'minecraft:polished')):
+                    break
+                if (x, y, z) in b:
+                    break
+                props = {k: 'false' for k in ('north', 'south', 'east', 'west', 'up')}
+                props[d] = 'true'
+                put(b, (x, y, z), 'minecraft:vine', props)
+
+
+def fen_prison():
+    """Dementor Fen: a drowned prison tower. Dementors above the water, Inferi in the cells below it."""
+    b = {}
+    prison_ground(b)
+    prison_shell(b)
+    prison_floors(b)
+    prison_openings(b)
+    prison_cells(b)
+    prison_dressing(b)
+    prison_outside(b)
+    connect_bars(b)
+
+    wet = set()
+    for x in range(PRISON_W):
+        for z in range(PRISON_W):
+            if tower_inner(x, z):
+                wet.update((x, y, z) for y in range(P_BASE + 1, P_GROUND))
+            elif in_moat(x, z) or (13 <= x <= 15 and z >= 22 and prison_footprint(x, z)
+                                   and b.get((x, P_GROUND, z), ('',))[0] == 'minecraft:air'):
+                wet.update(((x, 5, z), (x, 6, z)))
+    # The stairwell's top step and the hole are above the waterline; only y<=5 floods inside.
+    submerge(b, sorted(wet))
+
+    still = {'PersistenceRequired': ('byte', 1)}
+    return b, [
+        entity(11.5, float(P_GROUND + 1), 13.5, 'hogwartsmagic:dementor', dict(still)),
+        entity(13.5, float(P_CROWN + 1), 14.5, 'hogwartsmagic:dementor', dict(still)),
+        entity(11.5, float(P_SECOND + 1), 15.5, 'hogwartsmagic:dementor', dict(still)),
+        entity(8.5, float(P_GROUND + 1), 23.5, 'hogwartsmagic:dementor', dict(still)),
+        entity(14.5, float(P_BASE + 1), 9.5, 'hogwartsmagic:inferius', dict(still)),
+        entity(18.5, float(P_BASE + 1), 14.5, 'hogwartsmagic:inferius', dict(still)),
+        entity(9.5, float(P_BASE + 1), 19.5, 'hogwartsmagic:inferius', dict(still)),
+    ]
+
+
+def audit_submerged(blocks):
+    """In a build that is only partly under water, the flood pass is per cell, so check its result.
+
+    Anything that can carry water and touches water above it or at its own level is inside the
+    water body, and must be waterlogged or it holds a bubble of air in its own shape. The first
+    version wanted water above AND beside, and passed a dry bar in the middle of a barred front,
+    because what is above a bar is the next bar.
+    """
+    problems = []
+    def water(p):
+        return blocks.get(p, (None,))[0] == 'minecraft:water'
+    for (x, y, z), (block, props, _) in blocks.items():
+        if not block.endswith(SUBMERSIBLE) or block == 'minecraft:seagrass':
+            continue
+        if (props or {}).get('waterlogged') == 'true':
+            continue
+        side = sum(water((x + dx, y, z + dz)) for dx, _, dz in DIRS.values())
+        if water((x, y + 1, z)) or side >= 1:
+            problems.append(f'{block} at {(x, y, z)} is underwater but not waterlogged')
+    return problems
+
+
 CRAG = [('minecraft:blackstone', 6), ('minecraft:polished_blackstone', 3), ('minecraft:basalt', 3)]
 
 # --- Horntail Peaks ---------------------------------------------------------------------------------
@@ -3594,6 +4104,7 @@ def audit_locket_cave(blocks):
 
 BUILDS = {
     'fen_gibbet': fen_gibbet,
+    'fen_prison': fen_prison,
     'horntail_nest': horntail_nest,
     'dragon_poacher_camp': dragon_poacher_camp,
     'chamber_hall': chamber_hall,
@@ -3719,7 +4230,7 @@ def audit_entities(blocks, entities, size):
 # Entities wider or taller than one block, as (width, height) of their hitbox in ModEntities. The
 # single-cell check above passes a 3-wide dragon whose wings are inside a spire; this one checks the
 # whole box.
-ENTITY_BOX = {'hogwartsmagic:hungarian_horntail': (3.0, 3.2)}
+ENTITY_BOX = {'hogwartsmagic:hungarian_horntail': (3.0, 3.2), 'hogwartsmagic:dementor': (1.0, 3.0)}
 
 
 def audit_entity_room(blocks, entities):
@@ -3889,6 +4400,8 @@ if __name__ == '__main__':
                     + audit_fire(blocks))
         if name == 'chamber_hall':
             problems += audit_chamber_seal(blocks, size)
+        if name == 'fen_prison':
+            problems += audit_submerged(blocks)
         if name == 'locket_cave':
             problems += audit_locket_cave(blocks)
         path = os.path.join(OUT, name + '.nbt')

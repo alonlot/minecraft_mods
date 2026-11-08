@@ -92,6 +92,35 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         // need to randomly apply it here
     }
 
+    /**
+     * Seated along the broom. Nothing else turns a rider: its own yaw would go stale, its body would twist round to
+     * its head, and the head is clamped to that stale body, so it could not look where it was flying or casting.
+     */
+    @Override
+    public void rideTick() {
+        super.rideTick();
+        if (this.getVehicle() instanceof BroomEntity broom) {
+            this.setYRot(broom.getYRot());
+            this.setYBodyRot(broom.getYRot());
+        }
+    }
+
+    /** Where a goal needs this rider's broom to take it (ground navigation cannot steer one), and until when. */
+    @javax.annotation.Nullable
+    private net.minecraft.world.phys.Vec3 broomErrand;
+    private long broomErrandUntil;
+
+    /** A goal's request, renewed while the goal runs, to fly to this spot. Ignored by the broom once it lapses. */
+    public void requestBroomFlight(net.minecraft.world.phys.Vec3 spot) {
+        this.broomErrand = spot;
+        this.broomErrandUntil = this.level().getGameTime() + 5L;
+    }
+
+    @javax.annotation.Nullable
+    public net.minecraft.world.phys.Vec3 getBroomErrand() {
+        return this.level().getGameTime() <= this.broomErrandUntil ? this.broomErrand : null;
+    }
+
     @Override
     public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float damage) {
         if (this.level().isClientSide) return super.hurt(source, damage);
@@ -647,7 +676,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
                 shouldFly = true; // Rare panic flight when very threatened
             }
 
-            if (shouldFly) {
+            if (shouldFly && !this.wizard.isPassenger()) { // smoke flight cannot steer a broom, it only hides the rider
                 SpellType.TENEBRIS_FLIGHT.applyHitEffect(this.wizard, this.wizard);
                 this.wizard.setSpellCooldown(SpellType.TENEBRIS_FLIGHT, now + SpellType.TENEBRIS_FLIGHT.getCooldownTicks());
                 return;
@@ -788,7 +817,9 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
             spells.add(SpellType.DOLOHOV_CURSE);
             spells.add(SpellType.AVADA_KEDAVRA);
             // include flight occasionally and heal occasionally
-            spells.add(SpellType.TENEBRIS_FLIGHT);
+            if (!this.wizard.isPassenger()) {
+                spells.add(SpellType.TENEBRIS_FLIGHT);
+            }
             spells.add(SpellType.HEAL);
 
             // filter out those currently on cooldown
@@ -798,7 +829,8 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
             }
             SpellType spell = spells.get(this.wizard.getRandom().nextInt(spells.size()));
             // small chance to choose flight when far away
-            if (!this.wizard.hasEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get())
+            if (!this.wizard.isPassenger()
+                    && !this.wizard.hasEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get())
                     && !this.wizard.isSpellOnCooldown(SpellType.TENEBRIS_FLIGHT, now)
                     && target != null && this.wizard.distanceToSqr(target) > 100.0
                     && this.wizard.getRandom().nextFloat() < 0.12f) {

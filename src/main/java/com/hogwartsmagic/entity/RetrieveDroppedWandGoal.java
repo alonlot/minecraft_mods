@@ -80,6 +80,9 @@ public class RetrieveDroppedWandGoal extends Goal {
         }
 
         mob.getLookControl().setLookAt(target, 30.0F, 30.0F);
+        if (mob instanceof WizardEntity wizard) {
+            wizard.requestBroomFlight(target.position()); // does nothing unless it is riding one
+        }
 
         if (mob.distanceToSqr(target) <= PICKUP_RADIUS_SQR) {
             pickup();

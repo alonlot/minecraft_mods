@@ -58,6 +58,26 @@ public class BroomEntity extends Entity {
     /** Alatus quality (AlatusRules.QUALITY_*). Synced: while ridden, the rider's client runs the flight physics. */
     private static final EntityDataAccessor<Integer> DATA_QUALITY = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.INT);
 
+    // ---- A Death Eater's flight. Server only and never saved: it is all rebuilt on the next tick after a reload. ----
+    /** Yaw to hold the nose on while fighting, or NaN to point where the broom is going. */
+    private float pilotAimYaw = Float.NaN;
+    /** 1 or -1: which way around the target this rider circles. 0 until its first fight. */
+    private int orbitSign;
+    private int orbitTurnCooldown;
+    @javax.annotation.Nullable
+    private Vec3 patrolAnchor;
+    @javax.annotation.Nullable
+    private Vec3 patrolPoint;
+    private int patrolTicks;
+
+    // Client only: where the server last put a broom a Death Eater is flying.
+    private int pilotLerpSteps;
+    private double pilotLerpX;
+    private double pilotLerpY;
+    private double pilotLerpZ;
+    private float pilotLerpYRot;
+    private float pilotLerpXRot;
+
     public BroomEntity(EntityType<?> type, Level level) {
         super(type, level);
     }
@@ -252,17 +272,25 @@ public class BroomEntity extends Entity {
         if (this.isVehicle()) {
             this.setNoGravity(true);
             Entity passenger = this.getFirstPassenger();
-            if (passenger instanceof LivingEntity living) {
+            if (this.flownByServer()) {
+                this.tickPilotLerp();
+                if (passenger instanceof LivingEntity living) {
+                    living.fallDistance = 0.0f;
+                }
+                this.fallDistance = 0.0f;
+            } else if (passenger instanceof LivingEntity living) {
                 // Smoothly pull the broom's yaw towards the player's body yaw,
                 // avoiding instant snapping to prevent camera flickering.
                 this.yRotO = this.getYRot();
                 this.xRotO = this.getXRot();
-                
+
                 float targetYaw = living.getYHeadRot();
                 if (living instanceof WizardEntity) {
-                    // For AI riders, orient the broom with movement direction to prevent awkward body-only aiming.
+                    // A fighting rider keeps its nose on the target; otherwise the broom points where it is going.
                     Vec3 horizontalMotion = this.getDeltaMovement();
-                    if (horizontalMotion.horizontalDistanceSqr() > 1.0E-3) {
+                    if (!Float.isNaN(this.pilotAimYaw)) {
+                        targetYaw = this.pilotAimYaw;
+                    } else if (horizontalMotion.horizontalDistanceSqr() > 1.0E-3) {
                         targetYaw = (float) (net.minecraft.util.Mth.atan2(horizontalMotion.z, horizontalMotion.x) * (180.0 / Math.PI)) - 90.0F;
                     }
                     this.currentVisualOffset += net.minecraft.util.Mth.wrapDegrees(0.0F - this.currentVisualOffset) * 0.2F;
@@ -309,9 +337,9 @@ public class BroomEntity extends Entity {
 
         super.tick();
 
-        // Only integrate movement on the side that owns it: the client while it is being ridden
+        // Only integrate movement on the side that owns it: the client while a player rides it
         // (it drives the vehicle), the server otherwise.
-        if (this.isVehicle() || !this.level().isClientSide) {
+        if (!this.flownByServer() && (this.isVehicle() || !this.level().isClientSide)) {
             this.move(MoverType.SELF, this.getDeltaMovement());
         }
 
@@ -594,97 +622,228 @@ public class BroomEntity extends Entity {
         this.setDeltaMovement(next);
     }
 
+    /**
+     * The Death Eater's flight, server only. A rider's target is never sent to the client, so a client running this
+     * would fly its own target-less course and be yanked back by every position packet.
+     */
     private void handleWizardFlight(WizardEntity wizard) {
-        LivingEntity target = wizard.getTarget();
-        Vec3 current = this.getDeltaMovement();
-
         int type = this.getBroomType();
-        double cruiseSpeed = type == 2 ? 3.6 : (type == 1 ? 3.1 : 2.6);
-        double combatSpeed = type == 2 ? 4.8 : (type == 1 ? 4.1 : 3.5);
-        double chaseSpeed = type == 2 ? 6.2 : (type == 1 ? 5.4 : 4.6);
-        double escapeSpeed = type == 2 ? 7.2 : (type == 1 ? 6.3 : 5.4);
+        LivingEntity target = wizard.getTarget();
+        Vec3 errand = wizard.getBroomErrand();
 
-        Vec3 desiredDir = Vec3.ZERO;
-        double desiredY = this.getY();
-        double targetSpeed = cruiseSpeed;
-
-        boolean lowHealth = wizard.getHealth() < wizard.getMaxHealth() * 0.45f;
-
-        if (target != null && target.isAlive()) {
-            Vec3 toTarget = target.position().subtract(this.position());
-            Vec3 toTargetHoriz = new Vec3(toTarget.x, 0, toTarget.z);
-            double horizDist = toTargetHoriz.length();
-            Vec3 toward = horizDist > 1.0E-4 ? toTargetHoriz.scale(1.0 / horizDist) : Vec3.ZERO;
-            Vec3 away = toward.scale(-1.0);
-            Vec3 strafe = new Vec3(-toward.z, 0, toward.x);
-            if ((wizard.getUUID().hashCode() & 1) == 0) {
-                strafe = strafe.scale(-1.0);
-            }
-
-            double preferredRange = 11.0;
-
-            if (lowHealth) {
-                desiredDir = away.add(strafe.scale(0.45));
-                targetSpeed = escapeSpeed;
-                desiredY = target.getY() + 8.0;
-            } else if (horizDist > preferredRange + 5.0) {
-                desiredDir = toward;
-                targetSpeed = chaseSpeed;
-                desiredY = target.getY() + 5.5;
-            } else if (horizDist < preferredRange - 3.0) {
-                desiredDir = away.add(strafe.scale(0.65));
-                targetSpeed = combatSpeed;
-                desiredY = target.getY() + 6.0;
-            } else {
-                desiredDir = strafe.add(toward.scale(0.22));
-                targetSpeed = combatSpeed;
-                desiredY = target.getY() + 5.5;
-            }
-        } else {
-            // Patrol/roam in look direction if no target is active.
-            Vec3 look = wizard.getLookAngle();
-            desiredDir = new Vec3(look.x, 0, look.z);
-            desiredY = this.getY() + (this.tickCount % 80 < 40 ? 0.35 : -0.2);
-            targetSpeed = cruiseSpeed;
+        Vec3 heading = Vec3.ZERO;
+        double speed;
+        double wantY = Double.NaN; // NaN: a patrol, cruising over whatever turns out to be below
+        double clearance = BroomPilotRules.MIN_CLEARANCE;
+        boolean orbiting = false;
+        this.pilotAimYaw = Float.NaN;
+        if (this.orbitTurnCooldown > 0) {
+            this.orbitTurnCooldown--;
         }
 
-        if (desiredDir.lengthSqr() > 1.0E-4) {
-            desiredDir = desiredDir.normalize();
+        if (errand != null) {
+            this.forgetPatrol();
+            Vec3 flat = new Vec3(errand.x - this.getX(), 0.0, errand.z - this.getZ());
+            double distance = flat.length();
+            if (distance > 0.4) {
+                heading = flat.scale(1.0 / distance);
+            }
+            speed = BroomPilotRules.arrivalSpeed(type, distance);
+            wantY = errand.y + BroomPilotRules.glideHeight(distance);
+            clearance = BroomPilotRules.LANDING_CLEARANCE;
+        } else if (target != null && target.isAlive()) {
+            this.forgetPatrol();
+            if (this.orbitSign == 0) {
+                this.orbitSign = (wizard.getUUID().hashCode() & 1) == 0 ? 1 : -1;
+            }
+            Vec3 flat = new Vec3(target.getX() - this.getX(), 0.0, target.getZ() - this.getZ());
+            double range = flat.length();
+            Vec3 toward = range > 1.0E-4 ? flat.scale(1.0 / range) : new Vec3(1.0, 0.0, 0.0);
+            boolean frightened = wizard.isDisarmed() || wizard.getHealth() < wizard.getMaxHealth() * 0.45F;
+            double hold = BroomPilotRules.holdRange(frightened);
+            double pull = BroomPilotRules.radialPull(range, hold);
+            Vec3 around = new Vec3(-toward.z, 0.0, toward.x).scale(this.orbitSign);
+            heading = toward.scale(pull).add(around.scale(BroomPilotRules.orbitShare(pull))).normalize();
+            speed = BroomPilotRules.combatSpeed(type, range, hold, wizard.isCasting());
+            wantY = target.getY() + BroomPilotRules.COMBAT_HEIGHT;
+            orbiting = true;
+            if (!frightened && range < hold + 8.0) {
+                this.pilotAimYaw = (float) (Mth.atan2(toward.z, toward.x) * (180.0 / Math.PI)) - 90.0F;
+            }
         } else {
-            desiredDir = Vec3.ZERO;
+            heading = this.patrolHeading();
+            speed = BroomPilotRules.cruiseSpeed(type);
         }
 
-        // Basic obstacle avoidance: if we're about to hit something, bias upward and side-step.
-        if (desiredDir.lengthSqr() > 1.0E-4) {
-            Vec3 from = this.position().add(0, 0.5, 0);
-            Vec3 to = from.add(desiredDir.scale(6.0));
-            var hit = this.level().clip(new net.minecraft.world.level.ClipContext(
-                    from,
-                    to,
+        // What is under the broom: the open sky's surface, or the floor and ceiling of the room it is in.
+        double surface = this.surfaceAt(this.getX(), this.getZ());
+        boolean roofed = this.getY() + 0.5 < surface;
+        double floor;
+        double ceiling = Double.POSITIVE_INFINITY;
+        if (roofed) {
+            floor = this.rayHeight(-48.0);
+            ceiling = this.rayHeight(16.0);
+        } else {
+            floor = surface;
+            // The nearest sample is just past the broom's own nose, so it holds its height all the way over a wall.
+            for (double ahead : new double[]{2.0, speed * 10.0 + 4.0, speed * 20.0 + 8.0}) {
+                floor = Math.max(floor, this.surfaceAt(this.getX() + heading.x * ahead, this.getZ() + heading.z * ahead));
+            }
+        }
+
+        if (heading.lengthSqr() > 1.0E-4) {
+            double reach = Math.max(4.0, speed * 12.0);
+            Vec3 wall = this.firstObstacle(heading, reach);
+            if (wall != null) {
+                if (!roofed) {
+                    floor = Math.max(floor, this.surfaceAt(wall.x + heading.x * 0.5, wall.z + heading.z * 0.5));
+                }
+                if (!roofed && floor - this.getY() <= BroomPilotRules.MAX_HOP) {
+                    speed *= 0.35; // over it: hold back until the climb has cleared the top
+                } else {
+                    heading = this.clearHeading(heading, reach);
+                    speed *= 0.6;
+                    this.patrolPoint = null;
+                    if (orbiting && this.orbitTurnCooldown <= 0) {
+                        this.orbitSign = -this.orbitSign;
+                        this.orbitTurnCooldown = 60;
+                    }
+                }
+            }
+        }
+
+        double height = BroomPilotRules.safeAltitude(
+                Double.isNaN(wantY) ? BroomPilotRules.cruiseAltitude(floor, this.tickCount) : wantY,
+                floor, ceiling, clearance);
+        double push = BroomPilotRules.command(speed);
+        Vec3 current = this.getDeltaMovement();
+        this.setDeltaMovement(
+                BroomPilotRules.blend(current.x, heading.x * push),
+                BroomPilotRules.blend(current.y, BroomPilotRules.command(BroomPilotRules.climbRate(height - this.getY()))),
+                BroomPilotRules.blend(current.z, heading.z * push));
+    }
+
+    private void forgetPatrol() {
+        this.patrolAnchor = null;
+        this.patrolPoint = null;
+    }
+
+    /** Toward a wander point near where this patrol began; a new point when it arrives, or after a while. */
+    private Vec3 patrolHeading() {
+        if (this.patrolAnchor == null) {
+            this.patrolAnchor = this.position();
+        }
+        if (this.patrolPoint == null || --this.patrolTicks <= 0
+                || this.patrolPoint.distanceToSqr(this.getX(), this.patrolPoint.y, this.getZ()) < 9.0) {
+            double angle = this.random.nextDouble() * Math.PI * 2.0;
+            double radius = BroomPilotRules.PATROL_MIN_RADIUS
+                    + this.random.nextDouble() * (BroomPilotRules.PATROL_MAX_RADIUS - BroomPilotRules.PATROL_MIN_RADIUS);
+            this.patrolPoint = this.patrolAnchor.add(Math.cos(angle) * radius, 0.0, Math.sin(angle) * radius);
+            this.patrolTicks = 240;
+        }
+        return new Vec3(this.patrolPoint.x - this.getX(), 0.0, this.patrolPoint.z - this.getZ()).normalize();
+    }
+
+    /** The first block height clear of everything at this column, open sky above it. */
+    private double surfaceAt(double x, double z) {
+        return this.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
+                Mth.floor(x), Mth.floor(z));
+    }
+
+    /** The height of the first solid or liquid straight up or down from the broom, or the end of the ray's reach. */
+    private double rayHeight(double reach) {
+        Vec3 from = this.position().add(0.0, 0.1, 0.0);
+        var hit = this.level().clip(new net.minecraft.world.level.ClipContext(from, from.add(0.0, reach, 0.0),
+                net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                reach < 0.0 ? net.minecraft.world.level.ClipContext.Fluid.ANY : net.minecraft.world.level.ClipContext.Fluid.NONE,
+                this));
+        if (hit.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
+            return hit.getLocation().y;
+        }
+        return reach < 0.0 ? from.y + reach : Double.POSITIVE_INFINITY;
+    }
+
+    /** Where the broom or its seated rider would first hit something flying this way, or null for a clear run. */
+    @javax.annotation.Nullable
+    private Vec3 firstObstacle(Vec3 direction, double reach) {
+        for (double level : new double[]{0.05, 2.2}) { // the broom's underside, and the top of the rider
+            Vec3 from = this.position().add(0.0, level, 0.0);
+            var hit = this.level().clip(new net.minecraft.world.level.ClipContext(from, from.add(direction.scale(reach)),
                     net.minecraft.world.level.ClipContext.Block.COLLIDER,
-                    net.minecraft.world.level.ClipContext.Fluid.NONE,
-                    this
-            ));
+                    net.minecraft.world.level.ClipContext.Fluid.NONE, this));
             if (hit.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
-                desiredDir = desiredDir.add(0, 0.0, 0).add(new Vec3(-desiredDir.z, 0, desiredDir.x).scale(0.45)).normalize();
-                desiredY += 2.5;
+                return hit.getLocation();
             }
         }
+        return null;
+    }
 
-        // Vertical stabilization with light damping to avoid jitter.
-        double yError = desiredY - this.getY();
-        double vertical = net.minecraft.util.Mth.clamp((yError * 0.09) - (current.y * 0.18), -0.34, 0.34);
-
-        Vec3 desiredVel = desiredDir.scale(targetSpeed).add(0, vertical, 0);
-        double momentumRetention = 0.86;
-        Vec3 next = current.scale(momentumRetention).add(desiredVel.scale(1.0 - momentumRetention));
-
-        double maxSpeed = targetSpeed + 1.6;
-        if (next.length() > maxSpeed) {
-            next = next.normalize().scale(maxSpeed);
+    /** The clear heading that turns least from the one wanted; straight back when boxed in. */
+    private Vec3 clearHeading(Vec3 wanted, double reach) {
+        int side = this.orbitSign == 0 ? 1 : this.orbitSign;
+        for (double turn : new double[]{35.0, 70.0, 110.0}) {
+            for (int sign : new int[]{side, -side}) {
+                Vec3 candidate = wanted.yRot((float) Math.toRadians(turn * sign));
+                if (this.firstObstacle(candidate, reach) == null) {
+                    return candidate;
+                }
+            }
         }
+        return wanted.scale(-1.0);
+    }
 
-        this.setDeltaMovement(next);
+    /** On a client, a broom a Death Eater is flying only follows what the server sends. */
+    private boolean flownByServer() {
+        return this.level().isClientSide && this.getControllingPassenger() instanceof WizardEntity;
+    }
+
+    private void tickPilotLerp() {
+        if (this.pilotLerpSteps > 0) {
+            this.lerpPositionAndRotationStep(this.pilotLerpSteps, this.pilotLerpX, this.pilotLerpY, this.pilotLerpZ,
+                    this.pilotLerpYRot, this.pilotLerpXRot);
+            this.pilotLerpSteps--;
+        }
+    }
+
+    /** Vanilla's default jumps to each packet, which would draw a Death Eater's flight at the tick rate. */
+    @Override
+    public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+        if (this.getControllingPassenger() instanceof WizardEntity) {
+            this.pilotLerpX = x;
+            this.pilotLerpY = y;
+            this.pilotLerpZ = z;
+            this.pilotLerpYRot = yRot;
+            this.pilotLerpXRot = xRot;
+            this.pilotLerpSteps = steps;
+        } else {
+            this.pilotLerpSteps = 0;
+            super.lerpTo(x, y, z, yRot, xRot, steps);
+        }
+    }
+
+    @Override
+    public double lerpTargetX() {
+        return this.pilotLerpSteps > 0 ? this.pilotLerpX : this.getX();
+    }
+
+    @Override
+    public double lerpTargetY() {
+        return this.pilotLerpSteps > 0 ? this.pilotLerpY : this.getY();
+    }
+
+    @Override
+    public double lerpTargetZ() {
+        return this.pilotLerpSteps > 0 ? this.pilotLerpZ : this.getZ();
+    }
+
+    @Override
+    public float lerpTargetXRot() {
+        return this.pilotLerpSteps > 0 ? this.pilotLerpXRot : this.getXRot();
+    }
+
+    @Override
+    public float lerpTargetYRot() {
+        return this.pilotLerpSteps > 0 ? this.pilotLerpYRot : this.getYRot();
     }
 
     @Override

@@ -1,9 +1,21 @@
 {
   "variants": {
-    "open=false": {
+    "open=false,phase=0": {
       "model": "hogwartsmagic:block/chamber_door"
     },
-    "open=true": {
+    "open=false,phase=1": {
+      "model": "hogwartsmagic:block/chamber_door"
+    },
+    "open=false,phase=2": {
+      "model": "hogwartsmagic:block/chamber_door"
+    },
+    "open=true,phase=0": {
+      "model": "hogwartsmagic:block/chamber_door_open"
+    },
+    "open=true,phase=1": {
+      "model": "hogwartsmagic:block/chamber_door_open"
+    },
+    "open=true,phase=2": {
       "model": "hogwartsmagic:block/chamber_door_open"
     }
   }

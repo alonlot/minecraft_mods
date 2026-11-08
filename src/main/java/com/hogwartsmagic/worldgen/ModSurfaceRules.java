@@ -57,7 +57,7 @@ public final class ModSurfaceRules {
         if (mod == null) {
             java.util.List<SurfaceRules.RuleSource> rules = modRules;
             if (rules == null) {
-                rules = java.util.List.of(dementorFen(), horntailPeaks(), chamberDepths(), goblinUndercity());
+                rules = java.util.List.of(dementorFen(), horntailPeaks(), giantsHighland(), chamberDepths(), goblinUndercity());
                 modRules = rules;
             }
             mod = SurfaceRules.ifTrue(
@@ -159,6 +159,34 @@ public final class ModSurfaceRules {
                                         SurfaceRules.state(Blocks.BLACKSTONE.defaultBlockState()))),
                                 SurfaceRules.ifTrue(UNDER_FLOOR,
                                         SurfaceRules.state(Blocks.BLACKSTONE.defaultBlockState())))));
+    }
+
+    /**
+     * Bare high country: stone on every face too steep to hold soil, scree on the gentler slopes,
+     * and thin grass only where the ground is flat enough to keep it. Vanilla would put grass on all
+     * of it, and a giant's valley covered in lawn reads as a meadow with a big man in it.
+     */
+    private static SurfaceRules.RuleSource giantsHighland() {
+        return SurfaceRules.ifTrue(
+                SurfaceRules.isBiome(ModBiomes.GIANTS_HIGHLAND),
+                SurfaceRules.ifTrue(
+                        SurfaceRules.abovePreliminarySurface(),
+                        SurfaceRules.sequence(
+                                SurfaceRules.ifTrue(ON_FLOOR, SurfaceRules.sequence(
+                                        SurfaceRules.ifTrue(SurfaceRules.steep(),
+                                                SurfaceRules.state(Blocks.STONE.defaultBlockState())),
+                                        // Scree fans and bare rock in broad patches, not speckle.
+                                        SurfaceRules.ifTrue(
+                                                SurfaceRules.noiseCondition(Noises.SURFACE, 0.35D),
+                                                SurfaceRules.state(Blocks.GRAVEL.defaultBlockState())),
+                                        SurfaceRules.ifTrue(
+                                                SurfaceRules.noiseCondition(Noises.SURFACE, -1.0D, -0.40D),
+                                                SurfaceRules.state(Blocks.COARSE_DIRT.defaultBlockState())),
+                                        SurfaceRules.state(Blocks.GRASS_BLOCK.defaultBlockState()))),
+                                SurfaceRules.ifTrue(UNDER_FLOOR, SurfaceRules.sequence(
+                                        SurfaceRules.ifTrue(SurfaceRules.steep(),
+                                                SurfaceRules.state(Blocks.STONE.defaultBlockState())),
+                                        SurfaceRules.state(Blocks.DIRT.defaultBlockState()))))));
     }
 
     private ModSurfaceRules() {}

@@ -30,6 +30,9 @@ public final class ModBiomes {
     /** Scorched blackstone crags — the Hungarian Horntail's nesting ground. */
     public static final ResourceKey<Biome> HORNTAIL_PEAKS = key("horntail_peaks");
 
+    /** Cold, stony high country where the giants who stayed out of hiding still live. */
+    public static final ResourceKey<Biome> GIANTS_HIGHLAND = key("giants_highland");
+
     /** Cave biome: flooded green stone where the Basilisk finally has somewhere to live. */
     public static final ResourceKey<Biome> CHAMBER_DEPTHS = key("chamber_depths");
 

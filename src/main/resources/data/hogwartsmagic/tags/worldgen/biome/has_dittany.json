@@ -1,7 +1,17 @@
 {
   "replace": false,
   "values": [
-    { "id": "hogwartsmagic:forbidden_forest", "required": false },
-    { "id": "hogwartsmagic:horntail_peaks", "required": false }
+    {
+      "id": "hogwartsmagic:forbidden_forest",
+      "required": false
+    },
+    {
+      "id": "hogwartsmagic:horntail_peaks",
+      "required": false
+    },
+    {
+      "id": "hogwartsmagic:giants_highland",
+      "required": false
+    }
   ]
 }

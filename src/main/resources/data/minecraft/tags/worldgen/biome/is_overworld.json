@@ -28,6 +28,10 @@
     {
       "id": "hogwartsmagic:black_lake_shallows",
       "required": false
+    },
+    {
+      "id": "hogwartsmagic:giants_highland",
+      "required": false
     }
   ]
 }

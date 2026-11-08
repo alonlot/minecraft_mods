@@ -1,0 +1,18 @@
+{
+  "structures": [
+    {
+      "structure": "hogwartsmagic:envoy_camp",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 26,
+    "separation": 10,
+    "salt": 741220022,
+    "exclusion_zone": {
+      "other_set": "hogwartsmagic:giant_encampment",
+      "chunk_count": 4
+    }
+  }
+}

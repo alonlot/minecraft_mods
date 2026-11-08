@@ -13,6 +13,10 @@
     {
       "id": "#minecraft:is_mountain",
       "required": false
+    },
+    {
+      "id": "hogwartsmagic:giants_highland",
+      "required": false
     }
   ]
 }

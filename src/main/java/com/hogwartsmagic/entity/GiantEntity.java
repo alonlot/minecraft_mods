@@ -162,10 +162,24 @@ public class GiantEntity extends Monster {
     public static boolean canSpawn(EntityType<GiantEntity> type, ServerLevelAccessor level, MobSpawnType spawnType,
                                    BlockPos pos, RandomSource random) {
         // Giants keep no hours; they need headroom and solid ground, not darkness.
-        return level.getBlockState(pos.below()).isSolidRender(level, pos.below())
+        if (!(level.getBlockState(pos.below()).isSolidRender(level, pos.below())
                 && level.getBlockState(pos).isAir()
-                && level.getBlockState(pos.above()).isAir();
+                && level.getBlockState(pos.above()).isAir())) {
+            return false;
+        }
+        if (spawnType != MobSpawnType.NATURAL) {
+            return true;
+        }
+        // A giant lives under the sky, and no giant lives on top of another. Without these two the
+        // only check left is "is there floor", which every cave passes and which daylight never
+        // stops: in the highland, where giants are common, the monster cap filled up with them.
+        return level.canSeeSky(pos)
+                && level.getEntitiesOfClass(GiantEntity.class,
+                        new net.minecraft.world.phys.AABB(pos).inflate(NATURAL_SPACING)).isEmpty();
     }
+
+    /** No natural spawn this close to a giant that is already there. */
+    public static final double NATURAL_SPACING = 48.0D;
 
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
@@ -192,9 +206,15 @@ public class GiantEntity extends Monster {
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, WizardEntity.class, true));
         this.targetSelector.addGoal(4, new NearestAttackableTargetGoal<>(this, StudentEntity.class, true));
         // Everything else that moves. Giants bully whatever is in reach, but they
-        // do not turn on their own kind.
+        // do not turn on their own kind, nor on the trolls that hang about their
+        // camps: a giant that swatted every troll in the highland would empty it.
         this.targetSelector.addGoal(5, new NearestAttackableTargetGoal<>(this, Mob.class, 10, true, false,
-                target -> target != null && !(target instanceof GiantEntity)));
+                GiantEntity::isFairGame));
+    }
+
+    /** What a giant will pick a fight with unprovoked: any mob but another giant or a troll. */
+    public static boolean isFairGame(@javax.annotation.Nullable net.minecraft.world.entity.LivingEntity target) {
+        return target != null && !(target instanceof GiantEntity) && !(target instanceof TrollEntity);
     }
 
     // --- state accessors ---------------------------------------------------

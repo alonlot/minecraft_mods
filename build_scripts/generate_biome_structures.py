@@ -1349,7 +1349,7 @@ def horntail_nest():
 
 CAMP_SINK = 1
 CAMP_G = CAMP_SINK + 1
-CAMP_W, CAMP_D = 31, 27
+POACHER_W, POACHER_D = 31, 27     # not CAMP_W: the Death Eater camp below reuses that name
 CAMP_C = (15, 13)
 
 # Brown and grey wool sit within twenty luma of each other, so a tent made of both reads as patched
@@ -1388,8 +1388,8 @@ def poacher_ground(b):
     of the camp in a ragged line, giving way to the biome's own blackstone and ash.
     """
     G = CAMP_G
-    for x in range(CAMP_W):
-        for z in range(CAMP_D):
+    for x in range(POACHER_W):
+        for z in range(POACHER_D):
             if not camp_footprint(x, z):
                 continue
             put(b, (x, 0, z), tex(SCORCH, x, 0, z, 961))
@@ -1407,7 +1407,7 @@ def poacher_ground(b):
             put(b, (x, G - 1, z), block)
 
 
-def poacher_tent(b, cx, cz, open_dir, salt, burnt=False):
+def poacher_tent(b, cx, cz, open_dir, salt, burnt=False, canvas=None):
     """An A-frame canvas tent: ridge along x, closed at the back, open toward the fire.
 
     Same proportions as the Death Eater tents (wall to 2, roof to 3, ridge to 4) for the same reason:
@@ -1423,7 +1423,7 @@ def poacher_tent(b, cx, cz, open_dir, salt, burnt=False):
                 return
             put(b, (x, y, z), 'minecraft:black_wool' if roll < 0.32 else 'minecraft:gray_wool')
         else:
-            put(b, (x, y, z), tex(POACHER_CANVAS, x, y, z, salt))
+            put(b, (x, y, z), tex(canvas or POACHER_CANVAS, x, y, z, salt))
 
     back = cx - open_dir * 2
     for x in range(cx - 2, cx + 3):
@@ -2746,6 +2746,425 @@ def acromantula_hollow():
 
     return b, [spider(16, 16, 1.6), spider(13, 11, 0.8), spider(21, 18, 1.0),
                spider(10, 19, 0.6), spider(18, 13, 0.4)]
+
+
+# --- Giants' Highland: the giant encampment ---------------------------------------------------------
+# In the books the last giants in Britain's reach live in a mountain valley: caves in the slopes, one
+# great fire in the middle, and the Gurg -- the chief -- sitting by it to take the gifts. That is the
+# whole plan here. Everything is giant scale: a giant is five and a half blocks tall, so a doorway
+# is seven, a seat is two blocks off the ground, and a "stone" in the ring is a pillar.
+
+GIANT_SINK = 1                           # template y=1 is the natural surface
+GIANT_G = GIANT_SINK + 1                 # standing level
+GIANT_W = 49
+GIANT_C = (24, 24)
+# One rock family for everything giants built: grey, a little moss, within twenty luma of each other
+# so a wall of it reads as heaped stone and not as a chessboard.
+GIANT_ROCK = [('minecraft:cobblestone', 6), ('minecraft:stone', 5), ('minecraft:andesite', 4),
+              ('minecraft:mossy_cobblestone', 3), ('minecraft:tuff', 1)]
+# The great stones are smooth and pale against the heaped rock: they are the one thing in the camp
+# that was chosen and carried, not piled.
+GIANT_STONE = [('minecraft:stone', 6), ('minecraft:andesite', 3), ('minecraft:polished_andesite', 1)]
+GIANT_TURF = [('minecraft:grass_block', 6), ('minecraft:moss_block', 3)]
+TRODDEN = [('minecraft:coarse_dirt', 6), ('minecraft:gravel', 3), ('minecraft:packed_mud', 2)]
+
+
+def giant_footprint(x, z):
+    return math.hypot(x - GIANT_C[0], z - GIANT_C[1]) <= 22.5 + 2.0 * (vnoise(x, z, 5, 1601) - 0.5)
+
+
+def patch(palette, x, z, scale, salt):
+    """Pick from a palette by smooth noise, so a material comes in patches a few blocks wide."""
+    total = sum(w for _, w in palette)
+    t = vnoise(x, z, scale, salt) * total
+    for name, w in palette:
+        t -= w
+        if t <= 0:
+            return name
+    return palette[-1][0]
+
+
+def giant_paths():
+    """Doors the trodden ground runs to from the fire: the three caves and the way in from the south."""
+    return [(24, 13), (12, 30), (37, 30), (24, 46)]
+
+
+def near_path(x, z):
+    cx, cz = GIANT_C
+    for (px, pz) in giant_paths():
+        lx, lz = px - cx, pz - cz
+        t = max(0.0, min(1.0, ((x - cx) * lx + (z - cz) * lz) / float(lx * lx + lz * lz)))
+        if math.hypot(x - (cx + t * lx), z - (cz + t * lz)) < 1.6 + 1.2 * vnoise(x, z, 3, 1602):
+            return True
+    return False
+
+
+def giant_ground(b):
+    """Grass and scree over rock, worn to bare earth round the fire and along the paths to the caves."""
+    G = GIANT_G
+    for x in range(GIANT_W):
+        for z in range(GIANT_W):
+            if not giant_footprint(x, z):
+                continue
+            r = math.hypot(x - GIANT_C[0], z - GIANT_C[1])
+            put(b, (x, 0, z), 'minecraft:stone')
+            if r < 9.5 + 2.0 * vnoise(x, z, 4, 1603) or near_path(x, z):
+                top = patch(TRODDEN, x, z, 3, 1604)
+            elif vnoise(x, z, 5, 1605) < 0.22:
+                top = 'minecraft:gravel'
+            elif vnoise(x, z, 4, 1606) < 0.18:
+                top = 'minecraft:stone'
+            else:
+                top = 'minecraft:grass_block'
+            put(b, (x, G - 1, z), top)
+            # Clear whatever the mountain had standing here: grass, snow, a boulder.
+            for y in range(G, G + 4):
+                put(b, (x, y, z), 'minecraft:air')
+
+
+def dwelling(b, cx, cz, R, H, door, salt):
+    """A giant's cave: a dome of heaped rock with turf grown over it, and a trilithon for a door.
+
+    `door` is the unit direction (dx, dz) the doorway faces. The dome is an ellipsoid with a wobbling
+    rim so it reads as piled stone, not a hemisphere; the inside is the same shape two blocks in, so
+    the walls are two blocks thick everywhere and the roof is solid.
+    """
+    G = GIANT_G
+    ux, uz = door
+    for x in range(int(cx - R - 2), int(cx + R + 3)):
+        for z in range(int(cz - R - 2), int(cz + R + 3)):
+            d = math.hypot(x - cx, z - cz)
+            rim = R + 1.4 * (vnoise(x, z, 3, salt) - 0.5)
+            if d > rim:
+                continue
+            top = G + H * math.sqrt(max(0.0, 1 - (d / rim) ** 2))
+            inner_r = rim - 2.0
+            inner_top = G + (H - 2) * math.sqrt(max(0.0, 1 - (d / inner_r) ** 2)) if d < inner_r else G
+            for y in range(G - 1, int(round(top)) + 1):
+                if d < inner_r and G <= y < inner_top:
+                    put(b, (x, y, z), 'minecraft:air')
+                    continue
+                if y == G - 1:
+                    put(b, (x, y, z), 'minecraft:packed_mud' if d < inner_r else 'minecraft:stone')
+                    continue
+                # Earth heaped over the rock and grown green: every column's top block turfed,
+                # except round the foot, where the boulders the mound was raised on show through.
+                turfed = y == int(round(top)) and y > G + 2
+                block = patch(GIANT_TURF, x, z, 3, salt + 1) if turfed else \
+                    patch(GIANT_ROCK, x + y, z - y, 3, salt + 2)
+                put(b, (x, y, z), block)
+    # The doorway: five wide, seven high, cut straight through the wall.
+    sx, sz = -uz, ux                                     # sideways
+    for t in range(int(R) - 3, int(R) + 3):
+        for s in range(-2, 3):
+            x, z = int(round(cx + ux * t + sx * s)), int(round(cz + uz * t + sz * s))
+            for y in range(G, G + 7):
+                put(b, (x, y, z), 'minecraft:air')
+            if b.get((x, G - 1, z), ('',))[0] in ('', 'minecraft:stone'):
+                put(b, (x, G - 1, z), 'minecraft:packed_mud')
+    # Trilithon: two great uprights and a lintel laid across them, standing proud of the rock.
+    face = int(round(R)) + 1
+    for s in (-3, 3):
+        for t in (face - 1, face):
+            x, z = int(round(cx + ux * t + sx * s)), int(round(cz + uz * t + sz * s))
+            for y in range(G - 1, G + 7):
+                put(b, (x, y, z), patch(GIANT_STONE, x, y + z, 2, salt + 3))
+    for s in range(-4, 5):
+        for t in (face - 1, face):
+            x, z = int(round(cx + ux * t + sx * s)), int(round(cz + uz * t + sz * s))
+            put(b, (x, G + 7, z), patch(GIANT_STONE, x, z, 2, salt + 4))
+    # Smoke hole over the hearth.
+    for y in range(G + H - 3, G + H + 2):
+        put(b, (cx, y, cz), 'minecraft:air')
+
+
+def dwelling_inside(b, cx, cz, door, bed_side, salt, loot):
+    """A hearth under the smoke hole, a heap of hay and hides to sleep on, bones, and a chest."""
+    G = GIANT_G
+    ux, uz = door
+    sx, sz = -uz, ux
+    put(b, (cx, G, cz), 'minecraft:campfire',
+        {'facing': 'north', 'lit': 'true', 'signal_fire': 'false', 'waterlogged': 'false'})
+    for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        put(b, (cx + dx, G, cz + dz), 'minecraft:cobblestone_wall' if (dx + dz) % 2 else 'minecraft:stone')
+    # The bed: hay bales two high along the back-side wall, hides thrown over the top.
+    bx, bz = cx - ux * 3 + sx * bed_side * 2, cz - uz * 3 + sz * bed_side * 2
+    for a in range(-2, 2):
+        for c in range(0, 2):
+            x, z = bx + sx * a - ux * c, bz + sz * a - uz * c
+            put(b, (x, G, z), 'minecraft:hay_block', {'axis': 'y'})
+            put(b, (x, G + 1, z), 'minecraft:brown_carpet' if noise(x, 0, z, salt) < 0.6
+                else 'minecraft:light_gray_carpet')
+    # Bones of last week's dinner by the hearth, and the giant's chest by the bed.
+    for (dx, dz, ax) in ((2, 2, 'x'), (-2, 2, 'z'), (3, -1, 'x')):
+        x, z = cx + sx * dx + ux * dz, cz + sz * dx + uz * dz
+        if b.get((x, G, z), ('minecraft:air',))[0] == 'minecraft:air':
+            put(b, (x, G, z), 'minecraft:bone_block', {'axis': ax})
+    kx, kz = bx - sx * bed_side * 3, bz - sz * bed_side * 3
+    facing = {(1, 0): 'east', (-1, 0): 'west', (0, 1): 'south', (0, -1): 'north'}[(ux, uz)]
+    chest(b, (kx, G, kz), facing, loot)
+
+
+def great_fire(b):
+    """The fire the whole valley sits round: a pit of embers burning on netherrack, which never goes
+    out, a kerb of boulders, and the cooking pot hung over it from a chain between two stones."""
+    G = GIANT_G
+    cx, cz = GIANT_C
+    for x in range(cx - 5, cx + 6):
+        for z in range(cz - 5, cz + 6):
+            d = math.hypot(x - cx, z - cz)
+            if d <= 1.5:
+                put(b, (x, G - 1, z), 'minecraft:netherrack')
+                put(b, (x, G, z), 'minecraft:fire')
+            elif d <= 2.6:
+                put(b, (x, G - 1, z), 'minecraft:magma_block')
+            elif d <= 3.6:
+                put(b, (x, G, z), patch(GIANT_ROCK, x, z, 2, 1611))
+                if noise(x, 0, z, 1612) < 0.4:
+                    put(b, (x, G + 1, z), patch(GIANT_ROCK, z, x, 2, 1613))
+    # Two stones and the pot. Stone, not wood: anything flammable this close would burn.
+    for x in (cx - 4, cx + 4):
+        for y in range(G, G + 6):
+            put(b, (x, y, cz), patch(GIANT_STONE, x, y, 2, 1614))
+    for x in range(cx - 3, cx + 4):
+        b[(x, G + 5, cz)] = ('minecraft:chain', {'axis': 'x', 'waterlogged': 'false'}, None)
+    b[(cx, G + 4, cz)] = ('minecraft:chain', {'axis': 'y', 'waterlogged': 'false'}, None)
+    put(b, (cx, G + 3, cz), 'minecraft:cauldron')
+
+
+def gurgs_seat(b):
+    """The Gurg's seat, east of the fire and facing it: a slab of stone two blocks high, arms and a
+    back of standing stones, and the tribute piled at its foot."""
+    G = GIANT_G
+    for x in range(32, 36):
+        for z in range(17, 24):
+            if x == 35:
+                h = 8 if 18 <= z <= 22 else 5
+            elif z in (17, 23):
+                h = 4
+            else:
+                h = 2
+            for y in range(G - 1, G + h):
+                put(b, (x, y, z), patch(GIANT_STONE, x * 3 + y, z, 2, 1621))
+    for z in (18, 22):
+        put(b, (35, G + 8, z), 'minecraft:skeleton_skull', {'rotation': '12'})
+    # Tribute: what the last visitors brought, and what the Gurg keeps of it.
+    chest(b, (31, G, 16), 'west', 'hogwartsmagic:chests/giant_encampment')
+    put(b, (32, G, 16), 'minecraft:gold_block')
+    put(b, (32, G, 15), 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    put(b, (33, G, 16), 'minecraft:barrel', {'facing': 'west', 'open': 'false'})
+    put(b, (32, G + 1, 16), 'minecraft:raw_iron_block')
+
+
+def standing_stones(b):
+    """A ring of great stones round the camp, open to the south where the way in is."""
+    G = GIANT_G
+    cx, cz = GIANT_C
+    for k in range(14):
+        a = k * 2 * math.pi / 14 + 0.18 * (noise(k, 0, 0, 1631) - 0.5)
+        if abs(math.sin(a) - 1) < 0.12:                  # due south (z+): the way in
+            continue
+        r = 20.5 + 1.2 * noise(k, 1, 0, 1632)
+        x0, z0 = int(round(cx + r * math.cos(a))), int(round(cz + r * math.sin(a)))
+        h = 4 + int(4 * noise(k, 2, 0, 1633))
+        fallen = noise(k, 3, 0, 1634) < 0.15
+        if fallen:
+            # One that came down: the same stone lying on its side, pointing out of the ring.
+            for i in range(h):
+                for w in (0, 1):
+                    x = int(round(x0 + math.cos(a) * i)) + (w if abs(math.sin(a)) > 0.7 else 0)
+                    z = int(round(z0 + math.sin(a) * i)) + (0 if abs(math.sin(a)) > 0.7 else w)
+                    put(b, (x, G, z), patch(GIANT_STONE, x, z, 2, 1635))
+                    put(b, (x, G - 1, z), 'minecraft:stone')
+            continue
+        h += 1
+        for y in range(G - 1, G + h):
+            for dx in (0, 1):
+                for dz in (0, 1):
+                    # A slab of stone, two by two, with one corner knocked off the top.
+                    if y == G + h - 1 and (dx, dz) == (1, 1):
+                        continue
+                    put(b, (x0 + dx, y, z0 + dz), patch(GIANT_STONE, x0 + dx, y + z0 + dz, 2, 1636))
+
+
+def rib_cage(b, x0, x1, z, salt):
+    """What is left of something very large that the giants ate, picked clean and left where it fell:
+    the spine along the top, the ribs curving down from it to the ground on both sides, and the
+    skull at the front end. It reads as an arch of bone you can walk under."""
+    G = GIANT_G
+    R, top = 4.0, 6
+    ribs = list(range(x0 + 1, x1, 2))
+    for x in range(x0, x1 + 1):
+        put(b, (x, G + top, z), 'minecraft:bone_block', {'axis': 'x'})
+    for i, x in enumerate(ribs):
+        if 0 < i < len(ribs) - 1 and noise(x, 0, z, salt) < 0.2:
+            continue                                     # one rib broken off and carried away
+        r = R if 0 < i < len(ribs) - 1 else R - 1        # the cage narrows at both ends
+        cells = set()
+        for k in range(1, 40):
+            a = math.pi * k / 40
+            cells.add((int(round(r * math.cos(a))), int(round(top * math.sin(a)))))
+        for dz, dy in cells:
+            if dy < 0 or dy >= top:
+                continue
+            put(b, (x, G + dy, z + dz), 'minecraft:bone_block', {'axis': 'y' if abs(dz) >= r - 1 else 'z'})
+    # The skull: a block of bone on the ground at the front, the jaw a step lower and longer.
+    sx = x1 + 1
+    for dx in range(0, 3):
+        for dz in (-1, 0, 1):
+            for dy in range(0, 3 if dx < 2 else 1):
+                if dx == 1 and dy == 1 and dz != 0:
+                    continue                                 # eye sockets
+                put(b, (sx + dx, G + dy, z + dz), 'minecraft:bone_block', {'axis': 'x'})
+    for dy in range(1, top):                                 # the neck, up to the spine
+        put(b, (sx - 1 if dy > 2 else sx, G + dy, z), 'minecraft:bone_block', {'axis': 'y'})
+
+
+def troll_midden(b, cx, cz, salt):
+    """The camp's rubbish heap, at the edge, where the trolls hang about for scraps."""
+    G = GIANT_G
+    for x in range(cx - 4, cx + 5):
+        for z in range(cz - 4, cz + 5):
+            d = math.hypot(x - cx, z - cz) + 1.2 * (vnoise(x, z, 2, salt) - 0.5)
+            h = int(round(2.4 - d * 0.7))
+            for y in range(G, G + max(h, 0)):
+                put(b, (x, y, z), patch([('minecraft:coarse_dirt', 4), ('minecraft:gravel', 3),
+                                         ('minecraft:rooted_dirt', 2), ('minecraft:bone_block', 1)],
+                                        x, z + y, 2, salt + 1))
+    for (dx, dz) in ((3, -3), (-3, 2), (4, 1)):
+        x, z = cx + dx, cz + dz
+        y = G
+        while (x, y, z) in b and b[(x, y, z)][0] != 'minecraft:air':
+            y += 1
+        put(b, (x, y, z), 'minecraft:bone_block', {'axis': 'x'})
+
+
+def shift_to_origin(b, entities):
+    """Move a build so its lowest x and z are 0. Shapes drawn round a centre can spill past the
+    template's corner; a block at a negative coordinate lies outside the structure's box."""
+    ox = min(p[0] for p in b)
+    oz = min(p[2] for p in b)
+    moved = {(x - ox, y, z - oz): v for (x, y, z), v in b.items()}
+    for e in entities:
+        for key in ('pos', 'blockPos'):
+            kind, sub, vals = e[key]
+            vals[0] = (vals[0][0], vals[0][1] - ox)
+            vals[2] = (vals[2][0], vals[2][1] - oz)
+        nkind, nsub, nvals = e['nbt'][1]['Pos']
+        nvals[0] = (nvals[0][0], nvals[0][1] - ox)
+        nvals[2] = (nvals[2][0], nvals[2][1] - oz)
+    return moved, entities
+
+
+def giant_encampment():
+    """Giants' Highland: a valley camp of three rock caves round one great fire, ringed by stones."""
+    b = {}
+    G = GIANT_G
+    giant_ground(b)
+    standing_stones(b)
+    # The Gurg's cave is the biggest and faces the fire from the north; the two others from the sides.
+    dwelling(b, 24, 6, 7.5, 12, (0, 1), 1641)
+    dwelling(b, 7, 31, 6.0, 10, (1, 0), 1642)
+    dwelling(b, 42, 31, 6.0, 10, (-1, 0), 1643)
+    dwelling_inside(b, 24, 6, (0, 1), 1, 1644, 'hogwartsmagic:chests/giant_dwelling')
+    dwelling_inside(b, 7, 31, (1, 0), -1, 1645, 'hogwartsmagic:chests/giant_dwelling')
+    dwelling_inside(b, 42, 31, (-1, 0), 1, 1646, 'hogwartsmagic:chests/giant_dwelling')
+    great_fire(b)
+    gurgs_seat(b)
+    rib_cage(b, 31, 41, 41, 1651)
+    troll_midden(b, 11, 41, 1652)
+    # Boulders to sit on round the fire, giant-sized: two by two by two, rounded off at the top.
+    for k, a in enumerate((0.6, 1.4, 2.5, 3.6, 4.6, 5.5)):
+        x0 = int(round(GIANT_C[0] + 7.0 * math.cos(a)))
+        z0 = int(round(GIANT_C[1] + 7.0 * math.sin(a)))
+        if near_path(x0, z0) or near_path(x0 + 1, z0 + 1):
+            continue
+        for dx in (0, 1):
+            for dz in (0, 1):
+                put(b, (x0 + dx, G, z0 + dz), patch(GIANT_ROCK, x0 + dx, z0 + dz, 2, 1660 + k))
+                if (dx, dz) != (1, 1):
+                    put(b, (x0 + dx, G + 1, z0 + dz), patch(GIANT_ROCK, z0 + dz, x0 + dx, 2, 1661 + k))
+
+    keep = {'PersistenceRequired': ('byte', 1)}
+    return shift_to_origin(b, [
+        entity(33.4, float(G + 2), 20.5, 'hogwartsmagic:giant', dict(keep)),       # the Gurg, seated
+        entity(20.5, float(G), 30.5, 'hogwartsmagic:giant', dict(keep)),           # by the fire
+        entity(38.5, float(G), 31.5, 'hogwartsmagic:giant', dict(keep)),           # in his doorway
+        entity(15.5, float(G), 44.5, 'hogwartsmagic:troll', dict(keep)),
+        entity(7.5, float(G), 39.5, 'hogwartsmagic:troll', dict(keep)),
+    ])
+
+
+# --- Giants' Highland: the envoy camp ---------------------------------------------------------------
+# The other half of the story. In the books two parties went up to the giants: Dumbledore's, with
+# gifts, and Voldemort's, with better ones. The wizards in this mod are dark wizards, so this is the
+# second party: a Death Eater camp pitched a long walk from the giants (they would eat a wizard who
+# came closer), with the gifts for the Gurg stacked and waiting.
+
+ENVOY_W, ENVOY_D = 25, 21
+ENVOY_G = 2
+ENVOY_CANVAS = [('minecraft:black_wool', 1)]   # black only: black and grey mixed read as a chessboard
+
+
+def envoy_footprint(x, z):
+    return math.hypot((x - 12) / 12.0, (z - 10) / 10.0) <= 0.92 + 0.12 * vnoise(x, z, 3, 1701)
+
+
+def envoy_camp():
+    """Giants' Highland: Death Eaters camped out of the giants' reach, gifts ready for the Gurg."""
+    b = {}
+    G = ENVOY_G
+    for x in range(ENVOY_W):
+        for z in range(ENVOY_D):
+            if not envoy_footprint(x, z):
+                continue
+            put(b, (x, 0, z), 'minecraft:stone')
+            near = math.hypot(x - 12, z - 11) < 4 + 1.5 * vnoise(x, z, 3, 1702)
+            put(b, (x, G - 1, z), patch(CAMP_DIRT, x, z, 2, 1703) if near else
+                ('minecraft:gravel' if vnoise(x, z, 4, 1704) < 0.3 else 'minecraft:grass_block'))
+            for y in range(G, G + 4):
+                put(b, (x, y, z), 'minecraft:air')
+    poacher_tent(b, 6, 6, +1, 1711, canvas=ENVOY_CANVAS)
+    poacher_tent(b, 6, 15, +1, 1712, canvas=ENVOY_CANVAS)
+    # Fire, kerbed, with seats.
+    put(b, (13, G, 11), 'minecraft:campfire',
+        {'facing': 'north', 'lit': 'true', 'signal_fire': 'false', 'waterlogged': 'false'})
+    for dx, dz, facing in ((0, -1, 'north'), (0, 1, 'south'), (-1, 0, 'west'), (1, 0, 'east')):
+        stair(b, (13 + dx, G, 11 + dz), 'minecraft:cobblestone_stairs', facing)
+    for z in (9, 10, 11, 12, 13):
+        if z != 11:
+            put(b, (10, G, z), 'minecraft:stripped_spruce_log', {'axis': 'z'})
+    # The gifts for the Gurg, on a sledge: barrels, gold, and the chest with the best of it.
+    for x in range(16, 22):
+        for z in (14, 17):
+            put(b, (x, G, z), 'minecraft:spruce_log', {'axis': 'x'})
+    fill(b, 16, G + 1, 14, 21, G + 1, 17, 'minecraft:spruce_planks')
+    for pos in ((17, G + 2, 15), (17, G + 2, 16), (18, G + 2, 16), (17, G + 3, 16)):
+        put(b, pos, 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    put(b, (20, G + 2, 15), 'minecraft:gold_block')
+    put(b, (20, G + 2, 16), 'minecraft:gold_block')
+    put(b, (21, G + 2, 16), 'minecraft:raw_gold_block')
+    chest(b, (19, G + 2, 14), 'north', 'hogwartsmagic:chests/envoy_camp')
+    # Maps on a table: they are watching the valley.
+    put(b, (15, G, 6), 'minecraft:cartography_table')
+    put(b, (16, G, 6), 'minecraft:spruce_trapdoor', {'facing': 'north', 'half': 'top', 'open': 'false',
+                                                    'powered': 'false', 'waterlogged': 'false'})
+    fill(b, 16, G - 1, 6, 16, G - 1, 6, 'minecraft:coarse_dirt')
+    put(b, (15, G + 1, 6), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+    # The Mark on a pole over the camp.
+    fill(b, 21, G, 9, 21, G + 4, 9, 'minecraft:dark_oak_log', {'axis': 'y'})
+    dark_mark_banner(b, (21, G + 3, 10), 'south')
+    for x, z in ((11, 3), (11, 18)):
+        fill(b, x, G, z, x, G + 1, z, 'minecraft:spruce_fence')
+        put(b, (x, G + 2, z), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+    ground_everything(b, G, CAMP_DIRT)
+
+    wizard = {'PersistenceRequired': ('byte', 1)}
+    return b, [
+        entity(13.5, float(G), 8.5, 'hogwartsmagic:wizard', dict(wizard)),
+        entity(15.5, float(G), 13.5, 'hogwartsmagic:wizard', dict(wizard)),
+        entity(18.5, float(G), 8.5, 'hogwartsmagic:wizard', dict(wizard)),
+    ]
 
 
 DROWNED = [('minecraft:stone_bricks', 6), ('minecraft:mossy_stone_bricks', 6),
@@ -4601,6 +5020,8 @@ BUILDS = {
     'merfolk_village': merfolk_village,
     'willow_clearing': willow_clearing,
     'acromantula_hollow': acromantula_hollow,
+    'giant_encampment': giant_encampment,
+    'envoy_camp': envoy_camp,
     'death_eater_camp': death_eater_camp,
     'hogwarts_ruin_camp': hogwarts_ruin_camp,
     'locket_cave': locket_cave,
@@ -4720,7 +5141,7 @@ def audit_entities(blocks, entities, size):
 # single-cell check above passes a 3-wide dragon whose wings are inside a spire; this one checks the
 # whole box.
 ENTITY_BOX = {'hogwartsmagic:hungarian_horntail': (3.0, 3.2), 'hogwartsmagic:dementor': (1.0, 3.0),
-              'hogwartsmagic:troll': (1.75, 3.25),
+              'hogwartsmagic:troll': (1.75, 3.25), 'hogwartsmagic:giant': (2.2, 5.5),
               'hogwartsmagic:acromantula': (1.6, 1.2)}      # times its SpiderScale, if it has one
 
 
@@ -4901,7 +5322,10 @@ if __name__ == '__main__':
         built = builder()
         blocks, entities = built if isinstance(built, tuple) else (built, [])
         size = [max(p[i] for p in blocks) + 1 for i in range(3)]
-        problems = (audit(name, blocks) + audit_entities(blocks, entities, size)
+        low = [min(p[i] for p in blocks) for i in range(3)]
+        problems = ['blocks reach %s, below the template corner: outside the structure box' % (low,)] \
+            if min(low) < 0 else []
+        problems += (audit(name, blocks) + audit_entities(blocks, entities, size)
                     + audit_paintings(blocks, entities) + audit_entity_room(blocks, entities)
                     + audit_fire(blocks))
         if name == 'chamber_hall':

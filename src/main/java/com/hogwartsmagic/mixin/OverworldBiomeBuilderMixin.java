@@ -5,6 +5,7 @@ import com.hogwartsmagic.worldgen.BlackLakeShallowsClimateZones;
 import com.hogwartsmagic.worldgen.ChamberDepthsClimateZones;
 import com.hogwartsmagic.worldgen.DementorFenClimateZones;
 import com.hogwartsmagic.worldgen.ForbiddenForestClimateZones;
+import com.hogwartsmagic.worldgen.GiantsHighlandClimateZones;
 import com.hogwartsmagic.worldgen.GoblinUndercityClimateZones;
 import com.hogwartsmagic.worldgen.HorntailPeaksClimateZones;
 import com.hogwartsmagic.worldgen.ModBiomes;
@@ -39,6 +40,8 @@ public abstract class OverworldBiomeBuilderMixin {
         add(consumer, ForbiddenForestClimateZones.POINTS, ModBiomes.FORBIDDEN_FOREST);
         add(consumer, DementorFenClimateZones.POINTS, ModBiomes.DEMENTOR_FEN);
         add(consumer, HorntailPeaksClimateZones.POINTS, ModBiomes.HORNTAIL_PEAKS);
+        // After the forest and the peaks: where the boxes touch, they keep the ground they had.
+        add(consumer, GiantsHighlandClimateZones.POINTS, ModBiomes.GIANTS_HIGHLAND);
         add(consumer, BlackLakeClimateZones.POINTS, ModBiomes.BLACK_LAKE);
         add(consumer, BlackLakeShallowsClimateZones.POINTS, ModBiomes.BLACK_LAKE_SHALLOWS);
         add(consumer, ChamberDepthsClimateZones.POINTS, ModBiomes.CHAMBER_DEPTHS);

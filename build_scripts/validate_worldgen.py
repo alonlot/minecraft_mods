@@ -165,6 +165,8 @@ def main():
     for path in sorted(glob.glob(os.path.join(WORLDGEN, 'structure', '*.json'))):
         name = os.path.basename(path)[:-5]
         s = load(path)
+        if 'start_pool' not in s:          # a custom structure type (Mini Hogwarts) has no pool
+            continue
         pool = local(s['start_pool'])
         if pool and not exists('template_pool', pool):
             err(f'structure/{name}: missing template_pool {pool}')
@@ -185,6 +187,9 @@ def main():
                     if ref and ref not in biomes:
                         err(f'structure/{name}: biome tag names unknown biome {ref}')
 
+        if 'spawn_overrides' not in s:
+            err(f'structure/{name}: no spawn_overrides -- the key is required, even as {{}}, and its '
+                f'absence fails world load')
         if not exists('structure_set', name):
             err(f'structure/{name}: has no structure_set, so it will never be placed')
 

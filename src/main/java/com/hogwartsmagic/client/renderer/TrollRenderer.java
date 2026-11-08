@@ -15,11 +15,11 @@ public class TrollRenderer extends MobRenderer<TrollEntity, TrollModel> {
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/troll.png");
 
     /**
-     * The model stands about 54px to the top of the skull so the face and the club
+     * The model stands about 58px to the top of the skull so the face and the club
      * have room for detail; this brings it down to roughly 3.25 blocks, which is the
-     * height the hitbox is registered at. The ear tips still poke a little above it.
+     * height the hitbox is registered at.
      */
-    private static final float MODEL_SCALE = 0.96F;
+    private static final float MODEL_SCALE = 0.9F;
 
     public TrollRenderer(EntityRendererProvider.Context context) {
         super(context, new TrollModel(context.bakeLayer(TrollModel.LAYER_LOCATION)), 1.1F);

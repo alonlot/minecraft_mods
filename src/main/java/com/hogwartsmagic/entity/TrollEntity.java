@@ -10,10 +10,10 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.AnimationState;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
@@ -33,13 +33,24 @@ import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import javax.annotation.Nullable;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.UUID;
 
+/**
+ * The mountain troll. It closes on foot, picks one of three club attacks by how far away you are, and turns
+ * to follow you only until the swing is committed, so the blows can be sidestepped and land where the
+ * club comes down.
+ *
+ * <p>Wingardium Leviosa on a troll holding its club takes the club instead of the troll: it hangs over the
+ * troll's head, drops on it and knocks it flat for a few seconds.
+ */
 public class TrollEntity extends Monster {
 
     public enum AttackState {
-        NONE, ROAR, SLAM_WINDUP, SLAM_STRIKE, SWEEP, STAGGER;
+        NONE, ROAR, SLAM_WINDUP, SLAM_STRIKE, SWEEP, STAGGER, BACKHAND, DISARMED, KNOCKED_OUT, GET_UP;
 
         private static final AttackState[] VALUES = values();
 
@@ -51,9 +62,9 @@ public class TrollEntity extends Monster {
 
     private static final EntityDataAccessor<Byte> DATA_ATTACK_STATE =
             SynchedEntityData.defineId(TrollEntity.class, EntityDataSerializers.BYTE);
-    private static final EntityDataAccessor<Integer> DATA_STATE_TICK =
-            SynchedEntityData.defineId(TrollEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> DATA_RAGING =
+            SynchedEntityData.defineId(TrollEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_HOLDING_CLUB =
             SynchedEntityData.defineId(TrollEntity.class, EntityDataSerializers.BOOLEAN);
 
     // State timings (ticks). The "strike" frame inside SLAM_STRIKE is at the start of that state.
@@ -63,13 +74,38 @@ public class TrollEntity extends Monster {
     public static final int SWEEP_DURATION = 22;
     public static final int SWEEP_STRIKE_TICK = 12;
     public static final int STAGGER_DURATION = 14;
+    public static final int BACKHAND_DURATION = 16;
+    public static final int BACKHAND_STRIKE_TICK = 7;
+    /** The clips' lengths, and the tick the falling club lands on the troll's head. */
+    public static final int DISARMED_DURATION = 52;
+    public static final int BONK_TICK = 42;
+    public static final int KNOCKED_OUT_DURATION = 120;
+    public static final int GET_UP_DURATION = 30;
+    public static final int RETRIEVE_CLUB_TICK = 14;
 
-    private static final double SLAM_RADIUS = 4.0D;
-    private static final double SWEEP_RANGE = 5.0D;
+    /** How far in front of the troll the club head lands at the bottom of the slam. Measured from the model. */
+    public static final double SLAM_REACH = 2.75D;
+    /** Full force within this distance of where the club lands; beyond it the shock wave fades out. */
+    private static final double SLAM_CORE = 1.6D;
+    private static final double SLAM_RADIUS = 3.6D;
+    private static final double SWEEP_RANGE = 4.2D;
+    private static final double BACKHAND_RANGE = 3.8D;
+    private static final double ATTACK_RANGE = 4.2D;
+    /** Closer than this the overhead swing is too slow to bother with. */
+    private static final double CLOSE_RANGE = 3.0D;
+    /** Degrees per tick the troll can turn while it winds up. */
+    private static final float WINDUP_TURN = 9.0F;
     private static final float RAGE_HP_FRACTION = 0.40F;
+    private static final float BONK_DAMAGE = 25.0F;
+    private static final float KNOCKED_OUT_DAMAGE_MULTIPLIER = 1.5F;
+    /** Ticks after it wakes before the same trick works again. */
+    private static final int PLUCK_COOLDOWN = 600;
 
     private boolean hasRoared;
-    private int sweepStruckThisState;
+    private int stateTick;
+    private long nextPluckTime;
+    @Nullable
+    private UUID plucker;
 
     // Client-side clip drivers. These live here rather than in the renderer because
     // AnimationState is a common class; nothing on this side of the wire pulls a
@@ -80,6 +116,10 @@ public class TrollEntity extends Monster {
     public final AnimationState slamStrikeAnimationState = new AnimationState();
     public final AnimationState sweepAnimationState = new AnimationState();
     public final AnimationState staggerAnimationState = new AnimationState();
+    public final AnimationState backhandAnimationState = new AnimationState();
+    public final AnimationState disarmedAnimationState = new AnimationState();
+    public final AnimationState knockedOutAnimationState = new AnimationState();
+    public final AnimationState getUpAnimationState = new AnimationState();
 
     public TrollEntity(EntityType<? extends TrollEntity> type, Level level) {
         super(type, level);
@@ -105,13 +145,14 @@ public class TrollEntity extends Monster {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(DATA_ATTACK_STATE, (byte) AttackState.NONE.ordinal());
-        builder.define(DATA_STATE_TICK, 0);
         builder.define(DATA_RAGING, false);
+        builder.define(DATA_HOLDING_CLUB, true);
     }
 
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
+        this.goalSelector.addGoal(1, new OutColdGoal(this));
         this.goalSelector.addGoal(2, new TrollAttackGoal(this));
         this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.75D));
         this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 16.0F));
@@ -127,18 +168,28 @@ public class TrollEntity extends Monster {
         return AttackState.fromByte(this.entityData.get(DATA_ATTACK_STATE));
     }
 
-    public int getStateTick() {
-        return this.entityData.get(DATA_STATE_TICK);
-    }
-
     public boolean isRaging() {
         return this.entityData.get(DATA_RAGING);
     }
 
+    public boolean isHoldingClub() {
+        return this.entityData.get(DATA_HOLDING_CLUB);
+    }
+
+    /** Disarmed, flat out or still climbing back up: nothing else may start until it is on its feet. */
+    public boolean isIncapacitated() {
+        AttackState s = getAttackState();
+        return s == AttackState.DISARMED || s == AttackState.KNOCKED_OUT || s == AttackState.GET_UP;
+    }
+
+    private boolean isSwinging() {
+        AttackState s = getAttackState();
+        return s == AttackState.SLAM_WINDUP || s == AttackState.SLAM_STRIKE || s == AttackState.SWEEP || s == AttackState.BACKHAND;
+    }
+
     private void setAttackState(AttackState state) {
         this.entityData.set(DATA_ATTACK_STATE, (byte) state.ordinal());
-        this.entityData.set(DATA_STATE_TICK, 0);
-        this.sweepStruckThisState = 0;
+        this.stateTick = 0;
     }
 
     private boolean isBusy() {
@@ -146,9 +197,13 @@ public class TrollEntity extends Monster {
         return s != AttackState.NONE && s != AttackState.STAGGER;
     }
 
-    /** True while a clip is throwing the head about, so the model damps head tracking. */
-    public boolean isPerformingAction() {
-        return getAttackState() != AttackState.NONE;
+    /** How much of the look direction the head follows: the clips own the head while they throw it about. */
+    public float headTrackingWeight() {
+        AttackState s = getAttackState();
+        if (s == AttackState.NONE) {
+            return 0.7F;
+        }
+        return isIncapacitated() ? 0.0F : 0.2F;
     }
 
     private boolean canMoveWhileAttacking() {
@@ -162,14 +217,23 @@ public class TrollEntity extends Monster {
         super.tick();
 
         if (this.level().isClientSide) {
-            this.idleAnimationState.startIfStopped(this.tickCount);
+            if (isIncapacitated()) {
+                this.idleAnimationState.stop();
+            } else {
+                this.idleAnimationState.startIfStopped(this.tickCount);
+            }
+            // The server never sends body yaw and the client body only trails the head, so draw the swing
+            // along the facing the blow actually resolves on.
+            if (isSwinging()) {
+                this.yBodyRot = getYRot();
+            }
         }
 
-        if (!this.level().isClientSide) {
+        // A dying troll plays out its death, not the rest of its swing.
+        if (!this.level().isClientSide && isAlive()) {
             // Advance per-state tick.
             AttackState state = getAttackState();
-            int t = getStateTick();
-            this.entityData.set(DATA_STATE_TICK, t + 1);
+            int t = this.stateTick++;
 
             // Rage threshold (one-way latch).
             if (!isRaging() && this.getHealth() <= this.getMaxHealth() * RAGE_HP_FRACTION) {
@@ -199,6 +263,9 @@ public class TrollEntity extends Monster {
                     if (t == 3) {
                         this.playSound(com.hogwartsmagic.ModSounds.TROLL_SLAM_WINDUP.get(), 1.1F, 1.0F);
                     }
+                    if (t <= SLAM_WINDUP_DURATION - 6) {
+                        turnToTarget();
+                    }
                     if (t >= SLAM_WINDUP_DURATION) {
                         setAttackState(AttackState.SLAM_STRIKE);
                         doSlamImpact();
@@ -215,16 +282,65 @@ public class TrollEntity extends Monster {
                     if (t == 2) {
                         this.playSound(com.hogwartsmagic.ModSounds.TROLL_SWEEP.get(), 1.3F, 1.0F);
                     }
-                    if (t == SWEEP_STRIKE_TICK && sweepStruckThisState == 0) {
-                        sweepStruckThisState = 1;
+                    if (t <= SWEEP_STRIKE_TICK - 5) {
+                        turnToTarget();
+                    }
+                    if (t == SWEEP_STRIKE_TICK) {
                         doSweepImpact();
                     }
                     if (t >= SWEEP_DURATION) {
                         setAttackState(AttackState.NONE);
                     }
                 }
+                case BACKHAND -> {
+                    if (t <= BACKHAND_STRIKE_TICK - 3) {
+                        turnToTarget();
+                    }
+                    if (t == BACKHAND_STRIKE_TICK) {
+                        doBackhandImpact();
+                    }
+                    if (t >= BACKHAND_DURATION) {
+                        setAttackState(AttackState.NONE);
+                    }
+                }
                 case STAGGER -> {
                     if (t >= STAGGER_DURATION) {
+                        setAttackState(AttackState.NONE);
+                    }
+                }
+                case DISARMED -> {
+                    if (t == BONK_TICK) {
+                        doBonk();
+                    }
+                    if (t == DISARMED_DURATION - 3 && this.level() instanceof ServerLevel sl) {
+                        this.playSound(com.hogwartsmagic.ModSounds.TROLL_SLAM_IMPACT.get(), 1.4F, 0.8F);
+                        com.hogwartsmagic.fx.CreatureFx.slam(sl, this.position(), 2.5F, 0.7F, 0.8F, 10.0F, 8);
+                    }
+                    if (t >= DISARMED_DURATION) {
+                        setAttackState(AttackState.KNOCKED_OUT);
+                    }
+                }
+                case KNOCKED_OUT -> {
+                    if (t % 40 == 20) {
+                        // Snoring.
+                        this.playSound(com.hogwartsmagic.ModSounds.TROLL_AMBIENT.get(), 0.9F, 0.6F);
+                    }
+                    if (t % 5 == 0 && this.level() instanceof ServerLevel sl) {
+                        Vec3 back = Vec3.directionFromRotation(0.0F, this.getYRot()).scale(-3.0D);
+                        sl.sendParticles(ParticleTypes.CRIT, this.getX() + back.x, this.getY() + 1.2D, this.getZ() + back.z,
+                                4, 0.5D, 0.15D, 0.5D, 0.05D);
+                    }
+                    if (t >= KNOCKED_OUT_DURATION) {
+                        this.nextPluckTime = this.level().getGameTime() + PLUCK_COOLDOWN;
+                        setAttackState(AttackState.GET_UP);
+                    }
+                }
+                case GET_UP -> {
+                    if (t == RETRIEVE_CLUB_TICK) {
+                        this.entityData.set(DATA_HOLDING_CLUB, true);
+                        this.playSound(com.hogwartsmagic.ModSounds.TROLL_SLAM_WINDUP.get(), 0.9F, 0.8F);
+                    }
+                    if (t >= GET_UP_DURATION) {
                         setAttackState(AttackState.NONE);
                     }
                 }
@@ -240,14 +356,32 @@ public class TrollEntity extends Monster {
         }
     }
 
+    /** Swings track the target only until they are committed; after that you can step out of the way. */
+    private void turnToTarget() {
+        LivingEntity target = getTarget();
+        if (target == null) {
+            return;
+        }
+        double dx = target.getX() - getX();
+        double dz = target.getZ() - getZ();
+        if (dx * dx + dz * dz < 1.0E-4D) {
+            return;
+        }
+        float wanted = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0F;
+        float yaw = Mth.approachDegrees(getYRot(), wanted, WINDUP_TURN);
+        setYRot(yaw);
+        this.yBodyRot = yaw;
+        this.yHeadRot = yaw;
+    }
+
     private void doSlamImpact() {
         if (!(this.level() instanceof ServerLevel sl)) return;
 
-        // Impact point in front of the troll, at ground level.
+        // Where the club head comes down, at ground level.
         Vec3 forward = Vec3.directionFromRotation(0.0F, this.getYRot());
-        double cx = this.getX() + forward.x * 2.2D;
+        double cx = this.getX() + forward.x * SLAM_REACH;
         double cy = this.getY();
-        double cz = this.getZ() + forward.z * 2.2D;
+        double cz = this.getZ() + forward.z * SLAM_REACH;
 
         float dmg = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * (isRaging() ? 1.75F : 1.5F);
         AABB area = new AABB(cx - SLAM_RADIUS, cy - 1.0D, cz - SLAM_RADIUS,
@@ -257,10 +391,14 @@ public class TrollEntity extends Monster {
         for (LivingEntity victim : victims) {
             double dx = victim.getX() - cx;
             double dz = victim.getZ() - cz;
-            if (dx * dx + dz * dz > SLAM_RADIUS * SLAM_RADIUS) continue;
-            victim.hurt(this.damageSources().mobAttack(this), dmg);
-            Vec3 away = victim.position().subtract(cx, cy, cz).normalize();
-            victim.push(away.x * 1.1D, 0.55D, away.z * 1.1D);
+            double dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist > SLAM_RADIUS) continue;
+            // Under the club it is the whole blow; further out, only the ground jumping.
+            float force = dist <= SLAM_CORE ? 1.0F
+                    : Mth.lerp((float) ((dist - SLAM_CORE) / (SLAM_RADIUS - SLAM_CORE)), 0.7F, 0.3F);
+            victim.hurt(this.damageSources().mobAttack(this), dmg * force);
+            Vec3 away = dist < 1.0E-3D ? forward : new Vec3(dx / dist, 0.0D, dz / dist);
+            victim.push(away.x * 1.1D * force, 0.55D * force, away.z * 1.1D * force);
             victim.hurtMarked = true;
             interruptIfCaster(victim);
         }
@@ -272,40 +410,75 @@ public class TrollEntity extends Monster {
     }
 
     private void doSweepImpact() {
-        if (!(this.level() instanceof ServerLevel sl)) return;
-
         float dmg = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * (isRaging() ? 1.15F : 0.95F);
-        Vec3 forward = Vec3.directionFromRotation(0.0F, this.getYRot());
-        AABB area = this.getBoundingBox().inflate(SWEEP_RANGE, 1.5D, SWEEP_RANGE);
-        List<LivingEntity> victims = sl.getEntitiesOfClass(LivingEntity.class, area,
-                e -> e != this && e.isAlive());
-        boolean connected = false;
-        for (LivingEntity victim : victims) {
-            Vec3 to = victim.position().subtract(this.position());
-            if (to.lengthSqr() > SWEEP_RANGE * SWEEP_RANGE) continue;
-            Vec3 toFlat = new Vec3(to.x, 0.0D, to.z);
-            if (toFlat.lengthSqr() < 1.0E-4D) continue;
-            double dot = toFlat.normalize().dot(new Vec3(forward.x, 0.0D, forward.z).normalize());
-            if (dot < 0.35D) continue; // ~70° cone in front
-
-            victim.hurt(this.damageSources().mobAttack(this), dmg);
-            Vec3 push = toFlat.normalize();
-            victim.push(push.x * 1.4D, 0.35D, push.z * 1.4D);
-            victim.hurtMarked = true;
-            interruptIfCaster(victim);
-            connected = true;
-        }
-
-        // Only the connecting swing gets the meaty thud; a whiff is just the whoosh
-        // already played at the start of the state.
-        if (connected) {
+        if (swingAt(SWEEP_RANGE, 0.35D, dmg, 1.4D, 0.35D, false) && this.level() instanceof ServerLevel sl) {
             this.playSound(com.hogwartsmagic.ModSounds.TROLL_CLUB_HIT.get(), 1.3F, 0.95F);
-        }
-
-        if (connected) {
+            Vec3 forward = Vec3.directionFromRotation(0.0F, this.getYRot());
             Fx.shake(sl, this.getX() + forward.x * 2.0D, this.getY() + 1.0D, this.getZ() + forward.z * 2.0D,
                     0.6F, 10.0F, 9);
         }
+    }
+
+    private void doBackhandImpact() {
+        float dmg = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.8F;
+        if (swingAt(BACKHAND_RANGE, 0.5D, dmg, 1.35D, 0.22D, true) && this.level() instanceof ServerLevel sl) {
+            this.playSound(com.hogwartsmagic.ModSounds.TROLL_CLUB_HIT.get(), 1.2F,
+                    0.95F + this.random.nextFloat() * 0.12F);
+            Fx.shake(sl, this.getX(), this.getY() + 1.0D, this.getZ(), 0.45F, 8.0F, 8);
+        }
+    }
+
+    /** Hurts what is inside a forward cone; a backhand stops at its first victim. True if anything was hit. */
+    private boolean swingAt(double range, double minDot, float damage, double push, double lift, boolean single) {
+        if (!(this.level() instanceof ServerLevel sl)) return false;
+        Vec3 forward = Vec3.directionFromRotation(0.0F, this.getYRot());
+        forward = new Vec3(forward.x, 0.0D, forward.z).normalize();
+        List<LivingEntity> victims = sl.getEntitiesOfClass(LivingEntity.class, this.getBoundingBox().inflate(range, 1.5D, range),
+                e -> e != this && e.isAlive());
+        victims.sort(Comparator.comparingDouble(this::distanceToSqr));
+        boolean connected = false;
+        for (LivingEntity victim : victims) {
+            Vec3 flat = new Vec3(victim.getX() - getX(), 0.0D, victim.getZ() - getZ());
+            double reach = range + victim.getBbWidth() * 0.5D;
+            if (flat.lengthSqr() > reach * reach || flat.lengthSqr() < 1.0E-4D) continue;
+            if (flat.normalize().dot(forward) < minDot) continue;
+            victim.hurt(this.damageSources().mobAttack(this), damage);
+            Vec3 away = flat.normalize();
+            victim.push(away.x * push, lift, away.z * push);
+            victim.hurtMarked = true;
+            interruptIfCaster(victim);
+            connected = true;
+            if (single) break;
+        }
+        return connected;
+    }
+
+    /**
+     * Wingardium Leviosa, on a troll that still has its club: the charm takes the club, not the troll.
+     * False when there is no club to take, so the spell falls back to lifting the troll.
+     */
+    public boolean pluckClub(@Nullable LivingEntity caster) {
+        if (this.level().isClientSide || !isAlive() || !isHoldingClub() || isIncapacitated()
+                || this.level().getGameTime() < this.nextPluckTime) {
+            return false;
+        }
+        this.plucker = caster == null ? null : caster.getUUID();
+        this.entityData.set(DATA_HOLDING_CLUB, false);
+        setAttackState(AttackState.DISARMED);
+        return true;
+    }
+
+    /** The club comes down on the troll's own skull. */
+    private void doBonk() {
+        if (!(this.level() instanceof ServerLevel sl)) return;
+        Player caster = this.plucker == null ? null : sl.getPlayerByUUID(this.plucker);
+        this.invulnerableTime = 0;
+        hurt(caster != null ? damageSources().indirectMagic(caster, caster) : damageSources().magic(), BONK_DAMAGE);
+        this.playSound(com.hogwartsmagic.ModSounds.TROLL_CLUB_HIT.get(), 1.6F, 0.7F);
+        Vec3 forward = Vec3.directionFromRotation(0.0F, this.getYRot());
+        sl.sendParticles(ParticleTypes.CRIT, getX() + forward.x, getY() + 3.5D, getZ() + forward.z,
+                24, 0.4D, 0.3D, 0.4D, 0.25D);
+        Fx.shake(sl, getX(), getY() + 2.0D, getZ(), 0.5F, 10.0F, 8);
     }
 
     private void interruptIfCaster(LivingEntity victim) {
@@ -329,35 +502,15 @@ public class TrollEntity extends Monster {
         setAttackState(AttackState.SWEEP);
     }
 
-    @Override
-    public boolean doHurtTarget(Entity target) {
-        boolean hit = super.doHurtTarget(target);
-        if (hit) {
-            this.playSound(com.hogwartsmagic.ModSounds.TROLL_CLUB_HIT.get(), 1.2F,
-                    0.95F + this.random.nextFloat() * 0.12F);
-            if (target instanceof LivingEntity living) {
-                knockBackFromClub(living);
-                interruptIfCaster(living);
-            }
-            if (this.level() instanceof ServerLevel serverLevel) {
-                Fx.shake(serverLevel, target.getX(), target.getY(0.45D), target.getZ(), 0.45F, 8.0F, 8);
-            }
-        }
-        return hit;
-    }
-
-    private void knockBackFromClub(LivingEntity target) {
-        Vec3 away = target.position().subtract(this.position());
-        if (away.lengthSqr() < 1.0E-4D) {
-            away = Vec3.directionFromRotation(0.0F, this.getYRot());
-        }
-        away = away.normalize();
-        target.push(away.x * 1.35D, 0.22D, away.z * 1.35D);
-        target.hurtMarked = true;
+    void beginBackhand() {
+        setAttackState(AttackState.BACKHAND);
     }
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
+        if (getAttackState() == AttackState.KNOCKED_OUT) {
+            amount *= KNOCKED_OUT_DAMAGE_MULTIPLIER;
+        }
         boolean wasBusy = isBusy();
         boolean result = super.hurt(source, amount);
         // Heavy hits while not committed knock the troll into a brief stagger.
@@ -400,6 +553,10 @@ public class TrollEntity extends Monster {
         this.slamStrikeAnimationState.stop();
         this.sweepAnimationState.stop();
         this.staggerAnimationState.stop();
+        this.backhandAnimationState.stop();
+        this.disarmedAnimationState.stop();
+        this.knockedOutAnimationState.stop();
+        this.getUpAnimationState.stop();
 
         if (state == AttackState.ROAR) {
             this.roarAnimationState.start(this.tickCount);
@@ -411,6 +568,14 @@ public class TrollEntity extends Monster {
             this.sweepAnimationState.start(this.tickCount);
         } else if (state == AttackState.STAGGER) {
             this.staggerAnimationState.start(this.tickCount);
+        } else if (state == AttackState.BACKHAND) {
+            this.backhandAnimationState.start(this.tickCount);
+        } else if (state == AttackState.DISARMED) {
+            this.disarmedAnimationState.start(this.tickCount);
+        } else if (state == AttackState.KNOCKED_OUT) {
+            this.knockedOutAnimationState.start(this.tickCount);
+        } else if (state == AttackState.GET_UP) {
+            this.getUpAnimationState.start(this.tickCount);
         }
     }
 
@@ -439,10 +604,33 @@ public class TrollEntity extends Monster {
         return 1.25F;
     }
 
-    /** Custom melee goal: picks roar / slam / sweep / basic and respects the troll's busy state. */
+    /** Holds the troll still, head and all, while it is out of the fight. */
+    static class OutColdGoal extends Goal {
+        private final TrollEntity troll;
+
+        OutColdGoal(TrollEntity troll) {
+            this.troll = troll;
+            this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
+        }
+
+        @Override
+        public boolean canUse() {
+            return troll.isIncapacitated();
+        }
+
+        @Override
+        public void start() {
+            troll.getNavigation().stop();
+        }
+    }
+
+    /** Custom melee goal: walks into range, then picks an attack by distance and respects the busy state. */
     static class TrollAttackGoal extends Goal {
+        private static final int REPATH_INTERVAL = 10;
+
         private final TrollEntity troll;
         private int nextDecisionCooldown;
+        private int repathCooldown;
 
         TrollAttackGoal(TrollEntity troll) {
             this.troll = troll;
@@ -463,6 +651,7 @@ public class TrollEntity extends Monster {
         @Override
         public void start() {
             nextDecisionCooldown = 0;
+            repathCooldown = 0;
         }
 
         @Override
@@ -482,24 +671,27 @@ public class TrollEntity extends Monster {
                 return;
             }
 
-            double distSq = troll.distanceToSqr(target);
-            double reachSq = trollAttackReachSq(target);
+            double dist = Math.sqrt(troll.distanceToSqr(target));
 
             // First-contact roar before the first close-up engagement.
-            if (!troll.hasRoared && distSq < 64.0D) {
+            if (!troll.hasRoared && dist < 8.0D) {
                 troll.beginRoar();
                 return;
             }
 
-            // Approach until close enough.
-            if (distSq > reachSq) {
-                double speed = troll.isRaging() ? 1.2D : 0.95D;
-                troll.getNavigation().moveTo(target, speed);
+            // Approach until close enough. Re-pathing every tick would restart the walk constantly.
+            if (dist > ATTACK_RANGE + target.getBbWidth() * 0.5D) {
+                if (--repathCooldown <= 0 || troll.getNavigation().isDone()) {
+                    troll.getNavigation().moveTo(target, troll.isRaging() ? 1.2D : 0.95D);
+                    repathCooldown = REPATH_INTERVAL;
+                }
                 return;
             }
 
-            // In range: pick an attack.
+            // In range: stand and square up, so a swing starts from where the target is now.
             troll.getNavigation().stop();
+            troll.turnToTarget();
+            repathCooldown = 0;
             if (nextDecisionCooldown > 0) {
                 nextDecisionCooldown--;
                 return;
@@ -507,34 +699,23 @@ public class TrollEntity extends Monster {
 
             int roll = troll.random.nextInt(100);
             boolean clustered = countNearbyTargets(target) >= 2;
-
-            if (troll.isRaging()) {
-                if (clustered || roll < 50) {
-                    troll.beginSlam();
-                } else if (roll < 90) {
-                    troll.beginSweep();
-                } else {
-                    troll.doHurtTarget(target);
-                }
-            } else {
-                if (clustered && roll < 70) {
-                    troll.beginSlam();
-                } else if (roll < 55) {
-                    troll.beginSlam();
+            if (clustered && roll < 70) {
+                troll.beginSlam();
+            } else if (dist < CLOSE_RANGE) {
+                if (roll < 45) {
+                    troll.beginBackhand();
                 } else if (roll < 80) {
                     troll.beginSweep();
                 } else {
-                    troll.doHurtTarget(target);
+                    troll.beginSlam();
                 }
+            } else if (roll < 70) {
+                troll.beginSlam();
+            } else {
+                troll.beginSweep();
             }
 
-            // Small cooldown between attack decisions to avoid stutter even after fast states.
-            nextDecisionCooldown = 6;
-        }
-
-        private double trollAttackReachSq(LivingEntity target) {
-            double reach = troll.getBbWidth() * 2.0D + target.getBbWidth();
-            return reach * reach;
+            nextDecisionCooldown = troll.isRaging() ? 3 : 10;
         }
 
         private int countNearbyTargets(LivingEntity around) {

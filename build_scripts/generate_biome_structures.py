@@ -1052,6 +1052,16 @@ WEAVE = ['minecraft:dark_oak_log', 'minecraft:spruce_log', 'minecraft:stripped_d
 # fire on netherrack never goes out, and it spreads to anything flammable within a few blocks.
 FLAMMABLE = ('_log', '_planks', '_wool', '_carpet', 'hay_block', '_slab', '_stairs', '_fence',
              'ladder', 'barrel', 'chest')
+WOODS = ('oak', 'spruce', 'birch', 'jungle', 'acacia', 'mangrove', 'cherry', 'bamboo')
+
+
+def flammable(block):
+    """Shapes such as stairs and slabs burn only in wood: a blackstone stair is not tinder."""
+    if not block or not block.endswith(FLAMMABLE):
+        return False
+    if block.endswith(('_slab', '_stairs', '_fence')):
+        return any(w in block for w in WOODS)
+    return True
 
 
 def rock(b, pos, block, axis='y'):
@@ -2240,9 +2250,11 @@ def goblin_vault():
         stair(b, (x + 2, 3, 1), 'minecraft:deepslate_brick_stairs', 'west', 'top')
         put(b, (x + 1, 3, 1), 'minecraft:chiseled_deepslate')
 
-    for x in range(1, W - 1):                              # cart track in a cut trough
-        put(b, (x, 0, D // 2), 'minecraft:polished_deepslate')
-        put(b, (x, 1, D // 2), 'minecraft:rail', {'shape': 'east_west'})
+    # Cart track in a cut trough, out through a cart door at each end: the vault is a station on the
+    # goblins' line like the other Undercity rooms, not a sealed box nobody can walk into.
+    cart_line(b, 0, W - 1, D // 2)
+    cart_door(b, 0, D // 2)
+    cart_door(b, W - 1, D // 2)
     for z in (D // 2 - 1, D // 2 + 1):
         for x in range(1, W - 1):
             slab(b, (x, 1, z), 'minecraft:deepslate_tile_slab')
@@ -2258,9 +2270,261 @@ def goblin_vault():
     crew = [entity(x + 0.5, 1.0, z + 0.5, 'hogwartsmagic:goblin',
                    {'PersistenceRequired': ('byte', 1)})
             for x, z in ((3, 3), (11, 7), (7, 2))]
-    crew.append(entity(13.5, 1.0, 8.5, 'hogwartsmagic:troll',
+    # Clear of the x=13 pilaster: at 13.5, 8.5 its body was inside it, which only the hitbox audit saw.
+    crew.append(entity(11.5, 1.0, 8.0, 'hogwartsmagic:troll',
                        {'PersistenceRequired': ('byte', 1)}))
     return b, crew
+
+
+# --- Goblin Undercity: the other rooms ----------------------------------------------------------------
+# The vault was the only room the Undercity had, and it generates more often than anything else in the
+# mod. These are three more rooms of the same goblin works, in the same deepslate, so a player who
+# tunnels into one does not know which they will find. One thing ties them together: each is a station
+# on the goblins' cart line, with the track running in through an arched cart door.
+
+def cart_door(b, x, zc):
+    """A three-wide arched opening in an x-facing end wall, for the cart line to run through."""
+    for z in (zc - 1, zc, zc + 1):
+        for y in (1, 2):
+            put(b, (x, y, z), 'minecraft:air')
+    put(b, (x, 3, zc), 'minecraft:air')
+    stair(b, (x, 3, zc - 1), 'minecraft:deepslate_brick_stairs', 'north', 'top')
+    stair(b, (x, 3, zc + 1), 'minecraft:deepslate_brick_stairs', 'south', 'top')
+    put(b, (x, 4, zc), 'minecraft:chiseled_deepslate')
+
+
+def cart_line(b, x0, x1, z):
+    """Track on a polished bed, from x0 to x1 inclusive."""
+    for x in range(x0, x1 + 1):
+        put(b, (x, 0, z), 'minecraft:polished_deepslate')
+        put(b, (x, 1, z), 'minecraft:rail', {'shape': 'east_west', 'waterlogged': 'false'})
+
+
+def lantern_caps(b, caps):
+    for x, y, z in caps:
+        put(b, (x, y, z), 'minecraft:lantern', {'hanging': 'true'})
+
+
+def chandelier(b, x, z, top, drop):
+    """A chain from the vault crown with a lantern on the end."""
+    for y in range(top - drop + 1, top + 1):
+        put(b, (x, y, z), 'minecraft:chain', {'axis': 'y'})
+    put(b, (x, top - drop, z), 'minecraft:lantern', {'hanging': 'true'})
+
+
+def goblin_forge():
+    """Goblin Undercity: where goblin silver is worked. A lava hearth under a hood, anvils, a hoist.
+
+    The hearth is the light and the centre of the room, set into the north wall. The lava sits at
+    y=1 in a brick rim with solid floor under it, not in the floor: at y=0 it would be the bottom
+    row of the template, with only whatever rock or cave the world has under it.
+    """
+    W, H, D = 19, 9, 13
+    b = {}
+    hall(b, W, H, D, 'minecraft:deepslate_bricks', VAULT_FLOOR, VAULT_WALL, salt=1401)
+    vault(b, W, H, D, 'minecraft:deepslate_brick_stairs')
+    lantern_caps(b, pilasters(b, H, [4, 14], [], W, D, VAULT_WALL, 'minecraft:chiseled_deepslate', 1402))
+
+    # Hearth: lava in a rim of magma and brick, a hood of upturned stairs, a chimney to the crown.
+    for x in range(7, 12):
+        for z in (1, 2, 3):
+            edge = x in (7, 11) or z in (1, 3)
+            if edge:
+                put(b, (x, 1, z), 'minecraft:magma_block' if (x, z) in ((7, 2), (11, 2))
+                    else 'minecraft:polished_blackstone_bricks')
+            else:
+                put(b, (x, 1, z), 'minecraft:lava', {'level': '0'})
+                put(b, (x, 0, z), 'minecraft:polished_blackstone_bricks')
+    for x in range(7, 12):
+        stair(b, (x, 4, 3), 'minecraft:polished_blackstone_brick_stairs', 'north', 'top')
+    for x in (7, 11):
+        stair(b, (x, 4, 2), 'minecraft:polished_blackstone_brick_stairs', 'east' if x == 7 else 'west', 'top')
+    for y in range(5, H - 1):
+        for x in range(8, 11):
+            for z in (1, 2):
+                put(b, (x, y, z), 'minecraft:polished_blackstone_bricks')
+
+    # Work floor: two anvils facing the hearth, the quench, the grindstone, the hoist with its load.
+    put(b, (6, 1, 5), 'minecraft:anvil', {'facing': 'east'})
+    put(b, (12, 1, 5), 'minecraft:chipped_anvil', {'facing': 'west'})
+    put(b, (13, 1, 3), 'minecraft:water_cauldron', {'level': '3'})
+    put(b, (5, 1, 2), 'minecraft:grindstone', {'face': 'floor', 'facing': 'north'})
+    for y in range(4, H - 1):
+        put(b, (9, y, 6), 'minecraft:chain', {'axis': 'y'})
+    put(b, (9, 3, 6), 'minecraft:iron_block')
+    # Stock: bars of silver (iron) stacked by the west wall, raw ore by the east. Wood stays five
+    # blocks or more from the lava, which lights flammable blocks within about three.
+    for pos in ((2, 1, 2), (3, 1, 2), (2, 2, 2), (2, 1, 3)):
+        put(b, pos, 'minecraft:iron_block')
+    for pos in ((16, 1, 2), (16, 1, 3), (16, 2, 2), (15, 1, 2)):
+        put(b, pos, 'minecraft:raw_iron_block')
+    put(b, (2, 1, 4), 'minecraft:coal_block')
+    put(b, (16, 1, 6), 'minecraft:smithing_table')
+    for pos in ((16, 1, 7), (16, 2, 7)):
+        put(b, pos, 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+
+    cart_line(b, 0, W - 1, 9)
+    cart_door(b, 0, 9)
+    cart_door(b, W - 1, 9)
+    chest(b, (3, 1, 11), 'north', 'hogwartsmagic:chests/goblin_forge')
+    rubble(b, [(15, 1, 11), (1, 1, 6)], VAULT_FLOOR, 1403)
+
+    keep = {'PersistenceRequired': ('byte', 1)}
+    return b, [entity(6.5, 1.0, 7.5, 'hogwartsmagic:goblin', dict(keep)),
+               entity(12.5, 1.0, 6.5, 'hogwartsmagic:goblin', dict(keep)),
+               entity(2.5, 1.0, 7.5, 'hogwartsmagic:goblin_guard', dict(keep))]
+
+
+def counting_platform(b, z0, z1, front, step_z, W):
+    """A raised clerks' floor two blocks up, with the high counter along its front edge.
+
+    Two blocks so that a goblin standing behind the counter has his head above it; a customer on
+    the aisle floor looks up at him, which is the point of a Gringotts counter.
+    """
+    for x in range(2, W - 2):
+        for z in range(z0, z1 + 1):
+            for y in (1, 2):
+                put(b, (x, y, z), tex(VAULT_FLOOR, x, y, z, 1410))
+        for y in (1, 2, 3):
+            put(b, (x, y, front), 'minecraft:polished_deepslate')
+        top = x % 4
+        if top == 2:
+            put(b, (x, 4, front), 'minecraft:candle', {'candles': '3', 'lit': 'true', 'waterlogged': 'false'})
+        elif top == 0:
+            put(b, (x, 4, front), 'minecraft:light_weighted_pressure_plate', {'power': '0'})
+    # Two steps up from the aisle at the west end.
+    stair(b, (1, 1, step_z), 'minecraft:deepslate_tile_stairs', 'east')
+    stair(b, (2, 2, step_z), 'minecraft:deepslate_tile_stairs', 'east')
+
+
+def goblin_counting_house():
+    """Goblin Undercity: a counting house. High counters both sides of a red aisle, the head clerk
+    on a podium at the far end in front of the vault door, chandeliers down the middle.
+    """
+    W, H, D = 19, 11, 15
+    b = {}
+    hall(b, W, H, D, 'minecraft:deepslate_bricks', VAULT_FLOOR, VAULT_WALL, salt=1411)
+    vault(b, W, H, D, 'minecraft:deepslate_brick_stairs')
+    lantern_caps(b, pilasters(b, H, [3, 7, 11, 15], [], W, D, VAULT_WALL,
+                              'minecraft:chiseled_deepslate', 1412))
+
+    counting_platform(b, 1, 4, 5, 4, W)
+    counting_platform(b, 10, 13, 9, 10, W)
+    put(b, (9, 4, 5), 'minecraft:brewing_stand', {f'has_bottle_{i}': 'false' for i in range(3)})
+    put(b, (9, 4, 9), 'minecraft:brewing_stand', {f'has_bottle_{i}': 'false' for i in range(3)})
+    for x in range(1, W - 2):
+        for z in (6, 7, 8):
+            put(b, (x, 1, z), 'minecraft:red_carpet')
+
+    # The head clerk's podium and desk, and the vault door behind him.
+    for z in (6, 7, 8):
+        for y in (1, 2):
+            put(b, (17, y, z), 'minecraft:polished_deepslate')
+        for y in (1, 2, 3):
+            put(b, (16, y, z), 'minecraft:polished_deepslate')
+    put(b, (16, 4, 7), 'minecraft:lectern', {'facing': 'west', 'has_book': 'false', 'powered': 'false'})
+    put(b, (16, 4, 6), 'minecraft:candle', {'candles': '4', 'lit': 'true', 'waterlogged': 'false'})
+    for y in range(3, 8):
+        for z in range(5, 10):
+            ring = y in (3, 7) or z in (5, 9)
+            put(b, (W - 1, y, z), 'minecraft:chiseled_deepslate' if ring else 'minecraft:iron_block')
+    put(b, (W - 1, 5, 7), 'minecraft:gold_block')
+
+    # What they count, stacked behind the clerks.
+    for pos in ((15, 3, 2), (15, 3, 3), (14, 3, 2), (15, 4, 2)):
+        put(b, pos, 'minecraft:raw_gold_block' if pos[1] == 4 or pos[0] == 14 else 'minecraft:gold_block')
+    for pos in ((15, 3, 12), (14, 3, 12)):
+        put(b, pos, 'minecraft:raw_gold_block')
+    for x in (5, 9, 13):
+        chandelier(b, x, 7, H - 2, 3)
+    cart_door(b, 0, 7)
+    chest(b, (4, 3, 2), 'south', 'hogwartsmagic:chests/goblin_counting_house')
+    chest(b, (10, 3, 13), 'north', 'hogwartsmagic:chests/goblin_counting_house')
+
+    keep = {'PersistenceRequired': ('byte', 1)}
+    return b, [entity(6.5, 3.0, 3.5, 'hogwartsmagic:goblin', dict(keep)),
+               entity(12.5, 3.0, 11.5, 'hogwartsmagic:goblin', dict(keep)),
+               entity(17.5, 3.0, 7.5, 'hogwartsmagic:goblin', dict(keep)),
+               entity(2.5, 1.0, 6.5, 'hogwartsmagic:goblin_guard', dict(keep)),
+               entity(2.5, 1.0, 8.5, 'hogwartsmagic:goblin_guard', dict(keep))]
+
+
+PEN_WALL = [('minecraft:cobbled_deepslate', 6), ('minecraft:cracked_deepslate_bricks', 4),
+            ('minecraft:deepslate_bricks', 3)]
+
+
+def troll_pen():
+    """Goblin Undercity: the pen where the goblins keep their troll.
+
+    Bars five high across the room (the troll is three and a quarter), the pen floor gone to gravel
+    and bedding, a chain run across it from a ring in the wall. The handlers' side has the feed and
+    the bell they ring for it. The troll's hoard chest is inside the pen, so the loot costs the fight.
+    """
+    W, H, D = 21, 9, 15
+    b = {}
+    hall(b, W, H, D, 'minecraft:deepslate_bricks', VAULT_FLOOR, VAULT_WALL, salt=1421)
+    vault(b, W, H, D, 'minecraft:deepslate_brick_stairs')
+    # The pen walls are scarred: cobbled and cracked where the troll has been at them.
+    for x in range(8, W):
+        for z in range(D):
+            # Patches, not a one-block mix: gravel and dirt beside dark stone, block by block, read
+            # as a chessboard. Dirt only where the bedding has rotted into the floor.
+            bedding = math.hypot(x - 19, z - 1) < 4.5 + 2 * vnoise(x, z, 2, 1425)
+            if bedding:
+                floor = 'minecraft:coarse_dirt'
+            elif vnoise(x, z, 3, 1426) < 0.45:
+                floor = 'minecraft:gravel'
+            else:
+                floor = 'minecraft:cobbled_deepslate'
+            put(b, (x, 0, z), floor)
+            for y in range(1, H - 1):
+                if (x == W - 1 or z in (0, D - 1)) and (x, y, z) in b \
+                        and b[(x, y, z)][0] != 'minecraft:air':
+                    put(b, (x, y, z), tex(PEN_WALL, x, y, z, 1423))
+
+    # The barrier: polished posts every three, bars between, a lintel over the lot.
+    for z in range(1, D - 1):
+        post = z % 3 == 1
+        for y in range(1, 6):
+            put(b, (7, y, z), 'minecraft:polished_deepslate' if post else 'minecraft:iron_bars')
+        put(b, (7, 6, z), 'minecraft:deepslate_bricks')
+    # A trough under the bars, fed from the handlers' side.
+    for z in (3, 5, 9, 11):
+        put(b, (8, 1, z), 'minecraft:cauldron')
+
+    # Inside: bedding in the far corner, bones, the chain from the wall ring to where it stands.
+    for pos in ((19, 1, 1), (18, 1, 1), (19, 1, 2), (17, 1, 1), (19, 2, 1), (18, 1, 2), (19, 1, 3)):
+        put(b, pos, 'minecraft:hay_block', {'axis': 'y'})
+    for (x, z, ax) in ((12, 3, 'x'), (16, 11, 'z'), (10, 10, 'y'), (18, 6, 'x')):
+        put(b, (x, 1, z), 'minecraft:bone_block', {'axis': ax})
+    put(b, (W - 1, 2, 7), 'minecraft:iron_block')                  # the ring
+    for x in range(16, W - 1):
+        put(b, (x, 1, 7), 'minecraft:chain', {'axis': 'x'})
+    rubble(b, [(13, 1, 13), (19, 1, 9), (9, 1, 1)], PEN_WALL, 1424)
+    chest(b, (19, 1, 12), 'west', 'hogwartsmagic:chests/troll_pen')
+
+    # Handlers' side: the cart line in, feed, the bell, a lamp post.
+    cart_line(b, 0, 5, 7)
+    cart_door(b, 0, 7)
+    put(b, (6, 0, 7), 'minecraft:polished_deepslate')
+    put(b, (6, 1, 7), 'minecraft:deepslate_brick_wall')            # the buffer at the end of the line
+    put(b, (3, 1, 2), 'minecraft:bell', {'attachment': 'floor', 'facing': 'east', 'powered': 'false'})
+    for pos in ((1, 1, 12), (2, 1, 12), (1, 1, 13), (1, 2, 13), (2, 1, 13)):
+        put(b, pos, 'minecraft:hay_block', {'axis': 'x'})
+    for pos in ((5, 1, 13), (5, 2, 13), (4, 1, 13)):
+        put(b, pos, 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    for (x, z) in ((5, 3), (5, 11)):
+        fill(b, x, 1, z, x, 2, z, 'minecraft:dark_oak_fence')
+        put(b, (x, 3, z), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+    lantern_caps(b, [(10, H - 4, 1), (16, H - 4, D - 2)])
+    for x, z in ((10, 1), (16, D - 2)):
+        put(b, (x, H - 3, z), 'minecraft:chiseled_deepslate')
+    connect_bars(b)
+
+    keep = {'PersistenceRequired': ('byte', 1)}
+    return b, [entity(14.5, 1.0, 7.5, 'hogwartsmagic:troll', dict(keep)),
+               entity(3.5, 1.0, 10.5, 'hogwartsmagic:goblin', dict(keep)),
+               entity(4.5, 1.0, 4.5, 'hogwartsmagic:goblin', dict(keep))]
 
 
 DROWNED = [('minecraft:stone_bricks', 6), ('minecraft:mossy_stone_bricks', 6),
@@ -4109,6 +4373,9 @@ BUILDS = {
     'dragon_poacher_camp': dragon_poacher_camp,
     'chamber_hall': chamber_hall,
     'goblin_vault': goblin_vault,
+    'goblin_forge': goblin_forge,
+    'goblin_counting_house': goblin_counting_house,
+    'troll_pen': troll_pen,
     'black_lake_ruin': black_lake_ruin,
     'merfolk_village': merfolk_village,
     'willow_clearing': willow_clearing,
@@ -4165,7 +4432,7 @@ def see_through(block):
 # A mob can stand in any of these -- they have no collision box. Everything else underfoot means the
 # entity was baked inside a solid block and will be shoved somewhere unpredictable on placement.
 PASSABLE = re.compile(r'air|water|seagrass|kelp|grass|fern|_bush|vine|sapling|rail|torch|lantern'
-                      r'|cobweb|sea_pickle|coral|light|flower|lily')
+                      r'|cobweb|sea_pickle|coral|light|flower|lily|carpet')
 
 
 def audit_paintings(blocks, entities):
@@ -4230,7 +4497,8 @@ def audit_entities(blocks, entities, size):
 # Entities wider or taller than one block, as (width, height) of their hitbox in ModEntities. The
 # single-cell check above passes a 3-wide dragon whose wings are inside a spire; this one checks the
 # whole box.
-ENTITY_BOX = {'hogwartsmagic:hungarian_horntail': (3.0, 3.2), 'hogwartsmagic:dementor': (1.0, 3.0)}
+ENTITY_BOX = {'hogwartsmagic:hungarian_horntail': (3.0, 3.2), 'hogwartsmagic:dementor': (1.0, 3.0),
+              'hogwartsmagic:troll': (1.75, 3.25)}
 
 
 def audit_entity_room(blocks, entities):
@@ -4252,9 +4520,22 @@ def audit_entity_room(blocks, entities):
 
 
 def audit_fire(blocks):
-    """Fire on netherrack never burns out, and fire spreads. Nothing flammable may be within reach."""
+    """Fire on netherrack never burns out, and fire spreads. Nothing flammable may be within reach.
+
+    Lava lights things too: its random tick sets fire to air beside flammable blocks up to a few
+    blocks away. It needs no netherrack, so only the reach is checked for it.
+    """
     problems = []
     for (x, y, z), (block, _, _) in blocks.items():
+        if block == 'minecraft:lava':
+            for dx in range(-3, 4):
+                for dz in range(-3, 4):
+                    for dy in range(-1, 4):
+                        other = blocks.get((x + dx, y + dy, z + dz), (None,))[0]
+                        if flammable(other):
+                            problems.append('lava at %s can light %s at %s'
+                                            % ((x, y, z), other, (x + dx, y + dy, z + dz)))
+            continue
         if block != 'minecraft:fire':
             continue
         if blocks.get((x, y - 1, z), (None,))[0] != 'minecraft:netherrack':
@@ -4263,7 +4544,7 @@ def audit_fire(blocks):
             for dz in range(-4, 5):
                 for dy in range(-1, 5):
                     other = blocks.get((x + dx, y + dy, z + dz), (None,))[0]
-                    if other and other.endswith(FLAMMABLE):
+                    if flammable(other):
                         problems.append('fire at %s can reach %s at %s'
                                         % ((x, y, z), other, (x + dx, y + dy, z + dz)))
     return problems

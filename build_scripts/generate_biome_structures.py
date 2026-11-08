@@ -888,12 +888,17 @@ def round_door(b, cx, cy, cz, r):
     """The threshold between antechamber and hall: the round door, built shut.
 
     It is shut because it is meant to be opened, and opening it is the point -- a Serpensortia cast
-    at the lock in the middle retracts the seven serpent bolts one at a time and then unwinds the
-    leaf. See ChamberDoorBlock and ChamberDoorBlockEntity.
+    at the lock in the middle sends a stone serpent round the rim, which draws the seven serpent
+    bolts back one at a time, and then the whole leaf rolls sideways into the wall. See
+    ChamberDoorBlock, ChamberDoorBlockEntity and ChamberDoorRenderer.
 
     The leaf is tuff rather than the deepslate around it for two reasons. It reads as a separate
-    object, which a door has to; and the block entity finds the leaf by scanning for tuff, so the
-    leaf has to be made of something the rest of the Chamber is not.
+    object, which a door has to; and the block entity finds the leaf by scanning for its own block,
+    so the leaf has to be made of something the rest of the Chamber is not.
+
+    The leaf rolls into the bulkhead, so the bulkhead has to be solid for the leaf's own width plus a
+    block on at least one side of the hole, on every layer the leaf spans. If it is not, the rolled
+    leaf shows through whatever is there.
     """
     for x in range(cx - r - 2, cx + r + 3):
         for y in range(cy - r - 2, cy + r + 3):

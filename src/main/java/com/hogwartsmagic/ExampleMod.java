@@ -357,7 +357,7 @@ public class ExampleMod
                     .strength(-1.0f, 3600000.0f)
                     .noLootTable()));
     public static final RegistryObject<Block> CHAMBER_DOOR_LEAF = BLOCKS.register("chamber_door_leaf",
-            () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.CHISELED_TUFF)
+            () -> new com.hogwartsmagic.block.ChamberDoorLeafBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.CHISELED_TUFF)
                     .strength(-1.0f, 3600000.0f)
                     .noLootTable()));
 
@@ -367,8 +367,12 @@ public class ExampleMod
     public static final RegistryObject<Block> CHAMBER_DOOR = BLOCKS.register("chamber_door",
             () -> new com.hogwartsmagic.block.ChamberDoorBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.CHISELED_DEEPSLATE)
                     .strength(50.0f, 1200.0f)
+                    // Glows while the door moves. Once it has swung open the lock is gone from this
+                    // cell, so a light left here would be a glow with nothing making it.
                     .lightLevel(state -> state.hasProperty(com.hogwartsmagic.block.ChamberDoorBlock.OPEN)
-                            && state.getValue(com.hogwartsmagic.block.ChamberDoorBlock.OPEN) ? 6 : 0)));
+                            && state.getValue(com.hogwartsmagic.block.ChamberDoorBlock.OPEN)
+                            && state.getValue(com.hogwartsmagic.block.ChamberDoorBlock.PHASE)
+                                    != com.hogwartsmagic.block.ChamberDoorLeafBlock.PARTED ? 6 : 0)));
     /**
      * The plinth in the bank's rear rotunda, and its opposite number on the platform below it.
      * Strong but not unbreakable: it is somewhere you stand, not part of the shell.

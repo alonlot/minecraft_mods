@@ -73,6 +73,52 @@ class IncantationMatcherTest {
         }
     }
 
+    private static String strict(String heard) {
+        return IncantationMatcher.match(heard, true).spellId();
+    }
+
+    @Test
+    void openMicCastsASpellSaidOnItsOwn() {
+        for (Map.Entry<String, String> e : IncantationMatcher.incantations().entrySet()) {
+            assertEquals(e.getKey(), strict(e.getValue() + "!"), e.getValue());
+        }
+        assertEquals("protego_maxima", strict("Protego Maxima!")); // holds "Protego", still casts
+        assertEquals("stupefy", strict("Stupefy, Stupefy!"));
+        assertEquals("piertotum_locomotor", strict("Pier totum locomotor")); // one word split by the recogniser
+        assertEquals("sectumsempra", strict("Sector Sempa!"));
+        assertEquals("expecto_patronum", strict("Inspector Patronum."));
+        assertEquals("stupefy", strict(" Stupefyre."));
+    }
+
+    @Test
+    void openMicNeverCastsASpellNamedInsideASentence() {
+        String[] templates = {"Did you see his %s?", "I need to learn %s", "%s is so useful", "Cast %s on him",
+                "He used %s on me", "Let us try %s later", "The %s spell", "Do you know %s?", "%s did not work",
+                "%s him!", "Use %s", "Try %s", "Oh %s", "My %s"};
+        for (String words : IncantationMatcher.incantations().values()) {
+            for (String t : templates) {
+                String line = String.format(t, words);
+                assertNull(strict(line), line);
+            }
+        }
+    }
+
+    @Test
+    void openMicIgnoresTalkThatOnlySoundsLikeASpell() {
+        assertNull(strict("A lot of us.")); // Alatus with push-to-talk
+        assertNull(strict("Ascending now."));
+        assertNull(strict("Protect the village."));
+        assertNull(strict("[Music]"));
+        assertNull(strict("[XBOX SOUND]"));
+        assertNull(strict("Thank you."));
+    }
+
+    @Test
+    void pushToTalkStillAcceptsFillerAroundTheSpell() {
+        assertEquals("stupefy", id("Uh, Stupefy!"));
+        assertNull(strict("Uh, Stupefy!")); // the open mic is stricter
+    }
+
     @Test
     void shortNoiseNeverCasts() {
         assertNull(id("Lu"));

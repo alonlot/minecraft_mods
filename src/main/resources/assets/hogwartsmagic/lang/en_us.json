@@ -254,7 +254,7 @@
   "gui.hogwartsmagic.wand_radial.hint_click_or_release": "Left click to bind, or release R to cast",
   "key.hogwartsmagic.wand_radial_menu": "Wand Spell Wheel",
   "key.hogwartsmagic.grimoire": "Open Grimoire",
-  "key.hogwartsmagic.voice_cast": "Voice Cast (hold and say a spell)",
+  "key.hogwartsmagic.voice_cast": "Voice Cast Push-to-Talk (when voiceMode is PUSH_TO_TALK)",
   "voice.hogwartsmagic.listening": "Listening...",
   "voice.hogwartsmagic.no_microphone": "No microphone found. Check your sound settings and microphone permission.",
   "voice.hogwartsmagic.heard_nothing_known": "Heard \"%s\": no spell",

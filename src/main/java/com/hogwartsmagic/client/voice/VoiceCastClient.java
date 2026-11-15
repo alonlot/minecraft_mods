@@ -14,8 +14,13 @@ import net.minecraft.world.entity.player.Player;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Voice casting: hold the voice key with a wand in the main hand, say a spell, let go. The take is transcribed on
- * this machine and the spell is cast exactly as if it were picked on the radial menu
+ * Voice casting, in one of two modes ({@link VoiceCastConfig#MODE}):
+ * <ul>
+ *   <li>open mic (the default): the microphone is open while a wand is in the main hand, and a spell said on its
+ *   own casts. A spell name inside a sentence does not ({@code IncantationMatcher.match(text, true)}).</li>
+ *   <li>push-to-talk: hold the voice key, say a spell, let go.</li>
+ * </ul>
+ * The speech is transcribed on this machine and the spell is cast exactly as if it were picked on the radial menu
  * ({@code ModEventsClientHooks.selectSpellAndCast}), so the server sees nothing new: the same select and cast
  * packets, checked the same way (learned, cooldown, mana, stun, silence). Hold spells work as on the radial menu:
  * keep right-click down for Fiendfyre, the Patronus shield, Wingardium Leviosa and a lock pick.
@@ -34,11 +39,20 @@ public final class VoiceCastClient {
 
     private enum Phase { IDLE, RECORDING, TAIL, THINKING, WAIT_RELEASE }
 
+    /** Ticks the open mic stays open after the wand leaves the main hand, so scrolling past it does not churn. */
+    private static final int OPEN_MIC_GRACE_TICKS = 20;
+    /** After a microphone failed to open, the open mic tries again this many ticks later (not every tick). */
+    private static final int OPEN_MIC_RETRY_TICKS = 200;
+
     private static final MicRecorder RECORDER = new MicRecorder();
     private static final WhisperEngine ENGINE = new WhisperEngine();
+    private static final OpenMicListener OPEN_MIC = new OpenMicListener(ENGINE);
     private static Phase phase = Phase.IDLE;
     private static int tail;
     private static boolean failureReported;
+    private static int openMicGrace;
+    private static int openMicRetry;
+    private static boolean noMicReported;
 
     private VoiceCastClient() {
     }
@@ -50,6 +64,17 @@ public final class VoiceCastClient {
         if (player == null) {
             abort();
             return;
+        }
+        if (VoiceCastConfig.MODE.get() == VoiceCastConfig.Mode.WAND_OPEN_MIC) {
+            if (phase == Phase.RECORDING || phase == Phase.TAIL) {
+                RECORDER.stopQuietly(); // the mode was switched mid-take
+                phase = Phase.IDLE;
+            }
+            tickOpenMic(mc, player);
+            return;
+        }
+        if (OPEN_MIC.isRunning()) {
+            OPEN_MIC.stop();
         }
         // if/else, not a switch: the project keeps enum switches out of client code.
         if (phase == Phase.IDLE) {
@@ -71,6 +96,55 @@ public final class VoiceCastClient {
             }
         }
         // THINKING: the result comes back through mc.execute; presses meanwhile are ignored.
+    }
+
+    /** Open mic: listen while a wand is in the main hand (with a short grace), stop otherwise. */
+    private static void tickOpenMic(Minecraft mc, Player player) {
+        boolean wanted = VoiceCastConfig.ENABLED.get()
+                && MagicWandItem.isAnyWand(player.getMainHandItem())
+                && !com.hogwartsmagic.client.PossessionClient.isCaster()
+                && ENGINE.state() != WhisperEngine.State.FAILED;
+        if (wanted) {
+            openMicGrace = OPEN_MIC_GRACE_TICKS;
+        } else if (openMicGrace > 0) {
+            openMicGrace--;
+        }
+        boolean keepOpen = wanted || (openMicGrace > 0 && VoiceCastConfig.ENABLED.get()
+                && ENGINE.state() != WhisperEngine.State.FAILED);
+        if (openMicRetry > 0) {
+            openMicRetry--;
+        }
+        if (keepOpen && !OPEN_MIC.isRunning() && wanted && openMicRetry == 0) {
+            ENGINE.warmUp();
+            int threads = VoiceCastConfig.threads(VoiceCastConfig.THREADS.get(), Runtime.getRuntime().availableProcessors());
+            if (!OPEN_MIC.start(threads, (text, error) -> mc.execute(() -> onOpenMicHeard(mc, text, error)))) {
+                openMicRetry = OPEN_MIC_RETRY_TICKS;
+                if (!noMicReported) {
+                    noMicReported = true;
+                    player.displayClientMessage(Component.translatable("voice.hogwartsmagic.no_microphone")
+                            .withStyle(ChatFormatting.RED), true);
+                }
+            }
+        } else if (!keepOpen && OPEN_MIC.isRunning()) {
+            OPEN_MIC.stop();
+        }
+        if (ENGINE.state() == WhisperEngine.State.FAILED) {
+            reportFailure(player);
+        }
+    }
+
+    private static void onOpenMicHeard(Minecraft mc, String text, Throwable error) {
+        Player player = mc.player;
+        if (player == null || error != null || text == null
+                || VoiceCastConfig.MODE.get() != VoiceCastConfig.Mode.WAND_OPEN_MIC) {
+            return; // an engine failure is reported by the tick
+        }
+        // Strict: the open mic hears all talk, so only a spell said on its own casts. Nothing is shown for talk.
+        IncantationMatcher.Result result = IncantationMatcher.match(text, true);
+        SpellType spell = result.matched() ? byId(result.spellId()) : null;
+        if (spell != null) {
+            castHeard(mc, player, spell);
+        }
     }
 
     private static void begin(Minecraft mc, Player player) {
@@ -135,16 +209,20 @@ public final class VoiceCastClient {
             }
             return;
         }
+        clearActionBar(mc);
+        castHeard(mc, player, spell);
+    }
+
+    /** The shared end of both modes: still holding a wand, no screen open, the spell is known, then cast. */
+    private static void castHeard(Minecraft mc, Player player, SpellType spell) {
         if (!MagicWandItem.isAnyWand(player.getMainHandItem()) || mc.screen != null) {
-            clearActionBar(mc); // put away or a screen opened while the words were being worked out
-            return;
+            return; // put away, or a screen opened while the words were being worked out
         }
         if (!MagicBookItem.isSpellLearned(player, spell)) {
             player.displayClientMessage(Component.translatable("voice.hogwartsmagic.not_known",
                     Component.translatable("spell.hogwartsmagic." + spell.getId())).withStyle(ChatFormatting.RED), true);
             return;
         }
-        clearActionBar(mc);
         com.hogwartsmagic.client.ModEventsClientHooks.selectSpellAndCast(player, spell);
     }
 
@@ -171,8 +249,12 @@ public final class VoiceCastClient {
         }
     }
 
-    /** Logging out mid-take closes the microphone. */
+    /** Logging out closes the microphone in both modes. */
     private static void abort() {
+        if (OPEN_MIC.isRunning()) {
+            OPEN_MIC.stop();
+        }
+        openMicGrace = 0;
         if (phase == Phase.RECORDING || phase == Phase.TAIL) {
             RECORDER.stopQuietly();
         }

@@ -19,7 +19,7 @@ const WIKI_DATA = {
         "Mana pool with regeneration over time",
         "Persistent learned-spell storage",
         "Selected spell and 9-slot radial wheel support",
-        "Voice casting: hold V and say a known spell (offline speech to text)",
+        "Voice casting: hold a wand and say a known spell (offline speech to text)",
         "Spellbooks permanently unlock spells"
       ]
     },

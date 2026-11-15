@@ -27,6 +27,14 @@ public final class IncantationMatcher {
      * "Protect the village" casts Protego. "Uh, Stupefy" still casts (an exact span scores just this).
      */
     static final double PARTIAL_PENALTY = 0.15;
+    /**
+     * Open mic only: added for each heard word beyond the spell's own word count, so short talk that merely sounds
+     * like a spell ("A lot of us" for Alatus) does not cast. Spell names inside a sentence are refused by
+     * {@code spellInsideSentence}.
+     */
+    static final double STRICT_EXTRA_WORD_PENALTY = 0.08;
+    /** Open mic only: a run of heard words this close to the spell is the spell itself, said inside a sentence. */
+    static final double STRICT_SPAN_HIT = 0.25;
 
     /** Spell id to the words a player says. The ids are {@code SpellType} ids. */
     private static final Map<String, String> INCANTATIONS = new LinkedHashMap<>();
@@ -100,6 +108,19 @@ public final class IncantationMatcher {
 
     /** The best spell for {@code heard}, or a result with a null id when nothing is close enough. */
     public static Result match(String heard) {
+        return match(heard, false, STRICT_EXTRA_WORD_PENALTY);
+    }
+
+    /**
+     * {@code strict} is for the open mic: the whole heard text must be the spell. No run of words inside a longer
+     * sentence counts, and every extra word costs {@link #STRICT_EXTRA_WORD_PENALTY}. Push-to-talk uses the
+     * lenient form, because the player pressed the key to cast.
+     */
+    public static Result match(String heard, boolean strict) {
+        return match(heard, strict, STRICT_EXTRA_WORD_PENALTY);
+    }
+
+    static Result match(String heard, boolean strict, double extraWordPenalty) {
         List<String> words = collapseRepeats(words(heard));
         if (words.isEmpty()) {
             return new Result(null, 1.0, 0.0);
@@ -108,7 +129,9 @@ public final class IncantationMatcher {
         double second = Double.MAX_VALUE;
         String bestId = null;
         for (Map.Entry<String, String> e : INCANTATIONS.entrySet()) {
-            double d = distanceToSpell(words, e.getValue());
+            double d = strict
+                    ? strictDistanceToSpell(words, e.getValue(), extraWordPenalty)
+                    : distanceToSpell(words, e.getValue());
             if (d < best) {
                 second = best;
                 best = d;
@@ -118,10 +141,55 @@ public final class IncantationMatcher {
             }
         }
         double margin = second - best;
+        // Open mic: a sentence that names a spell never casts ("Oh Depulso", "Protego him!").
+        if (strict && bestId != null && spellInsideSentence(words, INCANTATIONS.get(bestId))) {
+            return new Result(null, best, margin);
+        }
         if (bestId == null || best > MAX_DISTANCE || margin < MIN_MARGIN) {
             return new Result(null, best, margin);
         }
         return new Result(bestId, best, margin);
+    }
+
+    /** The whole heard text against the spell, plus {@code extraWordPenalty} for each word beyond the spell's count. */
+    static double strictDistanceToSpell(List<String> heardWords, String incantation, double extraWordPenalty) {
+        List<String> spell = words(incantation);
+        int extra = Math.max(0, heardWords.size() - spell.size());
+        return score(fold(String.join("", heardWords)), fold(String.join("", spell))) + extra * extraWordPenalty;
+    }
+
+    /**
+     * True when a shorter run of the heard words is, on its own, a spell ({@link #STRICT_SPAN_HIT}): the best spell
+     * itself said with extra words ("Oh Depulso", "Protego him!"), or another spell inside talk ("Did you see his
+     * Stupefy?"). A spell whose words are all part of the best spell does not count, so "Protego Maxima" (which
+     * holds "Protego") still casts. A recogniser that splits one made-up word in two ("Fiend fear") has no such run.
+     */
+    static boolean spellInsideSentence(List<String> heardWords, String bestIncantation) {
+        List<String> bestWords = words(bestIncantation);
+        String bestTarget = fold(String.join("", bestWords));
+        double whole = score(fold(String.join("", heardWords)), bestTarget);
+        for (int len = 1; len < heardWords.size(); len++) {
+            for (int start = 0; start + len <= heardWords.size(); start++) {
+                String span = fold(String.join("", heardWords.subList(start, start + len)));
+                for (String incantation : INCANTATIONS.values()) {
+                    List<String> spellWords = words(incantation);
+                    double d = score(span, fold(String.join("", spellWords)));
+                    if (d > STRICT_SPAN_HIT) {
+                        continue;
+                    }
+                    if (incantation.equals(bestIncantation)) {
+                        // The best spell inside the text: extra words only when the run beats the whole text
+                        // ("Oh Depulso"), not when the whole is closer ("Pier totum locomotor").
+                        if (d < whole) {
+                            return true;
+                        }
+                    } else if (!bestWords.containsAll(spellWords)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**

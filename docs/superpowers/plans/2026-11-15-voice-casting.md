@@ -1,8 +1,8 @@
 # Voice Casting (speech to text) Plan and Spike Report
 
-**Goal:** Hold the voice cast key (default V) with a wand in the main hand, say a spell name, release. If the player knows that spell, it casts.
+**Goal:** With a wand in the main hand, say a spell name. If the player knows that spell, it casts. Default mode: open mic while a wand is held (`voiceMode = WAND_OPEN_MIC`); the other mode is push-to-talk (`PUSH_TO_TALK`, hold V).
 
-**User request (2026-11-15):** "if the player hold a wand with a spell he know and say it out loud it will cast it", then "i mean say as stt powered" (real speech to text, not typed chat).
+**User request (2026-11-15):** "if the player hold a wand with a spell he know and say it out loud it will cast it", then "i mean say as stt powered" (real speech to text, not typed chat), then "can i use the local and not make it push to talk?" / "its only when holding a wand so its makes sense" (open mic while a wand is held).
 
 ## Architecture
 
@@ -77,6 +77,36 @@ model loop ("Stupefyre, Stupefyre, ..."), and the matcher now drops a word that 
 - Latency on a gaming PC while the game renders.
 - Accuracy with real voices, accents and headset microphones.
 
+## Open mic mode (2026-11-15)
+
+- `client/voice/OpenMicListener` opens the microphone while a wand is in the main hand (1 s grace after it leaves, so scrolling past does not churn; a failed open retries after 10 s, not every tick). The V key does nothing in this mode.
+- `spell/voice/SpeechSegmenter` (pure, unit tested) cuts the stream into utterances: 20 ms frames, loud = RMS over 3x an adaptive noise floor (minimum 0.006), 3 loud frames start, 400 ms quiet ends, 300 ms pre-roll. An utterance over 4 s is talk or noise: dropped, and nothing starts again until 400 ms of quiet, so the tail of a long sentence never casts on its own.
+- One utterance at a time goes to the engine; one that ends while the engine is busy is dropped (no queue, no late casts).
+- Strict matching, `IncantationMatcher.match(text, true)`: no partial runs; 0.08 per extra word; a sentence is refused when a shorter run of its words is the best spell itself (and closer than the whole text) or any other spell that is not one of the best spell's words. "Protego Maxima", "Pier totum locomotor" and "Sector Sempa" still cast; "Oh Depulso", "Protego him!" and "Did you see his Stupefy?" do not.
+- Nothing is shown for talk that matches no spell (it would show on every sentence).
+
+Strict matching on the saved transcripts (tiny local 185 + Scribe 185) and on 600 sentences that name a spell (40 spells x 15 templates) plus 24 chat lines:
+
+| Rule | Spells correct | Sentences naming a spell that cast | Chat lines that cast |
+|---|---|---|---|
+| Push-to-talk (lenient) | 97.6% | 547 of 600 | 2 of 24 |
+| Open mic (strict, final) | 97.3% | 0 of 600 | 0 of 24 |
+
+End-to-end open mic test (no microphone): every clip placed alone in a stream with 0.8 to 1.5 s gaps and Gaussian noise (sigma 0.002), fed in 50 ms chunks through SpeechSegmenter, whisper-jni (tiny.en q5_1, 4 threads, the engine's padding) and strict matching. Plus 20 runs of 3 chat clips joined by 150 ms gaps.
+
+| Result | Value |
+|---|---|
+| Spells cast right | 176 of 185 (95.1%) |
+| Wrong spell cast | 0 |
+| Events with no spell that cast (50 chat clips, 20 talk runs) | 0 of 70 |
+| Whisper calls / mean time | 295 / 957 ms |
+
+Misses: Reparo 4 times ("Hippado", "Hit bottom"), Incendio 2, Expecto Patronum ("He's back to Patronum"), Sectumsempra, Crucio ("Good luck"). Against push-to-talk (96%), the open mic loses about one point to the speech detector's cut and the noise.
+
+Ruling: open mic while a wand is in the main hand is the default; push-to-talk stays as a setting - the user's choice, and the wand gate keeps the microphone closed the rest of the time - cost: CPU while talking with a wand out, and a friend's voice from speakers can cast (headphones advised in the config comment and the wiki).
+Ruling: no on-screen line for unmatched talk in open mic - it would flash on every sentence - small: a player gets no feedback on a miss.
+Ruling: the V key is ignored in open mic mode - two microphone lines on one device fail on some systems - small.
+
 ## In-game checklist
 
 1. Hold a wand, hold V, say "Lumos", release: the wand lights within about a second.
@@ -87,3 +117,6 @@ model loop ("Stupefyre, Stupefyre, ..."), and the matcher now drops a word that 
 6. No wand in hand: V does nothing, the microphone stays closed.
 7. voiceCasting=false in hogwartsmagic-client.toml: V does nothing.
 8. Stunned or silenced: the usual "cannot cast" line.
+9. Open mic (default): hold a wand and say "Stupefy!" without any key: it casts. Say "did you see his Stupefy": nothing.
+10. Open mic: put the wand away: the system microphone light goes off after about a second.
+11. Open mic: talk for a while with the wand out: no casts, and no visible FPS loss on your machine (report it if there is).

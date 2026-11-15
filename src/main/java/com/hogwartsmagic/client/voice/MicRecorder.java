@@ -29,9 +29,15 @@ final class MicRecorder {
     private float rate;
     private int maxBytes;
 
-    /** Opens the microphone and starts recording. Returns false (and records nothing) when no microphone opens. */
-    boolean start(int maxSeconds) {
-        stopQuietly();
+    /** An open, started microphone line and its sample rate. */
+    record OpenLine(TargetDataLine line, float rate) {
+    }
+
+    /**
+     * Opens the default microphone as 16-bit mono, trying 16 kHz first and then the common device rates.
+     * Returns null when none opens (no device, or the system refused microphone access).
+     */
+    static OpenLine openLine() {
         for (float r : RATES) {
             AudioFormat format = new AudioFormat(r, 16, 1, true, false);
             DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
@@ -42,21 +48,31 @@ final class MicRecorder {
                 TargetDataLine l = (TargetDataLine) AudioSystem.getLine(info);
                 l.open(format, (int) (r * 2 / 10)); // a 100 ms buffer keeps the release tail short
                 l.start();
-                line = l;
-                rate = r;
-                maxBytes = (int) (r * 2 * maxSeconds);
-                bytes = new ByteArrayOutputStream((int) (r * 2 * 2));
-                recording = true;
-                reader = new Thread(this::readLoop, "HogwartsMagic voice mic");
-                reader.setDaemon(true);
-                reader.start();
-                return true;
+                return new OpenLine(l, r);
             } catch (LineUnavailableException | SecurityException | IllegalArgumentException e) {
                 LOGGER.debug("Voice casting: microphone at {} Hz refused: {}", r, e.toString());
             }
         }
         LOGGER.warn("Voice casting: no microphone could be opened");
-        return false;
+        return null;
+    }
+
+    /** Opens the microphone and starts recording. Returns false (and records nothing) when no microphone opens. */
+    boolean start(int maxSeconds) {
+        stopQuietly();
+        OpenLine open = openLine();
+        if (open == null) {
+            return false;
+        }
+        line = open.line();
+        rate = open.rate();
+        maxBytes = (int) (rate * 2 * maxSeconds);
+        bytes = new ByteArrayOutputStream((int) (rate * 2 * 2));
+        recording = true;
+        reader = new Thread(this::readLoop, "HogwartsMagic voice mic");
+        reader.setDaemon(true);
+        reader.start();
+        return true;
     }
 
     boolean isRecording() {

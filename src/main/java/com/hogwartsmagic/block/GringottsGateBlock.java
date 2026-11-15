@@ -106,7 +106,7 @@ public class GringottsGateBlock extends IronBarsBlock {
 
         if (!GringottsDisguise.isGoblin(player)) {
             server.playSound(null, pos, SoundEvents.IRON_DOOR_CLOSE, SoundSource.BLOCKS, 0.9F, 0.6F);
-            server.sendParticles(ParticleTypes.SMOKE, pos.getX() + 0.5D, pos.getY() + 1.0D,
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), pos.getX() + 0.5D, pos.getY() + 1.0D,
                     pos.getZ() + 0.5D, 6, 0.2D, 0.2D, 0.2D, 0.01D);
             player.displayClientMessage(
                     Component.translatable("block.hogwartsmagic.gringotts_gate.locked")

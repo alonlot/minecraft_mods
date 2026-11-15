@@ -147,7 +147,7 @@ public class GringottsVaultDoorBlock extends BaseEntityBlock {
             // A goblin draws a finger down it. Anything held is in the way of that.
             server.playSound(null, pos, SoundEvents.NETHERITE_BLOCK_HIT, SoundSource.BLOCKS,
                     0.8F, 0.5F);
-            server.sendParticles(ParticleTypes.SMOKE, pos.getX() + 0.5D, pos.getY() + 0.5D,
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), pos.getX() + 0.5D, pos.getY() + 0.5D,
                     pos.getZ() + 0.5D, 8, 0.3D, 0.3D, 0.3D, 0.01D);
             player.displayClientMessage(
                     Component.translatable("block.hogwartsmagic.gringotts_vault_door.hand"), true);

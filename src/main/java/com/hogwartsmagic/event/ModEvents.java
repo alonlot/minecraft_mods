@@ -625,9 +625,9 @@ public class ModEvents {
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, debuffTicks, 1));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 20 * 10, 0));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 20 * 12, 0));
-        targetLevel.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 0.9D, player.getZ(), 26, 0.3, 0.45, 0.3, 0.02);
-        targetLevel.sendParticles(ParticleTypes.SOUL, player.getX(), player.getY() + 1.0D, player.getZ(), 24, 0.35, 0.55, 0.35, 0.025);
-        targetLevel.sendParticles(ParticleTypes.DRAGON_BREATH, player.getX(), player.getY() + 0.75D, player.getZ(), 14, 0.2, 0.25, 0.2, 0.04);
+        targetLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), player.getX(), player.getY() + 0.9D, player.getZ(), 26, 0.3, 0.45, 0.3, 0.02);
+        targetLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL), player.getX(), player.getY() + 1.0D, player.getZ(), 24, 0.35, 0.55, 0.35, 0.025);
+        targetLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.DRAGON_BREATH), player.getX(), player.getY() + 0.75D, player.getZ(), 14, 0.2, 0.25, 0.2, 0.04);
         targetLevel.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), SoundSource.PLAYERS, 0.75f, 1.7f);
         targetLevel.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.9f, 0.6f);
         player.displayClientMessage(Component.literal("Your soul claws its way back through the Horcrux.")
@@ -653,11 +653,11 @@ public class ModEvents {
             HorcruxData.applyMaxHealthPenalty(player);
         }
         player.setHealth(Math.min(player.getHealth(), Math.max(1.0F, player.getMaxHealth())));
-        level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0D, player.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), player.getX(), player.getY() + 1.0D, player.getZ(),
                 18, 0.22D, 0.35D, 0.22D, 0.03D);
-        level.sendParticles(ParticleTypes.SOUL, pos.getX() + 0.5D, pos.getY() + 1.05D, pos.getZ() + 0.5D,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL), pos.getX() + 0.5D, pos.getY() + 1.05D, pos.getZ() + 0.5D,
                 14, 0.25D, 0.35D, 0.25D, 0.02D);
-        level.sendParticles(ParticleTypes.DRAGON_BREATH, pos.getX() + 0.5D, pos.getY() + 0.9D, pos.getZ() + 0.5D,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.DRAGON_BREATH), pos.getX() + 0.5D, pos.getY() + 0.9D, pos.getZ() + 0.5D,
                 8, 0.2D, 0.15D, 0.2D, 0.02D);
         level.playSound(null, pos, net.minecraft.sounds.SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 0.9F, 0.45F);
         level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.SOUL_ESCAPE.value(), SoundSource.PLAYERS, 0.7F, 0.55F);
@@ -669,7 +669,7 @@ public class ModEvents {
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 20 * 6, 0));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 20 * 8, 0));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WEAKNESS, 20 * 12, 1));
-        level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, pos.getX() + 0.5D, pos.getY() + 1.1D, pos.getZ() + 0.5D,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME), pos.getX() + 0.5D, pos.getY() + 1.1D, pos.getZ() + 0.5D,
                 22, 0.3D, 0.4D, 0.3D, 0.015D);
         level.playSound(null, pos, net.minecraft.sounds.SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.8F, 0.5F);
         player.displayClientMessage(Component.literal("Your Horcrux is forged. One heart is forever chained to the altar.")
@@ -2301,26 +2301,26 @@ public class ModEvents {
         BlockPos destinationPos = BlockPos.of(modData.getLong("FlooDestinationPos"));
         int ticks = modData.getInt("FlooTravelTicks");
 
-        serverLevel.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE),
                 player.getX(), player.getY() + 0.8, player.getZ(),
                 12, 0.32, 0.65, 0.32, 0.02);
-        serverLevel.sendParticles(ParticleTypes.SQUID_INK,
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK),
                 player.getX(), player.getY() + 0.9, player.getZ(),
                 8, 0.28, 0.45, 0.28, 0.01);
-        serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME),
                 player.getX(), player.getY() + 0.55, player.getZ(),
                 6, 0.16, 0.25, 0.16, 0.006);
 
         if (serverLevel.isLoaded(destinationPos)
                 && serverLevel.getBlockEntity(destinationPos) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity destination) {
             destination.ignite(serverLevel);
-            serverLevel.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE),
                     destinationPos.getX() + 0.5, destinationPos.getY() + 0.9, destinationPos.getZ() + 0.5,
                     10, 0.28, 0.45, 0.28, 0.01);
-            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME),
                     destinationPos.getX() + 0.5, destinationPos.getY() + 0.75, destinationPos.getZ() + 0.5,
                     8, 0.18, 0.18, 0.18, 0.005);
-            serverLevel.sendParticles(ParticleTypes.WAX_ON,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WAX_ON),
                     destinationPos.getX() + 0.5, destinationPos.getY() + 0.85, destinationPos.getZ() + 0.5,
                     6, 0.24, 0.18, 0.24, 0.01);
         }
@@ -2356,19 +2356,19 @@ public class ModEvents {
 
         BlockPos exitPos = destinationPos.above();
         player.teleportTo(exitPos.getX() + 0.5, exitPos.getY(), exitPos.getZ() + 0.5);
-        serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME),
                 player.getX(), player.getY() + 0.6, player.getZ(),
                 60, 0.55, 0.75, 0.55, 0.03);
-        serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER,
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HAPPY_VILLAGER),
                 player.getX(), player.getY() + 0.9, player.getZ(),
                 24, 0.35, 0.55, 0.35, 0.01);
-        serverLevel.sendParticles(ParticleTypes.ASH,
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ASH),
                 player.getX(), player.getY() + 0.7, player.getZ(),
                 20, 0.35, 0.5, 0.35, 0.01);
-        serverLevel.sendParticles(ParticleTypes.WAX_ON,
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WAX_ON),
                 player.getX(), player.getY() + 0.85, player.getZ(),
                 26, 0.38, 0.6, 0.38, 0.03);
-        serverLevel.sendParticles(ParticleTypes.END_ROD,
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD),
                 player.getX(), player.getY() + 0.9, player.getZ(),
                 12, 0.3, 0.5, 0.3, 0.01);
         serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
@@ -2407,7 +2407,7 @@ public class ModEvents {
                     ));
                     player.level().playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 0.85f, 0.7f);
                     if (player.level() instanceof ServerLevel serverLevel) {
-                        serverLevel.sendParticles(ParticleTypes.WITCH, player.getX(), player.getY() + 1.0D, player.getZ(), 35, 0.35D, 0.6D, 0.35D, 0.05D);
+                        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH), player.getX(), player.getY() + 1.0D, player.getZ(), 35, 0.35D, 0.6D, 0.35D, 0.05D);
                     }
                     syncPolyjuice(player);
                 } else {
@@ -2465,8 +2465,8 @@ public class ModEvents {
         if (!(player.level() instanceof ServerLevel serverLevel) || player.tickCount % 3 != 0) {
             return;
         }
-        serverLevel.sendParticles(ParticleTypes.WITCH, player.getX(), player.getY() + 1.0D, player.getZ(), 8, 0.25D, 0.5D, 0.25D, 0.03D);
-        serverLevel.sendParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1.0D, player.getZ(), 10, 0.35D, 0.6D, 0.35D, 0.02D);
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH), player.getX(), player.getY() + 1.0D, player.getZ(), 8, 0.25D, 0.5D, 0.25D, 0.03D);
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), player.getX(), player.getY() + 1.0D, player.getZ(), 10, 0.35D, 0.6D, 0.35D, 0.02D);
     }
 
     private static void tickPolyjuiceMobReactions(ServerPlayer player) {
@@ -2753,9 +2753,9 @@ public class ModEvents {
                     SpellPackets.CHANNEL.send(new SpellPackets.StartHorcruxDeathSequencePacket(soul.getId(), player.position(), horcrux.getBlockPos()),
                             PacketDistributor.PLAYER.with(player));
                 }
-                level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 0.9D, player.getZ(), 36, 0.35, 0.55, 0.35, 0.03);
-                level.sendParticles(ParticleTypes.SOUL, player.getX(), player.getY() + 1.05D, player.getZ(), 24, 0.28, 0.4, 0.28, 0.025);
-                level.sendParticles(ParticleTypes.DRAGON_BREATH, player.getX(), player.getY() + 0.75D, player.getZ(), 18, 0.24, 0.28, 0.24, 0.04);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), player.getX(), player.getY() + 0.9D, player.getZ(), 36, 0.35, 0.55, 0.35, 0.03);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL), player.getX(), player.getY() + 1.05D, player.getZ(), 24, 0.28, 0.4, 0.28, 0.025);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.DRAGON_BREATH), player.getX(), player.getY() + 0.75D, player.getZ(), 18, 0.24, 0.28, 0.24, 0.04);
                 level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.9f, 0.45f);
                 level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0f, 0.55f);
             }
@@ -3547,7 +3547,7 @@ public class ModEvents {
 
         if (entity.level().isClientSide && entity.tickCount % 2 == 0) {
             entity.level().addParticle(
-                    ParticleTypes.ASH,
+                    com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ASH),
                     entity.getRandomX(0.45D),
                     entity.getY() + entity.getBbHeight() * 0.5D,
                     entity.getRandomZ(0.45D),

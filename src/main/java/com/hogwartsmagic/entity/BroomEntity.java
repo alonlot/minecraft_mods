@@ -378,7 +378,7 @@ public class BroomEntity extends Entity {
             double jx = (this.random.nextDouble() - 0.5D) * 0.25D;
             double jy = (this.random.nextDouble() - 0.5D) * 0.18D;
             double jz = (this.random.nextDouble() - 0.5D) * 0.25D;
-            this.level().addParticle(trail, trailX + jx, trailY + jy, trailZ + jz, backX, backY, backZ);
+            this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(trail), trailX + jx, trailY + jy, trailZ + jz, backX, backY, backZ);
         }
 
         // Speed-line streaks while boosting — bright end-rod pixels shooting straight backward.
@@ -389,14 +389,14 @@ public class BroomEntity extends Entity {
                 double offY = (this.random.nextDouble() - 0.5D) * 0.6D + 0.15D;
                 double offZ = (this.random.nextDouble() - 0.5D) * 1.4D;
                 this.level().addParticle(
-                        ParticleTypes.END_ROD,
+                        com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD),
                         trailX + offX, trailY + offY, trailZ + offZ,
                         backX * 2.6D, backY, backZ * 2.6D);
             }
             // Crit sparkles around the rider for extra punch.
             if (this.random.nextFloat() < 0.4F) {
                 this.level().addParticle(
-                        ParticleTypes.CRIT,
+                        com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT),
                         this.getX() + (this.random.nextDouble() - 0.5D) * 0.6D,
                         this.getY() + 0.5D + (this.random.nextDouble() - 0.5D) * 0.4D,
                         this.getZ() + (this.random.nextDouble() - 0.5D) * 0.6D,

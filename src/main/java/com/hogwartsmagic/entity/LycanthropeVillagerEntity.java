@@ -326,7 +326,7 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
         if (isNaturalDimensionFullMoon()) {
             if (this.random.nextInt(140) == 0) {
                 server.sendParticles(
-                        ParticleTypes.ENCHANT,
+                        com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                         this.getX(),
                         this.getY() + 0.4,
                         this.getZ(),

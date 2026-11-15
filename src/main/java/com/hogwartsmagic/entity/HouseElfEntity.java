@@ -332,9 +332,9 @@ public class HouseElfEntity extends PathfinderMob {
         this.disapparatingTicks = 0;
         this.level().broadcastEntityEvent(this, EVENT_APPARITION_FAILED);
         if (this.level() instanceof ServerLevel server) {
-            server.sendParticles(ParticleTypes.LARGE_SMOKE,
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE),
                     this.getX(), this.getY() + 0.5D, this.getZ(), 14, 0.3D, 0.4D, 0.3D, 0.01D);
-            server.sendParticles(ParticleTypes.ELECTRIC_SPARK,
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ELECTRIC_SPARK),
                     this.getX(), this.getY() + 0.5D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.06D);
             server.playSound(null, this.blockPosition(), ModSounds.HOUSE_ELF_CRACK.get(),
                     SoundSource.NEUTRAL, 0.45F, 0.55F);
@@ -364,9 +364,9 @@ public class HouseElfEntity extends PathfinderMob {
     }
 
     private static void spawnApparitionParticles(ServerLevel server, Vec3 at) {
-        server.sendParticles(ParticleTypes.PORTAL, at.x, at.y + 0.4D, at.z, 30, 0.3D, 0.5D, 0.3D, 0.35D);
-        server.sendParticles(ParticleTypes.REVERSE_PORTAL, at.x, at.y + 0.4D, at.z, 18, 0.2D, 0.4D, 0.2D, 0.1D);
-        server.sendParticles(ParticleTypes.CLOUD, at.x, at.y + 0.2D, at.z, 12, 0.25D, 0.15D, 0.25D, 0.02D);
+        server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.PORTAL), at.x, at.y + 0.4D, at.z, 30, 0.3D, 0.5D, 0.3D, 0.35D);
+        server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.REVERSE_PORTAL), at.x, at.y + 0.4D, at.z, 18, 0.2D, 0.4D, 0.2D, 0.1D);
+        server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), at.x, at.y + 0.2D, at.z, 12, 0.25D, 0.15D, 0.25D, 0.02D);
     }
 
     // ---------------------------------------------------------- interactions
@@ -563,9 +563,9 @@ public class HouseElfEntity extends PathfinderMob {
             target.push(away.x * 1.6D, 0.55D, away.z * 1.6D);
             target.hurtMarked = true;
         }
-        server.sendParticles(ParticleTypes.SWEEP_ATTACK,
+        server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SWEEP_ATTACK),
                 attacker.getX(), attacker.getY() + 0.8D, attacker.getZ(), 6, 0.4D, 0.3D, 0.4D, 0.0D);
-        server.sendParticles(ParticleTypes.ENCHANT,
+        server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                 attacker.getX(), attacker.getY() + 0.8D, attacker.getZ(), 24, 0.5D, 0.5D, 0.5D, 0.4D);
         server.playSound(null, this.blockPosition(), ModSounds.HOUSE_ELF_CRACK.get(),
                 SoundSource.NEUTRAL, 0.7F, 1.4F);

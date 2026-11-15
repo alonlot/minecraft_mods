@@ -598,7 +598,7 @@ public class WhompingWillowEntity extends Monster {
             for (int i = 0; i < 4; i++) {
                 double along = BRANCH_INNER + (BRANCH_RANGE - BRANCH_INNER) * (0.45D + i * 0.18D);
                 Vec3 at = position().add(dir.scale(along)).add(0.0D, tipY - getY(), 0.0D);
-                sl.sendParticles(ParticleTypes.COMPOSTER, at.x, at.y, at.z, 2, 0.25D, 0.25D, 0.25D, 0.02D);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.COMPOSTER), at.x, at.y, at.z, 2, 0.25D, 0.25D, 0.25D, 0.02D);
             }
         }
     }
@@ -608,7 +608,7 @@ public class WhompingWillowEntity extends Monster {
         Vec3 c = slamCentre();
         for (int i = 0; i < 10; i++) {
             double a = i * Math.PI / 5.0;
-            sl.sendParticles(ParticleTypes.CRIT,
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT),
                     c.x + Math.cos(a) * SLAM_RADIUS, c.y + 0.2D, c.z + Math.sin(a) * SLAM_RADIUS,
                     1, 0.0D, 0.0D, 0.0D, 0.0D);
         }
@@ -638,11 +638,11 @@ public class WhompingWillowEntity extends Monster {
             // the wind-up and the actual hit area visibly agree.
             for (int i = 0; i < 22; i++) {
                 double a = i * Math.PI * 2.0 / 22.0;
-                sl.sendParticles(ParticleTypes.CLOUD,
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD),
                         c.x + Math.cos(a) * SLAM_RADIUS, c.y + 0.3D, c.z + Math.sin(a) * SLAM_RADIUS,
                         1, 0.1D, 0.05D, 0.1D, 0.04D);
             }
-            sl.sendParticles(ParticleTypes.COMPOSTER, c.x, c.y + 0.6D, c.z, 18, 1.0D, 0.4D, 1.0D, 0.12D);
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.COMPOSTER), c.x, c.y + 0.6D, c.z, 18, 1.0D, 0.4D, 1.0D, 0.12D);
         }
     }
 
@@ -659,11 +659,11 @@ public class WhompingWillowEntity extends Monster {
         if (this.level() instanceof ServerLevel sl) {
             for (int i = 0; i < 30; i++) {
                 double a = i * Math.PI * 2.0 / 30.0;
-                sl.sendParticles(ParticleTypes.CLOUD,
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD),
                         getX() + Math.cos(a) * STOMP_RANGE, getY() + 0.2D, getZ() + Math.sin(a) * STOMP_RANGE,
                         1, 0.1D, 0.05D, 0.1D, 0.05D);
             }
-            sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, getX(), getY() + 0.2D, getZ(),
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CAMPFIRE_COSY_SMOKE), getX(), getY() + 0.2D, getZ(),
                     26, 2.4D, 0.1D, 2.4D, 0.02D);
         }
     }
@@ -885,7 +885,7 @@ public class WhompingWillowEntity extends Monster {
 
     private void leafBurst(double spread, int count) {
         if (this.level() instanceof ServerLevel sl) {
-            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 5.0D, getZ(),
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.COMPOSTER), getX(), getY() + 5.0D, getZ(),
                     count, spread, 2.0D, spread, 0.02D);
         }
     }
@@ -942,7 +942,7 @@ public class WhompingWillowEntity extends Monster {
         if (!hurt || this.level().isClientSide) return hurt;
 
         if (this.level() instanceof ServerLevel sl) {
-            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 4.0D, getZ(),
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.COMPOSTER), getX(), getY() + 4.0D, getZ(),
                     (int) Math.min(24.0F, 3.0F + amount), 2.2D, 2.5D, 2.2D, 0.03D);
         }
 
@@ -966,9 +966,9 @@ public class WhompingWillowEntity extends Monster {
         dropVictim();
         if (this.level() instanceof ServerLevel sl) {
             // The whole canopy comes down with it.
-            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 6.0D, getZ(),
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.COMPOSTER), getX(), getY() + 6.0D, getZ(),
                     140, 3.4D, 3.0D, 3.4D, 0.06D);
-            sl.sendParticles(ParticleTypes.CLOUD, getX(), getY() + 0.4D, getZ(),
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), getX(), getY() + 0.4D, getZ(),
                     40, 3.0D, 0.3D, 3.0D, 0.05D);
         }
         super.die(source);

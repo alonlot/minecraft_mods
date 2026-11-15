@@ -135,7 +135,7 @@ public class GringottsLiftBlockEntity extends BlockEntity {
 
         if (lift.ticks % 6 == 0) {
             double y = down ? pos.getY() - lift.ticks * SPEED_DOWN : pos.getY() + lift.ticks * SPEED_UP;
-            server.sendParticles(ParticleTypes.SMOKE, pos.getX() + 0.5D, y, pos.getZ() + 0.5D,
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), pos.getX() + 0.5D, y, pos.getZ() + 0.5D,
                     3, 0.6D, 0.2D, 0.6D, 0.01D);
             server.playSound(null, pos, SoundEvents.CHAIN_STEP, SoundSource.BLOCKS, 0.5F, 0.7F);
         }

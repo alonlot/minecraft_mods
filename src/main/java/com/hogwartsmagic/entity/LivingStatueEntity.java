@@ -272,8 +272,8 @@ public class LivingStatueEntity extends Monster {
             if (!this.isDormant() && this.random.nextInt(6) == 0) {
                 // Grit shakes loose while it moves. Only ever while awake -- dust coming off a
                 // dormant statue would give the ambush away before the player is in range.
-                this.level().addParticle(new BlockParticleOption(
-                                ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+                this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(
+                                ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState())),
                         this.getRandomX(0.7D), this.getY() + this.random.nextDouble() * 1.8D,
                         this.getRandomZ(0.7D), 0.0D, -0.02D, 0.0D);
             }
@@ -536,7 +536,7 @@ public class LivingStatueEntity extends Monster {
             int points = 10 * ring;
             for (int i = 0; i < points; i++) {
                 double a = (Math.PI * 2.0D) * i / points;
-                server.sendParticles(dust, this.getX() + Math.cos(a) * radius,
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(dust), this.getX() + Math.cos(a) * radius,
                         this.getY() + 0.15D, this.getZ() + Math.sin(a) * radius,
                         2, 0.1D, 0.05D, 0.1D, 0.12D);
             }
@@ -575,8 +575,8 @@ public class LivingStatueEntity extends Monster {
                     this.homePos.getZ() + 0.5D);
         }
         if (this.level() instanceof ServerLevel server) {
-            server.sendParticles(new BlockParticleOption(
-                            ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(
+                            ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState())),
                     this.getX(), this.getY() + 1.0D, this.getZ(), 60, 0.6D, 1.0D, 0.6D, 0.05D);
         }
     }

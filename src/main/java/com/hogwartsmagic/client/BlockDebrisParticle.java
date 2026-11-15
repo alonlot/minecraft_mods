@@ -78,6 +78,26 @@ public class BlockDebrisParticle extends Particle {
         this.setSize(size, size);
     }
 
+    /**
+     * A short-lived chip of a block, standing in for a vanilla block crumb: a tiny textured cube thrown with
+     * the crumb's motion that tumbles, bounces and shrinks away within about {@code lifetime} ticks.
+     */
+    static Particle chip(ClientLevel level, double x, double y, double z, double vx, double vy, double vz,
+                         BlockState state, float size, int lifetime) {
+        if (state.isAir()) {
+            state = Blocks.STONE.defaultBlockState();
+        }
+        java.util.Random random = new java.util.Random();
+        float s = size * (0.6F + random.nextFloat() * 0.8F);
+        BlockDebrisParticle chip = new BlockDebrisParticle(level, x, y, z, state, BlockPos.containing(x, y, z), s);
+        double speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
+        double k = speed > 0.3 ? 0.3 / speed : 1.0;
+        chip.launch(vx * k + (random.nextDouble() - 0.5) * 0.08, vy * k + random.nextDouble() * 0.12,
+                vz * k + (random.nextDouble() - 0.5) * 0.08);
+        chip.lifetime = Math.max(8, lifetime + random.nextInt(Math.max(1, lifetime / 2)));
+        return chip;
+    }
+
     void launch(double vx, double vy, double vz) {
         this.xd = vx;
         this.yd = vy;
@@ -183,7 +203,7 @@ public class BlockDebrisParticle extends Particle {
             return t < 0.8F ? 1.0F : Mth.clamp((1.0F - t) / 0.2F, 0.0F, 1.0F);
         }
         float left = this.lifetime - (this.age + partialTick);
-        return Mth.clamp(left / 20.0F, 0.0F, 1.0F);
+        return Mth.clamp(left / Math.min(20.0F, this.lifetime * 0.4F), 0.0F, 1.0F);
     }
 
     @Override

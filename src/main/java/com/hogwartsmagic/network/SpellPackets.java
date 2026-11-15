@@ -1447,11 +1447,11 @@ public class SpellPackets {
                 return;
             }
             if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.SOUL_FIRE_FLAME,
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.SOUL_FIRE_FLAME),
                         player.getX(), player.getY() + 0.6, player.getZ(), 45, 0.45, 0.65, 0.45, 0.02);
-                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_SIGNAL_SMOKE),
                         player.getX(), player.getY() + 0.4, player.getZ(), 20, 0.25, 0.4, 0.25, 0.01);
-                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.WAX_ON,
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.WAX_ON),
                         player.getX(), player.getY() + 0.8, player.getZ(), 20, 0.3, 0.55, 0.3, 0.02);
             }
             source.ignite(player.serverLevel());

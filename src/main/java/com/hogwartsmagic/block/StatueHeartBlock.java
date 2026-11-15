@@ -46,7 +46,7 @@ public class StatueHeartBlock extends Block {
         boolean alongX = random.nextBoolean();
         double face = random.nextBoolean() ? -0.08D : 1.08D;
         double along = 0.2D + random.nextDouble() * 0.6D;
-        level.addParticle(ParticleTypes.WITCH,
+        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH),
                 pos.getX() + (alongX ? along : face),
                 pos.getY() + 0.3D + random.nextDouble() * 0.4D,
                 pos.getZ() + (alongX ? face : along),

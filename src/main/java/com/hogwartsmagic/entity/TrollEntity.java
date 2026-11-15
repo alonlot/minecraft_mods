@@ -175,7 +175,7 @@ public class TrollEntity extends Monster {
                 this.entityData.set(DATA_RAGING, true);
                 this.playSound(com.hogwartsmagic.ModSounds.TROLL_RAGE.get(), 1.5F, 0.95F);
                 if (this.level() instanceof ServerLevel sl) {
-                    sl.sendParticles(ParticleTypes.ANGRY_VILLAGER,
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ANGRY_VILLAGER),
                             this.getX(), this.getY() + this.getBbHeight() * 0.9D, this.getZ(),
                             14, 0.6D, 0.4D, 0.6D, 0.02D);
                 }
@@ -263,9 +263,9 @@ public class TrollEntity extends Monster {
 
         // Visuals + audio.
         this.playSound(com.hogwartsmagic.ModSounds.TROLL_SLAM_IMPACT.get(), 1.8F, 1.0F);
-        sl.sendParticles(ParticleTypes.EXPLOSION, cx, cy + 0.1D, cz, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-        sl.sendParticles(ParticleTypes.POOF, cx, cy + 0.1D, cz, 60, SLAM_RADIUS * 0.6D, 0.2D, SLAM_RADIUS * 0.6D, 0.05D);
-        sl.sendParticles(ParticleTypes.CLOUD, cx, cy + 0.2D, cz, 40, SLAM_RADIUS * 0.5D, 0.1D, SLAM_RADIUS * 0.5D, 0.04D);
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.EXPLOSION), cx, cy + 0.1D, cz, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.POOF), cx, cy + 0.1D, cz, 60, SLAM_RADIUS * 0.6D, 0.2D, SLAM_RADIUS * 0.6D, 0.05D);
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), cx, cy + 0.2D, cz, 40, SLAM_RADIUS * 0.5D, 0.1D, SLAM_RADIUS * 0.5D, 0.04D);
 
         // Camera shake — pulse nausea on nearby players.
         for (Player p : sl.players()) {
@@ -307,7 +307,7 @@ public class TrollEntity extends Monster {
             this.playSound(com.hogwartsmagic.ModSounds.TROLL_CLUB_HIT.get(), 1.3F, 0.95F);
         }
 
-        sl.sendParticles(ParticleTypes.SWEEP_ATTACK,
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SWEEP_ATTACK),
                 this.getX() + forward.x * 2.0D, this.getY() + 1.2D, this.getZ() + forward.z * 2.0D,
                 1, 0.0D, 0.0D, 0.0D, 0.0D);
     }
@@ -344,7 +344,7 @@ public class TrollEntity extends Monster {
                 interruptIfCaster(living);
             }
             if (this.level() instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.POOF,
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.POOF),
                         target.getX(), target.getY(0.45D), target.getZ(),
                         10, 0.35D, 0.25D, 0.35D, 0.02D);
             }

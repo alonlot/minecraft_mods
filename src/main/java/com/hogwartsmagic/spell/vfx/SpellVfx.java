@@ -13,10 +13,10 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 
 /**
- * Turns the vanilla particles the spells used into the mod's own spell effects (SpellVfxOptions): every
+ * Turns the vanilla particles the mod used (spells, creatures, blocks, events) into the mod's own effects (SpellVfxOptions): every
  * vanilla type has a look here (kind, colour, size, life). Spell code wraps its particle in {@link #swap}
  * and sends it as before, so counts, spreads and speeds stay as they were tuned; only the look changes.
- * Block and item particles (real crumbs of a block or an item) are passed through unchanged.
+ * Block crumbs become textured 3D chips; only item pictures and the barrier marker stay vanilla.
  */
 public final class SpellVfx {
 
@@ -80,6 +80,11 @@ public final class SpellVfx {
         spec(ParticleTypes.FLAME, Kind.FLAME, 0xFFB040, 0.14F, 18, false);
         spec(ParticleTypes.SMALL_FLAME, Kind.FLAME, 0xFFB040, 0.09F, 14, false);
         spec(ParticleTypes.SOUL_FIRE_FLAME, Kind.FLAME, 0x60E0FF, 0.14F, 18, false);
+        spec(ParticleTypes.BUBBLE_COLUMN_UP, Kind.MOTE, 0x90D8FF, 0.07F, 20, false);
+        spec(ParticleTypes.SONIC_BOOM, Kind.RING, 0x60E0FF, 0.9F, 12, false);
+        spec(ParticleTypes.WHITE_ASH, Kind.SMOKE, 0xE8E8E8, 0.08F, 30, false);
+        spec(ParticleTypes.DRIPPING_HONEY, Kind.SPARK, 0xFFB030, 0.07F, 16, false);
+        spec(ParticleTypes.NOTE, Kind.GLOW, 0x60FF60, 0.14F, 16, true);
         spec(ParticleTypes.EXPLOSION, Kind.BLAST, 0xFFC080, 1.2F, 6, false);
         spec(ParticleTypes.EXPLOSION_EMITTER, Kind.BLAST, 0xFFC080, 2.4F, 8, false);
     }
@@ -89,6 +94,22 @@ public final class SpellVfx {
     }
 
     private SpellVfx() {
+    }
+
+    /**
+     * The mod's version of vanilla's "block broke" level event (2001): the block's own break sound and a spray of
+     * textured chips, instead of vanilla's flat crumbs.
+     */
+    public static void blockBreak(net.minecraft.world.level.Level level, net.minecraft.core.BlockPos pos,
+                                  net.minecraft.world.level.block.state.BlockState state) {
+        if (!(level instanceof net.minecraft.server.level.ServerLevel server) || state.isAir()) {
+            return;
+        }
+        net.minecraft.world.level.block.SoundType sound = state.getSoundType();
+        server.playSound(null, pos, sound.getBreakSound(), net.minecraft.sounds.SoundSource.BLOCKS,
+                (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
+        server.sendParticles(new SpellVfxOptions(Kind.CHUNK, net.minecraft.world.level.block.Block.getId(state), 0.1F, 30),
+                pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 14, 0.25, 0.25, 0.25, 0.12);
     }
 
     /** The spell effect that replaces {@code vanilla}, in its own default colour. */
@@ -135,9 +156,14 @@ public final class SpellVfx {
             return glow(rgb(dust.getFromColor()), 0.16F * Math.max(0.5F, dust.getScale()) * scale, 18);
         }
         ParticleType<?> type = vanilla.getType();
-        if (type == ParticleTypes.BLOCK || type == ParticleTypes.ITEM || type == ParticleTypes.FALLING_DUST
-                || type == ParticleTypes.BLOCK_MARKER || type == ParticleTypes.DUST_PILLAR) {
-            return vanilla; // real crumbs of a block or an item: not a spell light
+        if (vanilla instanceof net.minecraft.core.particles.BlockParticleOption block
+                && type != ParticleTypes.BLOCK_MARKER) {
+            // Crumbs of a block become small tumbling 3D chips of that block.
+            return new SpellVfxOptions(Kind.CHUNK, net.minecraft.world.level.block.Block.getId(block.getState()),
+                    0.09F, 30);
+        }
+        if (type == ParticleTypes.ITEM || type == ParticleTypes.BLOCK_MARKER) {
+            return vanilla; // an item's own picture, or the barrier marker: nothing to draw instead
         }
         Spec spec = SPECS.getOrDefault(type, DEFAULT);
         Kind kind = spec.kind();

@@ -39,7 +39,7 @@ public class EnchantedBookPileBlock extends Block {
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
         if (random.nextInt(8) == 0) {
-            level.addParticle(ParticleTypes.ENCHANT,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                     pos.getX() + 0.2 + random.nextDouble() * 0.6,
                     pos.getY() + 0.45 + random.nextDouble() * 0.35,
                     pos.getZ() + 0.2 + random.nextDouble() * 0.6,

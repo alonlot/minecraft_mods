@@ -39,7 +39,7 @@ public class CandleClusterBlock extends Block {
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
         if (random.nextBoolean()) {
-            level.addParticle(ParticleTypes.SMALL_FLAME,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_FLAME),
                     pos.getX() + 0.3 + random.nextDouble() * 0.4,
                     pos.getY() + 0.65 + random.nextDouble() * 0.25,
                     pos.getZ() + 0.3 + random.nextDouble() * 0.4,

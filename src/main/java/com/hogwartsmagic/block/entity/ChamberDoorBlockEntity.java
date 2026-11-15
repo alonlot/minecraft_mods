@@ -148,7 +148,7 @@ public class ChamberDoorBlockEntity extends BlockEntity {
         if (was.isAir()) {
             return;
         }
-        level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, was),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, was)),
                 pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 6, 0.3, 0.3, 0.3, 0.02);
         level.removeBlock(pos, false);
     }
@@ -156,13 +156,13 @@ public class ChamberDoorBlockEntity extends BlockEntity {
     /** The snake itself: a bright head with a tail of dimmer segments weaving behind it. */
     private void drawSerpent(ServerLevel level, double angle, double radius) {
         Vec3 head = at(angle, radius);
-        level.sendParticles(ParticleTypes.SCULK_SOUL, head.x, head.y, head.z, 4, 0.08, 0.08, 0.08, 0.005);
-        level.sendParticles(ParticleTypes.ENCHANT, head.x, head.y, head.z, 6, 0.15, 0.15, 0.15, 0.02);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SCULK_SOUL), head.x, head.y, head.z, 4, 0.08, 0.08, 0.08, 0.005);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), head.x, head.y, head.z, 6, 0.15, 0.15, 0.15, 0.02);
         for (int seg = 1; seg <= 7; seg++) {
             // The tail lags in angle and weaves in and out across the rim, so the body reads as a
             // snake following its head rather than as a comet's straight streak.
             Vec3 body = at(angle - seg * 0.17, radius + 0.5 * Math.sin(seg * 0.9 - angle * 2.0));
-            level.sendParticles(ParticleTypes.COMPOSTER, body.x, body.y, body.z,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.COMPOSTER), body.x, body.y, body.z,
                     seg < 4 ? 2 : 1, 0.05, 0.05, 0.05, 0.0);
         }
     }
@@ -187,7 +187,7 @@ public class ChamberDoorBlockEntity extends BlockEntity {
                     && door.angleOf(door.bolts.get(door.boltsTaken)) <= angle) {
                 BlockPos bolt = door.bolts.get(door.boltsTaken++);
                 door.dissolve(server, bolt);
-                server.sendParticles(ParticleTypes.CRIT, bolt.getX() + 0.5, bolt.getY() + 0.5,
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), bolt.getX() + 0.5, bolt.getY() + 0.5,
                         bolt.getZ() + 0.5, 14, 0.25, 0.25, 0.25, 0.12);
                 server.playSound(null, bolt, SoundEvents.IRON_TRAPDOOR_OPEN, SoundSource.BLOCKS, 1.0F, 0.55F);
                 server.playSound(null, bolt, ModSounds.BASILISK_HISS_THREAT.get(), SoundSource.BLOCKS, 0.5F, 1.7F);
@@ -216,7 +216,7 @@ public class ChamberDoorBlockEntity extends BlockEntity {
         // behind would strand one block floating in an open doorway. Removing the block discards this
         // block entity, so nothing may touch `door` after this.
         door.ticks = -1;
-        server.sendParticles(ParticleTypes.SCULK_SOUL, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+        server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SCULK_SOUL), pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
                 40, 0.6, 0.6, 0.6, 0.05);
         server.playSound(null, pos, SoundEvents.PISTON_EXTEND, SoundSource.BLOCKS, 1.5F, 0.45F);
         server.playSound(null, pos, ModSounds.BASILISK_HISS_THREAT.get(), SoundSource.BLOCKS, 1.4F, 0.85F);

@@ -267,7 +267,7 @@ public final class OllivandersCeremony {
             // Dust hanging in the light, all the way through -- the shop has not been swept in
             // several centuries and it is the cheapest way to make the air read as still.
             if (t % 3 == 0) {
-                level.sendParticles(ParticleTypes.WHITE_ASH, centre.x, centre.y, centre.z,
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WHITE_ASH), centre.x, centre.y, centre.z,
                         2, 1.4D, 1.0D, 1.4D, 0.005D);
             }
 
@@ -286,7 +286,7 @@ public final class OllivandersCeremony {
                 double u = (t - T_REMEMBER) / (double) MEASURE;
                 double a = u * Math.PI * 6.0D;
                 double r = 0.75D;
-                level.sendParticles(ParticleTypes.END_ROD,
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD),
                         stand.x + Math.cos(a) * r, stand.y + 0.2D + u * 1.9D, stand.z + Math.sin(a) * r,
                         1, 0.0D, 0.0D, 0.0D, 0.0D);
                 if (t % 12 == 0) {
@@ -329,12 +329,12 @@ public final class OllivandersCeremony {
                 double r = 3.2D * (1.0D - u) + 0.4D;
                 for (int i = 0; i < 3; i++) {
                     double a = (t * 0.35D) + i * (Math.PI * 2.0D / 3.0D);
-                    level.sendParticles(ParticleTypes.END_ROD,
+                    level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD),
                             stand.x + Math.cos(a) * r, stand.y + 1.0D + Math.sin(u * Math.PI) * 0.9D,
                             stand.z + Math.sin(a) * r, 1, 0.0D, 0.0D, 0.0D, 0.0D);
                 }
                 if (t % 6 == 0) {
-                    level.sendParticles(ParticleTypes.GLOW, stand.x, stand.y + 1.2D, stand.z,
+                    level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), stand.x, stand.y + 1.2D, stand.z,
                             4, 0.35D, 0.5D, 0.35D, 0.01D);
                 }
                 if (t == T_TRY3 + 34) {
@@ -370,7 +370,7 @@ public final class OllivandersCeremony {
             for (int i = 0; i <= 12; i++) {
                 double u = i / 12.0D;
                 Vec3 p = from.lerp(stand.add(0.0D, 1.3D, 0.0D), u);
-                level.sendParticles(ParticleTypes.ENCHANT, p.x, p.y, p.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), p.x, p.y, p.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             }
         }
 
@@ -379,16 +379,16 @@ public final class OllivandersCeremony {
             Vec3 at = stand.add(0.0D, 1.3D, 0.0D);
             switch (which) {
                 case 0 -> {         // paper, everywhere
-                    level.sendParticles(ParticleTypes.ENCHANT, at.x, at.y, at.z, 60, 1.6D, 1.0D, 1.6D, 0.6D);
+                    level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), at.x, at.y, at.z, 60, 1.6D, 1.0D, 1.6D, 0.6D);
                     sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_PAPER.get(), 1.0F, 1.0F);
                 }
                 case 1 -> {         // a bang
-                    level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 3, 0.6D, 0.4D, 0.6D, 0.0D);
-                    level.sendParticles(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z, 40, 1.2D, 0.8D, 1.2D, 0.05D);
+                    level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.EXPLOSION), at.x, at.y, at.z, 3, 0.6D, 0.4D, 0.6D, 0.0D);
+                    level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), at.x, at.y, at.z, 40, 1.2D, 0.8D, 1.2D, 0.05D);
                     sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_BANG.get(), 1.0F, 1.0F);
                 }
                 default -> {        // a wretched fizzle, which is worse than the bang
-                    level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 50, 0.5D, 0.5D, 0.5D, 0.02D);
+                    level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), at.x, at.y, at.z, 50, 0.5D, 0.5D, 0.5D, 0.02D);
                     sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_FIZZLE.get(), 1.0F, 1.0F);
                 }
             }

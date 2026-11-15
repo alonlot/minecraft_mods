@@ -10,7 +10,7 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 
 /**
- * One spell visual effect particle: a {@link Kind} of light, smoke or fire with a colour, a size in blocks and
+ * One custom visual effect particle: a {@link Kind} of light, smoke or fire with a colour, a size in blocks and
  * a lifetime in ticks. It travels like any particle (ServerLevel.sendParticles, Level.addParticle), so spell
  * code that used a vanilla particle can send one of these instead; the client draws it with the mod's own
  * glow sprites (client.SpellGlowParticle).
@@ -32,7 +32,12 @@ public record SpellVfxOptions(int kind, int rgb, float size, int lifetime) imple
         /** A thin shockwave ring that grows and fades. */
         RING,
         /** A blast: a big flash that also throws a ring, smoke and sparks. */
-        BLAST;
+        BLAST,
+        /**
+         * A small tumbling 3D chip of a block, textured like it (replaces flat block crumbs). For this kind the
+         * colour field carries the block state id instead of a colour.
+         */
+        CHUNK;
 
         public static Kind byId(int id) {
             Kind[] values = values();

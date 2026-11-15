@@ -268,7 +268,7 @@ public final class DuelManager {
         npc.setLastHurtByMob(null);
         npc.heal(npc.getMaxHealth());
         if (npc.level() instanceof ServerLevel sl) {
-            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.TOTEM_OF_UNDYING,
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.TOTEM_OF_UNDYING),
                     player.getX(), player.getY() + 1.2, player.getZ(), 40, 0.6, 0.8, 0.6, 0.25);
         }
     }

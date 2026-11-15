@@ -98,12 +98,12 @@ public class HorcruxSoulEntity extends Entity {
             moveTo(getX() + velocity.x, getY() + velocity.y, getZ() + velocity.z, getYRot(), getXRot());
         }
         if (level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK, getX(), getY() + 0.9, getZ(),
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), getX(), getY() + 0.9, getZ(),
                     3, 0.14, 0.2, 0.14, 0.01);
-            serverLevel.sendParticles(ParticleTypes.SOUL, getX(), getY() + 1.0, getZ(),
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL), getX(), getY() + 1.0, getZ(),
                     2, 0.12, 0.15, 0.12, 0.005);
             if (tickCount % 2 == 0) {
-                serverLevel.sendParticles(ParticleTypes.DRAGON_BREATH, getX(), getY() + 0.7, getZ(),
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.DRAGON_BREATH), getX(), getY() + 0.7, getZ(),
                         1, 0.08, 0.08, 0.08, 0.01);
             }
         }

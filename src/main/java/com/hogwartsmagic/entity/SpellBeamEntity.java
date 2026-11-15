@@ -1441,7 +1441,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         }
 
         serverLevel.removeBlock(pos, false);
-        serverLevel.levelEvent(2001, pos, net.minecraft.world.level.block.Block.getId(ExampleMod.MANDRAKE_PLANT.get().defaultBlockState()));
+        com.hogwartsmagic.spell.vfx.SpellVfx.blockBreak(serverLevel, pos, ExampleMod.MANDRAKE_PLANT.get().defaultBlockState());
         serverLevel.playSound(null, pos, ModSounds.MANDRAKE_SCREAM.get(), SoundSource.BLOCKS, 1.2F, 1.15F);
         serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH),
                 pos.getX() + 0.5D,

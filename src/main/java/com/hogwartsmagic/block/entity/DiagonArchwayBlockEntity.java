@@ -710,7 +710,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
                         Block.UPDATE_CLIENTS);
             }
             if (server.getGameTime() % 12 == 0) {
-                server.sendParticles(ParticleTypes.ENCHANT,
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                         pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
                         3, 0.35D, 0.35D, 0.35D, 0.01D);
             }
@@ -884,7 +884,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
     }
 
     private void dust(ServerLevel level, BlockPos at, int count) {
-        level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, getBlockState()),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, getBlockState())),
                 at.getX() + 0.5D, at.getY() + 0.5D, at.getZ() + 0.5D,
                 count, 0.3D, 0.3D, 0.3D, 0.02D);
     }

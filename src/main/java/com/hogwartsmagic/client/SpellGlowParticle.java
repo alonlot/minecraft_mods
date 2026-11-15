@@ -26,7 +26,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * The particle every spell effect is drawn with: a soft sprite of light (or smoke) whose behaviour follows
+ * The particle every custom effect is drawn with (block chips excepted, see BlockDebrisParticle): a soft sprite of light (or smoke) whose behaviour follows
  * its {@link Kind}. Lights are added onto the scene, so overlapping glows bloom towards white; smoke is
  * blended normally so it can be dark. Made two ways: by client code directly ({@link #spawn}), and from
  * {@link SpellVfxOptions} sent by the server or added by common code, through the provider below.
@@ -92,6 +92,10 @@ public class SpellGlowParticle extends SingleQuadParticle {
     static Particle fromOptions(SpellVfxOptions options, ClientLevel level, double x, double y, double z,
                                 double vx, double vy, double vz) {
         Kind kind = options.kindEnum();
+        if (kind == Kind.CHUNK) {
+            return BlockDebrisParticle.chip(level, x, y, z, vx, vy, vz,
+                    net.minecraft.world.level.block.Block.stateById(options.rgb()), options.size(), options.lifetime());
+        }
         float r = (options.rgb() >> 16 & 255) / 255.0F;
         float g = (options.rgb() >> 8 & 255) / 255.0F;
         float b = (options.rgb() & 255) / 255.0F;
@@ -141,17 +145,18 @@ public class SpellGlowParticle extends SingleQuadParticle {
         return particle;
     }
 
+    /**
+     * Highest speed a sent effect keeps. Only motes are held back hard: an enchant glyph's "speed" is a pull
+     * distance, not a velocity. Fire breath and spark sprays send real velocities, so those stay fast.
+     */
     private static double speedCap(Kind kind) {
-        if (kind == Kind.SPARK) {
-            return 0.5;
-        }
-        if (kind == Kind.MOTE || kind == Kind.SMOKE) {
+        if (kind == Kind.MOTE) {
             return 0.08;
         }
-        if (kind == Kind.FLAME) {
-            return 0.12;
+        if (kind == Kind.SMOKE) {
+            return 0.4;
         }
-        return 0.18;
+        return 1.2;
     }
 
     private float progress(float partialTick) {

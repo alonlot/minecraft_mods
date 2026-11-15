@@ -112,7 +112,7 @@ public final class ClientRuntimeBridge {
         }
 
         if (closestDistSq <= (SpellBeamEntity.getNearMissRadius() * SpellBeamEntity.getNearMissRadius())) {
-            beam.level().addParticle(ParticleTypes.POOF, current.x, current.y + 0.2, current.z, 0.0, 0.0, 0.0);
+            beam.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.POOF), current.x, current.y + 0.2, current.z, 0.0, 0.0, 0.0);
             beam.level().playLocalSound(current.x, current.y, current.z,
                     SoundEvents.TRIDENT_THROW.value(), SoundSource.PLAYERS, 0.28f, 1.7f, false);
             beam.hogwartsmagic$markNearMissWhooshPlayed();

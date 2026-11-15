@@ -58,33 +58,33 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
         if (fireplace.activeTicks > 0) {
             fireplace.activeTicks--;
             fireplace.setActiveBlockState(true);
-            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME),
                     pos.getX() + 0.5,
                     pos.getY() + 0.75,
                     pos.getZ() + 0.5,
                     5, 0.2, 0.08, 0.2, 0.008);
-            serverLevel.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE),
                     pos.getX() + 0.5,
                     pos.getY() + 0.92,
                     pos.getZ() + 0.5,
                     6, 0.26, 0.16, 0.26, 0.012);
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK),
                     pos.getX() + 0.5,
                     pos.getY() + 0.82,
                     pos.getZ() + 0.5,
                     3, 0.18, 0.22, 0.18, 0.005);
-            serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HAPPY_VILLAGER),
                     pos.getX() + 0.5,
                     pos.getY() + 0.95,
                     pos.getZ() + 0.5,
                     1, 0.2, 0.1, 0.2, 0.0);
-            serverLevel.sendParticles(FLOO_GLOW,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(FLOO_GLOW),
                     pos.getX() + 0.5,
                     pos.getY() + 0.72,
                     pos.getZ() + 0.5,
                     2, 0.22, 0.08, 0.22, 0.0);
             if (serverLevel.random.nextInt(3) == 0) {
-                serverLevel.sendParticles(ParticleTypes.ASH,
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ASH),
                         pos.getX() + 0.5,
                         pos.getY() + 0.85,
                         pos.getZ() + 0.5,
@@ -94,7 +94,7 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
                 fireplace.setActiveBlockState(false);
             }
         } else if (!fireplace.fireplaceName.isBlank() && serverLevel.getGameTime() % 8L == 0L) {
-            serverLevel.sendParticles(ParticleTypes.SMOKE,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE),
                     pos.getX() + 0.5,
                     pos.getY() + 0.75,
                     pos.getZ() + 0.5,
@@ -143,22 +143,22 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
         this.activeTicks = Math.max(this.activeTicks, 110);
         setChanged();
         setActiveBlockState(true);
-        level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME),
                 worldPosition.getX() + 0.5,
                 worldPosition.getY() + 0.75,
                 worldPosition.getZ() + 0.5,
                 26, 0.25, 0.14, 0.25, 0.01);
-        level.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE),
                 worldPosition.getX() + 0.5,
                 worldPosition.getY() + 0.9,
                 worldPosition.getZ() + 0.5,
                 18, 0.24, 0.2, 0.24, 0.01);
-        level.sendParticles(ParticleTypes.SQUID_INK,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK),
                 worldPosition.getX() + 0.5,
                 worldPosition.getY() + 0.88,
                 worldPosition.getZ() + 0.5,
                 12, 0.22, 0.28, 0.22, 0.008);
-        level.sendParticles(FLOO_GLOW,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(FLOO_GLOW),
                 worldPosition.getX() + 0.5,
                 worldPosition.getY() + 0.72,
                 worldPosition.getZ() + 0.5,

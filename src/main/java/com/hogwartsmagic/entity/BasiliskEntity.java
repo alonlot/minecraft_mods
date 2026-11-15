@@ -550,7 +550,7 @@ public class BasiliskEntity extends Monster {
             return;
         }
         Vec3 mouth = getGazeOrigin();
-        this.level().addParticle(ParticleTypes.SMOKE,
+        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE),
                 mouth.x + (this.random.nextDouble() - 0.5D) * 0.8D,
                 mouth.y - 0.35D,
                 mouth.z + (this.random.nextDouble() - 0.5D) * 0.8D,
@@ -654,7 +654,7 @@ public class BasiliskEntity extends Monster {
             applyVenomousBite(victim, damage);
         }
         playActionSound(ModSounds.BASILISK_STRIKE.get(), 1.6F, 1.0F);
-        serverLevel.sendParticles(ParticleTypes.SWEEP_ATTACK,
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SWEEP_ATTACK),
                 this.getX() + forward.x * 3.0D, this.getY() + 1.2D, this.getZ() + forward.z * 3.0D,
                 1, 0.0D, 0.0D, 0.0D, 0.0D);
     }
@@ -714,7 +714,7 @@ public class BasiliskEntity extends Monster {
             victim.hurtMarked = true;
         }
         this.playSound(net.minecraft.sounds.SoundEvents.PLAYER_ATTACK_SWEEP, 1.6F, 0.5F);
-        serverLevel.sendParticles(ParticleTypes.SWEEP_ATTACK, this.getX(), this.getY() + 0.6D, this.getZ(),
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SWEEP_ATTACK), this.getX(), this.getY() + 0.6D, this.getZ(),
                 4, 2.5D, 0.3D, 2.5D, 0.0D);
     }
 
@@ -768,7 +768,7 @@ public class BasiliskEntity extends Monster {
         if (this.level() instanceof ServerLevel serverLevel && this.tickCount % 2 == 0) {
             BlockState below = this.level().getBlockState(this.blockPosition());
             if (!below.isAir()) {
-                serverLevel.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, below),
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, below)),
                         this.getX(), this.getY() + 2.6D, this.getZ(), 6, 0.6D, 0.1D, 0.6D, 0.02D);
             }
         }
@@ -798,7 +798,7 @@ public class BasiliskEntity extends Monster {
         if (ground.isAir()) {
             return;
         }
-        serverLevel.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground),
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, ground)),
                 this.getX(), this.getY() + 0.3D, this.getZ(), count, 1.6D, 0.4D, 1.6D, 0.28D);
     }
 
@@ -823,7 +823,7 @@ public class BasiliskEntity extends Monster {
         victim.addEffect(new MobEffectInstance(MobEffects.WITHER, 80, 0));
         victim.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 50, 1));
         if (this.level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK),
                     victim.getX(), victim.getY(0.75D), victim.getZ(), 12, 0.3D, 0.3D, 0.3D, 0.02D);
         }
         if (victim instanceof ServerPlayer serverPlayer) {
@@ -960,9 +960,9 @@ public class BasiliskEntity extends Monster {
         victim.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 20, 2, false, false, false));
 
         if (this.level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.ASH,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ASH),
                     victim.getX(), victim.getEyeY(), victim.getZ(), 40, 0.4D, 0.8D, 0.4D, 0.02D);
-            serverLevel.sendParticles(ParticleTypes.CLOUD,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD),
                     victim.getX(), victim.getY(0.5D), victim.getZ(), 24, 0.3D, 0.6D, 0.3D, 0.01D);
         }
         if (victim.isAlive()) {
@@ -1021,7 +1021,7 @@ public class BasiliskEntity extends Monster {
         playActionSound(ModSounds.BASILISK_HURT.get(), 1.8F, 0.75F);
         if (this.level() instanceof ServerLevel serverLevel) {
             Vec3 head = getGazeOrigin();
-            serverLevel.sendParticles(ParticleTypes.DAMAGE_INDICATOR, head.x, head.y, head.z,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.DAMAGE_INDICATOR), head.x, head.y, head.z,
                     30, 0.6D, 0.4D, 0.6D, 0.1D);
         }
     }

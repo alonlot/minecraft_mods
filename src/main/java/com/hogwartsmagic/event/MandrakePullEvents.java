@@ -153,7 +153,7 @@ public final class MandrakePullEvents {
             player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 10, 1, false, false, false));
             Vec3 tug = Vec3.atCenterOf(pull.pos).subtract(player.position()).normalize().scale(0.035D);
             player.setDeltaMovement(player.getDeltaMovement().add(tug.x, 0.0D, tug.z));
-            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, state)),
                     pull.pos.getX() + 0.5D,
                     pull.pos.getY() + 0.12D,
                     pull.pos.getZ() + 0.5D,
@@ -165,7 +165,7 @@ public final class MandrakePullEvents {
         }
 
         if (pull.ticks % 12 == 0) {
-            level.sendParticles(ParticleTypes.WITCH,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH),
                     pull.pos.getX() + 0.5D,
                     pull.pos.getY() + 0.85D,
                     pull.pos.getZ() + 0.5D,
@@ -184,7 +184,7 @@ public final class MandrakePullEvents {
         boolean failed = player.getRandom().nextFloat() < FAIL_CHANCE;
         if (failed) {
             restoreIdleState(level, pull.pos);
-            level.sendParticles(ParticleTypes.POOF,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.POOF),
                     pull.pos.getX() + 0.5D,
                     pull.pos.getY() + 0.55D,
                     pull.pos.getZ() + 0.5D,
@@ -208,7 +208,7 @@ public final class MandrakePullEvents {
                 root);
         drop.setDefaultPickUpDelay();
         level.addFreshEntity(drop);
-        level.levelEvent(2001, pull.pos, net.minecraft.world.level.block.Block.getId(ExampleMod.MANDRAKE_PLANT.get().defaultBlockState()));
+        com.hogwartsmagic.spell.vfx.SpellVfx.blockBreak(level, pull.pos, ExampleMod.MANDRAKE_PLANT.get().defaultBlockState());
         player.displayClientMessage(Component.translatable("message.hogwartsmagic.mandrake.pull_success"), true);
         pull.expired = true;
         ACTIVE_PULLS.remove(player.getUUID());

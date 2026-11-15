@@ -135,7 +135,7 @@ public final class DiffindoSpell {
                 level.setBlock(pos, state.setValue(net.minecraft.world.level.block.TripWireBlock.DISARMED, true), 4);
             }
             Block.dropResources(state, level, pos, null, responsible, shears);
-            level.levelEvent(2001, pos, Block.getId(state));
+            com.hogwartsmagic.spell.vfx.SpellVfx.blockBreak(level, pos, state);
             level.removeBlock(pos, false);
             level.gameEvent(responsible, GameEvent.BLOCK_DESTROY, pos);
             cut++;

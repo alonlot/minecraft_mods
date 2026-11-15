@@ -111,13 +111,13 @@ public class GeminoPileBlock extends Block {
             // Flag 2: told to clients, no neighbour updates. A cascade of block updates through a
             // vault filling with gold is exactly the runaway this is trying not to be.
             level.setBlock(candidate, child, Block.UPDATE_CLIENTS);
-            level.sendParticles(ParticleTypes.FLAME, candidate.getX() + 0.5D,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME), candidate.getX() + 0.5D,
                     candidate.getY() + 0.3D, candidate.getZ() + 0.5D, 3, 0.2D, 0.1D, 0.2D, 0.01D);
             made++;
         }
         if (made > 0) {
             level.playSound(null, pos, SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS, 0.8F, 1.7F);
-            level.sendParticles(ParticleTypes.LAVA, pos.getX() + 0.5D, pos.getY() + 0.4D,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LAVA), pos.getX() + 0.5D, pos.getY() + 0.4D,
                     pos.getZ() + 0.5D, 2, 0.3D, 0.1D, 0.3D, 0.0D);
         }
     }

@@ -197,12 +197,27 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 		bone.render(poseStack, vertexConsumer, packedLight, packedOverlay, color);
 	}
 
+	/**
+	 * Where the crossed hands meet, in the arms group's space (blocks): the middle of the arm bar, on its front face.
+	 * The bar is the box (-4, 2, -2) to (4, 6, 2) in pixels; the hands are its middle at y 5, z -2.
+	 */
+	private static final float HAND_Y = 5.0F / 16.0F;
+	private static final float HAND_Z = -2.0F / 16.0F;
+
+	/**
+	 * Gives ItemInHandLayer a hand frame so the wand is held in the crossed hands and points along the forearms.
+	 * ItemInHandLayer treats the frame as a hanging humanoid arm: it places the item 0.625 down that arm (+Y) and
+	 * 0.125 forward (-Z), pointing forward. So the arms frame is turned 90 degrees about X (the frame's forward
+	 * becomes the forearm direction, +Y of the arms group) and moved back so those offsets land on the hands.
+	 * The wand then aims wherever the arms aim: forward at the target when casting, low and forward at rest.
+	 * (The old frame copied VillagerModel, made for an item laid across the arms: a held wand hung straight
+	 * down at rest and pointed at the sky while casting.)
+	 */
 	@Override
 	public void translateToHand(HumanoidArm arm, PoseStack poseStack) {
-		// Vanilla VillagerModel pre-translates by (0, 0.4, 0) before applying the arms-group
-		// transform — this puts the item at chest level in front of the villager instead of
-		// jutting out of the rotated arms pivot at a steep downward angle. Match that.
-		poseStack.translate(0.0F, 0.4F, 0.0F);
 		this.arms.translateAndRotate(poseStack);
+		// hand = origin + 0.625 * (arms +Z) + 0.125 * (arms +Y) after the turn below, so:
+		poseStack.translate(0.0F, HAND_Y - 0.125F, HAND_Z - 0.625F);
+		poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(90.0F));
 	}
 }

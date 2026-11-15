@@ -488,9 +488,9 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
     }
 
     private void spawnEdgePoint(ServerLevel level, double x, double y, double z) {
-        level.sendParticles(OUTLINE_PARTICLE, x + 0.02, y + 0.02, z + 0.02, 1, 0.0, 0.0, 0.0, 0.0);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(OUTLINE_PARTICLE), x + 0.02, y + 0.02, z + 0.02, 1, 0.0, 0.0, 0.0, 0.0);
         if (level.random.nextInt(4) == 0) {
-            level.sendParticles(ParticleTypes.ENCHANT, x + 0.02, y + 0.02, z + 0.02, 1, 0.02, 0.02, 0.02, 0.0);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), x + 0.02, y + 0.02, z + 0.02, 1, 0.02, 0.02, 0.02, 0.0);
         }
     }
 
@@ -520,21 +520,21 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
                 double angle = ((Math.PI * 2.0D) / 18.0D) * step + (time * 0.08D * (ring % 2 == 0 ? 1.0D : -1.0D));
                 double x = centerX + Math.cos(angle) * radius;
                 double z = centerZ + Math.sin(angle) * radius;
-                level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ELECTRIC_SPARK), x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
                 if (step % 3 == 0) {
-                    level.sendParticles(ParticleTypes.GLOW, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                    level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
                 }
             }
         }
     }
 
     private void spawnBarrierPoint(ServerLevel level, double x, double y, double z) {
-        level.sendParticles(BARRIER_PARTICLE, x + 0.02, y + 0.02, z + 0.02, 1, 0.015, 0.015, 0.015, 0.0);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(BARRIER_PARTICLE), x + 0.02, y + 0.02, z + 0.02, 1, 0.015, 0.015, 0.015, 0.0);
         if (level.random.nextBoolean()) {
-            level.sendParticles(ParticleTypes.END_ROD, x + 0.02, y + 0.02, z + 0.02, 1, 0.02, 0.02, 0.02, 0.0);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), x + 0.02, y + 0.02, z + 0.02, 1, 0.02, 0.02, 0.02, 0.0);
         }
         if (level.random.nextInt(5) == 0) {
-            level.sendParticles(ParticleTypes.GLOW, x + 0.02, y + 0.02, z + 0.02, 1, 0.03, 0.03, 0.03, 0.0);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), x + 0.02, y + 0.02, z + 0.02, 1, 0.03, 0.03, 0.03, 0.0);
         }
     }
 

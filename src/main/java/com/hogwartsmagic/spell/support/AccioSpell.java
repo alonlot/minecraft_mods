@@ -264,7 +264,7 @@ public final class AccioSpell {
             item.setDeltaMovement(toCaster.scale(AccioRules.itemPullSpeed(distance) / distance));
             item.hasImpulse = true; // send the new motion now, not on the item's slow update interval
             if (now % 3 == 0) {
-                level.sendParticles(ParticleTypes.CLOUD, item.getX(), item.getY() + 0.2, item.getZ(), 1, 0.05, 0.05, 0.05, 0.0);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), item.getX(), item.getY() + 0.2, item.getZ(), 1, 0.05, 0.05, 0.05, 0.0);
             }
         }
     }

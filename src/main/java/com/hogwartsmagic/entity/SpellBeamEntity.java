@@ -293,15 +293,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
 
             // The glowing sparkle trail itself is drawn by the client (client/SpellFx); these are the
             // per-spell accents on top of it.
-            // Orbiting spark ring gives a more "wand magic" look. Not in the first two ticks (the caster's face),
-            // and never with the big explosion puff (Bombarda's trail particle), which buries the glowing orb.
+            // Orbiting spark ring gives a more "wand magic" look. Not in the first two ticks (the caster's face).
             double phase = this.tickCount * 0.7;
             double radius = (0.18 + 0.06 * Math.sin(this.tickCount * 0.35)) * (0.85 + (chargeScale * 0.25));
-            boolean ring = this.tickCount >= 2 && spell.getTrailParticle() != ParticleTypes.EXPLOSION;
+            boolean ring = this.tickCount >= 2;
             for (int i = 0; ring && i < 2; i++) {
                 double angle = phase + (i * Math.PI);
                 Vec3 offset = right.scale(Math.cos(angle) * radius).add(up.scale(Math.sin(angle) * radius));
-                this.level().addParticle(spell.getTrailParticle(),
+                this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(spell.getTrailParticle()),
                         pos.x + offset.x, pos.y + 0.2 + offset.y, pos.z + offset.z,
                         0.0, 0.0, 0.0);
             }
@@ -310,45 +309,45 @@ public class SpellBeamEntity extends ThrowableProjectile {
             switch (spell) {
                 case AVADA_KEDAVRA, CRUCIO, DOLOHOV_CURSE, MORSMORDRE -> {
                     if (tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.SMOKE,
+                        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE),
                                 pos.x, pos.y + 0.2, pos.z,
                                 (random.nextDouble() - 0.5) * 0.06, 0.02, (random.nextDouble() - 0.5) * 0.06);
                     }
                 }
                 case TENEBRIS_FLIGHT -> {
                     for (int i = 0; i < 2; i++) {
-                        this.level().addParticle(ParticleTypes.SQUID_INK,
+                        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK),
                                 pos.x + (random.nextDouble() - 0.5) * 0.2,
                                 pos.y + 0.15 + (random.nextDouble() - 0.5) * 0.1,
                                 pos.z + (random.nextDouble() - 0.5) * 0.2,
                                 (random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
                     }
                     if (tickCount % 3 == 0) {
-                        this.level().addParticle(ParticleTypes.DRAGON_BREATH,
+                        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.DRAGON_BREATH),
                                 pos.x, pos.y + 0.2, pos.z,
                                 0.0, 0.02, 0.0);
                     }
                 }
                 case EXPECTO_PATRONUM, LUMOS, HEAL, REVELIO, CAVE_INIMICUM -> {
-                    this.level().addParticle(ParticleTypes.END_ROD,
+                    this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD),
                             pos.x, pos.y + 0.2, pos.z,
                             (random.nextDouble() - 0.5) * 0.04, 0.01, (random.nextDouble() - 0.5) * 0.04);
                     if (spell == SpellType.HEAL && tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.HEART,
+                        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HEART),
                                 pos.x, pos.y + 0.25, pos.z,
                                 0.0, 0.01, 0.0);
                     } else if (spell == SpellType.EXPECTO_PATRONUM && tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.GLOW,
+                        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW),
                                 pos.x, pos.y + 0.2, pos.z,
                                 (random.nextDouble() - 0.5) * 0.03, 0.02, (random.nextDouble() - 0.5) * 0.03);
                     } else if (spell == SpellType.CAVE_INIMICUM && tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.ENCHANT,
+                        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                                 pos.x, pos.y + 0.2, pos.z,
                                 (random.nextDouble() - 0.5) * 0.03, 0.02, (random.nextDouble() - 0.5) * 0.03);
                     }
                 }
                 case BOMBARDA, CONFRINGO, FIENDFYRE -> {
-                    this.level().addParticle(ParticleTypes.FLAME,
+                    this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME),
                             pos.x, pos.y + 0.2, pos.z,
                             (random.nextDouble() - 0.5) * 0.08, 0.02, (random.nextDouble() - 0.5) * 0.08);
                 }
@@ -356,32 +355,32 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     // Aqua Eructo now hits as an instant water lash, so it should not draw a visible beam.
                 }
                 case OBLIVIATE, CONFUNDO, IMPERIO -> {
-                    this.level().addParticle(ParticleTypes.ENCHANT,
+                    this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                             pos.x + (random.nextDouble() - 0.5) * 0.15,
                             pos.y + 0.2 + (random.nextDouble() - 0.5) * 0.15,
                             pos.z + (random.nextDouble() - 0.5) * 0.15,
                             0.0, 0.0, 0.0);
                     if (tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.NAUTILUS,
+                        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.NAUTILUS),
                                 pos.x, pos.y + 0.2, pos.z,
                                 (random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
                     }
                 }
                 case DEPULSO -> {
                     if (tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.CLOUD,
+                        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD),
                                 pos.x, pos.y + 0.2, pos.z,
                                 (random.nextDouble() - 0.5) * 0.05, 0.01, (random.nextDouble() - 0.5) * 0.05);
                     }
                 }
                 case ALATUS -> {
                     if (tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.CLOUD,
+                        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD),
                                 pos.x, pos.y + 0.18, pos.z,
                                 (random.nextDouble() - 0.5) * 0.06, 0.02, (random.nextDouble() - 0.5) * 0.06);
                     }
                     if (tickCount % 3 == 0) {
-                        this.level().addParticle(ParticleTypes.ENCHANT,
+                        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                                 pos.x, pos.y + 0.2, pos.z,
                                 (random.nextDouble() - 0.5) * 0.04, 0.015, (random.nextDouble() - 0.5) * 0.04);
                     }
@@ -685,8 +684,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         if (state.is(ExampleMod.WARD.get()) && be instanceof CaveInimicumWardBlockEntity ward) {
                             LivingEntity caster = getOwner() instanceof LivingEntity livingCaster ? livingCaster : null;
                             if (ward.prepareRevelio(caster)) {
-                                sl.sendParticles(ParticleTypes.END_ROD, pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 20, 0.45, 0.65, 0.45, 0.03);
-                                sl.sendParticles(ParticleTypes.GLOW, pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 16, 0.4, 0.55, 0.4, 0.01);
+                                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 20, 0.45, 0.65, 0.45, 0.03);
+                                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 16, 0.4, 0.55, 0.4, 0.01);
                                 this.level().playSound(null, pos, SoundEvents.BEACON_POWER_SELECT, SoundSource.BLOCKS, 0.65f, 1.55f);
                                 hitSuccessful = true;
                             }
@@ -695,8 +694,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     if (this.level() instanceof ServerLevel serverLevel
                             && com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(serverLevel)
                             .disruptWardsAt(pos, CAVE_INIMICUM_REVELIO_BREAK_TICKS)) {
-                        serverLevel.sendParticles(ParticleTypes.END_ROD, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 28, 1.0, 1.0, 1.0, 0.02);
-                        serverLevel.sendParticles(ParticleTypes.GLOW, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 20, 0.8, 0.8, 0.8, 0.01);
+                        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 28, 1.0, 1.0, 1.0, 0.02);
+                        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 20, 0.8, 0.8, 0.8, 0.01);
                         this.level().playSound(null, pos, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.85f, 1.4f);
                         hitSuccessful = true;
                     }
@@ -725,7 +724,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             && state.is(ExampleMod.WARD.get())
                             && getOwner() instanceof LivingEntity livingCaster
                             && VoldemortSummoningEntity.tryStart(sl, pos, livingCaster)) {
-                        sl.sendParticles(ParticleTypes.WITCH, pos.getX() + 0.5D, pos.getY() + 1.0D, pos.getZ() + 0.5D, 18, 0.35D, 0.5D, 0.35D, 0.02D);
+                        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH), pos.getX() + 0.5D, pos.getY() + 1.0D, pos.getZ() + 0.5D, 18, 0.35D, 0.5D, 0.35D, 0.02D);
                         this.level().playSound(null, pos, SoundEvents.END_PORTAL_SPAWN, SoundSource.BLOCKS, 0.6f, 0.55f);
                         hitSuccessful = true;
                     } else {
@@ -753,8 +752,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         if (state.is(ExampleMod.WARD.get()) && be instanceof CaveInimicumWardBlockEntity ward) {
                             LivingEntity caster = getOwner() instanceof LivingEntity livingCaster ? livingCaster : null;
                             if (ward.prepareProtegoMaxima(caster)) {
-                                sl.sendParticles(ParticleTypes.END_ROD, pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 24, 0.55, 0.75, 0.55, 0.03);
-                                sl.sendParticles(ParticleTypes.ENCHANT, pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 20, 0.45, 0.65, 0.45, 0.02);
+                                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 24, 0.55, 0.75, 0.55, 0.03);
+                                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 20, 0.45, 0.65, 0.45, 0.02);
                                 this.level().playSound(null, pos, SoundEvents.BEACON_POWER_SELECT, SoundSource.BLOCKS, 0.75f, 1.35f);
                                 hitSuccessful = true;
                             }
@@ -770,8 +769,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             if (bbe.beginInfusionFromSpell(sl, getOwner())) {
                                 hitSuccessful = true;
                             } else {
-                                sl.sendParticles(ParticleTypes.SMOKE, hx, hy, hz, 10, 0.28, 0.12, 0.28, 0.02);
-                                sl.sendParticles(ParticleTypes.WITCH, hx, hy, hz, 5, 0.22, 0.08, 0.22, 0.01);
+                                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), hx, hy, hz, 10, 0.28, 0.12, 0.28, 0.02);
+                                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH), hx, hy, hz, 5, 0.22, 0.08, 0.22, 0.01);
                                 this.level().playSound(null, hx, hy, hz, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS, 0.22f, 0.55f);
                                 hitSuccessful = true;
                                 masteryEligible = false; // failed infusion earns no mastery
@@ -847,7 +846,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                     net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f);
                             
                             if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, living.getX(), living.getY() + 1.0, living.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
+                                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.CRIT), living.getX(), living.getY() + 1.0, living.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
                             }
                         } else {
                             living.removeEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get());
@@ -868,8 +867,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             hitSuccessful = false;
                         } else if (spell == SpellType.AVADA_KEDAVRA && living instanceof VoldemortEntity voldemort && voldemort.tryEvadeAvada(getOwner())) {
                             if (this.level() instanceof ServerLevel sl) {
-                                sl.sendParticles(ParticleTypes.SQUID_INK, living.getX(), living.getY() + 1.0D, living.getZ(), 28, 0.3D, 0.7D, 0.3D, 0.04D);
-                                sl.sendParticles(ParticleTypes.LARGE_SMOKE, living.getX(), living.getY() + 1.0D, living.getZ(), 24, 0.35D, 0.75D, 0.35D, 0.03D);
+                                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), living.getX(), living.getY() + 1.0D, living.getZ(), 28, 0.3D, 0.7D, 0.3D, 0.04D);
+                                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), living.getX(), living.getY() + 1.0D, living.getZ(), 24, 0.35D, 0.75D, 0.35D, 0.03D);
                             }
                             hitSuccessful = true;
                         } else {
@@ -948,13 +947,13 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     if (spell == SpellType.BOMBARDA || spell == SpellType.CONFRINGO || spell == SpellType.FIENDFYRE) {
                         applyHeavyImpactImpulse();
                     }
-                    sl.sendParticles(spell.getImpactParticle(),
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(spell.getImpactParticle()),
                             this.getX(), this.getY(), this.getZ(), 12,
                             0.2, 0.2, 0.2, 0.04);
-                    sl.sendParticles(spell.getDustParticle(),
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(spell.getDustParticle()),
                             this.getX(), this.getY(), this.getZ(), 18,
                             0.25, 0.25, 0.25, 0.01);
-                    sl.sendParticles(ParticleTypes.END_ROD,
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD),
                             this.getX(), this.getY(), this.getZ(), 6,
                             0.2, 0.2, 0.2, 0.02);
                 }
@@ -1053,9 +1052,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
         double y = orePos.getY() + 0.5D;
         double z = orePos.getZ() + 0.5D;
         if (particles) {
-            level.sendParticles(ParticleTypes.GLOW, x, y, z, 10, 0.2D, 0.2D, 0.2D, 0.02D);
-            level.sendParticles(ParticleTypes.END_ROD, x, y, z, 4, 0.22D, 0.22D, 0.22D, 0.01D);
-            level.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y, z, 3, 0.12D, 0.12D, 0.12D, 0.0D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), x, y, z, 10, 0.2D, 0.2D, 0.2D, 0.02D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), x, y, z, 4, 0.22D, 0.22D, 0.22D, 0.01D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HAPPY_VILLAGER), x, y, z, 3, 0.12D, 0.12D, 0.12D, 0.0D);
         }
 
         BlockPos lightPos = findNearbyAirForReveal(level, orePos, origin);
@@ -1069,9 +1068,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
         double chestY = chestPos.getY() + 0.6D;
         double chestZ = chestPos.getZ() + 0.5D;
         if (particles) {
-            level.sendParticles(ParticleTypes.GLOW, chestX, chestY, chestZ, 18, 0.3D, 0.25D, 0.3D, 0.03D);
-            level.sendParticles(ParticleTypes.END_ROD, chestX, chestY, chestZ, 10, 0.28D, 0.2D, 0.28D, 0.02D);
-            level.sendParticles(ParticleTypes.ENCHANT, chestX, chestY, chestZ, 16, 0.35D, 0.35D, 0.35D, 0.01D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), chestX, chestY, chestZ, 18, 0.3D, 0.25D, 0.3D, 0.03D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), chestX, chestY, chestZ, 10, 0.28D, 0.2D, 0.28D, 0.02D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), chestX, chestY, chestZ, 16, 0.35D, 0.35D, 0.35D, 0.01D);
 
             Vec3 start = Vec3.atCenterOf(origin);
             Vec3 end = Vec3.atCenterOf(chestPos);
@@ -1080,7 +1079,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
             for (int i = 0; i <= steps; i++) {
                 double progress = i / (double) steps;
                 Vec3 point = start.add(delta.scale(progress));
-                level.sendParticles(ParticleTypes.WITCH, point.x, point.y + 0.15D, point.z, 1, 0.04D, 0.04D, 0.04D, 0.0D);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH), point.x, point.y + 0.15D, point.z, 1, 0.04D, 0.04D, 0.04D, 0.0D);
             }
         }
 
@@ -1167,11 +1166,11 @@ public class SpellBeamEntity extends ThrowableProjectile {
             }
             if (horcrux.beginRitual(serverLevel, player)) {
                 HorcruxData.startRitual(player, serverLevel, candidate);
-                serverLevel.sendParticles(ParticleTypes.SQUID_INK, candidate.getX() + 0.5D, candidate.getY() + 1.05D, candidate.getZ() + 0.5D,
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), candidate.getX() + 0.5D, candidate.getY() + 1.05D, candidate.getZ() + 0.5D,
                         26, 0.28D, 0.35D, 0.28D, 0.03D);
-                serverLevel.sendParticles(ParticleTypes.SOUL, candidate.getX() + 0.5D, candidate.getY() + 1.15D, candidate.getZ() + 0.5D,
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL), candidate.getX() + 0.5D, candidate.getY() + 1.15D, candidate.getZ() + 0.5D,
                         18, 0.24D, 0.35D, 0.24D, 0.02D);
-                serverLevel.sendParticles(ParticleTypes.DRAGON_BREATH, candidate.getX() + 0.5D, candidate.getY() + 0.85D, candidate.getZ() + 0.5D,
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.DRAGON_BREATH), candidate.getX() + 0.5D, candidate.getY() + 0.85D, candidate.getZ() + 0.5D,
                         16, 0.22D, 0.2D, 0.22D, 0.03D);
                 serverLevel.playSound(null, candidate, SoundEvents.WARDEN_HEARTBEAT, SoundSource.BLOCKS, 1.0F, 0.55F);
                 serverLevel.playSound(null, candidate, SoundEvents.SOUL_ESCAPE.value(), SoundSource.BLOCKS, 1.0F, 0.5F);
@@ -1299,7 +1298,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
                     Vec3 clashPos = this.position().add(other.position()).scale(0.5);
                     spawnBeamClashEffects(sl, clashPos, this.getSpellType(), other.getSpellType());
-                    sl.sendParticles(ParticleTypes.ENCHANTED_HIT, clashPos.x, clashPos.y, clashPos.z, 10, 0.2, 0.2, 0.2, 0.01);
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANTED_HIT), clashPos.x, clashPos.y, clashPos.z, 10, 0.2, 0.2, 0.2, 0.01);
                 }
                 loser.discard();
                 winner.setDeltaMovement(winner.getDeltaMovement().scale(1.04D));
@@ -1318,10 +1317,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
     }
 
     private void spawnBeamClashEffects(net.minecraft.server.level.ServerLevel sl, Vec3 pos, SpellType a, SpellType b) {
-        sl.sendParticles(ParticleTypes.FLASH, pos.x, pos.y, pos.z, 2, 0.2, 0.2, 0.2, 0.0);
-        sl.sendParticles(a.getDustParticle(), pos.x, pos.y, pos.z, 25, 0.35, 0.35, 0.35, 0.01);
-        sl.sendParticles(b.getDustParticle(), pos.x, pos.y, pos.z, 25, 0.35, 0.35, 0.35, 0.01);
-        sl.sendParticles(ParticleTypes.END_ROD, pos.x, pos.y, pos.z, 18, 0.45, 0.45, 0.45, 0.03);
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), pos.x, pos.y, pos.z, 2, 0.2, 0.2, 0.2, 0.0);
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(a.getDustParticle()), pos.x, pos.y, pos.z, 25, 0.35, 0.35, 0.35, 0.01);
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(b.getDustParticle()), pos.x, pos.y, pos.z, 25, 0.35, 0.35, 0.35, 0.01);
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), pos.x, pos.y, pos.z, 18, 0.45, 0.45, 0.45, 0.03);
         this.level().playSound(null, pos.x, pos.y, pos.z, ModSounds.SPELL_FIZZLE.get(), SoundSource.NEUTRAL, 1.2f, 0.8f);
         this.level().playSound(null, pos.x, pos.y, pos.z, net.minecraft.sounds.SoundEvents.BEACON_POWER_SELECT, SoundSource.NEUTRAL, 0.5f, 1.7f);
     }
@@ -1350,36 +1349,36 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     double radius = 0.8 + (i % 5) * 0.15;
                     double x = impactPos.x + Math.cos(angle) * radius;
                     double z = impactPos.z + Math.sin(angle) * radius;
-                    sl.sendParticles(ParticleTypes.SPLASH, x, impactPos.y + 0.1, z, 1, 0.0, 0.08, 0.0, 0.0);
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SPLASH), x, impactPos.y + 0.1, z, 1, 0.0, 0.08, 0.0, 0.0);
                     if (i % 2 == 0) {
-                        sl.sendParticles(ParticleTypes.BUBBLE, x, impactPos.y + 0.2, z, 1, 0.0, 0.02, 0.0, 0.0);
+                        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.BUBBLE), x, impactPos.y + 0.2, z, 1, 0.0, 0.02, 0.0, 0.0);
                     }
                 }
             }
             case EXPECTO_PATRONUM -> {
-                sl.sendParticles(ParticleTypes.END_ROD, impactPos.x, impactPos.y, impactPos.z, 35, 0.6, 0.4, 0.6, 0.02);
-                sl.sendParticles(ParticleTypes.GLOW, impactPos.x, impactPos.y, impactPos.z, 30, 0.8, 0.5, 0.8, 0.01);
-                sl.sendParticles(ParticleTypes.FLASH, impactPos.x, impactPos.y, impactPos.z, 2, 0.2, 0.2, 0.2, 0.0);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), impactPos.x, impactPos.y, impactPos.z, 35, 0.6, 0.4, 0.6, 0.02);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), impactPos.x, impactPos.y, impactPos.z, 30, 0.8, 0.5, 0.8, 0.01);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), impactPos.x, impactPos.y, impactPos.z, 2, 0.2, 0.2, 0.2, 0.0);
             }
             case HEAL -> {
-                sl.sendParticles(ParticleTypes.HEART, impactPos.x, impactPos.y + 0.5, impactPos.z, 12, 0.5, 0.3, 0.5, 0.0);
-                sl.sendParticles(ParticleTypes.HAPPY_VILLAGER, impactPos.x, impactPos.y + 0.4, impactPos.z, 16, 0.4, 0.4, 0.4, 0.02);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HEART), impactPos.x, impactPos.y + 0.5, impactPos.z, 12, 0.5, 0.3, 0.5, 0.0);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HAPPY_VILLAGER), impactPos.x, impactPos.y + 0.4, impactPos.z, 16, 0.4, 0.4, 0.4, 0.02);
             }
             case OBLIVIATE, CONFUNDO -> {
-                sl.sendParticles(ParticleTypes.NAUTILUS, impactPos.x, impactPos.y + 0.4, impactPos.z, 16, 0.5, 0.4, 0.5, 0.0);
-                sl.sendParticles(ParticleTypes.ENCHANT, impactPos.x, impactPos.y + 0.4, impactPos.z, 20, 0.6, 0.5, 0.6, 0.01);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.NAUTILUS), impactPos.x, impactPos.y + 0.4, impactPos.z, 16, 0.5, 0.4, 0.5, 0.0);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), impactPos.x, impactPos.y + 0.4, impactPos.z, 20, 0.6, 0.5, 0.6, 0.01);
             }
             case DEPULSO -> {
                 for (int i = 0; i < 24; i++) {
                     double angle = (Math.PI * 2.0 * i) / 24.0;
                     double x = impactPos.x + Math.cos(angle) * 1.2;
                     double z = impactPos.z + Math.sin(angle) * 1.2;
-                    sl.sendParticles(ParticleTypes.CLOUD, x, impactPos.y + 0.15, z, 1, 0.0, 0.02, 0.0, 0.0);
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), x, impactPos.y + 0.15, z, 1, 0.0, 0.02, 0.0, 0.0);
                 }
             }
             case TENEBRIS_FLIGHT -> {
-                sl.sendParticles(ParticleTypes.SQUID_INK, impactPos.x, impactPos.y + 0.3, impactPos.z, 24, 0.5, 0.3, 0.5, 0.02);
-                sl.sendParticles(ParticleTypes.LARGE_SMOKE, impactPos.x, impactPos.y + 0.3, impactPos.z, 20, 0.5, 0.3, 0.5, 0.01);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), impactPos.x, impactPos.y + 0.3, impactPos.z, 24, 0.5, 0.3, 0.5, 0.02);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), impactPos.x, impactPos.y + 0.3, impactPos.z, 20, 0.5, 0.3, 0.5, 0.01);
             }
             case PETRIFICUS_TOTALUS -> {
                 // Ground-control rune ring.
@@ -1388,9 +1387,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     double radius = 1.6;
                     double x = impactPos.x + Math.cos(angle) * radius;
                     double z = impactPos.z + Math.sin(angle) * radius;
-                    sl.sendParticles(ParticleTypes.ENCHANT, x, impactPos.y + 0.05, z, 1, 0.0, 0.01, 0.0, 0.0);
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), x, impactPos.y + 0.05, z, 1, 0.0, 0.01, 0.0, 0.0);
                     if (i % 4 == 0) {
-                        sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, impactPos.y + 0.05, z, 1, 0.0, 0.01, 0.0, 0.0);
+                        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME), x, impactPos.y + 0.05, z, 1, 0.0, 0.01, 0.0, 0.0);
                     }
                 }
             }
@@ -1438,7 +1437,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         serverLevel.removeBlock(pos, false);
         serverLevel.levelEvent(2001, pos, net.minecraft.world.level.block.Block.getId(ExampleMod.MANDRAKE_PLANT.get().defaultBlockState()));
         serverLevel.playSound(null, pos, ModSounds.MANDRAKE_SCREAM.get(), SoundSource.BLOCKS, 1.2F, 1.15F);
-        serverLevel.sendParticles(ParticleTypes.WITCH,
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH),
                 pos.getX() + 0.5D,
                 pos.getY() + 0.75D,
                 pos.getZ() + 0.5D,
@@ -1549,9 +1548,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 double x = origin.x + Math.cos(angle) * radius;
                 double z = origin.z + Math.sin(angle) * radius;
                 double y = origin.y + 0.1 + (ring * 0.05);
-                sl.sendParticles(ParticleTypes.SPLASH, x, y, z, 1, 0.0, 0.05, 0.0, 0.0);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SPLASH), x, y, z, 1, 0.0, 0.05, 0.0, 0.0);
                 if ((i + ring) % 2 == 0) {
-                    sl.sendParticles(ParticleTypes.BUBBLE, x, y + 0.1, z, 1, 0.0, 0.02, 0.0, 0.0);
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.BUBBLE), x, y + 0.1, z, 1, 0.0, 0.02, 0.0, 0.0);
                 }
             }
         }
@@ -1610,9 +1609,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
     private void placeAquaSegment(ServerLevel serverLevel, Vec3 sample, int flowLevel) {
         BlockPos centerPos = BlockPos.containing(sample.x, sample.y + 0.05D, sample.z);
         if (placeTransientWater(serverLevel, centerPos, flowLevel)) {
-            serverLevel.sendParticles(ParticleTypes.SPLASH, sample.x, sample.y + 0.1D, sample.z, 2, 0.08D, 0.04D, 0.08D, 0.0D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SPLASH), sample.x, sample.y + 0.1D, sample.z, 2, 0.08D, 0.04D, 0.08D, 0.0D);
             if (this.tickCount % 2 == 0) {
-                serverLevel.sendParticles(ParticleTypes.FALLING_WATER, sample.x, sample.y + 0.2D, sample.z, 1, 0.04D, 0.02D, 0.04D, 0.0D);
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FALLING_WATER), sample.x, sample.y + 0.2D, sample.z, 1, 0.04D, 0.02D, 0.04D, 0.0D);
             }
         }
     }
@@ -1669,7 +1668,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
 
         if (this.level().isClientSide) {
             for (int i = 0; i < 15; i++) {
-                this.level().addParticle(ParticleTypes.POOF,
+                this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.POOF),
                         this.getX(), this.getY(), this.getZ(),
                         (random.nextDouble() - 0.5) * 0.1,
                         (random.nextDouble() - 0.5) * 0.1,
@@ -1677,10 +1676,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
             }
         } else {
             // On server, we must use server-side particle spawning to ensure everyone sees it
-            ((net.minecraft.server.level.ServerLevel) this.level()).sendParticles(ParticleTypes.POOF,
+            ((net.minecraft.server.level.ServerLevel) this.level()).sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.POOF),
                     this.getX(), this.getY(), this.getZ(), 15,
                     0.2, 0.2, 0.2, 0.05);
-            ((net.minecraft.server.level.ServerLevel) this.level()).sendParticles(ParticleTypes.ENCHANT,
+            ((net.minecraft.server.level.ServerLevel) this.level()).sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                     this.getX(), this.getY(), this.getZ(), 8,
                     0.2, 0.2, 0.2, 0.02);
         }

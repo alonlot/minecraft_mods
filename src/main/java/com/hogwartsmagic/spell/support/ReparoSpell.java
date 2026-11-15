@@ -47,7 +47,7 @@ public final class ReparoSpell {
             return;
         }
         item.setDamageValue(Math.max(0, item.getDamageValue() - ReparoRules.itemRepairAmount(maxDamage)));
-        player.serverLevel().sendParticles(ParticleTypes.WAX_ON, player.getX(), player.getY() + 1.0, player.getZ(),
+        player.serverLevel().sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WAX_ON), player.getX(), player.getY() + 1.0, player.getZ(),
                 14, 0.4, 0.5, 0.4, 0.02);
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.SMITHING_TABLE_USE, SoundSource.PLAYERS, 0.7f, 1.4f);

@@ -58,7 +58,7 @@ public final class BombardaSpell {
                                 @Nullable LivingEntity primary, boolean masteryEligible) {
         int rank = DisableSupport.casterRank(caster, SpellType.BOMBARDA);
         double radius = BombardaRules.radius(rank);
-        level.sendParticles(radius >= 2.5 ? ParticleTypes.EXPLOSION_EMITTER : ParticleTypes.EXPLOSION,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(radius >= 2.5 ? ParticleTypes.EXPLOSION_EMITTER : ParticleTypes.EXPLOSION),
                 impact.x, impact.y, impact.z, radius >= 2.5 ? 1 : 3, radius * 0.3, radius * 0.3, radius * 0.3, 0.0);
         level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS,
                 2.0f + (float) radius * 0.3f, 0.9f + level.random.nextFloat() * 0.2f);

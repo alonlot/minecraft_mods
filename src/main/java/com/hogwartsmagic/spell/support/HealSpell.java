@@ -51,7 +51,7 @@ public final class HealSpell {
             target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, regen, 0));
         }
         if (target.level() instanceof ServerLevel level) {
-            level.sendParticles(ParticleTypes.HEART, target.getX(), target.getY() + target.getBbHeight() * 0.7,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HEART), target.getX(), target.getY() + target.getBbHeight() * 0.7,
                     target.getZ(), 4 + rank * 2, 0.4, 0.3, 0.4, 0.0);
             level.playSound(null, target.getX(), target.getY(), target.getZ(),
                     SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8f, 1.2f + rank * 0.1f);

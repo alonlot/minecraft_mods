@@ -116,7 +116,7 @@ public final class LevicorpusSpell {
         target.setDeltaMovement(0.0, LevicorpusRules.LIBERACORPUS_DROP_SPEED, 0.0);
         target.hurtMarked = true;
         target.hurt(target.damageSources().fall(), LevicorpusRules.LIBERACORPUS_FALL_DAMAGE);
-        level.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 0.2, target.getZ(), 20, 0.5, 0.1, 0.5, 0.05);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), target.getX(), target.getY() + 0.2, target.getZ(), 20, 0.5, 0.1, 0.5, 0.05);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.GENERIC_BIG_FALL, SoundSource.NEUTRAL, 1.0f, 0.9f);
     }
 

@@ -38,9 +38,9 @@ public class ProtegoEffect extends MobEffect {
                 
                 Vec3 pos = entity.position().add(x, y, z);
                 
-                level.addParticle(ParticleTypes.END_ROD, pos.x, pos.y, pos.z, 0, 0, 0);
+                level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), pos.x, pos.y, pos.z, 0, 0, 0);
                 if (maximaBarrier && i % 2 == 0) {
-                    level.addParticle(ParticleTypes.GLOW, pos.x, pos.y, pos.z, 0, 0, 0);
+                    level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), pos.x, pos.y, pos.z, 0, 0, 0);
                 }
             }
         }

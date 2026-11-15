@@ -228,13 +228,13 @@ public final class IncarcerousChainAnimation {
             return;
         }
         Vec3 c = target.position().add(0.0, target.getBbHeight() * 0.5, 0.0);
-        level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0.05, 0.05, 0.05, 0.0);
-        level.sendParticles(ParticleTypes.ENCHANT, c.x, c.y, c.z, 28, 0.45, 0.75, 0.45, 0.02);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), c.x, c.y, c.z, 1, 0.05, 0.05, 0.05, 0.0);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), c.x, c.y, c.z, 28, 0.45, 0.75, 0.45, 0.02);
         level.playSound(null, c.x, c.y, c.z, SoundEvents.CHAIN_PLACE, SoundSource.PLAYERS, 1.0f, 0.62f);
     }
 
     private static void soulAnchor(ServerLevel level, double x, double y, double z) {
-        level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y + 0.02, z, 3, 0.05, 0.03, 0.05, 0.0);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME), x, y + 0.02, z, 3, 0.05, 0.03, 0.05, 0.0);
     }
 
     private static Vec3 bezierQuadratic(Vec3 a, Vec3 c, Vec3 b, double t) {
@@ -311,6 +311,6 @@ public final class IncarcerousChainAnimation {
 
     private static void emitAt(ServerLevel level, Vec3 p, DustParticleOptions dust, boolean light, double spread) {
         int count = light ? 1 : 2;
-        level.sendParticles(dust, p.x, p.y, p.z, count, spread, spread * 0.6, spread, 0.0);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(dust), p.x, p.y, p.z, count, spread, spread * 0.6, spread, 0.0);
     }
 }

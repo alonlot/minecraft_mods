@@ -113,7 +113,7 @@ public final class ProtegoSpell {
         data.remove(TAG_UNTIL);
         level.playSound(null, holder.getX(), holder.getY(), holder.getZ(),
                 SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.0f, 1.0f);
-        level.sendParticles(ParticleTypes.CRIT, holder.getX(), holder.getY() + 1.0, holder.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), holder.getX(), holder.getY() + 1.0, holder.getZ(),
                 20, 0.5, 0.5, 0.5, 0.1);
         return BeamOutcome.BLOCKED;
     }
@@ -182,8 +182,8 @@ public final class ProtegoSpell {
 
     private static void parryFeedback(ServerLevel level, LivingEntity holder, boolean reflected) {
         Vec3 front = holder.getEyePosition().add(holder.getLookAngle().scale(0.8));
-        level.sendParticles(ParticleTypes.END_ROD, front.x, front.y, front.z, reflected ? 18 : 10, 0.25, 0.25, 0.25, 0.04);
-        level.sendParticles(ParticleTypes.FLASH, front.x, front.y, front.z, 1, 0.0, 0.0, 0.0, 0.0);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), front.x, front.y, front.z, reflected ? 18 : 10, 0.25, 0.25, 0.25, 0.04);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), front.x, front.y, front.z, 1, 0.0, 0.0, 0.0, 0.0);
         level.playSound(null, holder.getX(), holder.getY(), holder.getZ(),
                 SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, reflected ? 1.7f : 1.4f);
         level.playSound(null, holder.getX(), holder.getY(), holder.getZ(),

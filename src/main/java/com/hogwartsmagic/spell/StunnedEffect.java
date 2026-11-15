@@ -30,7 +30,7 @@ public class StunnedEffect extends MobEffect {
             double y = entity.getY() + entity.getBbHeight() + 0.3;
             for (int i = 0; i < 3; i++) {
                 double angle = base + i * (Math.PI * 2.0 / 3.0);
-                level.sendParticles(ParticleTypes.CRIT, entity.getX() + Math.cos(angle) * radius, y,
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), entity.getX() + Math.cos(angle) * radius, y,
                         entity.getZ() + Math.sin(angle) * radius, 1, 0.0, 0.0, 0.0, 0.0);
             }
         }

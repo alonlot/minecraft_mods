@@ -49,7 +49,7 @@ public class BleedingEffect extends MobEffect {
             entity.hurt(CombatDamage.bleeding(level, attacker), BleedRules.damagePerSecond(amplifier));
             entity.invulnerableTime = invulnerableTime;
             ((LivingEntityLastHurtAccessor) entity).hogwartsmagic$setLastHurt(lastHurt);
-            level.sendParticles(BLOOD, entity.getX(), entity.getY() + entity.getBbHeight() * 0.5, entity.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(BLOOD), entity.getX(), entity.getY() + entity.getBbHeight() * 0.5, entity.getZ(),
                     6 + 3 * BleedRules.stacks(amplifier), entity.getBbWidth() * 0.3, entity.getBbHeight() * 0.25,
                     entity.getBbWidth() * 0.3, 0.0);
         }

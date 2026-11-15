@@ -182,7 +182,7 @@ public final class CrucioChannel {
         }
         if (CrucioRules.isDamageTick(elapsed)) {
             target.hurt(DamageSupport.magicFrom(target, caster), CrucioRules.DAMAGE);
-            level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, target.getX(), target.getY() + target.getBbHeight() * 0.6,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.DAMAGE_INDICATOR), target.getX(), target.getY() + target.getBbHeight() * 0.6,
                     target.getZ(), 4, 0.25, 0.25, 0.25, 0.1);
         }
         if (elapsed % 4 == 0) {
@@ -190,7 +190,7 @@ public final class CrucioChannel {
             Vec3 to = target.position().add(0.0, target.getBbHeight() * 0.6, 0.0);
             for (int i = 1; i <= 6; i++) {
                 Vec3 point = from.lerp(to, i / 7.0);
-                level.sendParticles(RED, point.x, point.y, point.z, 1, 0.03, 0.03, 0.03, 0.0);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(RED), point.x, point.y, point.z, 1, 0.03, 0.03, 0.03, 0.0);
             }
         }
     }

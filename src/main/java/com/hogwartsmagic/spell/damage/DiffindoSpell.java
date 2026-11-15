@@ -90,7 +90,7 @@ public final class DiffindoSpell {
         int steps = Math.max(3, (int) (from.distanceTo(to) * 2));
         for (int i = 0; i <= steps; i++) {
             Vec3 p = from.lerp(to, i / (double) steps);
-            level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.x, p.y, p.z, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SWEEP_ATTACK), p.x, p.y, p.z, 1, 0.0, 0.0, 0.0, 0.0);
         }
         level.playSound(null, next.getX(), next.getY(), next.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP,
                 SoundSource.PLAYERS, 0.9f, 1.3f);

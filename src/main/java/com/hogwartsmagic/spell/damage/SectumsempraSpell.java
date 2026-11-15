@@ -53,7 +53,7 @@ public final class SectumsempraSpell {
         CombatEffects.applyBleeding(target, SectumsempraRules.BLEED_TICKS, stacksAfter, caster);
 
         if (burst > 0f) {
-            level.sendParticles(BLOOD, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(BLOOD), target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
                     12 + 8 * stacksBefore, target.getBbWidth() * 0.45, target.getBbHeight() * 0.35,
                     target.getBbWidth() * 0.45, 0.05);
             level.playSound(null, target.getX(), target.getY(), target.getZ(),

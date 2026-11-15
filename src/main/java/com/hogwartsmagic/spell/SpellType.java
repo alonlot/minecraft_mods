@@ -126,12 +126,14 @@ public enum SpellType {
         return b;
     }
 
+    /** The spell effect its beam leaves behind each tick (the vanilla particle in the table, as spell VFX). */
     public ParticleOptions getTrailParticle() {
-        return trailParticle;
+        return com.hogwartsmagic.spell.vfx.SpellVfx.trail(trailParticle, this);
     }
 
+    /** The spell effect where it lands (the vanilla particle in the table, as spell VFX). */
     public ParticleOptions getImpactParticle() {
-        return impactParticle;
+        return com.hogwartsmagic.spell.vfx.SpellVfx.swap(impactParticle, this);
     }
 
     public int getCooldownTicks() {
@@ -143,9 +145,9 @@ public enum SpellType {
         return Math.max(1, Math.round(manaCost * 0.75f));
     }
 
-    /** Colored dust particle for beam trail - creates actual colored beam effect */
-    public DustParticleOptions getDustParticle() {
-        return new DustParticleOptions(new Vector3f(r, g, b), 1.0f);
+    /** The spell's own coloured glow (once a coloured dust particle). */
+    public ParticleOptions getDustParticle() {
+        return com.hogwartsmagic.spell.vfx.SpellVfx.glow(this, 0.16f, 16);
     }
 
     public void applyHitEffect(LivingEntity target, Entity caster) {
@@ -395,8 +397,8 @@ public enum SpellType {
         target.hurt(target.damageSources().magic(), 2.0f);
         target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0));
         if (target.level() instanceof ServerLevel sl) {
-            sl.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.35, 0.25, 0.35, 0.01);
-            sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, target.getX(), target.getY() + 0.8, target.getZ(), 12, 0.25, 0.2, 0.25, 0.01);
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.35, 0.25, 0.35, 0.01);
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CAMPFIRE_COSY_SMOKE), target.getX(), target.getY() + 0.8, target.getZ(), 12, 0.25, 0.2, 0.25, 0.01);
         }
     }
 }

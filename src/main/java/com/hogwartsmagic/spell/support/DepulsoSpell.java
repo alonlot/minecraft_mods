@@ -141,7 +141,7 @@ public final class DepulsoSpell {
             projectile.addTag(DEFLECTED_TAG);
             projectile.hasImpulse = true;
             projectile.hurtMarked = true;
-            level.sendParticles(ParticleTypes.CLOUD, projectile.getX(), projectile.getY(), projectile.getZ(), 4, 0.1, 0.1, 0.1, 0.02);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), projectile.getX(), projectile.getY(), projectile.getZ(), 4, 0.1, 0.1, 0.1, 0.02);
             deflected++;
         }
         if (deflected > 0) {
@@ -233,7 +233,7 @@ public final class DepulsoSpell {
     }
 
     private static void slamFeedback(ServerLevel level, LivingEntity target) {
-        level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
                 12, 0.3, 0.3, 0.3, 0.1);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.ANVIL_LAND,
                 SoundSource.NEUTRAL, 0.35f, 1.4f);

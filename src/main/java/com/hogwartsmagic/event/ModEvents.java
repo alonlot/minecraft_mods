@@ -1230,7 +1230,7 @@ public class ModEvents {
             // Sparks off the Dementor itself, not the cone -- this is hit feedback, so it stays
             // as particles. Throttled: at 20Hz a pinned swarm floods the connection for nothing.
             if (gameTime % 3L == 0L) {
-                level.sendParticles(ParticleTypes.END_ROD,
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD),
                         dementor.getX(), dementor.getY() + dementor.getBbHeight() * 0.5D, dementor.getZ(),
                         4, 0.35D, 0.45D, 0.35D, 0.02D);
             }
@@ -1549,10 +1549,10 @@ public class ModEvents {
         }
 
         if (caster.level() instanceof ServerLevel serverLevel && caster.tickCount % 2 == 0) {
-            serverLevel.sendParticles(ParticleTypes.ENCHANT,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                     target.getX(), target.getY() + target.getBbHeight() * 0.5D, target.getZ(),
                     8, 0.25D, 0.35D, 0.25D, 0.02D);
-            serverLevel.sendParticles(ParticleTypes.WITCH,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH),
                     target.getX(), target.getY() + target.getBbHeight() * 0.5D, target.getZ(),
                     4, 0.2D, 0.25D, 0.2D, 0.01D);
         }
@@ -1780,7 +1780,7 @@ public class ModEvents {
             mob.getNavigation().stop();
         }
         if (player.level() instanceof ServerLevel sl && now % 2 == 0) {
-            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD,
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.CLOUD),
                     raw.getX(), raw.getY() + raw.getBbHeight() * 0.5D, raw.getZ(), 2, 0.1D, 0.1D, 0.1D, 0.01D);
         }
     }
@@ -1807,7 +1807,7 @@ public class ModEvents {
 
         if (player.level() instanceof ServerLevel serverLevel) {
             int count = 2 + Math.round(progress * 6.0f);
-            serverLevel.sendParticles(ParticleTypes.PORTAL,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.PORTAL),
                     player.getX(), player.getY() + 1.0, player.getZ(), count, 0.6, 0.8, 0.6, -0.05);
             if (elapsed % 10 == 0) {
                 serverLevel.playSound(null, player.blockPosition(),
@@ -2050,9 +2050,9 @@ public class ModEvents {
     }
 
     private static void crackEffect(ServerLevel level, double x, double y, double z, boolean departure) {
-        level.sendParticles(departure ? ParticleTypes.PORTAL : ParticleTypes.REVERSE_PORTAL,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(departure ? ParticleTypes.PORTAL : ParticleTypes.REVERSE_PORTAL),
                 x, y + 1.0, z, 60, 0.5, 1.0, 0.5, departure ? -0.2 : 0.8);
-        level.sendParticles(ParticleTypes.CLOUD, x, y + 1.0, z, 12, 0.3, 0.5, 0.3, 0.02);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), x, y + 1.0, z, 12, 0.3, 0.5, 0.3, 0.02);
         level.playSound(null, BlockPos.containing(x, y, z),
                 net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.2f, 0.7f);
     }
@@ -2105,14 +2105,14 @@ public class ModEvents {
         for (int i = 0; i <= segments; i++) {
             double progress = i / (double) segments;
             Vec3 point = start.lerp(end, progress);
-            level.sendParticles(ParticleTypes.END_ROD, point.x, point.y, point.z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), point.x, point.y, point.z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
             if (i % 2 == 0) {
-                level.sendParticles(SpellType.PROTEGO_MAXIMA.getDustParticle(), point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(SpellType.PROTEGO_MAXIMA.getDustParticle()), point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             }
         }
 
-        level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0.02D, 0.02D, 0.02D, 0.0D);
-        level.sendParticles(ParticleTypes.GLOW, end.x, end.y, end.z, 4, 0.08D, 0.08D, 0.08D, 0.0D);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), end.x, end.y, end.z, 1, 0.02D, 0.02D, 0.02D, 0.0D);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), end.x, end.y, end.z, 4, 0.08D, 0.08D, 0.08D, 0.0D);
         spawnProtegoMaximaShellRadiance(level, center, end.subtract(center).normalize(), player.tickCount);
     }
 
@@ -2134,9 +2134,9 @@ public class ModEvents {
                 double angle = (Math.PI * 2.0D * i) / points + tickCount * 0.04D * (ring % 2 == 0 ? 1.0D : -1.0D);
                 Vec3 offset = tangentA.scale(Math.cos(angle) * ringRadius).add(tangentB.scale(Math.sin(angle) * ringRadius));
                 Vec3 point = ringCenter.add(offset);
-                level.sendParticles(ParticleTypes.GLOW, point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
                 if (i % 2 == 0) {
-                    level.sendParticles(ParticleTypes.ENCHANT, point.x, point.y, point.z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
+                    level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), point.x, point.y, point.z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
                 }
             }
         }
@@ -2155,12 +2155,12 @@ public class ModEvents {
             double y = centerY + radius * Math.cos(phi);
             double z = centerZ + radius * Math.sin(phi) * Math.sin(theta);
 
-            level.sendParticles(ParticleTypes.END_ROD, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             if (i % 3 == 0) {
-                level.sendParticles(ParticleTypes.ENCHANT, x, y, z, 1, 0.02D, 0.02D, 0.02D, 0.0D);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), x, y, z, 1, 0.02D, 0.02D, 0.02D, 0.0D);
             }
             if (i % 5 == 0) {
-                level.sendParticles(ParticleTypes.GLOW, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             }
         }
 
@@ -2170,7 +2170,7 @@ public class ModEvents {
                 double angle = ((Math.PI * 2.0D) / 18.0D) * i + (entity.tickCount * 0.08D * (ring == 0 ? 1.0D : -1.0D));
                 double x = centerX + Math.cos(angle) * PROTEGO_MAXIMA_BARRIER_RADIUS;
                 double z = centerZ + Math.sin(angle) * PROTEGO_MAXIMA_BARRIER_RADIUS;
-                level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ELECTRIC_SPARK), x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             }
         }
     }
@@ -2184,8 +2184,8 @@ public class ModEvents {
             if (applyProtegoMaximaImpact(level, player, impact, impact * 0.38f, beam.position())) {
                 return;
             }
-            level.sendParticles(ParticleTypes.FLASH, beam.getX(), beam.getY(), beam.getZ(), 1, 0.05D, 0.05D, 0.05D, 0.0D);
-            level.sendParticles(ParticleTypes.END_ROD, beam.getX(), beam.getY(), beam.getZ(), 10, 0.18D, 0.18D, 0.18D, 0.01D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), beam.getX(), beam.getY(), beam.getZ(), 1, 0.05D, 0.05D, 0.05D, 0.0D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), beam.getX(), beam.getY(), beam.getZ(), 10, 0.18D, 0.18D, 0.18D, 0.01D);
             beam.discard();
         }
 
@@ -2206,7 +2206,7 @@ public class ModEvents {
             Vec3 push = away.normalize().scale(0.9D);
             projectile.setDeltaMovement(push.x, Math.max(0.15D, push.y + 0.15D), push.z);
             projectile.hurtMarked = true;
-            level.sendParticles(ParticleTypes.CRIT, projectile.getX(), projectile.getY(), projectile.getZ(), 6, 0.12D, 0.12D, 0.12D, 0.01D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), projectile.getX(), projectile.getY(), projectile.getZ(), 6, 0.12D, 0.12D, 0.12D, 0.01D);
         }
     }
 
@@ -2233,12 +2233,12 @@ public class ModEvents {
         data.put("PlayerPersisted", persisted);
         SpellPackets.CHANNEL.send(new SpellPackets.SyncManaPacket(newMana, maxMana), PacketDistributor.PLAYER.with(player));
 
-        level.sendParticles(ParticleTypes.FLASH, impactPos.x, impactPos.y, impactPos.z, 1, 0.04D, 0.04D, 0.04D, 0.0D);
-        level.sendParticles(ParticleTypes.GLOW, impactPos.x, impactPos.y, impactPos.z, 10, 0.16D, 0.16D, 0.16D, 0.01D);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), impactPos.x, impactPos.y, impactPos.z, 1, 0.04D, 0.04D, 0.04D, 0.0D);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), impactPos.x, impactPos.y, impactPos.z, 10, 0.16D, 0.16D, 0.16D, 0.01D);
 
         if (bubbleHealth <= 0.0f || newMana <= 0.0f) {
-            level.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + player.getBbHeight() * 0.7D, player.getZ(), 35, 1.8D, 1.8D, 1.8D, 0.08D);
-            level.sendParticles(ParticleTypes.POOF, player.getX(), player.getY() + player.getBbHeight() * 0.7D, player.getZ(), 24, 1.2D, 1.2D, 1.2D, 0.03D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), player.getX(), player.getY() + player.getBbHeight() * 0.7D, player.getZ(), 35, 1.8D, 1.8D, 1.8D, 0.08D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.POOF), player.getX(), player.getY() + player.getBbHeight() * 0.7D, player.getZ(), 24, 1.2D, 1.2D, 1.2D, 0.03D);
             level.playSound(null, player.getX(), player.getY(), player.getZ(), net.minecraft.sounds.SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.0f, 0.7f);
             stopProtegoMaximaChannel(player, player.getMainHandItem());
             player.displayClientMessage(Component.literal("Protego Maxima broke").withStyle(net.minecraft.ChatFormatting.RED), true);
@@ -3602,10 +3602,10 @@ public class ModEvents {
 
 // Spawn ink and smoke particles on first tick
             if (wizard.level() instanceof ServerLevel server && wizard.tickCount < 5) {
-                server.sendParticles(ParticleTypes.SQUID_INK,
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK),
                         wizard.getX(), wizard.getY() + wizard.getBbHeight() / 2, wizard.getZ(),
                         80, 1, 1, 1, 0.2);
-                server.sendParticles(ParticleTypes.SMOKE,
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE),
                         wizard.getX(), wizard.getY() + wizard.getBbHeight() / 2, wizard.getZ(),
                         60, 1, 1, 1, 0.1);
             }
@@ -3734,7 +3734,7 @@ public class ModEvents {
                 double offsetZ = (entity.getRandom().nextDouble() - 0.5) * 0.8;
 
                 server.sendParticles(
-                    ParticleTypes.SQUID_INK,
+                    com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK),
                     baseX + offsetX,
                     baseY + offsetY,
                     baseZ + offsetZ,
@@ -3747,7 +3747,7 @@ public class ModEvents {
 
                 if (i % 3 == 0) {
                     server.sendParticles(
-                        ParticleTypes.LARGE_SMOKE,
+                        com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE),
                         baseX + offsetX,
                         baseY + offsetY,
                         baseZ + offsetZ,
@@ -3845,7 +3845,7 @@ public class ModEvents {
             double dy = radius * Math.sin(phi) * Math.sin(theta);
             double dz = radius * Math.cos(phi);
             
-            entity.level().addParticle(net.minecraft.core.particles.ParticleTypes.END_ROD, 
+            entity.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.END_ROD), 
                 x + dx, y + dy, z + dz, dx * 0.01, dy * 0.01, dz * 0.01);
         }
     }

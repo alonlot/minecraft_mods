@@ -163,7 +163,7 @@ public class DarkMarkEntity extends Entity {
             double x = this.getX() + Math.cos(angle) * radius;
             double y = this.getY() + (this.random.nextDouble() * 9.0D - 2.0D) * scale;
             double z = this.getZ() + Math.sin(angle) * radius;
-            this.level().addParticle(ParticleTypes.LARGE_SMOKE, x, y, z, 0.0D, 0.004D, 0.0D);
+            this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), x, y, z, 0.0D, 0.004D, 0.0D);
         }
     }
 
@@ -242,7 +242,7 @@ public class DarkMarkEntity extends Entity {
         double x = this.getX() + rx * u * SKULL_HALF_WIDTH * scale;
         double y = this.getY() + v * SKULL_HALF_HEIGHT * scale + SKULL_Y_OFFSET * scale;
         double z = this.getZ() + rz * u * SKULL_HALF_WIDTH * scale;
-        this.level().addParticle(particle, x, y, z, 0.0D, 0.0D, 0.0D);
+        this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(particle), x, y, z, 0.0D, 0.0D, 0.0D);
     }
 
     private void spawnSnake(double scale, double rx, double rz) {
@@ -306,7 +306,7 @@ public class DarkMarkEntity extends Entity {
                 if (monster != null) {
                     monster.setPos(spawnPos.getX(), spawnPos.getY(), spawnPos.getZ());
                     serverLevel.addFreshEntity(monster);
-                    serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, monster.getX(), monster.getY(), monster.getZ(), 20, 0.5, 1.0, 0.5, 0.05);
+                    serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), monster.getX(), monster.getY(), monster.getZ(), 20, 0.5, 1.0, 0.5, 0.05);
                 }
             }
         }

@@ -167,16 +167,16 @@ public class FiendfyreSerpentEntity extends Entity {
         Vec3 previous = null;
         int index = 0;
         for (Vec3 point : this.trailPoints) {
-            serverLevel.sendParticles(ParticleTypes.FLAME, point.x, point.y, point.z, 3, 0.18D, 0.18D, 0.18D, 0.01D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME), point.x, point.y, point.z, 3, 0.18D, 0.18D, 0.18D, 0.01D);
             if (index % 2 == 0) {
-                serverLevel.sendParticles(ParticleTypes.LAVA, point.x, point.y, point.z, 1, 0.08D, 0.08D, 0.08D, 0.0D);
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LAVA), point.x, point.y, point.z, 1, 0.08D, 0.08D, 0.08D, 0.0D);
             }
             if (previous != null) {
                 Vec3 segment = previous.subtract(point);
                 int steps = Math.max(2, (int) Math.ceil(segment.length() * 5.0D));
                 for (int i = 1; i < steps; i++) {
                     Vec3 mid = point.add(segment.scale(i / (double) steps));
-                    serverLevel.sendParticles(ParticleTypes.SMALL_FLAME, mid.x, mid.y, mid.z, 1, 0.03D, 0.03D, 0.03D, 0.0D);
+                    serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_FLAME), mid.x, mid.y, mid.z, 1, 0.03D, 0.03D, 0.03D, 0.0D);
                 }
             }
             previous = point;
@@ -184,7 +184,7 @@ public class FiendfyreSerpentEntity extends Entity {
         }
 
         if (ticks % 3 == 0) {
-            serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, this.getX(), this.getY(), this.getZ(), 2, 0.2D, 0.25D, 0.2D, 0.01D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), this.getX(), this.getY(), this.getZ(), 2, 0.2D, 0.25D, 0.2D, 0.01D);
         }
     }
 
@@ -198,9 +198,9 @@ public class FiendfyreSerpentEntity extends Entity {
             double x = this.getX() + Math.cos(angle) * radius;
             double y = this.getY() + 0.2D + (i % 3) * 0.18D;
             double z = this.getZ() + Math.sin(angle) * radius;
-            serverLevel.sendParticles(ParticleTypes.FLAME, x, y, z, 1, 0.04D, 0.04D, 0.04D, 0.01D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME), x, y, z, 1, 0.04D, 0.04D, 0.04D, 0.01D);
             if (i % 2 == 0) {
-                serverLevel.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, x, y, z, 1, 0.01D, 0.05D, 0.01D, 0.0D);
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CAMPFIRE_COSY_SMOKE), x, y, z, 1, 0.01D, 0.05D, 0.01D, 0.0D);
             }
         }
     }

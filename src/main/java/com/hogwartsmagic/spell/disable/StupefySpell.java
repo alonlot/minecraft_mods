@@ -79,8 +79,8 @@ public final class StupefySpell {
         int steps = Math.max(6, (int) (from.distanceTo(to) * 4));
         for (int i = 0; i <= steps; i++) {
             Vec3 p = from.lerp(to, i / (double) steps);
-            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.x, p.y, p.z, 1, 0.03, 0.03, 0.03, 0.0);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ELECTRIC_SPARK), p.x, p.y, p.z, 1, 0.03, 0.03, 0.03, 0.0);
         }
-        level.sendParticles(ParticleTypes.FLASH, to.x, to.y, to.z, 1, 0.0, 0.0, 0.0, 0.0);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), to.x, to.y, to.z, 1, 0.0, 0.0, 0.0, 0.0);
     }
 }

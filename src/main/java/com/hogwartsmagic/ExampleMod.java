@@ -894,6 +894,7 @@ public class ExampleMod
 
         // Register the Deferred Register to the mod event bus so blocks get registered
         BLOCKS.register(modEventBus);
+        com.hogwartsmagic.spell.vfx.ModParticles.PARTICLE_TYPES.register(modEventBus);
         // Register the Deferred Register to the mod event bus so items get registered
         ITEMS.register(modEventBus);
         DATA_COMPONENTS.register(modEventBus);

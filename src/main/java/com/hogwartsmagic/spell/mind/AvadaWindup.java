@@ -105,7 +105,7 @@ public final class AvadaWindup {
         player.displayClientMessage(Component.translatable("gui." + ExampleMod.MODID + ".avada.interrupted")
                 .withStyle(ChatFormatting.RED), true);
         if (player.level() instanceof ServerLevel level) {
-            level.sendParticles(ParticleTypes.LARGE_SMOKE, player.getX(), player.getY() + 1.3, player.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), player.getX(), player.getY() + 1.3, player.getZ(),
                     12, 0.25, 0.25, 0.25, 0.02);
         }
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
@@ -165,7 +165,7 @@ public final class AvadaWindup {
         double radius = 0.9 - charge * 0.6;
         for (int i = 0; i < 3; i++) {
             double angle = elapsed * 0.5 + i * (Math.PI * 2.0 / 3.0);
-            level.sendParticles(GREEN, player.getX() + Math.cos(angle) * radius, player.getY() + 1.2 + charge * 0.4,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(GREEN), player.getX() + Math.cos(angle) * radius, player.getY() + 1.2 + charge * 0.4,
                     player.getZ() + Math.sin(angle) * radius, 1, 0.0, 0.0, 0.0, 0.0);
         }
     }

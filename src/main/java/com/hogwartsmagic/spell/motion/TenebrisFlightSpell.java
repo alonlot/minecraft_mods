@@ -78,7 +78,7 @@ public final class TenebrisFlightSpell {
             rolls.putBoolean(key, passes);
             projectile.getPersistentData().put(TAG_ROLLS, rolls);
             if (passes && flyer.level() instanceof ServerLevel level) {
-                level.sendParticles(ParticleTypes.LARGE_SMOKE, projectile.getX(), projectile.getY(), projectile.getZ(),
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), projectile.getX(), projectile.getY(), projectile.getZ(),
                         8, 0.2D, 0.2D, 0.2D, 0.01D);
             }
         }
@@ -108,7 +108,7 @@ public final class TenebrisFlightSpell {
                 if (motion.horizontalDistanceSqr() > 1.0E-4D) {
                     victim.knockback(0.6D, -motion.x, -motion.z);
                 }
-                level.sendParticles(ParticleTypes.SQUID_INK, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D, victim.getZ(),
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D, victim.getZ(),
                         16, 0.3D, 0.4D, 0.3D, 0.05D);
             }
             rams.putLong(key, now);

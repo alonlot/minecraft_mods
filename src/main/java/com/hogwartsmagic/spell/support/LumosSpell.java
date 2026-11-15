@@ -73,8 +73,8 @@ public final class LumosSpell {
             target.hurt(DamageSupport.magicFrom(target, caster), DamageSupport.scaled(caster, LumosRules.SOLEM_DAMAGE));
             target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, LumosRules.SOLEM_BLIND_TICKS, 0));
             if (target.level() instanceof ServerLevel level) {
-                level.sendParticles(ParticleTypes.FLASH, target.getX(), target.getY() + 1.0, target.getZ(), 1, 0, 0, 0, 0);
-                level.sendParticles(ParticleTypes.END_ROD, target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.4, 0.6, 0.4, 0.05);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), target.getX(), target.getY() + 1.0, target.getZ(), 1, 0, 0, 0, 0);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.4, 0.6, 0.4, 0.05);
                 level.playSound(null, target.getX(), target.getY(), target.getZ(),
                         SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.8f);
             }
@@ -108,7 +108,7 @@ public final class LumosSpell {
             return false;
         }
         rememberOrb(player, level, pos);
-        level.sendParticles(ParticleTypes.END_ROD, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 14, 0.2, 0.2, 0.2, 0.03);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 14, 0.2, 0.2, 0.2, 0.03);
         level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 1.5f);
         return true;
     }

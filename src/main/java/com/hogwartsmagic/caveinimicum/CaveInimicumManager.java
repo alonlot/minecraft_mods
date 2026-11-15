@@ -309,8 +309,8 @@ public final class CaveInimicumManager {
                 continue;
             }
             changed = true;
-            level.sendParticles(ParticleTypes.GLOW, living.getX(), living.getY() + 1.0D, living.getZ(), 8, 0.3D, 0.45D, 0.3D, 0.02D);
-            level.sendParticles(ParticleTypes.END_ROD, living.getX(), living.getY() + 1.0D, living.getZ(), 5, 0.24D, 0.4D, 0.24D, 0.01D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), living.getX(), living.getY() + 1.0D, living.getZ(), 8, 0.3D, 0.45D, 0.3D, 0.02D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), living.getX(), living.getY() + 1.0D, living.getZ(), 5, 0.24D, 0.4D, 0.24D, 0.01D);
         }
         if (changed) {
             level.playSound(null, ward.getBlockPos(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 0.4f, 1.4f);
@@ -355,9 +355,9 @@ public final class CaveInimicumManager {
     }
 
     private void blockProjectileAtBarrier(Projectile projectile, Vec3 impactPos) {
-        level.sendParticles(ParticleTypes.FLASH, impactPos.x, impactPos.y, impactPos.z, 1, 0.08, 0.08, 0.08, 0.0);
-        level.sendParticles(ParticleTypes.END_ROD, impactPos.x, impactPos.y, impactPos.z, 16, 0.18, 0.18, 0.18, 0.01);
-        level.sendParticles(ParticleTypes.ENCHANT, impactPos.x, impactPos.y, impactPos.z, 14, 0.22, 0.22, 0.22, 0.02);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), impactPos.x, impactPos.y, impactPos.z, 1, 0.08, 0.08, 0.08, 0.0);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), impactPos.x, impactPos.y, impactPos.z, 16, 0.18, 0.18, 0.18, 0.01);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), impactPos.x, impactPos.y, impactPos.z, 14, 0.22, 0.22, 0.22, 0.02);
         level.playSound(null, impactPos.x, impactPos.y, impactPos.z, SoundEvents.SHIELD_BLOCK, SoundSource.BLOCKS, 0.9f, 1.3f);
         projectile.discard();
     }

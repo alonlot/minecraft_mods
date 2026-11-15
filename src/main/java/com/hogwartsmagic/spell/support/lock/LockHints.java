@@ -128,7 +128,7 @@ public final class LockHints {
         text.putBoolean("see_through", true);
         text.putInt("background", 0x90000000);
         spawn(level, text, labelAt, until);
-        level.sendParticles(ParticleTypes.GLOW, labelAt.x, labelAt.y - 0.3, labelAt.z, 10, 0.25, 0.25, 0.25, 0.01);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), labelAt.x, labelAt.y - 0.3, labelAt.z, 10, 0.25, 0.25, 0.25, 0.01);
     }
 
     private static void spawn(ServerLevel level, CompoundTag tag, Vec3 at, long until) {

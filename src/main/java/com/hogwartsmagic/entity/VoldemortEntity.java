@@ -268,8 +268,8 @@ public class VoldemortEntity extends WizardEntity {
         this.queuedSpellTicks = 0;
         this.setCasting(false);
         if (interrupted && this.level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.SMOKE, this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
-            serverLevel.sendParticles(ParticleTypes.CRIT, this.getX(), this.getY() + 1.3D, this.getZ(), 10, 0.25D, 0.35D, 0.25D, 0.05D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), this.getX(), this.getY() + 1.3D, this.getZ(), 10, 0.25D, 0.35D, 0.25D, 0.05D);
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.GLASS_BREAK, SoundSource.HOSTILE, 0.8f, 0.8f);
         }
     }
@@ -304,11 +304,11 @@ public class VoldemortEntity extends WizardEntity {
             double x = this.getX() + Math.cos(angle) * r;
             double y = this.getY() + 1.2D;
             double z = this.getZ() + Math.sin(angle) * r;
-            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME), x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
         }
         // Wispy ground smoke that drifts upward — gives a "robe trailing dark mist" look.
         if (this.tickCount % 2 == 0) {
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK),
                     this.getX() + (this.getRandom().nextDouble() - 0.5D) * 0.6D,
                     this.getY() + 0.15D,
                     this.getZ() + (this.getRandom().nextDouble() - 0.5D) * 0.6D,
@@ -316,7 +316,7 @@ public class VoldemortEntity extends WizardEntity {
         }
         // While AK is charging, a vertical column of warning sparks rises from the wand.
         if (charging && this.tickCount % 4 == 0) {
-            serverLevel.sendParticles(ParticleTypes.SOUL,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL),
                     this.getX(), this.getY() + 1.5D, this.getZ(),
                     2, 0.1D, 0.1D, 0.1D, 0.04D);
         }
@@ -367,25 +367,25 @@ public class VoldemortEntity extends WizardEntity {
                 double x = handX + Math.cos(angle) * radius;
                 double y = handY - 0.15D + i * heightStep;
                 double z = handZ + Math.sin(angle) * radius;
-                serverLevel.sendParticles(this.queuedSpell.getDustParticle(), x, y, z, 2, 0.03D, 0.03D, 0.03D, 0.0D);
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(this.queuedSpell.getDustParticle()), x, y, z, 2, 0.03D, 0.03D, 0.03D, 0.0D);
                 if (i % 2 == 0) {
-                    serverLevel.sendParticles(ParticleTypes.END_ROD, x, y, z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
+                    serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), x, y, z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
                 }
             }
-            serverLevel.sendParticles(ParticleTypes.WITCH, handX, handY, handZ, 2, 0.12D, 0.12D, 0.12D, 0.01D);
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK, handX, handY, handZ, 3, 0.12D, 0.12D, 0.12D, 0.02D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH), handX, handY, handZ, 2, 0.12D, 0.12D, 0.12D, 0.01D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), handX, handY, handZ, 3, 0.12D, 0.12D, 0.12D, 0.02D);
             if (this.queuedSpellTicks % 10 == 0) {
                 this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 0.7f, 0.45f + (60 - this.queuedSpellTicks) * 0.008f);
             }
         } else {
-            serverLevel.sendParticles(this.queuedSpell.getDustParticle(), handX, handY, handZ, 6, 0.14D, 0.14D, 0.14D, 0.01D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(this.queuedSpell.getDustParticle()), handX, handY, handZ, 6, 0.14D, 0.14D, 0.14D, 0.01D);
             Vec3 targetPos = target.getEyePosition();
             Vec3 source = new Vec3(handX, handY, handZ);
             Vec3 delta = targetPos.subtract(source);
             for (int i = 0; i < 6; i++) {
                 double progress = i / 6.0D;
                 Vec3 point = source.add(delta.scale(progress));
-                serverLevel.sendParticles(this.queuedSpell.getTrailParticle(),
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(this.queuedSpell.getTrailParticle()),
                         point.x, point.y, point.z, 1, 0.04D, 0.04D, 0.04D, 0.0D);
             }
         }

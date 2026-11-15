@@ -46,7 +46,7 @@ public final class PetrificusSpell {
         DisableSupport.addHiddenMarker(target, ExampleMod.PETRIFIED, ticks, rank - 1, caster);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.STONE_PLACE, SoundSource.NEUTRAL, 1.0f, 0.6f);
         // The stone tint itself is client-side (it follows the petrified marker); this is the "turning to stone" burst.
-        level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState())),
                 target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(), 16,
                 target.getBbWidth() * 0.4, target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.05);
     }
@@ -77,7 +77,7 @@ public final class PetrificusSpell {
         if (ownsStun) {
             target.removeEffect(stunned);
         }
-        level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState())),
                 target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(), 24,
                 target.getBbWidth() * 0.4, target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.1);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.STONE_BREAK, SoundSource.NEUTRAL, 1.0f, 0.8f);

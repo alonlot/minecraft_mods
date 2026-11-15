@@ -230,7 +230,7 @@ public final class AlohomoraSpell {
         }
         ward.suppressBarrier(level, AlohomoraRules.WARD_SUPPRESS_TICKS);
         BlockPos pos = ward.getBlockPos();
-        level.sendParticles(ParticleTypes.HAPPY_VILLAGER, pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, 16, 0.5, 0.6, 0.5, 0.02);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HAPPY_VILLAGER), pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, 16, 0.5, 0.6, 0.5, 0.02);
         level.playSound(null, pos, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.9f, 1.6f);
         player.displayClientMessage(Component.translatable("message.hogwartsmagic.alohomora.ward")
                 .withStyle(ChatFormatting.AQUA), true);

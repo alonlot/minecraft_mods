@@ -258,6 +258,7 @@ public final class CastGestures {
             state[1] = player.swingTime;
         }
         CASTS.entrySet().removeIf(e -> minecraft.level.getEntity(e.getKey()) == null);
+        WandSwipeLayer.prune(id -> minecraft.level.getEntity(id) != null);
         SWING_STATE.keySet().removeIf(id -> minecraft.level.getEntity(id) == null);
 
         holdWeightO = holdWeight;

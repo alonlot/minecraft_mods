@@ -140,6 +140,25 @@ public class SpellBeamEntity extends ThrowableProjectile {
         return this.reflected;
     }
 
+    /**
+     * Client only: where this client saw the beam hit, and on which tick. The server's discard packet arrives a
+     * little later; until then the renderer hides the orb (so it does not fly on through the wall) and the
+     * impact burst is placed here instead of wherever the beam drifted to.
+     */
+    @javax.annotation.Nullable
+    private Vec3 clientImpact;
+    private int clientImpactTick;
+
+    @javax.annotation.Nullable
+    public Vec3 getClientImpact() {
+        return this.clientImpact;
+    }
+
+    /** True for a few ticks after a client-side hit; a hit the server did not confirm shows the orb again. */
+    public boolean hasFreshClientImpact() {
+        return this.clientImpact != null && this.tickCount - this.clientImpactTick <= 3;
+    }
+
     public void setHomingTarget(Entity target) {
         this.homingTargetUuid = target != null ? target.getUUID() : null;
     }
@@ -272,21 +291,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
             Vec3 right = dir.cross(upReference).normalize();
             Vec3 up = right.cross(dir).normalize();
 
-            // Core shimmering trail along recent beam path.
-            for (int i = 0; i < 3; i++) {
-                double back = i * 0.28;
-                Vec3 segment = pos.subtract(dir.scale(back));
-                this.level().addParticle(spell.getDustParticle(),
-                        segment.x + (random.nextDouble() - 0.5) * 0.05 * chargeScale,
-                        segment.y + 0.2 + (random.nextDouble() - 0.5) * 0.05 * chargeScale,
-                        segment.z + (random.nextDouble() - 0.5) * 0.05 * chargeScale,
-                        -vel.x * 0.03, -vel.y * 0.03, -vel.z * 0.03);
-            }
-
-            // Orbiting spark ring gives a more "wand magic" look.
+            // The glowing sparkle trail itself is drawn by the client (client/SpellFx); these are the
+            // per-spell accents on top of it.
+            // Orbiting spark ring gives a more "wand magic" look. Not in the first two ticks (the caster's face),
+            // and never with the big explosion puff (Bombarda's trail particle), which buries the glowing orb.
             double phase = this.tickCount * 0.7;
             double radius = (0.18 + 0.06 * Math.sin(this.tickCount * 0.35)) * (0.85 + (chargeScale * 0.25));
-            for (int i = 0; i < 2; i++) {
+            boolean ring = this.tickCount >= 2 && spell.getTrailParticle() != ParticleTypes.EXPLOSION;
+            for (int i = 0; ring && i < 2; i++) {
                 double angle = phase + (i * Math.PI);
                 Vec3 offset = right.scale(Math.cos(angle) * radius).add(up.scale(Math.sin(angle) * radius));
                 this.level().addParticle(spell.getTrailParticle(),
@@ -557,6 +569,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
 
     @Override
     protected void onHit(HitResult result) {
+        if (this.level().isClientSide && result.getType() != HitResult.Type.MISS) {
+            this.clientImpact = result.getLocation();
+            this.clientImpactTick = this.tickCount;
+        }
         if (this.puppeteer == null || this.level().isClientSide) {
             onHitInner(result);
             return;

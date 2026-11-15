@@ -4,23 +4,25 @@ import com.hogwartsmagic.entity.SpellBeamEntity;
 import com.hogwartsmagic.spell.SpellType;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 /**
- * Renders spell beams as layered jagged bolts so they feel magical instead of hitscan lasers.
+ * Draws a spell in flight as a ball of light: a soft coloured halo, a brighter inner glow and a white-hot
+ * core, with a short comet tail behind it along its path. The violent curses also crackle with small
+ * lightning arcs. The sparkle trail and the impact burst are particles (see {@link SpellFx}).
  */
 public class SpellBeamRenderer extends EntityRenderer<SpellBeamEntity> {
 
-    private static final float BASE_BEAM_LENGTH = 2.8f;
-    private static final float BASE_CORE_THICKNESS = 0.05f;
-    private static final float BASE_GLOW_THICKNESS = 0.11f;
+    /** Height of the orb above the entity position: the middle of its 0.25 block hitbox. */
+    public static final float ORB_HEIGHT = 0.125F;
+    private static final float TAIL_LENGTH = 2.4F;
 
     public SpellBeamRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -30,119 +32,92 @@ public class SpellBeamRenderer extends EntityRenderer<SpellBeamEntity> {
     public void render(SpellBeamEntity entity, float entityYaw, float partialTick,
                        PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
         SpellType spell = entity.getSpellType();
-        if (spell == SpellType.AQUA_ERUCTO) {
+        if (SpellFx.NO_ORB.contains(spell) || entity.hasFreshClientImpact()) {
             return;
         }
-        float r = spell.getR();
-        float g = spell.getG();
-        float b = spell.getB();
         float age = entity.tickCount + partialTick;
-        float pulse = 0.85f + (float) Math.sin(age * 0.65f) * 0.15f;
-        float coreAlpha = 0.9f * pulse;
-        float glowAlpha = 0.35f * pulse;
+        Vec3 camera = this.entityRenderDispatcher.camera.getPosition();
+        Vec3 orb = entity.getPosition(partialTick).add(0.0, ORB_HEIGHT, 0.0);
+        // Fade in over the first blocks so a beam leaving the caster's own eyes never fills the screen.
+        float near = Mth.clamp((float) ((orb.distanceTo(camera) - 1.2) / 3.0), 0.0F, 1.0F);
+        if (near <= 0.0F) {
+            return;
+        }
+        float[] color = SpellFx.lightColor(spell);
+        float[] hot = SpellFx.whiten(color, 0.45F);
+        float size = Mth.clamp(0.8F + entity.getCharge() * 0.15F, 0.85F, 1.1F);
+        float pulse = 1.0F + 0.08F * Mth.sin(age * 1.3F);
+
         poseStack.pushPose();
-        
-        // Center the beam vertically based on the entity's apparent offset.
-        poseStack.translate(0, 0.25, 0);
+        poseStack.translate(0.0F, ORB_HEIGHT, 0.0F);
 
-        // Calculate velocity direction for beam orientation
-        net.minecraft.world.phys.Vec3 vel = entity.getDeltaMovement();
-        if (vel.lengthSqr() < 0.001) {
-            vel = new net.minecraft.world.phys.Vec3(0, 0, 1); // fallback
-        }
-        vel = vel.normalize();
+        drawTail(entity, poseStack, buffer, orb, camera, age, color, hot, near);
 
-        // Calculate yaw and pitch based on velocity vector so the beam points exactly in the direction of travel
-        float yaw = (float) (Math.atan2(vel.x, vel.z) * (180F / Math.PI));
-        float pitch = (float) (Math.atan2(vel.y, Math.sqrt(vel.x * vel.x + vel.z * vel.z)) * (180F / Math.PI));
-
-        poseStack.mulPose(Axis.YP.rotationDegrees(yaw - 90.0F));
-        poseStack.mulPose(Axis.ZP.rotationDegrees(pitch));
-        poseStack.mulPose(Axis.XP.rotationDegrees(age * 7.0f));
-
-        float beamLength = BASE_BEAM_LENGTH;
-        float coreThickness = BASE_CORE_THICKNESS;
-        float glowThickness = BASE_GLOW_THICKNESS;
-
+        poseStack.mulPose(this.entityRenderDispatcher.cameraOrientation());
         Matrix4f matrix = poseStack.last().pose();
-        VertexConsumer consumer = buffer.getBuffer(RenderType.lightning());
-        int light = LightTexture.FULL_BRIGHT;
+        VertexConsumer glow = buffer.getBuffer(ModRenderTypes.SPELL_GLOW);
+        SpellFx.glowQuad(glow, matrix, 0, 0, 0, 0.9F * size * pulse, color[0], color[1], color[2], 0.6F * near);
+        SpellFx.glowQuad(glow, matrix, 0, 0, 0, 0.36F * size * pulse, hot[0], hot[1], hot[2], 0.85F * near);
+        SpellFx.glowQuad(glow, matrix, 0, 0, 0, 0.15F * size, 1.0F, 1.0F, 1.0F, near);
 
-        switch (spell) {
-            case AVADA_KEDAVRA, CRUCIO, DOLOHOV_CURSE, MORSMORDRE -> {
-                // Jagged lightning-like curse beam.
-                drawLightningBeam(consumer, matrix, beamLength * 1.05f, glowThickness, age, spell.ordinal(), 1.9f, r, g, b, glowAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength, coreThickness, age, spell.ordinal() + 17, 1.5f, r, g, b, coreAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength * 0.9f, coreThickness * 0.45f, age, spell.ordinal() + 31, 1.15f, 1.0f, 1.0f, 1.0f, 0.3f * pulse, light);
-            }
-            case BOMBARDA, CONFRINGO, FIENDFYRE -> {
-                // Heavier, unstable blast profile.
-                drawLightningBeam(consumer, matrix, beamLength * 0.98f, glowThickness * 1.35f, age, spell.ordinal(), 1.7f, r, g, b, glowAlpha * 1.1f, light);
-                drawLightningBeam(consumer, matrix, beamLength * 0.92f, coreThickness * 1.25f, age, spell.ordinal() + 13, 1.35f, r, g, b, coreAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength * 0.82f, coreThickness * 0.75f, age, spell.ordinal() + 29, 1.0f, 1.0f, 0.95f, 0.9f, 0.28f * pulse, light);
-            }
-            case EXPECTO_PATRONUM, LUMOS, HEAL, REVELIO -> {
-                // Brighter spells still arc, but with softer bends.
-                drawLightningBeam(consumer, matrix, beamLength * 1.1f, glowThickness * 0.95f, age, spell.ordinal(), 1.15f, r, g, b, glowAlpha * 1.2f, light);
-                drawLightningBeam(consumer, matrix, beamLength * 1.05f, coreThickness * 0.9f, age, spell.ordinal() + 11, 0.9f, r, g, b, coreAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength, coreThickness * 0.5f, age, spell.ordinal() + 23, 0.65f, 1.0f, 1.0f, 1.0f, 0.42f * pulse, light);
-            }
-            default -> {
-                // Default magical bolt profile.
-                drawLightningBeam(consumer, matrix, beamLength, glowThickness, age, spell.ordinal(), 1.3f, r, g, b, glowAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength, coreThickness, age, spell.ordinal() + 7, 1.05f, r, g, b, coreAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength * 0.92f, coreThickness * 0.55f, age, spell.ordinal() + 19, 0.75f, 1.0f, 1.0f, 1.0f, 0.35f * pulse, light);
+        if (SpellFx.CRACKLING.contains(spell)) {
+            VertexConsumer bolts = buffer.getBuffer(RenderType.lightning());
+            long seed = entity.getId() * 31L + entity.tickCount;
+            for (int i = 0; i < 3; i++) {
+                SpellFx.crackle(bolts, matrix, seed * 7L + i, 0.55F * size, 0.012F,
+                        hot[0], hot[1], hot[2], 0.8F * near);
             }
         }
-
         poseStack.popPose();
     }
 
-    private static void drawLightningBeam(VertexConsumer consumer, Matrix4f matrix, float length, float thickness,
-                                          float age, int seed, float jaggedness, float r, float g, float b, float a, int light) {
-        int segments = 8;
-        float segmentLength = length / segments;
-        float startX = 0.0f;
-        float startY = 0.0f;
-        float startZ = 0.0f;
-
-        for (int i = 1; i <= segments; i++) {
-            float endX = -segmentLength * i;
-            float endY;
-            float endZ;
-
-            if (i == segments) {
-                endY = 0.0f;
-                endZ = 0.0f;
-            } else {
-                float j = i + (seed * 0.13f);
-                endY = (float) Math.sin(age * 1.9f + j * 1.7f) * thickness * 1.8f * jaggedness;
-                endZ = (float) Math.cos(age * 1.6f + j * 1.3f) * thickness * 1.8f * jaggedness;
-            }
-
-            drawSegmentCross(consumer, matrix, startX, startY, startZ, endX, endY, endZ, thickness, r, g, b, a, light);
-            startX = endX;
-            startY = endY;
-            startZ = endZ;
+    /**
+     * A tapered ribbon from the orb back along the flight path, turned to face the camera. It never reaches
+     * further back than the beam has flown, so it does not poke out of the caster's wand.
+     */
+    private void drawTail(SpellBeamEntity entity, PoseStack poseStack, MultiBufferSource buffer, Vec3 orb, Vec3 camera,
+                          float age, float[] color, float[] hot, float near) {
+        Vec3 vel = entity.getDeltaMovement();
+        double speed = vel.length();
+        if (speed < 1.0E-3) {
+            return;
         }
+        float length = (float) Math.min(TAIL_LENGTH, age * speed);
+        if (length < 0.05F) {
+            return;
+        }
+        Vec3 dir = vel.scale(1.0 / speed);
+        Vec3 toCamera = camera.subtract(orb);
+        Vec3 side = dir.cross(toCamera);
+        if (side.lengthSqr() < 1.0E-6) {
+            return; // looking straight down the path: the orb covers the tail anyway
+        }
+        side = side.normalize();
+        Matrix4f matrix = poseStack.last().pose();
+        VertexConsumer glow = buffer.getBuffer(ModRenderTypes.SPELL_GLOW);
+        ribbon(glow, matrix, dir, side, length, 0.2F, color, 0.55F * near);
+        ribbon(glow, matrix, dir, side, length * 0.75F, 0.07F, hot, 0.8F * near);
     }
 
-    private static void drawSegmentCross(VertexConsumer consumer, Matrix4f matrix,
-                                         float sx, float sy, float sz, float ex, float ey, float ez,
-                                         float thickness, float r, float g, float b, float a, int light) {
-        consumer.addVertex(matrix, sx, sy - thickness, sz).setColor(r, g, b, a).setLight(light);
-        consumer.addVertex(matrix, ex, ey - thickness, ez).setColor(r, g, b, a).setLight(light);
-        consumer.addVertex(matrix, ex, ey + thickness, ez).setColor(r, g, b, a).setLight(light);
-        consumer.addVertex(matrix, sx, sy + thickness, sz).setColor(r, g, b, a).setLight(light);
-
-        consumer.addVertex(matrix, sx, sy, sz - thickness).setColor(r, g, b, a).setLight(light);
-        consumer.addVertex(matrix, ex, ey, ez - thickness).setColor(r, g, b, a).setLight(light);
-        consumer.addVertex(matrix, ex, ey, ez + thickness).setColor(r, g, b, a).setLight(light);
-        consumer.addVertex(matrix, sx, sy, sz + thickness).setColor(r, g, b, a).setLight(light);
+    /** One ribbon layer: full width at the orb, narrowing to a point and fading out at the end of the tail. */
+    private static void ribbon(VertexConsumer consumer, Matrix4f matrix, Vec3 dir, Vec3 side, float length,
+                               float width, float[] c, float alpha) {
+        float hx = (float) side.x * width;
+        float hy = (float) side.y * width;
+        float hz = (float) side.z * width;
+        float ex = (float) -dir.x * length;
+        float ey = (float) -dir.y * length;
+        float ez = (float) -dir.z * length;
+        float tip = 0.15F;
+        // Across the ribbon u runs over the middle row of the glow sprite: bright centre, soft edges.
+        SpellFx.vertex(consumer, matrix, hx, hy, hz, 0.0F, 0.5F, c[0], c[1], c[2], alpha);
+        SpellFx.vertex(consumer, matrix, -hx, -hy, -hz, 1.0F, 0.5F, c[0], c[1], c[2], alpha);
+        SpellFx.vertex(consumer, matrix, ex - hx * tip, ey - hy * tip, ez - hz * tip, 1.0F, 0.5F, c[0], c[1], c[2], 0.0F);
+        SpellFx.vertex(consumer, matrix, ex + hx * tip, ey + hy * tip, ez + hz * tip, 0.0F, 0.5F, c[0], c[1], c[2], 0.0F);
     }
 
     @Override
     public ResourceLocation getTextureLocation(SpellBeamEntity entity) {
-        return null;
+        return ModRenderTypes.SPELL_GLOW_TEXTURE;
     }
 }

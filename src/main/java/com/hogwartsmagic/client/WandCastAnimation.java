@@ -292,12 +292,13 @@ public final class WandCastAnimation {
         if (!event.getLevel().isClientSide() || !(event.getEntity() instanceof SpellBeamEntity beam)) {
             return;
         }
-        if (SpellFx.NO_ORB.contains(beam.getSpellType())) {
-            return;
-        }
         Entity owner = beam.getOwner();
         if (!(owner instanceof LivingEntity caster) || beam.distanceToSqr(caster.getEyePosition()) > 9.0) {
             return; // a beam far from its caster is one coming into tracking range, not a fresh cast
+        }
+        CastGestures.onCasterBeam(caster, beam.getSpellType()); // NPCs: the beam names the gesture
+        if (SpellFx.NO_ORB.contains(beam.getSpellType())) {
+            return;
         }
         Minecraft minecraft = Minecraft.getInstance();
         if (caster == minecraft.player && minecraft.options.getCameraType().isFirstPerson()) {

@@ -6,14 +6,15 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.PlayerModel;
-import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.model.ArmedModel;
+import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -26,14 +27,14 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * The wand swipe streak as seen from outside: while a player's cast gesture cuts through its stroke, the tip
+ * The wand swipe streak as seen from outside: while a caster's (player's or NPC's) gesture cuts through its stroke, the tip
  * of the wand in their hand leaves a thin fading streak of the spell's light in the world. This is what other
  * players (and you, in third person) see; the first-person streak is drawn by WandCastAnimation. Visual only.
  *
  * The tip is found the way the held item is placed (ItemInHandLayer, then the wand's own display transform),
  * kept as world points for a short time, and drawn as a camera-facing band through them.
  */
-public class WandSwipeLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
+public class WandSwipeLayer<T extends LivingEntity, M extends EntityModel<T> & ArmedModel> extends RenderLayer<T, M> {
 
     /** Wand tip in the centred item model space, the same point the first-person streak uses. */
     private static final Vector3f TIP = new Vector3f(0.40F, 0.38F, 0.0F);
@@ -47,12 +48,12 @@ public class WandSwipeLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
     /** Recent tip points of each player, oldest first. */
     private static final Map<Integer, ArrayDeque<Point>> TRAILS = new HashMap<>();
 
-    public WandSwipeLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
+    public WandSwipeLayer(RenderLayerParent<T, M> parent) {
         super(parent);
     }
 
     @Override
-    public void render(PoseStack pose, MultiBufferSource buffer, int packedLight, AbstractClientPlayer player,
+    public void render(PoseStack pose, MultiBufferSource buffer, int packedLight, T player,
                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
                        float netHeadYaw, float headPitch) {
         ItemStack stack = player.getMainHandItem();
@@ -93,7 +94,7 @@ public class WandSwipeLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 
     /** The wand tip of this player in the world, from the pose the layer is rendered with (camera-relative). */
     @javax.annotation.Nullable
-    private Vec3 tipInWorld(Minecraft minecraft, PoseStack pose, AbstractClientPlayer player, ItemStack stack, Vec3 camera) {
+    private Vec3 tipInWorld(Minecraft minecraft, PoseStack pose, T player, ItemStack stack, Vec3 camera) {
         HumanoidArm arm = player.getMainArm();
         boolean left = arm == HumanoidArm.LEFT;
         pose.pushPose();

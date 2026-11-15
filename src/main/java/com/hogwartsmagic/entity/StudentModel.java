@@ -145,6 +145,11 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 				}
 			}
 		}
+		// The spell's own wand gesture on release, the same one players cast with. This model class is
+		// client-only (it is only built by StudentRenderer), so it may reach the client gesture code.
+		if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+			com.hogwartsmagic.client.CastGestures.applyToArmGroup(living, ageInTicks, this.arms, this.body);
+		}
 	}
 
 	/** Both arms swing up as a unit (single arm group), with sine tremor while channeling. */

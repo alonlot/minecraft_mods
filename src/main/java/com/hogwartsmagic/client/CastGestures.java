@@ -24,8 +24,8 @@ import java.util.Set;
 
 /**
  * The wand gesture each spell is cast with. A gesture is a few key poses of the wand arm over a short time;
- * the same curve drives the first-person arm (WandCastAnimation) and the player model seen by everyone else
- * (third person, through the HumanoidModel mixin). Every player's swing with a wand in the main hand starts
+ * the same curve drives the first-person arm (WandCastAnimation), the player model seen by everyone else
+ * (third person, through the HumanoidModel mixin) and the wizard, Voldemort and student models. Every player's swing with a wand in the main hand starts
  * the gesture of the spell selected on that wand; every cast path swings the main hand, and the swing is
  * synced to other clients, so remote players animate too. Visual only.
  *
@@ -192,7 +192,7 @@ public final class CastGestures {
     }
 
     /** The variant a player's next cast plays: mostly the other side from the last, never quite the same. */
-    private static Variant nextVariant(Player player, Cast previous) {
+    private static Variant nextVariant(LivingEntity player, Cast previous) {
         java.util.Random random = new java.util.Random(player.getId() * 341873128712L + player.tickCount * 132897987541L);
         boolean lastMirror = previous != null && previous.variant().mirror();
         boolean mirror = random.nextFloat() < 0.75F ? !lastMirror : lastMirror;
@@ -245,17 +245,26 @@ public final class CastGestures {
             SWING_STATE.clear();
             return;
         }
-        for (Player player : minecraft.level.players()) {
-            int[] state = SWING_STATE.computeIfAbsent(player.getId(), id -> new int[2]);
-            boolean swinging = player.swinging;
-            if (swinging && (state[0] == 0 || player.swingTime < state[1])
-                    && MagicWandItem.isAnyWand(player.getMainHandItem())) {
-                SpellType spell = MagicWandItem.getSelectedSpell(player.getMainHandItem());
-                CASTS.put(player.getId(), new Cast(player.tickCount, spell, forSpell(spell),
-                        nextVariant(player, CASTS.get(player.getId()))));
+        // Players and wand-carrying NPCs (wizards, students, Voldemort) alike: a new wand swing is a cast.
+        for (net.minecraft.world.entity.Entity e : minecraft.level.entitiesForRendering()) {
+            if (!(e instanceof LivingEntity caster) || !MagicWandItem.isAnyWand(caster.getMainHandItem())) {
+                continue;
+            }
+            int[] state = SWING_STATE.computeIfAbsent(caster.getId(), id -> new int[2]);
+            boolean swinging = caster.swinging;
+            if (swinging && (state[0] == 0 || caster.swingTime < state[1])) {
+                Cast previous = CASTS.get(caster.getId());
+                // An NPC's beam (seen this same tick) has already started its cast with the right spell.
+                boolean justStarted = !(caster instanceof Player) && previous != null
+                        && caster.tickCount - previous.start() <= 3;
+                if (!justStarted) {
+                    SpellType spell = MagicWandItem.getSelectedSpell(caster.getMainHandItem());
+                    CASTS.put(caster.getId(), new Cast(caster.tickCount, spell, forSpell(spell),
+                            nextVariant(caster, previous)));
+                }
             }
             state[0] = swinging ? 1 : 0;
-            state[1] = player.swingTime;
+            state[1] = caster.swingTime;
         }
         CASTS.entrySet().removeIf(e -> minecraft.level.getEntity(e.getKey()) == null);
         WandSwipeLayer.prune(id -> minecraft.level.getEntity(id) != null);
@@ -268,6 +277,23 @@ public final class CastGestures {
             holding = CHANNELLED.contains(MagicWandItem.getSelectedSpell(local.getMainHandItem()));
         }
         holdWeight = Mth.clamp(holdWeight + (holding ? 0.25F : -0.2F), 0.0F, 1.0F);
+    }
+
+    /**
+     * A beam from a non-player caster names the spell its wand has no selection for. A cast that started in the
+     * last few ticks (its swing) takes the spell's gesture; with no such cast (Voldemort casts without a swing)
+     * the beam starts one. Players are left to their swing and their wand's selected spell.
+     */
+    public static void onCasterBeam(LivingEntity caster, SpellType spell) {
+        if (caster instanceof Player || spell == null || !MagicWandItem.isAnyWand(caster.getMainHandItem())) {
+            return;
+        }
+        Cast previous = CASTS.get(caster.getId());
+        if (previous != null && caster.tickCount - previous.start() <= 3) {
+            CASTS.put(caster.getId(), new Cast(previous.start(), spell, forSpell(spell), previous.variant()));
+        } else {
+            CASTS.put(caster.getId(), new Cast(caster.tickCount, spell, forSpell(spell), nextVariant(caster, previous)));
+        }
     }
 
     @SubscribeEvent
@@ -384,6 +410,62 @@ public final class CastGestures {
             other.yRot += twist;
         }
         arm.z += p[3] * 6.0F * weight; // reach: forward is -Z in model space
+    }
+
+    /** The gesture pose {pitch, yaw, roll, reach} of an NPC caster and its blend weight, or null when idle. */
+    @javax.annotation.Nullable
+    private static float[] npcPose(LivingEntity entity, float ageInTicks) {
+        if (!MagicWandItem.isAnyWand(entity.getMainHandItem())) {
+            return null;
+        }
+        Cast cast = CASTS.get(entity.getId());
+        float t = cast == null ? -1.0F : cast.progress(ageInTicks);
+        if (t < 0.0F) {
+            return null;
+        }
+        float weight = smooth(t / 0.12F) * smooth((1.0F - t) / 0.3F);
+        if (weight <= 0.001F) {
+            return null;
+        }
+        float[] p = pose(cast, t);
+        return new float[]{p[0], p[1], p[2], p[3], weight};
+    }
+
+    /**
+     * The gesture on an NPC model with a free wand arm (WizardModel: wizards and Voldemort). Called at the end
+     * of the model's setupAnim, so it blends over the model's own wind-up and recoil. Rotations only: these
+     * models do not reset part positions each frame, so moving them would drift.
+     */
+    public static void applyToArm(LivingEntity entity, float ageInTicks, ModelPart rightArm, ModelPart leftArm,
+                                  ModelPart body, float headX, float headY) {
+        float[] g = npcPose(entity, ageInTicks);
+        if (g == null) {
+            return;
+        }
+        float weight = g[4];
+        boolean right = entity.getMainArm() == HumanoidArm.RIGHT;
+        float side = right ? 1.0F : -1.0F;
+        ModelPart arm = right ? rightArm : leftArm;
+        arm.xRot = Mth.lerp(weight, arm.xRot, headX - Mth.HALF_PI + g[0] * Mth.DEG_TO_RAD);
+        arm.yRot = Mth.lerp(weight, arm.yRot, headY - 0.1F * side + side * g[1] * 0.9F * Mth.DEG_TO_RAD);
+        arm.zRot = Mth.lerp(weight, arm.zRot, side * g[2] * 0.5F * Mth.DEG_TO_RAD);
+        body.yRot += side * g[1] * 0.2F * Mth.DEG_TO_RAD * weight;
+    }
+
+    /**
+     * The gesture on a model that holds its wand with both arms as one group (StudentModel, villager style):
+     * the whole group is lifted to point, swung across and twisted.
+     */
+    public static void applyToArmGroup(LivingEntity entity, float ageInTicks, ModelPart arms, ModelPart body) {
+        float[] g = npcPose(entity, ageInTicks);
+        if (g == null) {
+            return;
+        }
+        float weight = g[4];
+        arms.xRot = Mth.lerp(weight, arms.xRot, -1.65F + g[0] * Mth.DEG_TO_RAD);
+        arms.yRot = Mth.lerp(weight, arms.yRot, g[1] * 0.6F * Mth.DEG_TO_RAD);
+        arms.zRot = Mth.lerp(weight, arms.zRot, g[2] * 0.4F * Mth.DEG_TO_RAD);
+        body.yRot += g[1] * 0.2F * Mth.DEG_TO_RAD * weight;
     }
 
     private CastGestures() {

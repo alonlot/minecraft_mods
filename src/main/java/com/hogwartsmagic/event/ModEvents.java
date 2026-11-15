@@ -3868,6 +3868,10 @@ public class ModEvents {
         if (MagicWandItem.isAnyWand(stack)) {
             SpellType selected = MagicWandItem.getSelectedSpell(stack);
             if (selected != null && isLeftClickSelfCast(selected)) {
+                if (com.hogwartsmagic.event.ClientModEvents.isVoiceOnly()) {
+                    voiceOnlyNotice(event.getEntity()); // sneak and say the spell to cast it on yourself
+                    return;
+                }
                 SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(true, false, false, false), PacketDistributor.SERVER.noArg());
             }
             event.getEntity().swing(InteractionHand.MAIN_HAND);
@@ -3895,6 +3899,14 @@ public class ModEvents {
             } else {
                 if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
                     com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+                    return true;
+                }
+                if (com.hogwartsmagic.event.ClientModEvents.isVoiceOnly()) {
+                    // voiceOnlySpells: right-click only takes over a hold a spoken spell started (the client tick
+                    // reads the key for that); on its own it casts nothing.
+                    if (!com.hogwartsmagic.event.ClientModEvents.anyHoldPending()) {
+                        voiceOnlyNotice(player);
+                    }
                     return true;
                 }
                 SpellType selected = MagicWandItem.getSelectedSpell(heldItem);
@@ -3991,6 +4003,12 @@ public class ModEvents {
         if (player.level().isClientSide) {
             com.hogwartsmagic.util.ClientSideBridge.openSpellMenu(player);
         }
+    }
+
+    /** Client side, voiceOnlySpells: why a click cast nothing. */
+    public static void voiceOnlyNotice(Player player) {
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable("gui.hogwartsmagic.voice_only")
+                .withStyle(net.minecraft.ChatFormatting.AQUA), true);
     }
 
     /** Client side: right-click is up, so the next press may cast Alohomora or Revelio again. */

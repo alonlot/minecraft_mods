@@ -122,6 +122,20 @@ Ruling: no action-bar hint for the window - the cooldown line redraws the action
 Ruling: the radial menu keeps its old behaviour (only lock picks get a grace there) - the user asked for voice casts - none.
 Not verified in game: the hold window needs a world and a held key; it is compile and unit tested only (all 362 tests pass).
 
+## voiceOnlySpells gamerule (2026-11-15)
+
+User request: "add a gamerule that forces only voice activated spells".
+
+- `/gamerule voiceOnlySpells true` (default false, category PLAYER). The server then casts a player's spell only after the client sent a `VoiceCastStampPacket` for it (`spell/voice/VoiceOnlyRule`, rules in the pure, unit-tested `VoiceStamp`).
+- One cast per spoken spell. Heartbeats for the spoken spell pass and keep the stamp fresh, so voice-started holds and the 1.5 s right-click take-over work and never time out. A stamp unused for 60 ticks is spent; a release always passes and ends it. The Imperio Master hold start needs a fresh spoken Imperio.
+- The check sits in `CastSpellPacket.handle`, so the server's own re-entry (Avada wind-up) and puppet casts (possession) are not affected.
+- The value is synced to clients (`VoiceOnlyRulePacket`, on login and change; protocol version 7). Clients then refuse clicks, left-click self-casts, the radial wheel and slot keys with "Only spoken spells work here" (the wheel and slot keys still select).
+- New for every voice user: sneak while saying a self-cast spell (Protego, Episkey, Lumos, Arresto Momentum, Reparo) to cast it on yourself. Without this, voice-only mode would have no self-casts.
+
+Ruling: possession puppet casts are exempt - they go through their own wheel and voice casting is off while possessing - cost: a possessing Master can puppet-cast without speaking.
+Ruling: a game rule, not anti-cheat - a modified client can send its own stamps, which gives it nothing it could not already do with cast packets - none.
+Ruling: sneak + spoken spell = self-cast, in every mode - the only way to self-cast under the rule - small: sneaking players cannot beam those five spells by voice.
+
 ## In-game checklist
 
 1. Hold a wand, hold V, say "Lumos", release: the wand lights within about a second.
@@ -138,3 +152,5 @@ Not verified in game: the hold window needs a world and a held key; it is compil
 12. Say "Fiendfyre", then press and hold right-click within about 1.5 s: the channel starts. Do not press: a single tap cast.
 13. Say "Expecto Patronum" and hold right-click within 1.5 s: the shield. Say "Wingardium Leviosa" at a mob, then hold right-click: it lifts, with no second beam.
 14. Open logs/latest.log: one "Voice casting: heard ... in ... ms" line per take shows the speed on your PC.
+15. /gamerule voiceOnlySpells true: right-click, left-click, the wheel and slot keys cast nothing ("Only spoken spells work here"); saying a spell casts; saying Fiendfyre then holding right-click channels.
+16. Under the rule, sneak and say "Protego": the shield goes on you.

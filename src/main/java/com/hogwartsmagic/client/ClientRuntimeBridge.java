@@ -28,6 +28,8 @@ public final class ClientRuntimeBridge {
             case "syncMana" -> syncMana((SpellPackets.SyncManaPacket) payload);
             case "syncRelics" -> syncRelics((SpellPackets.SyncRelicsPacket) payload);
             case "syncLearnedSpells" -> syncLearnedSpells((SpellPackets.SyncLearnedSpellsPacket) payload);
+            case "voiceOnlyRule" -> com.hogwartsmagic.event.ClientModEvents.setVoiceOnly(
+                    ((SpellPackets.VoiceOnlyRulePacket) payload).on());
             case "syncSpellMastery" -> syncSpellMastery((SpellPackets.SyncSpellMasteryPacket) payload);
             case "openFlooScreen" -> openFlooScreen((SpellPackets.OpenFlooScreenPacket) payload);
             case "openFlooNamingScreen" -> openFlooNamingScreen((SpellPackets.OpenFlooNamingScreenPacket) payload);

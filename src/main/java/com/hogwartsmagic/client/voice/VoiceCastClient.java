@@ -224,9 +224,17 @@ public final class VoiceCastClient {
                     Component.translatable("spell.hogwartsmagic." + spell.getId())).withStyle(ChatFormatting.RED), true);
             return;
         }
-        com.hogwartsmagic.client.ModEventsClientHooks.selectSpellAndCast(player, spell);
-        // A hold spell cannot already have right-click down: give it a short window to go down and keep the spell.
-        com.hogwartsmagic.event.ClientModEvents.startVoiceHoldGrace();
+        // Sneaking while saying a self-cast spell (Protego, Episkey, Lumos, Arresto Momentum, Reparo) casts it on
+        // yourself, as a left-click would. The stamp tells the server this cast was spoken (voiceOnlySpells).
+        boolean selfCast = player.isShiftKeyDown() && com.hogwartsmagic.event.ModEvents.isLeftClickSelfCast(spell);
+        com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
+                new com.hogwartsmagic.network.SpellPackets.VoiceCastStampPacket(spell.getId(), selfCast),
+                net.minecraftforge.network.PacketDistributor.SERVER.noArg());
+        com.hogwartsmagic.client.ModEventsClientHooks.selectSpellAndCastByVoice(player, spell, selfCast);
+        if (!selfCast) {
+            // A hold spell cannot already have right-click down: give it a short window to go down and keep it.
+            com.hogwartsmagic.event.ClientModEvents.startVoiceHoldGrace();
+        }
     }
 
     private static SpellType byId(String id) {
@@ -254,6 +262,7 @@ public final class VoiceCastClient {
 
     /** Logging out closes the microphone in both modes. */
     private static void abort() {
+        com.hogwartsmagic.event.ClientModEvents.setVoiceOnly(false); // the next server sends its own value on login
         if (OPEN_MIC.isRunning()) {
             OPEN_MIC.stop();
         }

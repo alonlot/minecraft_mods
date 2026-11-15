@@ -115,6 +115,8 @@ public class ClientModEvents {
      */
     public static final int VOICE_HOLD_GRACE_TICKS = 30;
     private static int voiceHoldGrace = 0;
+    /** The server's voiceOnlySpells gamerule, sent on login and on change (VoiceOnlyRulePacket). */
+    private static boolean voiceOnly = false;
     private static final KeyMapping WAND_RADIAL_MENU_KEY = new KeyMapping(
             "key.hogwartsmagic.wand_radial_menu",
             GLFW.GLFW_KEY_R,
@@ -924,6 +926,21 @@ public class ClientModEvents {
     /** True while an Alohomora or Revelio cast is held by a key, so a second cast press is skipped. */
     public static boolean isLockHoldPending() {
         return lockHoldPending;
+    }
+
+    public static void setVoiceOnly(boolean on) {
+        voiceOnly = on;
+    }
+
+    /** True while the server only casts spoken spells: clicks, the wheel and slot keys select but do not cast. */
+    public static boolean isVoiceOnly() {
+        return voiceOnly;
+    }
+
+    /** Any hold is waiting or running (a voice cast's right-click take-over must not be told off). */
+    public static boolean anyHoldPending() {
+        return voiceHoldGrace > 0 || fiendfyreHoldPending || wingardiumHoldPending || patronusHoldPending
+                || crucioHoldPending || imperioHoldPending || protegoMaximaChannelActive || lockHoldPending;
     }
 
     /** A Wingardium hold is waiting or running: right-click takes it over and never casts a second beam. */

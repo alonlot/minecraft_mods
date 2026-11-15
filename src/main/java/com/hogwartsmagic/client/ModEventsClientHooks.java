@@ -76,6 +76,35 @@ public final class ModEventsClientHooks {
     }
 
     private static boolean selectSpellAndCast(Player player, SpellType spell, net.minecraft.client.KeyMapping holdKey, boolean grace) {
+        return selectSpellAndCast(player, spell, holdKey, grace, false);
+    }
+
+    /**
+     * Voice cast: the same as a radial cast, but allowed under the voiceOnlySpells gamerule. With {@code selfCast}
+     * (the player sneaked while saying a self-cast spell) the spell goes on the caster, as a left-click would.
+     * The caller has already sent the VoiceCastStampPacket.
+     */
+    public static boolean selectSpellAndCastByVoice(Player player, SpellType spell, boolean selfCast) {
+        if (!selfCast) {
+            return selectSpellAndCast(player, spell, Minecraft.getInstance().options.keyUse, true, true);
+        }
+        ItemStack wand = getHeldWand(player);
+        if (wand.isEmpty()) {
+            return false;
+        }
+        MagicWandItem.setSelectedSpell(wand, spell);
+        SpellPackets.CHANNEL.send(new SpellPackets.SelectSpellPacket(spell.getId()), PacketDistributor.SERVER.noArg());
+        if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
+            com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+            return true;
+        }
+        SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(true, false, false, false), PacketDistributor.SERVER.noArg());
+        player.swing(InteractionHand.MAIN_HAND);
+        return true;
+    }
+
+    private static boolean selectSpellAndCast(Player player, SpellType spell, net.minecraft.client.KeyMapping holdKey,
+                                              boolean grace, boolean byVoice) {
         if (player == null || spell == null) {
             return false;
         }
@@ -87,6 +116,10 @@ public final class ModEventsClientHooks {
 
         MagicWandItem.setSelectedSpell(wand, spell);
         SpellPackets.CHANNEL.send(new SpellPackets.SelectSpellPacket(spell.getId()), PacketDistributor.SERVER.noArg());
+        if (!byVoice && com.hogwartsmagic.event.ClientModEvents.isVoiceOnly()) {
+            com.hogwartsmagic.event.ModEvents.voiceOnlyNotice(player); // the wheel and slot keys only select here
+            return true;
+        }
         return castSelectedSpell(player, wand, spell, holdKey, grace);
     }
 

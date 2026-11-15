@@ -22,7 +22,8 @@
     "client.MindControlGuiMixin",
     "client.PossessionTurnMixin",
     "client.PossessionSendPositionMixin",
-    "client.BasiliskGazeGuiMixin"
+    "client.BasiliskGazeGuiMixin",
+    "client.WandGestureModelMixin"
   ],
   "injectors": {
     "defaultRequire": 1

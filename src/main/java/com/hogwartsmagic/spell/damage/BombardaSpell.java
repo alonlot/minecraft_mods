@@ -63,7 +63,7 @@ public final class BombardaSpell {
         level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS,
                 2.0f + (float) radius * 0.3f, 0.9f + level.random.nextFloat() * 0.2f);
         splash(level, impact, caster, primary, rank, radius);
-        return queueBlocks(level, center, caster, rank, radius, masteryEligible);
+        return queueBlocks(level, center, impact, caster, rank, radius, masteryEligible);
     }
 
     private static void splash(ServerLevel level, Vec3 impact, @Nullable Entity caster, @Nullable LivingEntity primary,
@@ -95,8 +95,8 @@ public final class BombardaSpell {
         }
     }
 
-    private static int queueBlocks(ServerLevel level, BlockPos center, @Nullable Entity caster, int rank, double radius,
-                                    boolean masteryEligible) {
+    private static int queueBlocks(ServerLevel level, BlockPos center, Vec3 impact, @Nullable Entity caster, int rank,
+                                    double radius, boolean masteryEligible) {
         if (!masteryEligible) {
             return 0; // a reflected blast (NPC or player) never breaks terrain
         }
@@ -115,6 +115,6 @@ public final class BombardaSpell {
                 positions.add(pos);
             }
         }
-        return BombardaBlasts.queue(level, player, rank, positions, masteryEligible) ? positions.size() : 0;
+        return BombardaBlasts.queue(level, player, rank, positions, masteryEligible, impact) ? positions.size() : 0;
     }
 }

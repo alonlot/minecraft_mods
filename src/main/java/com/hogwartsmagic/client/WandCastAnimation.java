@@ -23,9 +23,7 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RenderHandEvent;
-import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -35,8 +33,8 @@ import org.joml.Vector3f;
 
 /**
  * First-person wand casting. While a wand is in the main hand the arm is drawn holding it (vanilla draws
- * the wand alone), and every cast swing plays a wand flick instead of the vanilla punch: a short wind-up,
- * a fast slash towards the crosshair, then a settle back. At the moment of release the wand tip flares in
+ * the wand alone), and every cast plays the spell's own wand gesture (CastGestures) instead of the vanilla
+ * punch; a channelled spell keeps the wand up while its key is held. At the moment of release the wand tip flares in
  * the spell colour with a white core and a few crackling arcs; the tip also glows while a cast is held.
  * Other casters (players in third person, wizards) get the flare as world particles at their hand instead.
  * Visual only.
@@ -44,82 +42,39 @@ import org.joml.Vector3f;
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class WandCastAnimation {
 
-    /** Length of the flick in ticks. */
-    private static final float FLICK_TICKS = 9.0F;
-    /** Flick progress at which the spell leaves the wand. */
-    private static final float RELEASE = 0.36F;
     /** Wand tip in the centred item model space (16x16 handheld sprite, tip at pixel 15, 1). */
     private static final Vector3f TIP = new Vector3f(0.40F, 0.38F, 0.0F);
 
-    private static int flickStart = Integer.MIN_VALUE / 2;
-    private static SpellType flickSpell;
-    private static boolean wasSwinging;
-    private static int lastSwingTime;
+    /** The wand tip in first-person view space as last drawn, and the frame it was drawn on. */
+    private static final Vector3f LAST_TIP = new Vector3f();
+    private static long lastTipFrame = Long.MIN_VALUE;
 
     private WandCastAnimation() {
     }
 
-    /** Flick progress 0..1, or -1 when no flick is playing. */
-    private static float flickProgress(LocalPlayer player, float partialTick) {
-        float t = (player.tickCount - flickStart + partialTick) / FLICK_TICKS;
-        return t >= 0.0F && t < 1.0F ? t : -1.0F;
-    }
-
-    /** Every wand swing is a cast (all cast paths swing the main hand), so a new swing starts a flick. */
-    @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) {
-            return;
-        }
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) {
-            wasSwinging = false;
-            return;
-        }
-        boolean swinging = player.swinging;
-        if (swinging && (!wasSwinging || player.swingTime < lastSwingTime)
-                && MagicWandItem.isAnyWand(player.getMainHandItem())) {
-            flickStart = player.tickCount;
-            flickSpell = MagicWandItem.getSelectedSpell(player.getMainHandItem());
-        }
-        wasSwinging = swinging;
-        lastSwingTime = player.swingTime;
-    }
-
-    // ---------------------------------------------------------------- the flick curve
-
-    private static float smooth(float t) {
-        t = Mth.clamp(t, 0.0F, 1.0F);
-        return t * t * (3.0F - 2.0F * t);
-    }
-
     /**
-     * Pose offsets of the flick at progress t: {pitch, yaw, roll, forward}. Key poses: rest (0), wind-up
-     * (0.2: raised and drawn back), strike (0.4: slashed down and across towards the crosshair), rest (1).
+     * Where the local player's wand tip is in the world, for effects drawn in the world that must meet the
+     * first-person wand (the ribbon beam). Null when the wand was not drawn last frame (third person, no wand).
+     * The hand is drawn with its own field of view, so the view-space point is rescaled to the world's.
      */
-    private static float[] flickPose(float t) {
-        float[] rest = {0.0F, 0.0F, 0.0F, 0.0F};
-        float[] windUp = {-34.0F, -22.0F, -14.0F, 0.10F};
-        float[] strike = {-8.0F, 34.0F, 14.0F, -0.36F};
-        if (t < 0.0F) {
-            return rest;
+    @javax.annotation.Nullable
+    public static Vec3 localTipInWorld(net.minecraft.client.Camera camera) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (net.minecraft.Util.getNanos() - lastTipFrame > 200_000_000L) {
+            return null; // not drawn for a while: no first-person wand on screen
         }
-        if (t < 0.2F) {
-            return mix(rest, windUp, smooth(t / 0.2F));
-        }
-        if (t < 0.4F) {
-            float k = (t - 0.2F) / 0.2F;
-            return mix(windUp, strike, k * k * (3.0F - 2.0F * k));
-        }
-        return mix(strike, rest, smooth((t - 0.4F) / 0.6F));
-    }
-
-    private static float[] mix(float[] a, float[] b, float k) {
-        float[] out = new float[a.length];
-        for (int i = 0; i < a.length; i++) {
-            out[i] = Mth.lerp(k, a[i], b[i]);
-        }
-        return out;
+        double worldFov = minecraft.options.fov().get();
+        double scale = Math.tan(Math.toRadians(worldFov) / 2.0) / Math.tan(Math.toRadians(70.0) / 2.0);
+        Vector3f look = camera.getLookVector();
+        Vector3f up = camera.getUpVector();
+        Vector3f left = camera.getLeftVector();
+        double depth = -LAST_TIP.z;
+        double x = LAST_TIP.x * scale;
+        double y = LAST_TIP.y * scale;
+        return camera.getPosition()
+                .add(look.x * depth, look.y * depth, look.z * depth)
+                .add(up.x * y, up.y * y, up.z * y)
+                .add(-left.x * x, -left.y * x, -left.z * x);
     }
 
     // ---------------------------------------------------------------- first person drawing
@@ -149,14 +104,17 @@ public final class WandCastAnimation {
         HumanoidArm arm = player.getMainArm();
         boolean right = arm == HumanoidArm.RIGHT;
         float side = right ? 1.0F : -1.0F;
-        float t = flickProgress(player, partialTick);
-        float[] f = flickPose(t);
+        CastGestures.Cast cast = CastGestures.castOf(player);
+        float t = cast == null ? -1.0F : cast.progress(player.tickCount + partialTick);
+        float[] f = t >= 0.0F
+                ? CastGestures.pose(cast.gesture(), t)
+                : CastGestures.mix(new float[4], CastGestures.localHoldPose(), CastGestures.localHoldWeight(partialTick));
         PoseStack pose = event.getPoseStack();
         MultiBufferSource buffer = event.getMultiBufferSource();
         int light = event.getPackedLight();
 
         pose.pushPose();
-        // The flick turns the whole arm about the shoulder, low and to the side, off screen.
+        // The gesture turns the whole arm about the shoulder, low and to the side, off screen.
         pose.translate(side * 0.75F, -0.95F, -0.35F + f[3]);
         pose.mulPose(Axis.YP.rotationDegrees(side * f[1]));
         pose.mulPose(Axis.XP.rotationDegrees(-f[0]));
@@ -178,8 +136,10 @@ public final class WandCastAnimation {
 
         Vector3f tip = tipPosition(minecraft, player, stack, context, !right, pose);
         pose.popPose();
+        LAST_TIP.set(tip);
+        lastTipFrame = net.minecraft.Util.getNanos();
 
-        drawTipLight(minecraft, player, stack, t, tip, buffer);
+        drawTipLight(minecraft, player, stack, cast, t, tip, buffer);
     }
 
     /** Vanilla's first-person bare arm transform (ItemInHandRenderer.renderPlayerArm) with no attack swing. */
@@ -205,18 +165,20 @@ public final class WandCastAnimation {
     }
 
     /** The tip light: a flare with crackling arcs at release, and a steady glow while a cast is held. */
-    private static void drawTipLight(Minecraft minecraft, LocalPlayer player, ItemStack stack, float t,
+    private static void drawTipLight(Minecraft minecraft, LocalPlayer player, ItemStack stack,
+                                     @javax.annotation.Nullable CastGestures.Cast cast, float t,
                                      Vector3f tip, MultiBufferSource buffer) {
-        SpellType spell = t >= 0.0F && flickSpell != null ? flickSpell : MagicWandItem.getSelectedSpell(stack);
+        SpellType spell = t >= 0.0F && cast.spell() != null ? cast.spell() : MagicWandItem.getSelectedSpell(stack);
+        float release = t >= 0.0F ? cast.gesture().release : 1.0F;
         float[] color = spell != null ? SpellFx.lightColor(spell) : new float[]{1.0F, 1.0F, 1.0F};
         float[] hot = SpellFx.whiten(color, 0.6F);
 
         float flare = 0.0F;
-        if (t >= RELEASE) {
-            float k = (t - RELEASE) / 0.3F;
+        if (t >= release) {
+            float k = (t - release) / 0.3F;
             flare = k < 1.0F ? 1.0F - k : 0.0F;
         }
-        float charge = t >= 0.0F && t < RELEASE ? t / RELEASE : 0.0F; // gathers light during the wind-up
+        float charge = t >= 0.0F && t < release ? t / release : 0.0F; // gathers light during the wind-up
         float held = minecraft.options.keyUse.isDown() ? 1.0F : 0.0F;
         float glow = Math.max(Math.max(charge * 0.7F, held * 0.8F), flare);
         if (glow <= 0.01F) {
@@ -229,7 +191,7 @@ public final class WandCastAnimation {
         if (flare > 0.0F) {
             SpellFx.glowQuad(light, matrix, 0, 0, 0, 0.2F + 0.45F * flare, color[0], color[1], color[2], 0.9F * flare);
             VertexConsumer bolts = buffer.getBuffer(RenderType.lightning());
-            long seed = player.tickCount * 13L + flickStart;
+            long seed = player.tickCount * 13L + (cast == null ? 0 : cast.start());
             for (int i = 0; i < 4; i++) {
                 SpellFx.crackle(bolts, matrix, seed + i * 101L, 0.25F + 0.2F * flare, 0.005F,
                         hot[0], hot[1], hot[2], flare);
@@ -267,10 +229,4 @@ public final class WandCastAnimation {
         SpellFx.castFlash(hand, look, beam.getSpellType());
     }
 
-    @SubscribeEvent
-    public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
-        flickStart = Integer.MIN_VALUE / 2;
-        flickSpell = null;
-        wasSwinging = false;
-    }
 }

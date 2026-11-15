@@ -50,6 +50,8 @@ public final class ClientRuntimeBridge {
             case "puppetInput" -> PossessionClient.acceptPuppetInput((SpellPackets.PuppetInputPacket) payload);
             case "puppetSnapshot" -> PossessionClient.acceptSnapshot((SpellPackets.PuppetSnapshotPacket) payload);
             case "lockPickState" -> LockPickClient.accept((SpellPackets.LockPickStatePacket) payload);
+            case "blockDebris" -> BlockDebrisClient.acceptDebris((SpellPackets.BlockDebrisPacket) payload);
+            case "reparoAssemble" -> BlockDebrisClient.acceptAssemble((SpellPackets.ReparoAssemblePacket) payload);
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }

@@ -515,7 +515,27 @@ public class SpellPackets {
                 .decoder(buf -> new LockPickStatePacket(buf.readBoolean()))
                 .consumerMainThread(LockPickStatePacket::handle)
                 .add();
+        CHANNEL.messageBuilder(BlockDebrisPacket.class)
+                .encoder(BlockDebrisPacket::encode)
+                .decoder(BlockDebrisPacket::decode)
+                .consumerMainThread(BlockDebrisPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(ReparoAssemblePacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeBlockPos(p.target);
+                    buf.writeVarInt(p.stateId);
+                    buf.writeDouble(p.fromX);
+                    buf.writeDouble(p.fromY);
+                    buf.writeDouble(p.fromZ);
+                })
+                .decoder(buf -> new ReparoAssemblePacket(buf.readBlockPos(), buf.readVarInt(),
+                        buf.readDouble(), buf.readDouble(), buf.readDouble()))
+                .consumerMainThread(ReparoAssemblePacket::handle)
+                .add();
     }
+
+    /** Most debris entries one packet carries; a bigger blast just sends more packets over its ticks. */
+    public static final int MAX_DEBRIS_ENTRIES = 256;
 
     public static void syncRelics(ServerPlayer player) {
         net.minecraftforge.items.ItemStackHandler relics = PlayerMagicData.getRelicHandler(player);
@@ -1540,6 +1560,57 @@ public class SpellPackets {
     }
 
     /** Server → the caster only: a piston lock pick started or ended (the first-person wand animation). */
+    /**
+     * Server to client: blocks a blast just broke, for the flying debris (visual only). Positions are packed
+     * longs, states are block state ids; the pieces are thrown away from the impact point and mostly out of
+     * the struck face, towards {@code out} (the caster's side).
+     */
+    public record BlockDebrisPacket(double x, double y, double z, float outX, float outY, float outZ,
+                                    long[] positions, int[] states) {
+        static void encode(BlockDebrisPacket p, net.minecraft.network.FriendlyByteBuf buf) {
+            buf.writeDouble(p.x);
+            buf.writeDouble(p.y);
+            buf.writeDouble(p.z);
+            buf.writeFloat(p.outX);
+            buf.writeFloat(p.outY);
+            buf.writeFloat(p.outZ);
+            int count = Math.min(Math.min(p.positions.length, p.states.length), MAX_DEBRIS_ENTRIES);
+            buf.writeVarInt(count);
+            for (int i = 0; i < count; i++) {
+                buf.writeLong(p.positions[i]);
+                buf.writeVarInt(p.states[i]);
+            }
+        }
+
+        static BlockDebrisPacket decode(net.minecraft.network.FriendlyByteBuf buf) {
+            double x = buf.readDouble();
+            double y = buf.readDouble();
+            double z = buf.readDouble();
+            float outX = buf.readFloat();
+            float outY = buf.readFloat();
+            float outZ = buf.readFloat();
+            int count = clampDecodedSize(buf.readVarInt(), MAX_DEBRIS_ENTRIES);
+            long[] positions = new long[count];
+            int[] states = new int[count];
+            for (int i = 0; i < count; i++) {
+                positions[i] = buf.readLong();
+                states[i] = buf.readVarInt();
+            }
+            return new BlockDebrisPacket(x, y, z, outX, outY, outZ, positions, states);
+        }
+
+        public static void handle(BlockDebrisPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("blockDebris", p));
+        }
+    }
+
+    /** Server to client: Reparo is putting {@code target} back; the debris pieces fly home (visual only). */
+    public record ReparoAssemblePacket(BlockPos target, int stateId, double fromX, double fromY, double fromZ) {
+        public static void handle(ReparoAssemblePacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("reparoAssemble", p));
+        }
+    }
+
     public record LockPickStatePacket(boolean picking) {
         public static void handle(LockPickStatePacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("lockPickState", p));

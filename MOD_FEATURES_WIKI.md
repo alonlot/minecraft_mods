@@ -15,6 +15,9 @@ It is based on the actual code and registries in the project, not just textures 
 - Wand interface
   Wands support a selected spell, a full spell menu, and a 9-slot radial spell wheel for quick casting.
 
+- Voice casting
+  Hold a wand in the main hand, hold the Voice Cast key (default V), say a spell name out loud ("Expelliarmus!") and let go. If you know that spell, it casts as if you picked it on the radial wheel. For hold spells (Fiendfyre, Expecto Patronum, Wingardium Leviosa, Crucio, lock picks) keep right-click down after the spell is heard. Speech is turned into text on your own computer by a small offline speech model (whisper.cpp, tiny English model) inside the mod: no audio leaves your computer, and the microphone is open only while the key is down. A spell you do not know shows "You do not know <spell> yet". Settings are in `hogwartsmagic-client.toml` (`voiceCasting`, `voiceThreads`, `voiceMaxSeconds`, `voiceShowHeard`). On macOS the launcher must have microphone permission.
+
 - Wand specializations
   Different wand types change mana cost, cooldown speed, spell power, and beam speed.
 

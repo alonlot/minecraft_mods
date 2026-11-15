@@ -168,6 +168,7 @@ public class ClientModEvents {
                     HorcruxClientState.clear();
                 }
                 HorcruxClientState.tick(mc);
+                com.hogwartsmagic.client.voice.VoiceCastClient.tick(mc);
                 // Sprint/boost packets first so nothing in the broom sound path can prevent them from sending.
                 if (mc.player != null && mc.player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
                     // Respect stamina lock: if broom is overheated, suppress boost input client-side
@@ -763,6 +764,7 @@ public class ClientModEvents {
     public static void onRegisterKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
         event.register(WAND_RADIAL_MENU_KEY);
         event.register(GRIMOIRE_KEY);
+        event.register(com.hogwartsmagic.client.voice.VoiceCastClient.KEY);
         for (KeyMapping spellSlotKey : SPELL_SLOT_KEYS) {
             event.register(spellSlotKey);
         }

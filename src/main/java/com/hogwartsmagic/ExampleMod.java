@@ -927,6 +927,8 @@ public class ExampleMod
 
         // Register our mod's ForgeConfigSpec so that Forge can create and load the config file for us
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        // Voice casting runs on the client only; its settings live in hogwartsmagic-client.toml.
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, com.hogwartsmagic.spell.voice.VoiceCastConfig.SPEC);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event)

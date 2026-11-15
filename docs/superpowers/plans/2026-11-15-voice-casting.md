@@ -29,6 +29,19 @@ Test set: 37 spell names and 10 normal chat lines, each said by 5 ElevenLabs voi
 | tiny.en q5_1, audio_ctx 512 | 56% | 0 | 80 | 0/50 | slower |
 | tiny.en q5_1, GBNF spell grammar | 89% | 0 | 19 | 0/50 | 840 ms |
 
+
+Cloud services, same clips, final IncantationMatcher (2026-11-15):
+
+| Engine | Correct | Wrong spell | No cast | False casts | Time per take | List price |
+|---|---|---|---|---|---|---|
+| ElevenLabs Scribe v2, 37 spell keyterms | 100% | 0 | 0 | 0/50 | 0.33 s median, 0.51 s p90 | $0.20 + $0.05 per audio hour |
+| ElevenLabs Scribe v2, no keyterms | 98% | 0 | 3 | 0/50 | 0.35 s median | $0.20 per audio hour |
+| Fish Audio transcribe-1 (takes no word list; detects Latin as Japanese and other languages) | 92% | 1 | 12 | 0/50 | 0.21 s median | $0.36 per audio hour |
+
+Caution: the clips were made with ElevenLabs text to speech, so ElevenLabs speech to text has a home advantage. Real voices are needed before this table can decide anything.
+
+Ruling: keep the local model as the default; a cloud engine (Scribe with keyterms) is at most an optional, off-by-default server setting with the server owner's key, sent through the server so the key never ships in a client - decided only after a real-voice test - cost if wrong: a few percent of missed casts until then.
+
 Findings:
 - Vosk cannot learn new words at run time: its grammar drops every out-of-vocabulary word, and Latin spell names are not in its vocabulary.
 - whisper.cpp returns nothing for less than 1 s of audio. Takes are padded with silence to 1.5 s (this was the cause of an early 54% result).

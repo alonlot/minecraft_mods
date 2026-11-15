@@ -124,7 +124,7 @@ public final class SpellFx {
         float[] c = lightColor(spell);
         float[] hot = whiten(c, 0.5F);
         RandomSource random = beam.getRandom();
-        Vec3 pos = beam.position().add(0.0, SpellBeamRenderer.ORB_HEIGHT, 0.0);
+        Vec3 pos = SpellPath.orb(beam, 0.0F); // the drawn orb, on its curve
         Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         if (pos.distanceToSqr(camera) < 9.0) {
             return; // a sparkle a block from the eye would fill the screen

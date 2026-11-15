@@ -41,7 +41,8 @@ public class SpellBeamRenderer extends EntityRenderer<SpellBeamEntity> {
         float age = entity.tickCount + partialTick;
         Vec3 camera = this.entityRenderDispatcher.camera.getPosition();
         Vec3 origin = entity.getPosition(partialTick);
-        Vec3 orb = origin.add(0.0, ORB_HEIGHT, 0.0);
+        Vec3 orb = SpellPath.orb(entity, partialTick); // curved and wobbling, not the straight real line
+        SpellPath.record(entity, orb);
         if (SpellRibbon.RIBBON.contains(spell)) {
             // Drawn before the near-camera fade: the ribbon starts at the caster's wand.
             SpellRibbon.draw(entity, poseStack.last().pose(), buffer, partialTick, this.entityRenderDispatcher.camera,
@@ -58,9 +59,9 @@ public class SpellBeamRenderer extends EntityRenderer<SpellBeamEntity> {
         float pulse = 1.0F + 0.08F * Mth.sin(age * 1.3F);
 
         poseStack.pushPose();
-        poseStack.translate(0.0F, ORB_HEIGHT, 0.0F);
-
-        drawTail(entity, poseStack, buffer, orb, camera, age, color, hot, near);
+        drawCurvedTail(entity, poseStack.last().pose(), buffer, origin, orb, camera, color, hot, near);
+        Vec3 rel = orb.subtract(origin);
+        poseStack.translate(rel.x, rel.y, rel.z);
         if (WISPS.contains(spell)) {
             drawWisps(entity, poseStack, buffer, camera, orb, age, color, hot, near);
         }
@@ -134,31 +135,51 @@ public class SpellBeamRenderer extends EntityRenderer<SpellBeamEntity> {
     }
 
     /**
-     * A tapered ribbon from the orb back along the flight path, turned to face the camera. It never reaches
-     * further back than the beam has flown, so it does not poke out of the caster's wand.
+     * The comet tail: a tapered band through the points the orb was drawn at, so it follows the curve and the
+     * wobble instead of pointing straight back. Only drawn points are used, so it never pokes out of the wand.
      */
-    private void drawTail(SpellBeamEntity entity, PoseStack poseStack, MultiBufferSource buffer, Vec3 orb, Vec3 camera,
-                          float age, float[] color, float[] hot, float near) {
-        Vec3 vel = entity.getDeltaMovement();
-        double speed = vel.length();
-        if (speed < 1.0E-3) {
+    private static void drawCurvedTail(SpellBeamEntity entity, Matrix4f matrix, MultiBufferSource buffer, Vec3 origin,
+                                       Vec3 orb, Vec3 camera, float[] color, float[] hot, float near) {
+        Vec3[] points = SpellPath.tail(entity, orb, TAIL_LENGTH);
+        if (points.length < 2) {
             return;
         }
-        float length = (float) Math.min(TAIL_LENGTH, age * speed);
-        if (length < 0.05F) {
-            return;
-        }
-        Vec3 dir = vel.scale(1.0 / speed);
-        Vec3 toCamera = camera.subtract(orb);
-        Vec3 side = dir.cross(toCamera);
-        if (side.lengthSqr() < 1.0E-6) {
-            return; // looking straight down the path: the orb covers the tail anyway
-        }
-        side = side.normalize();
-        Matrix4f matrix = poseStack.last().pose();
         VertexConsumer glow = buffer.getBuffer(ModRenderTypes.SPELL_GLOW);
-        ribbon(glow, matrix, dir, side, length, 0.2F, color, 0.55F * near);
-        ribbon(glow, matrix, dir, side, length * 0.75F, 0.07F, hot, 0.8F * near);
+        curvedBand(glow, matrix, points, origin, camera, 0.2F, color, 0.55F * near);
+        curvedBand(glow, matrix, points, origin, camera, 0.07F, hot, 0.8F * near);
+    }
+
+    private static void curvedBand(VertexConsumer consumer, Matrix4f matrix, Vec3[] points, Vec3 origin, Vec3 camera,
+                                   float width, float[] c, float alpha) {
+        int n = points.length;
+        Vec3 prevSide = null;
+        for (int i = 0; i < n - 1; i++) {
+            Vec3 a = points[i];
+            Vec3 b = points[i + 1];
+            Vec3 side = b.subtract(a).cross(camera.subtract(a));
+            if (side.lengthSqr() < 1.0E-10) {
+                continue;
+            }
+            side = side.normalize();
+            if (prevSide == null) {
+                prevSide = side;
+            }
+            float ka = 1.0F - i / (float) (n - 1);
+            float kb = 1.0F - (i + 1) / (float) (n - 1);
+            float wa = width * (0.15F + 0.85F * ka);
+            float wb = width * (0.15F + 0.85F * kb);
+            Vec3 ra = a.subtract(origin);
+            Vec3 rb = b.subtract(origin);
+            SpellFx.vertex(consumer, matrix, (float) (ra.x + prevSide.x * wa), (float) (ra.y + prevSide.y * wa),
+                    (float) (ra.z + prevSide.z * wa), 0.0F, 0.5F, c[0], c[1], c[2], alpha * ka);
+            SpellFx.vertex(consumer, matrix, (float) (ra.x - prevSide.x * wa), (float) (ra.y - prevSide.y * wa),
+                    (float) (ra.z - prevSide.z * wa), 1.0F, 0.5F, c[0], c[1], c[2], alpha * ka);
+            SpellFx.vertex(consumer, matrix, (float) (rb.x - side.x * wb), (float) (rb.y - side.y * wb),
+                    (float) (rb.z - side.z * wb), 1.0F, 0.5F, c[0], c[1], c[2], alpha * kb);
+            SpellFx.vertex(consumer, matrix, (float) (rb.x + side.x * wb), (float) (rb.y + side.y * wb),
+                    (float) (rb.z + side.z * wb), 0.0F, 0.5F, c[0], c[1], c[2], alpha * kb);
+            prevSide = side;
+        }
     }
 
     /** One ribbon layer: full width at the orb, narrowing to a point and fading out at the end of the tail. */

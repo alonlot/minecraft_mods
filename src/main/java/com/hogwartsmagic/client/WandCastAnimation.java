@@ -107,13 +107,17 @@ public final class WandCastAnimation {
         CastGestures.Cast cast = CastGestures.castOf(player);
         float t = cast == null ? -1.0F : cast.progress(player.tickCount + partialTick);
         float[] f = t >= 0.0F
-                ? CastGestures.pose(cast.gesture(), t)
+                ? CastGestures.pose(cast, t)
                 : CastGestures.mix(new float[4], CastGestures.localHoldPose(), CastGestures.localHoldWeight(partialTick));
         PoseStack pose = event.getPoseStack();
         MultiBufferSource buffer = event.getMultiBufferSource();
         int light = event.getPackedLight();
 
         pose.pushPose();
+        if (t >= 0.0F) {
+            float[] shift = cast.variant().screenShift(t); // this cast's own place on screen
+            pose.translate(side * shift[0], shift[1], 0.0F);
+        }
         // The gesture turns the whole arm about the shoulder, low and to the side, off screen.
         pose.translate(side * 0.75F, -0.95F, -0.35F + f[3]);
         pose.mulPose(Axis.YP.rotationDegrees(side * f[1]));
@@ -139,7 +143,85 @@ public final class WandCastAnimation {
         LAST_TIP.set(tip);
         lastTipFrame = net.minecraft.Util.getNanos();
 
+        recordSwipe(cast, t, tip);
+        drawSwipe(stack, cast, buffer);
         drawTipLight(minecraft, player, stack, cast, t, tip, buffer);
+    }
+
+    // ---------------------------------------------------------------- the swipe streak
+
+    /** How long a point of the swipe streak lasts, in nanoseconds. */
+    private static final long SWIPE_LIFE = 170_000_000L;
+    private static final int SWIPE_MAX = 48;
+    /** Recent wand tip positions (view space) during a stroke, oldest first, with the time each was drawn. */
+    private static final java.util.ArrayDeque<Vector3f> SWIPE = new java.util.ArrayDeque<>();
+    private static final java.util.ArrayDeque<Long> SWIPE_TIME = new java.util.ArrayDeque<>();
+
+    /** While the wand is cutting through its stroke, the tip leaves a thin streak of the spell's light. */
+    private static void recordSwipe(@javax.annotation.Nullable CastGestures.Cast cast, float t, Vector3f tip) {
+        long now = net.minecraft.Util.getNanos();
+        while (!SWIPE_TIME.isEmpty() && now - SWIPE_TIME.peekFirst() > SWIPE_LIFE) {
+            SWIPE_TIME.pollFirst();
+            SWIPE.pollFirst();
+        }
+        if (cast == null || t < 0.0F || t > cast.gesture().release + 0.25F) {
+            return;
+        }
+        Vector3f last = SWIPE.peekLast();
+        if (last != null && last.distanceSquared(tip) < 1.0E-6F) {
+            return;
+        }
+        SWIPE.addLast(new Vector3f(tip));
+        SWIPE_TIME.addLast(now);
+        if (SWIPE.size() > SWIPE_MAX) {
+            SWIPE.pollFirst();
+            SWIPE_TIME.pollFirst();
+        }
+    }
+
+    private static void drawSwipe(ItemStack stack, @javax.annotation.Nullable CastGestures.Cast cast,
+                                  MultiBufferSource buffer) {
+        if (SWIPE.size() < 2) {
+            return;
+        }
+        SpellType spell = cast != null && cast.spell() != null ? cast.spell() : MagicWandItem.getSelectedSpell(stack);
+        float[] color = spell != null ? SpellFx.lightColor(spell) : new float[]{1.0F, 1.0F, 1.0F};
+        float[] hot = SpellFx.whiten(color, 0.5F);
+        Vector3f[] points = SWIPE.toArray(new Vector3f[0]);
+        Long[] times = SWIPE_TIME.toArray(new Long[0]);
+        long now = net.minecraft.Util.getNanos();
+        Matrix4f matrix = new Matrix4f();
+        VertexConsumer light = buffer.getBuffer(ModRenderTypes.SPELL_GLOW);
+        Vector3f side = new Vector3f();
+        Vector3f prevSide = null;
+        for (int i = 0; i < points.length - 1; i++) {
+            Vector3f a = points[i];
+            Vector3f b = points[i + 1];
+            // Sideways in the screen: across the segment and across the line of sight.
+            new Vector3f(b).sub(a).cross(b, side);
+            if (side.lengthSquared() < 1.0E-12F) {
+                continue;
+            }
+            side.normalize();
+            if (prevSide == null) {
+                prevSide = new Vector3f(side);
+            }
+            float fa = 1.0F - Math.min(1.0F, (now - times[i]) / (float) SWIPE_LIFE);
+            float fb = 1.0F - Math.min(1.0F, (now - times[i + 1]) / (float) SWIPE_LIFE);
+            float wa = 0.004F + 0.012F * fa;
+            float wb = 0.004F + 0.012F * fb;
+            ribbonQuad(light, matrix, a, prevSide, wa * 3.0F, b, side, wb * 3.0F, color, 0.45F * fa, 0.45F * fb);
+            ribbonQuad(light, matrix, a, prevSide, wa, b, side, wb, hot, fa, fb);
+            prevSide.set(side);
+        }
+    }
+
+    private static void ribbonQuad(VertexConsumer consumer, Matrix4f matrix, Vector3f a, Vector3f sideA, float wa,
+                                   Vector3f b, Vector3f sideB, float wb, float[] c, float alphaA, float alphaB) {
+        SpellFx.vertex(consumer, matrix, a.x + sideA.x * wa, a.y + sideA.y * wa, a.z + sideA.z * wa, 0.0F, 0.5F, c[0], c[1], c[2], alphaA);
+        SpellFx.vertex(consumer, matrix, a.x - sideA.x * wa, a.y - sideA.y * wa, a.z - sideA.z * wa, 1.0F, 0.5F, c[0], c[1], c[2], alphaA);
+        SpellFx.vertex(consumer, matrix, b.x - sideB.x * wb, b.y - sideB.y * wb, b.z - sideB.z * wb, 1.0F, 0.5F, c[0], c[1], c[2], alphaB);
+        SpellFx.vertex(consumer, matrix, b.x + sideB.x * wb, b.y + sideB.y * wb, b.z + sideB.z * wb, 0.0F, 0.5F, c[0], c[1], c[2], alphaB);
     }
 
     /** Vanilla's first-person bare arm transform (ItemInHandRenderer.renderPlayerArm) with no attack swing. */

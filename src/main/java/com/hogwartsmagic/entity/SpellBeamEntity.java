@@ -145,6 +145,12 @@ public class SpellBeamEntity extends ThrowableProjectile {
      * little later; until then the renderer hides the orb (so it does not fly on through the wall) and the
      * impact burst is placed here instead of wherever the beam drifted to.
      */
+    /** Client only, kept by client.SpellPath: the drawn spell's start bend and recent drawn points. */
+    public boolean vfxStartTaken;
+    @javax.annotation.Nullable
+    public Vec3 vfxStartOffset;
+    public final java.util.ArrayDeque<Vec3> vfxHistory = new java.util.ArrayDeque<>();
+
     @javax.annotation.Nullable
     private Vec3 clientImpact;
     private int clientImpactTick;

@@ -160,7 +160,51 @@ public final class CastGestures {
     // ---------------------------------------------------------------- who is casting what
 
     /** A gesture being played by one player. {@code start} is that player's tickCount when it began. */
-    public record Cast(int start, SpellType spell, Gesture gesture) {
+    /**
+     * How one cast differs from the last, so repeated casts never look the same: mirrored casts swing from the
+     * other side (the arm crosses the body first, then cuts back out), and every cast gets its own size and tilt.
+     */
+    public record Variant(boolean mirror, float scale, float pitchOffset, float rollOffset, float shiftX, float shiftY) {
+        public static final Variant NONE = new Variant(false, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F);
+
+        /**
+         * Where the whole arm moves on screen during the stroke (first person, in view units; x towards the
+         * main-hand side). A mirrored stroke is made across the body, so the arm crosses over to the far side.
+         */
+        public float[] screenShift(float t) {
+            if (t < 0.0F || t >= 1.0F) {
+                return new float[2];
+            }
+            float env = smooth(t / 0.18F) * smooth((1.0F - t) / 0.45F);
+            return new float[]{this.shiftX * env, this.shiftY * env};
+        }
+
+        /** Yaw a mirrored stroke swings around: the far side of the body is MIRROR_CENTRE degrees across. */
+        private static final float MIRROR_CENTRE = 30.0F;
+
+        /** The variant applied to one key pose {pitch, yaw, roll, reach}. */
+        float[] apply(float[] key) {
+            float yaw = this.mirror ? MIRROR_CENTRE - key[1] : key[1];
+            float roll = this.mirror ? -key[2] : key[2];
+            return new float[]{key[0] * this.scale + this.pitchOffset, yaw * this.scale,
+                    roll * this.scale + this.rollOffset, key[3] * this.scale};
+        }
+    }
+
+    /** The variant a player's next cast plays: mostly the other side from the last, never quite the same. */
+    private static Variant nextVariant(Player player, Cast previous) {
+        java.util.Random random = new java.util.Random(player.getId() * 341873128712L + player.tickCount * 132897987541L);
+        boolean lastMirror = previous != null && previous.variant().mirror();
+        boolean mirror = random.nextFloat() < 0.75F ? !lastMirror : lastMirror;
+        float scale = 0.8F + random.nextFloat() * 0.4F;
+        float pitch = (random.nextFloat() - 0.5F) * 22.0F;
+        float roll = (random.nextFloat() - 0.5F) * 30.0F;
+        float shiftX = mirror ? -0.42F - random.nextFloat() * 0.18F : (random.nextFloat() - 0.3F) * 0.2F;
+        float shiftY = (random.nextFloat() - 0.4F) * 0.22F;
+        return new Variant(mirror, scale, pitch, roll, shiftX, shiftY);
+    }
+
+    public record Cast(int start, SpellType spell, Gesture gesture, Variant variant) {
         /** Progress 0..1, or -1 once it is over (or before it began). */
         public float progress(float ageInTicks) {
             float t = (ageInTicks - this.start) / this.gesture.ticks;
@@ -207,7 +251,8 @@ public final class CastGestures {
             if (swinging && (state[0] == 0 || player.swingTime < state[1])
                     && MagicWandItem.isAnyWand(player.getMainHandItem())) {
                 SpellType spell = MagicWandItem.getSelectedSpell(player.getMainHandItem());
-                CASTS.put(player.getId(), new Cast(player.tickCount, spell, forSpell(spell)));
+                CASTS.put(player.getId(), new Cast(player.tickCount, spell, forSpell(spell),
+                        nextVariant(player, CASTS.get(player.getId()))));
             }
             state[0] = swinging ? 1 : 0;
             state[1] = player.swingTime;
@@ -239,7 +284,16 @@ public final class CastGestures {
     }
 
     /** The pose {pitch, yaw, roll, reach} of a gesture at progress t (rest outside 0..1). */
+    /** The pose of a cast at progress t, with its variant. */
+    public static float[] pose(Cast cast, float t) {
+        return pose(cast.gesture(), t, cast.variant());
+    }
+
     public static float[] pose(Gesture gesture, float t) {
+        return pose(gesture, t, Variant.NONE);
+    }
+
+    public static float[] pose(Gesture gesture, float t, Variant variant) {
         float[] out = new float[4];
         if (t < 0.0F || t >= 1.0F) {
             return out;
@@ -251,6 +305,7 @@ public final class CastGestures {
             float[] key = new float[4];
             if (i < gesture.keys.length) {
                 System.arraycopy(gesture.keys[i], 1, key, 0, 4);
+                key = variant.apply(key);
             }
             if (t <= keyT) {
                 float k = smooth((t - prevT) / Math.max(1.0E-4F, keyT - prevT));
@@ -295,7 +350,7 @@ public final class CastGestures {
         float[] p;
         float weight;
         if (t >= 0.0F) {
-            p = pose(cast.gesture, t);
+            p = pose(cast, t);
             weight = smooth(t / 0.12F) * smooth((1.0F - t) / 0.3F);
         } else if (player == minecraft.player) {
             float partial = ageInTicks - player.tickCount;

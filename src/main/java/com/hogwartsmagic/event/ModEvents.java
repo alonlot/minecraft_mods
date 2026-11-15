@@ -3916,8 +3916,8 @@ public class ModEvents {
                     return true;
                 }
                 if (selected == SpellType.WINGARDIUM_LEVIOSA) {
-                    if (wingardiumUseLatched) {
-                        return true;
+                    if (wingardiumUseLatched || com.hogwartsmagic.event.ClientModEvents.isWingardiumHoldPending()) {
+                        return true; // a voice-cast hold is waiting for this press: take it over, no second beam
                     }
                     wingardiumUseLatched = true;
                     com.hogwartsmagic.event.ClientModEvents.startWingardiumHold();
@@ -3926,8 +3926,8 @@ public class ModEvents {
                     return true;
                 }
                 if (selected == SpellType.IMPERIO) {
-                    if (imperioUseLatched) {
-                        return true;
+                    if (imperioUseLatched || com.hogwartsmagic.event.ClientModEvents.isImperioHoldPending()) {
+                        return true; // a voice-cast Master hold is waiting for this press: take it over
                     }
                     imperioUseLatched = true;
                     if (com.hogwartsmagic.spell.mind.ImperioRules.isPossessionRank(

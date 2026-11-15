@@ -107,6 +107,21 @@ Ruling: open mic while a wand is in the main hand is the default; push-to-talk s
 Ruling: no on-screen line for unmatched talk in open mic - it would flash on every sentence - small: a player gets no feedback on a miss.
 Ruling: the V key is ignored in open mic mode - two microphone lines on one device fail on some systems - small.
 
+## Hold window after a voice cast and the timing log (2026-11-15)
+
+User request: "spells that need holding will let you have a small time window before you hold right click to keep it held", and a log line with the real time per take.
+
+- After a voice cast that starts a hold, `ClientModEvents.startVoiceHoldGrace()` gives right-click 30 ticks (1.5 s) to go down. The words are heard about a second after they end, so right-click cannot already be down.
+- Running spells keep their heartbeats during the window: Crucio, the Protego Maxima dome (still only while looking up), lock picks (their 1 s radial grace is raised to 1.5 s). Spells that start on the press wait: Fiendfyre, the Patronus, Wingardium Leviosa (the server keeps its target 40 ticks after the hit), Imperio at Master.
+- When the window ends with right-click up, each resolves as a tap: Fiendfyre fires its tap cast, Crucio and Protego Maxima release, the Patronus and Wingardium do nothing more.
+- Right-click inside the window takes over the hold and never casts a second beam: the wand use handler now also skips Wingardium and Imperio while their hold waits (Fiendfyre, Patronus, Crucio and locks were already guarded).
+- `WhisperEngine` logs `Voice casting: heard "<text>" in <ms> ms (<s> s of speech, <n> threads)` for every take, at INFO, to `logs/latest.log`.
+
+Ruling: 1.5 s, not the radial menu's 1 s - the player hears the cast later than they see a wheel close - small.
+Ruling: no action-bar hint for the window - the cooldown line redraws the action bar every tick after a cast; the wiki describes the window - small.
+Ruling: the radial menu keeps its old behaviour (only lock picks get a grace there) - the user asked for voice casts - none.
+Not verified in game: the hold window needs a world and a held key; it is compile and unit tested only (all 362 tests pass).
+
 ## In-game checklist
 
 1. Hold a wand, hold V, say "Lumos", release: the wand lights within about a second.
@@ -120,3 +135,6 @@ Ruling: the V key is ignored in open mic mode - two microphone lines on one devi
 9. Open mic (default): hold a wand and say "Stupefy!" without any key: it casts. Say "did you see his Stupefy": nothing.
 10. Open mic: put the wand away: the system microphone light goes off after about a second.
 11. Open mic: talk for a while with the wand out: no casts, and no visible FPS loss on your machine (report it if there is).
+12. Say "Fiendfyre", then press and hold right-click within about 1.5 s: the channel starts. Do not press: a single tap cast.
+13. Say "Expecto Patronum" and hold right-click within 1.5 s: the shield. Say "Wingardium Leviosa" at a mob, then hold right-click: it lifts, with no second beam.
+14. Open logs/latest.log: one "Voice casting: heard ... in ... ms" line per take shows the speed on your PC.

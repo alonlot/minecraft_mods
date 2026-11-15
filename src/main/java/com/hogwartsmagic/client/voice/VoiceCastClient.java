@@ -22,8 +22,9 @@ import org.lwjgl.glfw.GLFW;
  * </ul>
  * The speech is transcribed on this machine and the spell is cast exactly as if it were picked on the radial menu
  * ({@code ModEventsClientHooks.selectSpellAndCast}), so the server sees nothing new: the same select and cast
- * packets, checked the same way (learned, cooldown, mana, stun, silence). Hold spells work as on the radial menu:
- * keep right-click down for Fiendfyre, the Patronus shield, Wingardium Leviosa and a lock pick.
+ * packets, checked the same way (learned, cooldown, mana, stun, silence). Hold spells (Fiendfyre, the Patronus
+ * shield, Wingardium Leviosa, Crucio, Imperio at Master, Protego Maxima, a lock pick) then wait
+ * {@code ClientModEvents.VOICE_HOLD_GRACE_TICKS} (1.5 s) for right-click to go down and keep them going.
  */
 public final class VoiceCastClient {
     public static final KeyMapping KEY = new KeyMapping(
@@ -224,6 +225,8 @@ public final class VoiceCastClient {
             return;
         }
         com.hogwartsmagic.client.ModEventsClientHooks.selectSpellAndCast(player, spell);
+        // A hold spell cannot already have right-click down: give it a short window to go down and keep the spell.
+        com.hogwartsmagic.event.ClientModEvents.startVoiceHoldGrace();
     }
 
     private static SpellType byId(String id) {

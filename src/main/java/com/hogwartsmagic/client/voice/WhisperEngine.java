@@ -91,7 +91,9 @@ final class WhisperEngine {
             p.printTimestamps = false;
             p.printSpecial = false;
             p.initialPrompt = IncantationMatcher.recogniserPrompt();
+            long start = System.nanoTime();
             int code = jni.full(context, p, padded, padded.length);
+            long millis = (System.nanoTime() - start) / 1_000_000L;
             if (code != 0) {
                 throw new IllegalStateException("whisper returned " + code);
             }
@@ -100,7 +102,11 @@ final class WhisperEngine {
             for (int i = 0; i < segments; i++) {
                 text.append(jni.fullGetSegmentText(context, i));
             }
-            return text.toString().trim();
+            String heard = text.toString().trim();
+            // One line per take, so players can see the real speed on their own machine (logs/latest.log).
+            LOGGER.info("Voice casting: heard \"{}\" in {} ms ({} s of speech, {} threads)", heard, millis,
+                    String.format(java.util.Locale.ROOT, "%.1f", audio.length / (double) MicRecorder.TARGET_RATE), threads);
+            return heard;
         }, worker);
     }
 

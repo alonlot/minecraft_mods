@@ -113,6 +113,9 @@ public final class WandCastAnimation {
         MultiBufferSource buffer = event.getMultiBufferSource();
         int light = event.getPackedLight();
 
+        if (t >= 0.0F) {
+            f[0] = firstPersonPitch(f[0]);
+        }
         pose.pushPose();
         if (t >= 0.0F) {
             float[] shift = cast.variant().screenShift(t); // this cast's own place on screen
@@ -143,24 +146,28 @@ public final class WandCastAnimation {
         LAST_TIP.set(tip);
         lastTipFrame = net.minecraft.Util.getNanos();
 
-        recordSwipe(cast, t, tip);
-        drawSwipe(stack, cast, buffer);
+        float now = player.tickCount + partialTick;
+        recordSwipe(cast, t, tip, now);
+        drawSwipe(stack, cast, buffer, now);
         drawTipLight(minecraft, player, stack, cast, t, tip, buffer);
     }
 
     // ---------------------------------------------------------------- the swipe streak
 
-    /** How long a point of the swipe streak lasts, in nanoseconds. */
-    private static final long SWIPE_LIFE = 170_000_000L;
+    /**
+     * How long a point of the swipe streak lasts, in ticks (170 ms). Game time, like the gesture itself, so the
+     * streak and the swing stay together when the game lags or runs at another tick rate.
+     */
+    private static final float SWIPE_LIFE = 3.4F;
     private static final int SWIPE_MAX = 48;
     /** Recent wand tip positions (view space) during a stroke, oldest first, with the time each was drawn. */
     private static final java.util.ArrayDeque<Vector3f> SWIPE = new java.util.ArrayDeque<>();
-    private static final java.util.ArrayDeque<Long> SWIPE_TIME = new java.util.ArrayDeque<>();
+    private static final java.util.ArrayDeque<Float> SWIPE_TIME = new java.util.ArrayDeque<>();
 
     /** While the wand is cutting through its stroke, the tip leaves a thin streak of the spell's light. */
-    private static void recordSwipe(@javax.annotation.Nullable CastGestures.Cast cast, float t, Vector3f tip) {
-        long now = net.minecraft.Util.getNanos();
-        while (!SWIPE_TIME.isEmpty() && now - SWIPE_TIME.peekFirst() > SWIPE_LIFE) {
+    private static void recordSwipe(@javax.annotation.Nullable CastGestures.Cast cast, float t, Vector3f tip, float now) {
+        // The clock is the player's tick count, which starts again after a respawn: points "from the future" go too.
+        while (!SWIPE_TIME.isEmpty() && (now - SWIPE_TIME.peekFirst() > SWIPE_LIFE || SWIPE_TIME.peekLast() > now)) {
             SWIPE_TIME.pollFirst();
             SWIPE.pollFirst();
         }
@@ -180,7 +187,7 @@ public final class WandCastAnimation {
     }
 
     private static void drawSwipe(ItemStack stack, @javax.annotation.Nullable CastGestures.Cast cast,
-                                  MultiBufferSource buffer) {
+                                  MultiBufferSource buffer, float now) {
         if (SWIPE.size() < 2) {
             return;
         }
@@ -188,8 +195,7 @@ public final class WandCastAnimation {
         float[] color = spell != null ? SpellFx.lightColor(spell) : new float[]{1.0F, 1.0F, 1.0F};
         float[] hot = SpellFx.whiten(color, 0.5F);
         Vector3f[] points = SWIPE.toArray(new Vector3f[0]);
-        Long[] times = SWIPE_TIME.toArray(new Long[0]);
-        long now = net.minecraft.Util.getNanos();
+        Float[] times = SWIPE_TIME.toArray(new Float[0]);
         Matrix4f matrix = new Matrix4f();
         VertexConsumer light = buffer.getBuffer(ModRenderTypes.SPELL_GLOW);
         Vector3f side = new Vector3f();
@@ -206,8 +212,8 @@ public final class WandCastAnimation {
             if (prevSide == null) {
                 prevSide = new Vector3f(side);
             }
-            float fa = 1.0F - Math.min(1.0F, (now - times[i]) / (float) SWIPE_LIFE);
-            float fb = 1.0F - Math.min(1.0F, (now - times[i + 1]) / (float) SWIPE_LIFE);
+            float fa = 1.0F - Mth.clamp((now - times[i]) / SWIPE_LIFE, 0.0F, 1.0F);
+            float fb = 1.0F - Mth.clamp((now - times[i + 1]) / SWIPE_LIFE, 0.0F, 1.0F);
             float wa = 0.004F + 0.012F * fa;
             float wb = 0.004F + 0.012F * fb;
             ribbonQuad(light, matrix, a, prevSide, wa * 3.0F, b, side, wb * 3.0F, color, 0.45F * fa, 0.45F * fb);
@@ -222,6 +228,25 @@ public final class WandCastAnimation {
         SpellFx.vertex(consumer, matrix, a.x - sideA.x * wa, a.y - sideA.y * wa, a.z - sideA.z * wa, 1.0F, 0.5F, c[0], c[1], c[2], alphaA);
         SpellFx.vertex(consumer, matrix, b.x - sideB.x * wb, b.y - sideB.y * wb, b.z - sideB.z * wb, 1.0F, 0.5F, c[0], c[1], c[2], alphaB);
         SpellFx.vertex(consumer, matrix, b.x + sideB.x * wb, b.y + sideB.y * wb, b.z + sideB.z * wb, 0.0F, 0.5F, c[0], c[1], c[2], alphaB);
+    }
+
+    /** Lifts up to this pitch are drawn as they are in first person. */
+    private static final float LIFT_KNEE = -30.0F;
+    /** How much higher than the knee a lift can go in first person, at most. */
+    private static final float LIFT_ROOM = 14.0F;
+
+    /**
+     * The gesture's pitch as drawn in first person. The arm turns about a point low beside the camera, so the
+     * big overhead lifts that read well on the body (third person) take the wand off the top of the screen,
+     * or across the eye when the stroke is mirrored. Past the knee a lift is eased in smoothly towards
+     * LIFT_KNEE - LIFT_ROOM, so the wand stays in view and the curve keeps its shape.
+     */
+    static float firstPersonPitch(float pitch) {
+        if (pitch >= LIFT_KNEE) {
+            return pitch;
+        }
+        float over = LIFT_KNEE - pitch;
+        return LIFT_KNEE - LIFT_ROOM * (1.0F - (float) Math.exp(-over / LIFT_ROOM));
     }
 
     /** Vanilla's first-person bare arm transform (ItemInHandRenderer.renderPlayerArm) with no attack swing. */

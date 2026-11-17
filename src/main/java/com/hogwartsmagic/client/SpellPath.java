@@ -31,6 +31,14 @@ public final class SpellPath {
             SpellType.REPARO);
 
     private static final int HISTORY = 16;
+    /**
+     * The server launches the beam as the swing starts, but the gesture lets the spell go a few ticks later.
+     * Until then the orb is held on the wand tip and moves with it, for at most this many ticks of beam age,
+     * so a fast beam has not hit before it leaves.
+     */
+    private static final float MAX_HOLD = 4.5F;
+    /** Once let go, the time a held orb takes to catch up with the real beam, in ticks. */
+    private static final float RELEASE_TICKS = 2.0F;
 
     private SpellPath() {
     }
@@ -46,14 +54,21 @@ public final class SpellPath {
         if (STRAIGHT.contains(spell)) {
             return Vec3.ZERO;
         }
+        float age = beam.tickCount + partialTick;
+        Vec3 base = beam.getPosition(partialTick).add(0.0, SpellBeamRenderer.ORB_HEIGHT, 0.0);
+        Vec3 held = heldTip(beam, partialTick, age, base);
+        if (held != null) {
+            return held.subtract(base);
+        }
         Vec3 start = startOffset(beam);
         Vec3 vel = beam.getDeltaMovement();
         double speed = vel.length();
-        float age = beam.tickCount + partialTick;
         double flown = age * speed;
         Vec3 out = Vec3.ZERO;
+        // A held orb lunges from the tip onto the line; any other bends in over the first blocks of flight.
+        double k = beam.vfxHeld ? Mth.clamp((age - beam.vfxReleaseAge) / RELEASE_TICKS, 0.0, 1.0)
+                : Mth.clamp(flown / CURVE_DISTANCE, 0.0, 1.0);
         if (start != null) {
-            double k = Mth.clamp(flown / CURVE_DISTANCE, 0.0, 1.0);
             double left = (1.0 - k) * (1.0 - k);
             out = start.scale(left);
         }
@@ -63,12 +78,39 @@ public final class SpellPath {
             Vec3 right = dir.cross(upRef).normalize();
             Vec3 up = right.cross(dir).normalize();
             float seed = (beam.getId() * 0.6180339F) % 1.0F * Mth.TWO_PI;
-            double amp = (WILD.contains(spell) ? 0.45 : 0.2) * Mth.clamp(flown / 2.0, 0.0, 1.0);
+            double amp = (WILD.contains(spell) ? 0.45 : 0.2) * (beam.vfxHeld ? k : Mth.clamp(flown / 2.0, 0.0, 1.0));
             double sx = Mth.sin(age * 0.55F + seed) + 0.5 * Mth.sin(age * 1.3F + seed * 2.0F);
             double sy = Mth.sin(age * 0.7F + seed * 3.0F) + 0.4 * Mth.sin(age * 1.7F + seed);
             out = out.add(right.scale(sx * amp * 0.75)).add(up.scale(sy * amp * 0.5));
         }
         return out;
+    }
+
+    /**
+     * While the caster's gesture has not yet let the spell go, the wand tip the orb is held on; null once it
+     * has (or was never held). The gap to the real beam at the last held frame is where the lunge starts.
+     */
+    @javax.annotation.Nullable
+    private static Vec3 heldTip(SpellBeamEntity beam, float partialTick, float age, Vec3 base) {
+        if (beam.vfxReleaseAge >= 0.0F) {
+            return null;
+        }
+        Vec3 tip = null;
+        if (age < MAX_HOLD && beam.getOwner() instanceof net.minecraft.world.entity.LivingEntity caster) {
+            CastGestures.Cast cast = CastGestures.castOf(caster);
+            float t = cast == null ? -1.0F : cast.progress(caster.tickCount + partialTick);
+            if (t >= 0.0F && t < cast.gesture().release) {
+                tip = SpellRibbon.handPosition(caster, partialTick, Minecraft.getInstance().gameRenderer.getMainCamera());
+            }
+        }
+        if (tip != null && tip.distanceToSqr(base) < 64.0) {
+            beam.vfxHeld = true;
+            beam.vfxStartTaken = true;
+            beam.vfxStartOffset = tip.subtract(base);
+            return tip;
+        }
+        beam.vfxReleaseAge = age;
+        return null;
     }
 
     /**
@@ -97,6 +139,10 @@ public final class SpellPath {
     /** Remembers the drawn position for the tail; call once per frame from the renderer. */
     static void record(SpellBeamEntity beam, Vec3 drawn) {
         ArrayDeque<Vec3> history = beam.vfxHistory;
+        if (beam.vfxHeld && beam.vfxReleaseAge < 0.0F) {
+            history.clear(); // held on the wand: the tail starts where it is let go
+            return;
+        }
         Vec3 last = history.peekLast();
         if (last != null && last.distanceToSqr(drawn) < 0.06 * 0.06) {
             return;

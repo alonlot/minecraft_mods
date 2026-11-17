@@ -38,11 +38,24 @@ public class WandSwipeLayer<T extends LivingEntity, M extends EntityModel<T> & A
 
     /** Wand tip in the centred item model space, the same point the first-person streak uses. */
     private static final Vector3f TIP = new Vector3f(0.40F, 0.38F, 0.0F);
-    /** How long a point of the streak lasts, in nanoseconds. */
-    private static final long LIFE = 280_000_000L;
+    /** How long a point of the streak lasts, in ticks (280 ms) of the caster's age, the gesture's own clock. */
+    private static final float LIFE = 5.6F;
     private static final int MAX_POINTS = 48;
 
-    private record Point(Vec3 at, long time) {
+    private record Point(Vec3 at, float time) {
+    }
+
+    private record Tip(Vec3 at, long nanos) {
+    }
+
+    /** The latest wand tip of each caster mid-stroke, for the orb held on the tip (SpellPath). */
+    private static final Map<Integer, Tip> LATEST = new HashMap<>();
+
+    /** Where this caster's wand tip was drawn in the last few frames, or null. */
+    @javax.annotation.Nullable
+    static Vec3 recentTip(LivingEntity caster) {
+        Tip tip = LATEST.get(caster.getId());
+        return tip != null && net.minecraft.Util.getNanos() - tip.nanos() < 150_000_000L ? tip.at() : null;
     }
 
     /** Recent tip points of each player, oldest first. */
@@ -62,9 +75,10 @@ public class WandSwipeLayer<T extends LivingEntity, M extends EntityModel<T> & A
         }
         Minecraft minecraft = Minecraft.getInstance();
         Vec3 camera = minecraft.gameRenderer.getMainCamera().getPosition();
-        long now = net.minecraft.Util.getNanos();
+        float now = ageInTicks;
         ArrayDeque<Point> trail = TRAILS.computeIfAbsent(player.getId(), id -> new ArrayDeque<>());
-        while (!trail.isEmpty() && now - trail.peekFirst().time() > LIFE) {
+        // Age starts again when an entity is re-created under the same id: points "from the future" go too.
+        while (!trail.isEmpty() && (now - trail.peekFirst().time() > LIFE || trail.peekLast().time() > now)) {
             trail.pollFirst();
         }
 
@@ -75,6 +89,7 @@ public class WandSwipeLayer<T extends LivingEntity, M extends EntityModel<T> & A
             // The same layer also draws the player in inventory screens; those points are nowhere near the
             // player in the world and are dropped.
             if (tip != null && tip.distanceToSqr(player.getPosition(partialTick)) < 9.0) {
+                LATEST.put(player.getId(), new Tip(tip, net.minecraft.Util.getNanos()));
                 Point last = trail.peekLast();
                 if (last == null || last.at().distanceToSqr(tip) > 1.0E-6) {
                     trail.addLast(new Point(tip, now));
@@ -119,7 +134,7 @@ public class WandSwipeLayer<T extends LivingEntity, M extends EntityModel<T> & A
      * the inverse of its matrix, so the layer's matrix puts them back where they belong.
      */
     private static void drawTrail(PoseStack pose, MultiBufferSource buffer, ArrayDeque<Point> trail, Vec3 camera,
-                                  long now, float[] color) {
+                                  float now, float[] color) {
         Matrix4f matrix = pose.last().pose();
         Matrix4f inverse = new Matrix4f(matrix);
         if (Math.abs(inverse.determinant()) < 1.0E-12F) {
@@ -141,8 +156,8 @@ public class WandSwipeLayer<T extends LivingEntity, M extends EntityModel<T> & A
             if (prevSide == null) {
                 prevSide = new Vector3f(side);
             }
-            float fa = 1.0F - Math.min(1.0F, (now - points[i].time()) / (float) LIFE);
-            float fb = 1.0F - Math.min(1.0F, (now - points[i + 1].time()) / (float) LIFE);
+            float fa = 1.0F - Mth.clamp((now - points[i].time()) / LIFE, 0.0F, 1.0F);
+            float fb = 1.0F - Mth.clamp((now - points[i + 1].time()) / LIFE, 0.0F, 1.0F);
             float wa = 0.018F + 0.04F * fa;
             float wb = 0.018F + 0.04F * fb;
             band(light, matrix, inverse, a, prevSide, wa * 2.6F, b, side, wb * 2.6F, color, 0.45F * fa, 0.45F * fb);
@@ -176,5 +191,6 @@ public class WandSwipeLayer<T extends LivingEntity, M extends EntityModel<T> & A
                 it.remove();
             }
         }
+        LATEST.keySet().removeIf(id -> !stillHere.test(id));
     }
 }

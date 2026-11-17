@@ -45,6 +45,8 @@ public final class CastGestures {
         final float[][] keys;
         /** Pose while a channelled spell is held after the gesture. */
         final float[] hold;
+        /** Whether a cast may mirror the stroke across the body. A straight lift has nothing to mirror. */
+        boolean mirrorable = true;
 
         Gesture(String name, float ticks, float release, float[] hold, float[]... keys) {
             this.name = name;
@@ -72,20 +74,24 @@ public final class CastGestures {
             new float[]{0.24F, -52, -30, -26, 0.06F},
             new float[]{0.46F, 30, 44, 30, -0.26F});
     /** Two cuts in a Z: high right to low left, back across, and down again. */
-    public static final Gesture DOUBLE_SLASH = new Gesture("double_slash", 15, 0.33F, POINT,
+    public static final Gesture DOUBLE_SLASH = new Gesture("double_slash", 13, 0.33F, POINT,
             new float[]{0.16F, -50, -30, -25, 0.05F},
             new float[]{0.32F, 28, 40, 25, -0.20F},
             new float[]{0.50F, -32, 40, -12, -0.10F},
             new float[]{0.68F, 32, -8, 12, -0.26F});
     /** The wand pulled in to the chest to gather force, then a heavy shove. */
-    public static final Gesture PUSH = new Gesture("push", 12, 0.44F, POINT,
+    public static final Gesture PUSH = new Gesture("push", 10, 0.44F, POINT,
             new float[]{0.28F, -12, 8, 0, 0.32F},
             new float[]{0.44F, 0, 18, 0, -0.62F},
             new float[]{0.62F, 0, 16, 0, -0.55F});
     /** The wand lifted high overhead and held up. */
-    public static final Gesture RAISE = new Gesture("raise", 14, 0.36F, RAISED,
+    public static final Gesture RAISE = new Gesture("raise", 12, 0.36F, RAISED,
             new float[]{0.34F, -70, 10, 0, -0.10F},
             new float[]{0.66F, -66, 10, 0, -0.10F});
+
+    static {
+        RAISE.mirrorable = false;
+    }
     /** Swish and flick: a small loop, then a sharp flick upwards. */
     public static final Gesture SWISH_FLICK = new Gesture("swish_flick", 14, 0.58F, new float[]{-30, 10, 0, -0.2F},
             new float[]{0.12F, -10, -16, -6, 0.0F},
@@ -112,12 +118,12 @@ public final class CastGestures {
             new float[]{0.40F, 24, 26, 10, -0.36F},
             new float[]{0.52F, 8, 20, 4, -0.26F});
     /** The killing stroke: the wand raised straight overhead, then driven down at the target and held. */
-    public static final Gesture CURSE = new Gesture("curse", 13, 0.42F, POINT,
+    public static final Gesture CURSE = new Gesture("curse", 11, 0.42F, POINT,
             new float[]{0.30F, -78, -10, -20, 0.20F},
             new float[]{0.42F, 18, 24, 10, -0.46F},
             new float[]{0.62F, 16, 22, 10, -0.42F});
     /** Point at the lock and turn the wrist like a key. */
-    public static final Gesture TWIST = new Gesture("twist", 12, 0.46F, POINT,
+    public static final Gesture TWIST = new Gesture("twist", 10, 0.46F, POINT,
             new float[]{0.24F, -2, 18, 0, -0.32F},
             new float[]{0.46F, -2, 18, 64, -0.32F},
             new float[]{0.62F, -2, 18, -16, -0.32F});
@@ -192,10 +198,10 @@ public final class CastGestures {
     }
 
     /** The variant a player's next cast plays: mostly the other side from the last, never quite the same. */
-    private static Variant nextVariant(LivingEntity player, Cast previous) {
+    private static Variant nextVariant(LivingEntity player, Cast previous, Gesture gesture) {
         java.util.Random random = new java.util.Random(player.getId() * 341873128712L + player.tickCount * 132897987541L);
         boolean lastMirror = previous != null && previous.variant().mirror();
-        boolean mirror = random.nextFloat() < 0.75F ? !lastMirror : lastMirror;
+        boolean mirror = gesture.mirrorable && (random.nextFloat() < 0.75F ? !lastMirror : lastMirror);
         float scale = 0.8F + random.nextFloat() * 0.4F;
         float pitch = (random.nextFloat() - 0.5F) * 22.0F;
         float roll = (random.nextFloat() - 0.5F) * 30.0F;
@@ -259,8 +265,9 @@ public final class CastGestures {
                         && caster.tickCount - previous.start() <= 3;
                 if (!justStarted) {
                     SpellType spell = MagicWandItem.getSelectedSpell(caster.getMainHandItem());
-                    CASTS.put(caster.getId(), new Cast(caster.tickCount, spell, forSpell(spell),
-                            nextVariant(caster, previous)));
+                    Gesture gesture = forSpell(spell);
+                    CASTS.put(caster.getId(), new Cast(caster.tickCount, spell, gesture,
+                            nextVariant(caster, previous, gesture)));
                 }
             }
             state[0] = swinging ? 1 : 0;
@@ -292,7 +299,8 @@ public final class CastGestures {
         if (previous != null && caster.tickCount - previous.start() <= 3) {
             CASTS.put(caster.getId(), new Cast(previous.start(), spell, forSpell(spell), previous.variant()));
         } else {
-            CASTS.put(caster.getId(), new Cast(caster.tickCount, spell, forSpell(spell), nextVariant(caster, previous)));
+            Gesture gesture = forSpell(spell);
+            CASTS.put(caster.getId(), new Cast(caster.tickCount, spell, gesture, nextVariant(caster, previous, gesture)));
         }
     }
 

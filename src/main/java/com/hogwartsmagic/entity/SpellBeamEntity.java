@@ -150,6 +150,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
     @javax.annotation.Nullable
     public Vec3 vfxStartOffset;
     public final java.util.ArrayDeque<Vec3> vfxHistory = new java.util.ArrayDeque<>();
+    /** Client only, kept by client.SpellPath: whether the orb was held on the wand tip, and the age it left. */
+    public boolean vfxHeld;
+    public float vfxReleaseAge = -1.0F;
 
     @javax.annotation.Nullable
     private Vec3 clientImpact;

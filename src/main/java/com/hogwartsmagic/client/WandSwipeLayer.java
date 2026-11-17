@@ -37,7 +37,7 @@ import java.util.Map;
 public class WandSwipeLayer<T extends LivingEntity, M extends EntityModel<T> & ArmedModel> extends RenderLayer<T, M> {
 
     /** Wand tip in the centred item model space, the same point the first-person streak uses. */
-    private static final Vector3f TIP = new Vector3f(0.40F, 0.38F, 0.0F);
+    private static final Vector3f TIP = new Vector3f(0.40F, 0.40F, 0.0F);
     /** How long a point of the streak lasts, in ticks (280 ms) of the caster's age, the gesture's own clock. */
     private static final float LIFE = 5.6F;
     private static final int MAX_POINTS = 48;

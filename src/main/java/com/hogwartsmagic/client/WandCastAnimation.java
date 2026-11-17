@@ -42,8 +42,8 @@ import org.joml.Vector3f;
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class WandCastAnimation {
 
-    /** Wand tip in the centred item model space (16x16 handheld sprite, tip at pixel 15, 1). */
-    private static final Vector3f TIP = new Vector3f(0.40F, 0.38F, 0.0F);
+    /** Wand tip in the centred item model space: the end of the 3D wand (tools/gen_wand_models.py). */
+    private static final Vector3f TIP = new Vector3f(0.40F, 0.40F, 0.0F);
 
     /** The wand tip in first-person view space as last drawn, and the frame it was drawn on. */
     private static final Vector3f LAST_TIP = new Vector3f();
@@ -105,29 +105,26 @@ public final class WandCastAnimation {
         boolean right = arm == HumanoidArm.RIGHT;
         float side = right ? 1.0F : -1.0F;
         CastGestures.Cast cast = CastGestures.castOf(player);
-        float t = cast == null ? -1.0F : cast.progress(player.tickCount + partialTick);
-        float[] f = t >= 0.0F
-                ? CastGestures.pose(cast, t)
-                : CastGestures.mix(new float[4], CastGestures.localHoldPose(), CastGestures.localHoldWeight(partialTick));
+        float since = cast == null ? -1.0F : player.tickCount + partialTick - cast.start();
+        FirstPersonWandRig.Motion motion = cast == null ? null : FirstPersonWandRig.motionOf(cast.gesture());
+        boolean casting = motion != null && since >= 0.0F && since < motion.length();
+
+        FirstPersonWandRig.Key rest = FirstPersonWandRig.rest(player, partialTick, cast);
+        FirstPersonWandRig.Key now = casting ? FirstPersonWandRig.pose(motion, cast.variant(), rest, since) : rest;
+        float hold = CastGestures.localHoldWeight(partialTick);
+        if (hold > 0.0F) {
+            FirstPersonWandRig.Motion held = casting ? motion
+                    : FirstPersonWandRig.motionOf(CastGestures.forSpell(MagicWandItem.getSelectedSpell(stack)));
+            now = FirstPersonWandRig.mix(now, held.holdKey(), hold * hold * (3.0F - 2.0F * hold));
+        }
+        now.hand().y -= event.getEquipProgress() * 0.7F; // lowered while the wand is being taken out
+
         PoseStack pose = event.getPoseStack();
         MultiBufferSource buffer = event.getMultiBufferSource();
         int light = event.getPackedLight();
 
-        if (t >= 0.0F) {
-            f[0] = firstPersonPitch(f[0]);
-        }
         pose.pushPose();
-        if (t >= 0.0F) {
-            float[] shift = cast.variant().screenShift(t); // this cast's own place on screen
-            pose.translate(side * shift[0], shift[1], 0.0F);
-        }
-        // The gesture turns the whole arm about the shoulder, low and to the side, off screen.
-        pose.translate(side * 0.75F, -0.95F, -0.35F + f[3]);
-        pose.mulPose(Axis.YP.rotationDegrees(side * f[1]));
-        pose.mulPose(Axis.XP.rotationDegrees(-f[0]));
-        pose.mulPose(Axis.ZP.rotationDegrees(side * f[2]));
-        pose.translate(side * -0.75F, 0.95F, 0.35F);
-        applyArmTransform(pose, side, event.getEquipProgress());
+        FirstPersonWandRig.placeArm(pose, now, side);
         if (right) {
             playerRenderer.renderRightHand(pose, buffer, light, player);
         } else {
@@ -139,17 +136,22 @@ public final class WandCastAnimation {
         pose.mulPose(Axis.YP.rotationDegrees(180.0F));
         pose.translate(side / 16.0F, 0.125F, -0.625F);
         ItemDisplayContext context = right ? ItemDisplayContext.THIRD_PERSON_RIGHT_HAND : ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
+        // The wrist: the wand turns about the grip to point where the pose wants it.
+        FirstPersonWandRig.bendWrist(pose, itemPoint(minecraft, player, stack, context, !right, pose, GRIP),
+                itemPoint(minecraft, player, stack, context, !right, pose, TIP),
+                new Vector3f(now.wand()).mul(side, 1.0F, 1.0F));
         minecraft.gameRenderer.itemInHandRenderer.renderItem(player, stack, context, !right, pose, buffer, light);
 
-        Vector3f tip = tipPosition(minecraft, player, stack, context, !right, pose);
+        Vector3f tip = itemPoint(minecraft, player, stack, context, !right, pose, TIP);
         pose.popPose();
         LAST_TIP.set(tip);
         lastTipFrame = net.minecraft.Util.getNanos();
 
-        float now = player.tickCount + partialTick;
-        recordSwipe(cast, t, tip, now);
-        drawSwipe(stack, cast, buffer, now);
-        drawTipLight(minecraft, player, stack, cast, t, tip, buffer);
+        float release = casting ? motion.release() : 0.0F;
+        float age = player.tickCount + partialTick;
+        recordSwipe(casting && since <= release + 2.0F, tip, age);
+        drawSwipe(stack, cast, buffer, age);
+        drawTipLight(minecraft, player, stack, casting ? cast : null, since, release, tip, buffer);
     }
 
     // ---------------------------------------------------------------- the swipe streak
@@ -165,13 +167,13 @@ public final class WandCastAnimation {
     private static final java.util.ArrayDeque<Float> SWIPE_TIME = new java.util.ArrayDeque<>();
 
     /** While the wand is cutting through its stroke, the tip leaves a thin streak of the spell's light. */
-    private static void recordSwipe(@javax.annotation.Nullable CastGestures.Cast cast, float t, Vector3f tip, float now) {
+    private static void recordSwipe(boolean stroking, Vector3f tip, float now) {
         // The clock is the player's tick count, which starts again after a respawn: points "from the future" go too.
         while (!SWIPE_TIME.isEmpty() && (now - SWIPE_TIME.peekFirst() > SWIPE_LIFE || SWIPE_TIME.peekLast() > now)) {
             SWIPE_TIME.pollFirst();
             SWIPE.pollFirst();
         }
-        if (cast == null || t < 0.0F || t > cast.gesture().release + 0.25F) {
+        if (!stroking) {
             return;
         }
         Vector3f last = SWIPE.peekLast();
@@ -230,62 +232,34 @@ public final class WandCastAnimation {
         SpellFx.vertex(consumer, matrix, b.x + sideB.x * wb, b.y + sideB.y * wb, b.z + sideB.z * wb, 0.0F, 0.5F, c[0], c[1], c[2], alphaB);
     }
 
-    /** Lifts up to this pitch are drawn as they are in first person. */
-    private static final float LIFT_KNEE = -30.0F;
-    /** How much higher than the knee a lift can go in first person, at most. */
-    private static final float LIFT_ROOM = 14.0F;
+    /** Where the hand grips the wand, in the centred item model space: on the handle, 6.5 px down the diagonal. */
+    private static final Vector3f GRIP = new Vector3f(-0.287F, -0.287F, 0.0F);
 
-    /**
-     * The gesture's pitch as drawn in first person. The arm turns about a point low beside the camera, so the
-     * big overhead lifts that read well on the body (third person) take the wand off the top of the screen,
-     * or across the eye when the stroke is mirrored. Past the knee a lift is eased in smoothly towards
-     * LIFT_KNEE - LIFT_ROOM, so the wand stays in view and the curve keeps its shape.
-     */
-    static float firstPersonPitch(float pitch) {
-        if (pitch >= LIFT_KNEE) {
-            return pitch;
-        }
-        float over = LIFT_KNEE - pitch;
-        return LIFT_KNEE - LIFT_ROOM * (1.0F - (float) Math.exp(-over / LIFT_ROOM));
-    }
-
-    /** Vanilla's first-person bare arm transform (ItemInHandRenderer.renderPlayerArm) with no attack swing. */
-    private static void applyArmTransform(PoseStack pose, float side, float equipProgress) {
-        pose.translate(side * 0.64000005F, -0.6F + equipProgress * -0.6F, -0.71999997F);
-        pose.mulPose(Axis.YP.rotationDegrees(side * 45.0F));
-        pose.translate(side * -1.0F, 3.6F, 3.5F);
-        pose.mulPose(Axis.ZP.rotationDegrees(side * 120.0F));
-        pose.mulPose(Axis.XP.rotationDegrees(200.0F));
-        pose.mulPose(Axis.YP.rotationDegrees(side * -135.0F));
-        pose.translate(side * 5.6F, 0.0F, 0.0F);
-    }
-
-    /** The wand tip in view space, found by applying the wand's own display transform to the tip pixel. */
-    private static Vector3f tipPosition(Minecraft minecraft, LivingEntity holder, ItemStack stack,
-                                        ItemDisplayContext context, boolean leftHand, PoseStack pose) {
+    /** A point of the held wand in view space, through the wand's own display transform. */
+    private static Vector3f itemPoint(Minecraft minecraft, LivingEntity holder, ItemStack stack,
+                                      ItemDisplayContext context, boolean leftHand, PoseStack pose, Vector3f point) {
         BakedModel model = minecraft.getItemRenderer().getModel(stack, holder.level(), holder, 0);
         pose.pushPose();
         model.applyTransform(context, pose, leftHand);
-        Vector3f tip = pose.last().pose().transformPosition(new Vector3f(TIP));
+        Vector3f out = pose.last().pose().transformPosition(new Vector3f(point));
         pose.popPose();
-        return tip;
+        return out;
     }
 
     /** The tip light: a flare with crackling arcs at release, and a steady glow while a cast is held. */
     private static void drawTipLight(Minecraft minecraft, LocalPlayer player, ItemStack stack,
-                                     @javax.annotation.Nullable CastGestures.Cast cast, float t,
+                                     @javax.annotation.Nullable CastGestures.Cast cast, float since, float release,
                                      Vector3f tip, MultiBufferSource buffer) {
-        SpellType spell = t >= 0.0F && cast.spell() != null ? cast.spell() : MagicWandItem.getSelectedSpell(stack);
-        float release = t >= 0.0F ? cast.gesture().release : 1.0F;
+        SpellType spell = cast != null && cast.spell() != null ? cast.spell() : MagicWandItem.getSelectedSpell(stack);
         float[] color = spell != null ? SpellFx.lightColor(spell) : new float[]{1.0F, 1.0F, 1.0F};
         float[] hot = SpellFx.whiten(color, 0.6F);
 
         float flare = 0.0F;
-        if (t >= release) {
-            float k = (t - release) / 0.3F;
+        if (cast != null && since >= release) {
+            float k = (since - release) / 3.0F; // ticks
             flare = k < 1.0F ? 1.0F - k : 0.0F;
         }
-        float charge = t >= 0.0F && t < release ? t / release : 0.0F; // gathers light during the wind-up
+        float charge = cast != null && since < release ? since / Math.max(0.5F, release) : 0.0F; // the wind-up
         float held = minecraft.options.keyUse.isDown() ? 1.0F : 0.0F;
         float glow = Math.max(Math.max(charge * 0.7F, held * 0.8F), flare);
         if (glow <= 0.01F) {

@@ -89,9 +89,6 @@ public final class CastGestures {
             new float[]{0.34F, -70, 10, 0, -0.10F},
             new float[]{0.66F, -66, 10, 0, -0.10F});
 
-    static {
-        RAISE.mirrorable = false;
-    }
     /** Swish and flick: a small loop, then a sharp flick upwards. */
     public static final Gesture SWISH_FLICK = new Gesture("swish_flick", 14, 0.58F, new float[]{-30, 10, 0, -0.2F},
             new float[]{0.12F, -10, -16, -6, 0.0F},
@@ -127,6 +124,14 @@ public final class CastGestures {
             new float[]{0.24F, -2, 18, 0, -0.32F},
             new float[]{0.46F, -2, 18, 64, -0.32F},
             new float[]{0.62F, -2, 18, -16, -0.32F});
+
+    static {
+        // Mirroring suits strokes that cut across (flick, slash, whip, curse, swish); a lift, a jab, a shove, a
+        // pull to the chest, a circle or a key turn made from the far side only looks awkward.
+        for (Gesture g : new Gesture[]{RAISE, STAB, PUSH, PULL, SPIRAL, TWIST}) {
+            g.mirrorable = false;
+        }
+    }
 
     private static final Map<SpellType, Gesture> BY_SPELL = new EnumMap<>(SpellType.class);
 
@@ -169,21 +174,10 @@ public final class CastGestures {
     /**
      * How one cast differs from the last, so repeated casts never look the same: mirrored casts swing from the
      * other side (the arm crosses the body first, then cuts back out), and every cast gets its own size and tilt.
+     * shiftX/shiftY move the first-person strike on screen (FirstPersonWandRig).
      */
     public record Variant(boolean mirror, float scale, float pitchOffset, float rollOffset, float shiftX, float shiftY) {
         public static final Variant NONE = new Variant(false, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F);
-
-        /**
-         * Where the whole arm moves on screen during the stroke (first person, in view units; x towards the
-         * main-hand side). A mirrored stroke is made across the body, so the arm crosses over to the far side.
-         */
-        public float[] screenShift(float t) {
-            if (t < 0.0F || t >= 1.0F) {
-                return new float[2];
-            }
-            float env = smooth(t / 0.18F) * smooth((1.0F - t) / 0.45F);
-            return new float[]{this.shiftX * env, this.shiftY * env};
-        }
 
         /** Yaw a mirrored stroke swings around: the far side of the body is MIRROR_CENTRE degrees across. */
         private static final float MIRROR_CENTRE = 30.0F;

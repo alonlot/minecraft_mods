@@ -116,11 +116,11 @@ public final class RoughSeaRenderer {
                 if (f < 0.6) continue;
                 double y = oy + h * in;
                 for (int k = 0; k < 4; k++) {
-                    level.addParticle(ParticleTypes.SPLASH, ox + lx + r.nextGaussian() * 0.3, y + 0.05,
+                    level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SPLASH), ox + lx + r.nextGaussian() * 0.3, y + 0.05,
                             oz + lz + r.nextGaussian() * 0.3, wx * 0.12, 0.12 + r.nextDouble() * 0.1, wz * 0.12);
                 }
                 if (r.nextFloat() < 0.35f * in) {
-                    level.addParticle(ParticleTypes.POOF, ox + lx, y + 0.15, oz + lz, wx * 0.08, 0.02, wz * 0.08);
+                    level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.POOF), ox + lx, y + 0.15, oz + lz, wx * 0.08, 0.02, wz * 0.08);
                 }
             }
         }

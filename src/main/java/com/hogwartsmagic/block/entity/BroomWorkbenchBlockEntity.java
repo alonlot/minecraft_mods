@@ -383,7 +383,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
             double a = (i / 8.0) * Math.PI * 2;
             double px = cx + Math.cos(a) * 0.55;
             double pz = cz + Math.sin(a) * 0.55;
-            level.sendParticles(ParticleTypes.SMALL_GUST, px, cy, pz, 1, 0.12, 0.06, 0.12, 0.015);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_GUST), px, cy, pz, 1, 0.12, 0.06, 0.12, 0.015);
         }
     }
 
@@ -420,7 +420,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         }
 
         if (this.craftTicksRemaining % 6 == 0) {
-            level.sendParticles(ParticleTypes.SMALL_GUST, cx, cy + 0.1, cz, 2, 0.4, 0.12, 0.4, 0.02);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_GUST), cx, cy + 0.1, cz, 2, 0.4, 0.12, 0.4, 0.02);
         }
         if (elapsed > total / 2 && this.craftTicksRemaining % 10 == 0) {
             level.sendParticles(MagicParticles.MOTE_WHITE, cx, cy + 0.2, cz, 2, 0.25, 0.1, 0.25, 0.025);

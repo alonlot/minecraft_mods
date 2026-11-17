@@ -20,7 +20,7 @@ public final class MindFx {
 
     public static void burst(LivingEntity target, ParticleOptions particle) {
         if (target.level() instanceof ServerLevel level) {
-            level.sendParticles(particle, target.getX(), target.getY() + target.getBbHeight() * 0.6, target.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(particle), target.getX(), target.getY() + target.getBbHeight() * 0.6, target.getZ(),
                     14, target.getBbWidth() * 0.4, target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.02);
         }
     }

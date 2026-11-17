@@ -347,7 +347,7 @@ public final class PistonLockSpell {
         }
         BlockPos door = job.door();
         if (now % LockPickRules.SPARK_INTERVAL_TICKS == 0 && level.isLoaded(door)) {
-            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, door.getX() + 0.5, door.getY() + 0.5, door.getZ() + 0.5,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ELECTRIC_SPARK), door.getX() + 0.5, door.getY() + 0.5, door.getZ() + 0.5,
                     3, 0.35, 0.35, 0.35, 0.05);
         }
     }
@@ -603,7 +603,7 @@ public final class PistonLockSpell {
                 if (site.kind() == LockCircuit.LEVER) {
                     play.flipped[input] = true;
                 }
-                level.sendParticles(ParticleTypes.ENCHANT, pos.getX() + 0.5, pos.getY() + 0.6, pos.getZ() + 0.5,
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), pos.getX() + 0.5, pos.getY() + 0.6, pos.getZ() + 0.5,
                         12, 0.3, 0.3, 0.3, 0.4);
             }
             if (!acted) {

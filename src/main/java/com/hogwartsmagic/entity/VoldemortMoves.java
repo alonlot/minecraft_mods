@@ -345,15 +345,15 @@ public final class VoldemortMoves {
         double r = 1.9D - progress * 0.6D;
         for (int i = 0; i < 10; i++) {
             double a = i * Math.PI * 2.0D / 10.0D + progress * 3.0D;
-            level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, s.x + Math.cos(a) * r, s.y + 0.1D, s.z + Math.sin(a) * r, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME), s.x + Math.cos(a) * r, s.y + 0.1D, s.z + Math.sin(a) * r, 1, 0.0D, 0.0D, 0.0D, 0.0D);
         }
-        level.sendParticles(ParticleTypes.REVERSE_PORTAL, s.x, s.y + 0.4D, s.z, 6, 0.25D, 0.4D, 0.25D, 0.02D);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.REVERSE_PORTAL), s.x, s.y + 0.4D, s.z, 6, 0.25D, 0.4D, 0.25D, 0.02D);
     }
 
     private void strike(ServerLevel level, Vec3 s, float damage) {
         visualBolt(level, s);
-        level.sendParticles(ParticleTypes.SQUID_INK, s.x, s.y + 0.3D, s.z, 30, 0.6D, 0.2D, 0.6D, 0.08D);
-        level.sendParticles(ParticleTypes.LARGE_SMOKE, s.x, s.y + 0.3D, s.z, 20, 0.8D, 0.3D, 0.8D, 0.04D);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), s.x, s.y + 0.3D, s.z, 30, 0.6D, 0.2D, 0.6D, 0.08D);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), s.x, s.y + 0.3D, s.z, 20, 0.8D, 0.3D, 0.8D, 0.04D);
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(s, s).inflate(1.8D, 2.5D, 1.8D),
                 e -> e != v && e.isAlive() && !isHisOwn(e) && !exempt(e))) {
             e.hurt(v.damageSources().indirectMagic(v, v), damage);

@@ -232,7 +232,7 @@ public class BoggartEntity extends Monster implements RiddikulusTarget {
     private void tickHidden() {
         ServerLevel level = (ServerLevel) this.level();
         if (this.tickCount % 4 == 0) {
-            level.sendParticles(ParticleTypes.LARGE_SMOKE, this.getX(), this.getY() + 0.6D, this.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), this.getX(), this.getY() + 0.6D, this.getZ(),
                     1, 0.2D, 0.3D, 0.2D, 0.005D);
         }
         if (this.tickCount % BoggartRules.REVEAL_CHECK_INTERVAL != 0) {
@@ -268,7 +268,7 @@ public class BoggartEntity extends Monster implements RiddikulusTarget {
         this.setTarget(player);
         this.level().playSound(null, this.blockPosition(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE,
                 0.6F, 1.4F);
-        ((ServerLevel) this.level()).sendParticles(ParticleTypes.SQUID_INK, this.getX(), this.getY() + 1.0D,
+        ((ServerLevel) this.level()).sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), this.getX(), this.getY() + 1.0D,
                 this.getZ(), 40, 0.4D, 0.6D, 0.4D, 0.05D);
     }
 
@@ -349,7 +349,7 @@ public class BoggartEntity extends Monster implements RiddikulusTarget {
             player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
         }
         level.playSound(null, this.blockPosition(), SoundEvents.VILLAGER_YES, SoundSource.HOSTILE, 1.0F, 1.6F);
-        level.sendParticles(ParticleTypes.NOTE, this.getX(), this.getY() + 1.2D, this.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.NOTE), this.getX(), this.getY() + 1.2D, this.getZ(),
                 12, 0.5D, 0.5D, 0.5D, 1.0D);
 
         if (getRiddikulusHits() >= BoggartRules.hitsToBanish(this.lastRank)) {
@@ -360,9 +360,9 @@ public class BoggartEntity extends Monster implements RiddikulusTarget {
     /** Gone in a puff of laughter. Discarded, not killed: no drops, no death animation. */
     private void banish(@Nullable Entity caster) {
         ServerLevel level = (ServerLevel) this.level();
-        level.sendParticles(ParticleTypes.POOF, this.getX(), this.getY() + 1.0D, this.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.POOF), this.getX(), this.getY() + 1.0D, this.getZ(),
                 30, 0.5D, 0.7D, 0.5D, 0.04D);
-        level.sendParticles(ParticleTypes.NOTE, this.getX(), this.getY() + 1.4D, this.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.NOTE), this.getX(), this.getY() + 1.4D, this.getZ(),
                 20, 0.7D, 0.6D, 0.7D, 1.0D);
         level.playSound(null, this.blockPosition(), SoundEvents.FIREWORK_ROCKET_TWINKLE, SoundSource.HOSTILE,
                 1.0F, 1.1F);

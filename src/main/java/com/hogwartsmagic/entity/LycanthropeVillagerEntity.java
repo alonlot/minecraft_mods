@@ -476,7 +476,7 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
         if (isNaturalDimensionFullMoon()) {
             if (this.random.nextInt(140) == 0) {
                 server.sendParticles(
-                        ParticleTypes.ENCHANT,
+                        com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                         this.getX(),
                         this.getY() + 0.4,
                         this.getZ(),
@@ -518,7 +518,7 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
             clientTransformBurst();               // and the villager steps out of it
         }
         if ((this.clientMorphingToWolf || this.clientMorphingToHuman) && this.random.nextInt(3) == 0) {
-            this.level().addParticle(ParticleTypes.SMOKE, this.getRandomX(0.6), this.getRandomY(), this.getRandomZ(0.6), 0, 0.02, 0);
+            this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), this.getRandomX(0.6), this.getRandomY(), this.getRandomZ(0.6), 0, 0.02, 0);
         }
 
         this.clientStrideO = this.clientStride;

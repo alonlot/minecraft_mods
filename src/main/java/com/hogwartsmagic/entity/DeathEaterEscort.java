@@ -129,7 +129,7 @@ public final class DeathEaterEscort {
     }
 
     private static void puff(ServerLevel level, WizardEntity wizard) {
-        level.sendParticles(ParticleTypes.LARGE_SMOKE, wizard.getX(), wizard.getY() + 1.0D, wizard.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), wizard.getX(), wizard.getY() + 1.0D, wizard.getZ(),
                 20, 0.3D, 0.6D, 0.3D, 0.02D);
         level.playSound(null, wizard.getX(), wizard.getY(), wizard.getZ(), ModSounds.HOUSE_ELF_CRACK.get(),
                 SoundSource.HOSTILE, 0.8F, 0.8F);

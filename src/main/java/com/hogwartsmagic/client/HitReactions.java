@@ -148,6 +148,11 @@ public final class HitReactions {
         event.setRoll(event.getRoll() + 6.0f * kickStrength * side * decay * snap);
     }
 
+    /** Whether {@code spell} has a reaction of its own here (CastFeel's generic reel stays off those). */
+    public static boolean hasReaction(SpellType spell) {
+        return KINDS.containsKey(spell);
+    }
+
     public static void accept(SpellPackets.HitReactionPacket packet) {
         Minecraft minecraft = Minecraft.getInstance();
         SpellType spell = SpellType.fromId(packet.spellId());

@@ -168,7 +168,7 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         if (this.level() instanceof ServerLevel server) {
             server.playSound(null, blockPosition(), com.hogwartsmagic.ModSounds.IRONBELLY_COWER.get(),
                     SoundSource.HOSTILE, 2.4F, 1.0F);
-            server.sendParticles(ParticleTypes.SMOKE, getX(), getY() + getBbHeight() * 0.6D, getZ(),
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), getX(), getY() + getBbHeight() * 0.6D, getZ(),
                     24, 1.2D, 0.8D, 1.2D, 0.02D);
         }
     }
@@ -260,7 +260,7 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         this.noPhysics = true;
         setDeltaMovement(0.0D, 0.6D, 0.0D);
         if (this.level() instanceof ServerLevel server && this.tickCount % 4 == 0) {
-            server.sendParticles(ParticleTypes.LARGE_SMOKE, getX(), getY(), getZ(),
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), getX(), getY(), getZ(),
                     8, 1.5D, 1.0D, 1.5D, 0.02D);
         }
         if (this.leavingTicks <= 0 || getY() > this.level().getMaxBuildHeight() - 8) {

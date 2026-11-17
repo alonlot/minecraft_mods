@@ -109,9 +109,9 @@ public class ThiefsDownfallBlock extends Block {
         victim.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 24, 0, false, false, true));
         victim.setTicksFrozen(Math.max(victim.getTicksFrozen(), 60));
 
-        level.sendParticles(ParticleTypes.SPLASH, victim.getX(), victim.getY() + 1.0D,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SPLASH), victim.getX(), victim.getY() + 1.0D,
                 victim.getZ(), 40, 0.5D, 0.8D, 0.5D, 0.2D);
-        level.sendParticles(ParticleTypes.END_ROD, victim.getX(), victim.getY() + 1.2D,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), victim.getX(), victim.getY() + 1.2D,
                 victim.getZ(), 12, 0.4D, 0.6D, 0.4D, 0.02D);
         level.playSound(null, pos, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.BLOCKS,
                 1.4F, 0.7F);
@@ -134,12 +134,12 @@ public class ThiefsDownfallBlock extends Block {
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
         // Mist and noise, so it is heard and seen well before it is reached.
         for (int i = 0; i < 3; i++) {
-            level.addParticle(ParticleTypes.SPLASH,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SPLASH),
                     pos.getX() + random.nextDouble(), pos.getY() + random.nextDouble(),
                     pos.getZ() + random.nextDouble(), 0.0D, -0.1D, 0.0D);
         }
         if (random.nextInt(6) == 0) {
-            level.addParticle(ParticleTypes.FALLING_WATER,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FALLING_WATER),
                     pos.getX() + random.nextDouble(), pos.getY(), pos.getZ() + random.nextDouble(),
                     0.0D, 0.0D, 0.0D);
         }

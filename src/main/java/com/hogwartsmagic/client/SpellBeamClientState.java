@@ -334,6 +334,13 @@ public final class SpellBeamClientState {
         return CLASHES;
     }
 
+    /** Where a beam's head is drawn this frame (on its curve), or null if this client is not drawing it. */
+    @javax.annotation.Nullable
+    public static Vec3 drawnHead(int entityId, float partial) {
+        Beam beam = BEAMS.get(entityId);
+        return beam == null ? null : beam.head(partial);
+    }
+
     public static Iterable<Beam> beams() {
         return BEAMS.values();
     }
@@ -462,18 +469,23 @@ public final class SpellBeamClientState {
                 }
                 Vec3 dir = motion.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 0.0, 1.0) : motion.normalize();
                 Vec3 from = origin(spellBeam, head);
-                Beam created = new Beam(spellBeam.getId(), style, from, head, dir, now);
+                // Drawn off the straight line: out of the wand tip, curving in, a bolt wobbling (SpellPath).
+                SpellPath.takeStart(spellBeam, head, from);
+                Vec3 drawn = head.add(SpellPath.offset(spellBeam, head, style.isJet()));
+                Beam created = new Beam(spellBeam.getId(), style, from, drawn, dir, now);
                 if (spellBeam.getOwner() != null && spellBeam.getOwner().distanceToSqr(spellBeam) <= 16.0) {
                     created.ownerId = spellBeam.getOwner().getId();
                 }
                 BEAMS.put(spellBeam.getId(), created);
-                MUZZLES.add(new Muzzle(from, dir, style, now));
+                if (!WandCastAnimation.flaresOwnRelease(spellBeam.getOwner())) {
+                    MUZZLES.add(new Muzzle(from, dir, style, now)); // your own first-person wand flares on screen
+                }
                 continue;
             }
             if (beam.gone()) {
                 continue;
             }
-            beam.push(head, now);
+            beam.push(head.add(SpellPath.offset(spellBeam, head, beam.style.isJet())), now);
             if (motion.lengthSqr() > 1.0E-8) {
                 beam.dir = motion.normalize();
             }
@@ -528,6 +540,19 @@ public final class SpellBeamClientState {
     private static Vec3 tipOf(LivingEntity caster, Vec3 fallback) {
         AvadaChargeClientState.Charge charge = AvadaChargeClientState.get(caster.getId());
         boolean firstPerson = AvadaChargePose.isOwnFirstPerson(caster);
+        if (firstPerson) {
+            // Your own view: the wand the first-person arm (FirstPersonWandRig) is drawing right now.
+            Vec3 drawnTip = WandCastAnimation.localTipInWorld(Minecraft.getInstance().gameRenderer.getMainCamera());
+            if (drawnTip != null) {
+                return drawnTip;
+            }
+        } else if (CastGestures.posesModel(caster)) {
+            // A wizard or student mid-gesture: the tip of the wand its model is drawing.
+            Vec3 drawnTip = WandSwipeLayer.recentTip(caster);
+            if (drawnTip != null) {
+                return drawnTip;
+            }
+        }
         if (charge != null) {
             return AvadaChargePose.wandTip(caster, charge, 1.0f, firstPerson);
         }

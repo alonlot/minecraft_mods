@@ -226,7 +226,7 @@ public class AcromantulaEntity extends Monster {
         }
 
         this.playSound(com.hogwartsmagic.ModSounds.ACROMANTULA_HURT.get(), 1.2F, 0.55F + this.random.nextFloat() * 0.15F);
-        sl.sendParticles(ParticleTypes.CRIT,
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT),
                 this.getX() + forward.x * 1.6D, this.getY() + 0.5D, this.getZ() + forward.z * 1.6D,
                 10, 0.4D, 0.3D, 0.4D, 0.05D);
     }
@@ -255,7 +255,7 @@ public class AcromantulaEntity extends Monster {
         int steps = (int) Math.max(4, step.length() * 2);
         for (int i = 1; i <= steps; i++) {
             double f = i / (double) steps;
-            sl.sendParticles(ParticleTypes.ITEM_SLIME,
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ITEM_SLIME),
                     from.x + step.x * f, from.y + step.y * f, from.z + step.z * f,
                     1, 0.05D, 0.05D, 0.05D, 0.0D);
         }

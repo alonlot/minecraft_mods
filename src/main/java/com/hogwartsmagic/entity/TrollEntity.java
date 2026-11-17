@@ -240,7 +240,7 @@ public class TrollEntity extends Monster {
                 this.entityData.set(DATA_RAGING, true);
                 this.playSound(com.hogwartsmagic.ModSounds.TROLL_RAGE.get(), 1.5F, 0.95F);
                 if (this.level() instanceof ServerLevel sl) {
-                    sl.sendParticles(ParticleTypes.ANGRY_VILLAGER,
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ANGRY_VILLAGER),
                             this.getX(), this.getY() + this.getBbHeight() * 0.9D, this.getZ(),
                             14, 0.6D, 0.4D, 0.6D, 0.02D);
                 }
@@ -327,7 +327,7 @@ public class TrollEntity extends Monster {
                     }
                     if (t % 5 == 0 && this.level() instanceof ServerLevel sl) {
                         Vec3 back = Vec3.directionFromRotation(0.0F, this.getYRot()).scale(-3.0D);
-                        sl.sendParticles(ParticleTypes.CRIT, this.getX() + back.x, this.getY() + 1.2D, this.getZ() + back.z,
+                        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), this.getX() + back.x, this.getY() + 1.2D, this.getZ() + back.z,
                                 4, 0.5D, 0.15D, 0.5D, 0.05D);
                     }
                     if (t >= KNOCKED_OUT_DURATION) {
@@ -476,7 +476,7 @@ public class TrollEntity extends Monster {
         hurt(caster != null ? damageSources().indirectMagic(caster, caster) : damageSources().magic(), BONK_DAMAGE);
         this.playSound(com.hogwartsmagic.ModSounds.TROLL_CLUB_HIT.get(), 1.6F, 0.7F);
         Vec3 forward = Vec3.directionFromRotation(0.0F, this.getYRot());
-        sl.sendParticles(ParticleTypes.CRIT, getX() + forward.x, getY() + 3.5D, getZ() + forward.z,
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), getX() + forward.x, getY() + 3.5D, getZ() + forward.z,
                 24, 0.4D, 0.3D, 0.4D, 0.25D);
         Fx.shake(sl, getX(), getY() + 2.0D, getZ(), 0.5F, 10.0F, 8);
     }

@@ -217,7 +217,7 @@ public final class WingardiumSpell {
         carried.setCarried(state, player.getUUID());
         carried.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, 0.0F, 0.0F);
         level.addFreshEntity(carried);
-        level.sendParticles(ParticleTypes.ENCHANT, pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
                 16, 0.4D, 0.4D, 0.4D, 0.05D);
         return carried;
     }

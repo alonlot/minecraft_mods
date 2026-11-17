@@ -52,6 +52,27 @@ public class FlooFireplaceBlock extends CampfireBlock {
         return level.isClientSide ? null : createTickerHelper(type, ExampleMod.FLOO_FIREPLACE_BLOCK_ENTITY.get(), FlooFireplaceBlockEntity::tick);
     }
 
+    /**
+     * The campfire's own crackle and ember pops, drawn as the mod's sparks: vanilla's lava pops (and the vanilla
+     * smoke each one trails) would otherwise come with the inherited campfire behaviour.
+     */
+    @Override
+    public void animateTick(BlockState state, Level level, BlockPos pos, net.minecraft.util.RandomSource random) {
+        if (!state.getValue(LIT)) {
+            return;
+        }
+        if (random.nextInt(10) == 0) {
+            level.playLocalSound(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
+                    net.minecraft.sounds.SoundEvents.CAMPFIRE_CRACKLE, net.minecraft.sounds.SoundSource.BLOCKS,
+                    0.5F + random.nextFloat(), random.nextFloat() * 0.7F + 0.6F, false);
+        }
+        if (random.nextInt(5) == 0) {
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.LAVA),
+                    pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
+                    (random.nextFloat() - 0.5F) * 0.1F, 0.12F + random.nextFloat() * 0.08F, (random.nextFloat() - 0.5F) * 0.1F);
+        }
+    }
+
     @Override
     protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
         if (state.getValue(ACTIVE)) {

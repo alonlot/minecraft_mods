@@ -81,7 +81,7 @@ public final class ArrestoFreeze {
             projectile.hasImpulse = true; // one motion packet: clients stop predicting its flight
             // One teleport packet per freeze so clients see it where the server holds it (never per tick).
             level.getChunkSource().broadcast(projectile, new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(projectile));
-            level.sendParticles(ParticleTypes.GLOW, projectile.getX(), projectile.getY(), projectile.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), projectile.getX(), projectile.getY(), projectile.getZ(),
                     6, 0.15D, 0.15D, 0.15D, 0.01D);
             count++;
         }
@@ -141,7 +141,7 @@ public final class ArrestoFreeze {
             entity.setDeltaMovement(Vec3.ZERO);
             entity.setPos(record.at().x, record.at().y, record.at().z);
             if (now % 4L == 0L) {
-                level.sendParticles(ParticleTypes.GLOW, record.at().x, record.at().y, record.at().z, 1, 0.1D, 0.1D, 0.1D, 0.0D);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), record.at().x, record.at().y, record.at().z, 1, 0.1D, 0.1D, 0.1D, 0.0D);
             }
         }
     }

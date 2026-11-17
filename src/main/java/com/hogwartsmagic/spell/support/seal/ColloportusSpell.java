@@ -154,7 +154,7 @@ public final class ColloportusSpell {
         BlockPos centre = new BlockPos(seal.x(), seal.y(), seal.z());
         level.playSound(null, centre, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 1.0f, 0.8f);
         level.playSound(null, centre, SoundEvents.IRON_DOOR_OPEN, SoundSource.BLOCKS, 0.8f, 0.7f);
-        level.sendParticles(ParticleTypes.ELECTRIC_SPARK, centre.getX() + 0.5, centre.getY() + 0.5, centre.getZ() + 0.5,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ELECTRIC_SPARK), centre.getX() + 0.5, centre.getY() + 0.5, centre.getZ() + 0.5,
                 24, 0.5, 0.5, 0.5, 0.15);
         if (player != null) {
             tell(player, "broken", ChatFormatting.AQUA);
@@ -282,10 +282,10 @@ public final class ColloportusSpell {
         int points = 16 + 8 * seal.radius();
         for (int i = 0; i < points; i++) {
             double a = Math.PI * 2.0 * i / points;
-            level.sendParticles(ParticleTypes.WAX_ON, cx + Math.cos(a) * seal.radius(), cy, cz + Math.sin(a) * seal.radius(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WAX_ON), cx + Math.cos(a) * seal.radius(), cy, cz + Math.sin(a) * seal.radius(),
                     1, 0.0, 0.0, 0.0, 0.0);
         }
-        level.sendParticles(ParticleTypes.ENCHANT, cx, cy, cz, 20, 0.3, 0.4, 0.3, 0.4);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), cx, cy, cz, 20, 0.3, 0.4, 0.3, 0.4);
     }
 
     /** Revelio: one burst of points spread evenly over the seal's sphere (a Fibonacci sphere). */
@@ -300,7 +300,7 @@ public final class ColloportusSpell {
             double y = 1.0 - 2.0 * (i + 0.5) / points;
             double ring = Math.sqrt(1.0 - y * y);
             double a = golden * i;
-            level.sendParticles(ParticleTypes.END_ROD, cx + Math.cos(a) * ring * r, cy + y * r, cz + Math.sin(a) * ring * r,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), cx + Math.cos(a) * ring * r, cy + y * r, cz + Math.sin(a) * ring * r,
                     1, 0.0, 0.0, 0.0, 0.0);
         }
     }

@@ -159,8 +159,8 @@ public final class MasteryAwards {
             double x = caster.getX();
             double y = caster.getY() + 1.0;
             double z = caster.getZ();
-            level.sendParticles(ParticleTypes.ENCHANT, x, y, z, 40, 0.5, 0.8, 0.5, 0.6);
-            level.sendParticles(spell.getDustParticle(), x, y, z, 24, 0.4, 0.6, 0.4, 0.02);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), x, y, z, 40, 0.5, 0.8, 0.5, 0.6);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(spell.getDustParticle()), x, y, z, 24, 0.4, 0.6, 0.4, 0.02);
         }
     }
 

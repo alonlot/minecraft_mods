@@ -84,7 +84,7 @@ public class VoldemortSummoningEntity extends Entity {
                     VoldemortSummoningEntity ritual = new VoldemortSummoningEntity(level, trio.get(0), trio.get(1), trio.get(2));
                     level.addFreshEntity(ritual);
                     level.playSound(null, hitWardPos, ModSounds.SPELL_MORSMORDRE.get(), SoundSource.HOSTILE, 1.5f, 0.55f);
-                    level.sendParticles(ParticleTypes.SQUID_INK, hitWardPos.getX() + 0.5D, hitWardPos.getY() + 1.0D, hitWardPos.getZ() + 0.5D, 40, 0.35D, 0.6D, 0.35D, 0.06D);
+                    level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), hitWardPos.getX() + 0.5D, hitWardPos.getY() + 1.0D, hitWardPos.getZ() + 0.5D, 40, 0.35D, 0.6D, 0.35D, 0.06D);
                     return true;
                 }
             }
@@ -196,8 +196,8 @@ public class VoldemortSummoningEntity extends Entity {
         }
 
         if (age % 6 == 0) {
-            ritualParticles(level, ParticleTypes.WITCH, center.x, center.y + 1.0D, center.z, 10, 1.2D, 0.4D, 1.2D, 0.02D);
-            ritualParticles(level, ParticleTypes.CAMPFIRE_COSY_SMOKE, center.x, center.y + 0.6D, center.z, 14, 1.4D, 0.2D, 1.4D, 0.015D);
+            ritualParticles(level, com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH), center.x, center.y + 1.0D, center.z, 10, 1.2D, 0.4D, 1.2D, 0.02D);
+            ritualParticles(level, com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CAMPFIRE_COSY_SMOKE), center.x, center.y + 0.6D, center.z, 14, 1.4D, 0.2D, 1.4D, 0.015D);
         }
     }
 
@@ -209,9 +209,9 @@ public class VoldemortSummoningEntity extends Entity {
             double swirl = age * 0.12D + progress * Math.PI * 2.0D;
             double x = start.x + Math.cos(swirl) * 0.18D;
             double z = start.z + Math.sin(swirl) * 0.18D;
-            ritualParticles(level, CURSED_BEAM, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            ritualParticles(level, com.hogwartsmagic.spell.vfx.SpellVfx.swap(CURSED_BEAM), x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             if (i % 3 == 0) {
-                ritualParticles(level, ParticleTypes.END_ROD, x, y, z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
+                ritualParticles(level, com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), x, y, z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
             }
         }
     }
@@ -251,9 +251,9 @@ public class VoldemortSummoningEntity extends Entity {
             serverLevel.addFreshEntity(lightning);
         }
 
-        serverLevel.sendParticles(ParticleTypes.FLASH, voldemort.getX(), voldemort.getY() + 1.2D, voldemort.getZ(), 6, 0.3D, 0.4D, 0.3D, 0.0D);
-        serverLevel.sendParticles(ParticleTypes.SQUID_INK, voldemort.getX(), voldemort.getY() + 1.2D, voldemort.getZ(), 70, 0.45D, 0.9D, 0.45D, 0.06D);
-        serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, voldemort.getX(), voldemort.getY() + 1.0D, voldemort.getZ(), 90, 0.6D, 1.0D, 0.6D, 0.04D);
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), voldemort.getX(), voldemort.getY() + 1.2D, voldemort.getZ(), 6, 0.3D, 0.4D, 0.3D, 0.0D);
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), voldemort.getX(), voldemort.getY() + 1.2D, voldemort.getZ(), 70, 0.45D, 0.9D, 0.45D, 0.06D);
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), voldemort.getX(), voldemort.getY() + 1.0D, voldemort.getZ(), 90, 0.6D, 1.0D, 0.6D, 0.04D);
         serverLevel.playSound(null, spawnPos, SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 1.2f, 0.7f);
         summonDeathEaters(serverLevel, spawnPos, voldemort);
     }
@@ -286,8 +286,8 @@ public class VoldemortSummoningEntity extends Entity {
                 serverLevel.addFreshEntity(lightning);
             }
 
-            serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, wizard.getX(), wizard.getY() + 1.0D, wizard.getZ(), 35, 0.45D, 0.9D, 0.45D, 0.04D);
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK, wizard.getX(), wizard.getY() + 1.1D, wizard.getZ(), 20, 0.3D, 0.8D, 0.3D, 0.03D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), wizard.getX(), wizard.getY() + 1.0D, wizard.getZ(), 35, 0.45D, 0.9D, 0.45D, 0.04D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), wizard.getX(), wizard.getY() + 1.1D, wizard.getZ(), 20, 0.3D, 0.8D, 0.3D, 0.03D);
         }
         serverLevel.playSound(null, center, ModSounds.SPELL_MORSMORDRE.get(), SoundSource.HOSTILE, 1.25f, 0.65f);
     }

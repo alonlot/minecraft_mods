@@ -839,7 +839,7 @@ public class LivingStatueEntity extends Monster {
             int points = 10 * ring;
             for (int i = 0; i < points; i++) {
                 double a = (Math.PI * 2.0D) * i / points;
-                server.sendParticles(dust, cx + Math.cos(a) * radius,
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(dust), cx + Math.cos(a) * radius,
                         this.getY() + 0.15D, cz + Math.sin(a) * radius,
                         2, 0.1D, 0.05D, 0.1D, 0.12D);
             }
@@ -889,8 +889,8 @@ public class LivingStatueEntity extends Monster {
      */
     private void finishCrumble() {
         if (this.level() instanceof ServerLevel server) {
-            server.sendParticles(new BlockParticleOption(
-                            ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(
+                            ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState())),
                     this.getX(), this.getY() + 0.6D, this.getZ(), 50, 0.7D, 0.4D, 0.7D, 0.05D);
         }
         this.entityData.set(DATA_CRUMBLE, 0);
@@ -913,8 +913,8 @@ public class LivingStatueEntity extends Monster {
         }
         this.entityData.set(DATA_REFORM, 1);
         if (this.level() instanceof ServerLevel server) {
-            server.sendParticles(new BlockParticleOption(
-                            ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(
+                            ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState())),
                     this.getX(), this.getY() + 0.5D, this.getZ(), 30, 0.6D, 0.3D, 0.6D, 0.04D);
         }
     }
@@ -934,8 +934,8 @@ public class LivingStatueEntity extends Monster {
         this.crumbleEffects(this.deathTime);
         if (this.deathTime >= CRUMBLE_TICKS + RUBBLE_TICKS && !this.isRemoved()) {
             if (this.level() instanceof ServerLevel server) {
-                server.sendParticles(new BlockParticleOption(
-                                ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(
+                                ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState())),
                         this.getX(), this.getY() + 0.4D, this.getZ(), 70, 0.8D, 0.3D, 0.8D, 0.1D);
                 server.playSound(null, this.blockPosition(), ModSounds.STATUE_CRUMBLE.get(),
                         SoundSource.HOSTILE, 1.0F, 1.2F);

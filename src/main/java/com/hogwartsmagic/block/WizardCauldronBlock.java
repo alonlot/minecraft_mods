@@ -160,7 +160,7 @@ public class WizardCauldronBlock extends BaseEntityBlock {
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
         if (state.getValue(LEVEL) > 0 && random.nextInt(5) == 0) {
-            level.addParticle(ParticleTypes.WITCH,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH),
                     pos.getX() + 0.3 + random.nextDouble() * 0.4,
                     pos.getY() + 0.8 + random.nextDouble() * 0.2,
                     pos.getZ() + 0.3 + random.nextDouble() * 0.4,

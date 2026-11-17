@@ -1,6 +1,7 @@
 package com.hogwartsmagic.spell.damage;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.TerrainRules;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
@@ -10,16 +11,20 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseFireBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.TntBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.network.PacketDistributor;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,10 +48,13 @@ public final class BombardaBlasts {
         final List<BlockPos> positions;
         int next;
         final boolean masteryEligible;
+        /** Where the beam hit: the debris is thrown away from here. */
+        final Vec3 impact;
         int broken;
 
-        Job(UUID casterId, int rank, List<BlockPos> positions, boolean masteryEligible) {
+        Job(UUID casterId, int rank, List<BlockPos> positions, boolean masteryEligible, Vec3 impact) {
             this.casterId = casterId;
+            this.impact = impact;
             this.masteryEligible = masteryEligible;
             this.rank = rank;
             this.positions = positions;
@@ -58,13 +66,13 @@ public final class BombardaBlasts {
 
     /** @return true if the job was queued; false if there was nothing to break or the queue is at its cap */
     static boolean queue(ServerLevel level, ServerPlayer caster, int rank, List<BlockPos> positions,
-                         boolean masteryEligible) {
+                         boolean masteryEligible, Vec3 impact) {
         if (positions.isEmpty()) {
             return false;
         }
         ArrayDeque<Job> jobs = JOBS.computeIfAbsent(level.dimension(), key -> new ArrayDeque<>());
         if (jobs.size() < MAX_JOBS_PER_LEVEL) {
-            jobs.add(new Job(caster.getUUID(), rank, positions, masteryEligible));
+            jobs.add(new Job(caster.getUUID(), rank, positions, masteryEligible, impact));
             return true;
         }
         return false;
@@ -95,12 +103,21 @@ public final class BombardaBlasts {
                 jobs.poll();
                 continue;
             }
+            List<BlockPos> brokenNow = new ArrayList<>();
+            List<BlockState> brokenStates = new ArrayList<>();
             while (budget > 0 && job.next < job.positions.size()) {
-                if (breakOne(level, job.positions.get(job.next++), caster, job.rank)) {
+                BlockPos pos = job.positions.get(job.next++);
+                BlockState before = level.isLoaded(pos) ? level.getBlockState(pos) : null;
+                if (breakOne(level, pos, caster, job.rank)) {
                     job.broken++;
+                    if (before != null && !(before.getBlock() instanceof TntBlock)) {
+                        brokenNow.add(pos);
+                        brokenStates.add(before);
+                    }
                 }
                 budget--;
             }
+            sendDebris(level, job.impact, caster.getEyePosition().subtract(job.impact), brokenNow, brokenStates);
             if (job.next >= job.positions.size()) {
                 jobs.poll();
                 if (job.broken > 0 && job.masteryEligible && com.hogwartsmagic.item.MagicBookItem.isSpellLearned(caster, com.hogwartsmagic.spell.SpellType.BOMBARDA)) {
@@ -141,6 +158,26 @@ public final class BombardaBlasts {
             return true;
         }
         return level.destroyBlock(pos, level.random.nextDouble() < BombardaRules.dropChance(rank), caster);
+    }
+
+    /** Tells the players who can see the blast which blocks just broke, so their clients throw debris. */
+    private static void sendDebris(ServerLevel level, Vec3 impact, Vec3 out, List<BlockPos> positions, List<BlockState> states) {
+        if (positions.isEmpty()) {
+            return;
+        }
+        Vec3 dir = out.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 1.0, 0.0) : out.normalize();
+        for (int from = 0; from < positions.size(); from += SpellPackets.MAX_DEBRIS_ENTRIES) {
+            int to = Math.min(positions.size(), from + SpellPackets.MAX_DEBRIS_ENTRIES);
+            long[] packed = new long[to - from];
+            int[] ids = new int[to - from];
+            for (int i = from; i < to; i++) {
+                packed[i - from] = positions.get(i).asLong();
+                ids[i - from] = Block.getId(states.get(i));
+            }
+            SpellPackets.CHANNEL.send(new SpellPackets.BlockDebrisPacket(impact.x, impact.y, impact.z,
+                            (float) dir.x, (float) dir.y, (float) dir.z, packed, ids),
+                    PacketDistributor.TRACKING_CHUNK.with(level.getChunkAt(BlockPos.containing(impact))));
+        }
     }
 
     @SubscribeEvent

@@ -281,7 +281,7 @@ public final class CombatEffects {
         event.setAmount(event.getAmount() * BrittleRules.bonusMultiplier(instance.getAmplifier()));
         target.removeEffect(brittle);
         if (target.level() instanceof ServerLevel level) {
-            level.sendParticles(ParticleTypes.ITEM_SNOWBALL, target.getX(), target.getY() + target.getBbHeight() * 0.5,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ITEM_SNOWBALL), target.getX(), target.getY() + target.getBbHeight() * 0.5,
                     target.getZ(), 16, target.getBbWidth() * 0.4, target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.05);
             level.playSound(null, target.getX(), target.getY(), target.getZ(),
                     SoundEvents.GLASS_BREAK, SoundSource.NEUTRAL, 0.8F, 1.4F);

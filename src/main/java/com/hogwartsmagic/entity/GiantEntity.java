@@ -306,7 +306,7 @@ public class GiantEntity extends Monster {
             this.entityData.set(DATA_RAGING, true);
             this.playSound(ModSounds.GIANT_ROAR.get(), 2.2F, 0.75F);
             if (this.level() instanceof ServerLevel sl) {
-                sl.sendParticles(ParticleTypes.ANGRY_VILLAGER,
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ANGRY_VILLAGER),
                         this.getX(), this.getY() + this.getBbHeight() * 0.85D, this.getZ(),
                         20, 1.0D, 0.6D, 1.0D, 0.02D);
             }
@@ -518,7 +518,7 @@ public class GiantEntity extends Monster {
             } else {
                 level.destroyBlock(pos, true, this);
             }
-            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, state)),
                     pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
                     12, 0.3D, 0.3D, 0.3D, 0.08D);
         }

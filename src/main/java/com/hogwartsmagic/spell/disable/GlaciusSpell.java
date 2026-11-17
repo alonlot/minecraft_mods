@@ -108,9 +108,9 @@ public final class GlaciusSpell {
         if (stunned) {
             target.setTicksFrozen(Math.max(target.getTicksFrozen(), target.getTicksRequiredToFreeze() + 2 * ticks));
         }
-        level.sendParticles(ParticleTypes.SNOWFLAKE, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SNOWFLAKE), target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
                 30, target.getBbWidth() * 0.5, target.getBbHeight() * 0.4, target.getBbWidth() * 0.5, 0.02);
-        level.sendParticles(ParticleTypes.ITEM_SNOWBALL, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ITEM_SNOWBALL), target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
                 16, target.getBbWidth() * 0.4, target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.05);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.GLASS_PLACE, SoundSource.NEUTRAL, 1.0f, 1.6f);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.PLAYER_HURT_FREEZE, SoundSource.NEUTRAL, 0.8f, 1.0f);
@@ -188,7 +188,7 @@ public final class GlaciusSpell {
                     brit.isAmbient(), brit.isVisible(), brit.showIcon()));
         }
         target.setTicksFrozen(0);
-        level.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.35, 0.3, 0.35, 0.01);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.35, 0.3, 0.35, 0.01);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.NEUTRAL, 0.8f, 1.2f);
     }
 
@@ -233,10 +233,10 @@ public final class GlaciusSpell {
             nearby.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN,
                     GlaciusRules.SHATTER_SLOW_TICKS, GlaciusRules.SHATTER_SLOW_AMPLIFIER));
         }
-        level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.ICE.defaultBlockState()),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.ICE.defaultBlockState())),
                 dead.getX(), dead.getY() + dead.getBbHeight() * 0.5, dead.getZ(), 60,
                 dead.getBbWidth() * 0.6, dead.getBbHeight() * 0.4, dead.getBbWidth() * 0.6, 0.25);
-        level.sendParticles(ParticleTypes.SNOWFLAKE, dead.getX(), dead.getY() + dead.getBbHeight() * 0.5, dead.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SNOWFLAKE), dead.getX(), dead.getY() + dead.getBbHeight() * 0.5, dead.getZ(),
                 40, radius * 0.4, 0.4, radius * 0.4, 0.05);
         level.playSound(null, dead.getX(), dead.getY(), dead.getZ(), SoundEvents.GLASS_BREAK, SoundSource.NEUTRAL, 1.2f, 0.7f);
         data.remove(FROZEN_BY_TAG);

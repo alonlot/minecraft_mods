@@ -60,12 +60,12 @@ public final class BombardaSpell {
                                 @Nullable LivingEntity primary, boolean masteryEligible) {
         int rank = DisableSupport.casterRank(caster, SpellType.BOMBARDA);
         double radius = BombardaRules.radius(rank);
-        level.sendParticles(radius >= 2.5 ? ParticleTypes.EXPLOSION_EMITTER : ParticleTypes.EXPLOSION,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(radius >= 2.5 ? ParticleTypes.EXPLOSION_EMITTER : ParticleTypes.EXPLOSION),
                 impact.x, impact.y, impact.z, radius >= 2.5 ? 1 : 3, radius * 0.3, radius * 0.3, radius * 0.3, 0.0);
         level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS,
                 2.0f + (float) radius * 0.3f, 0.9f + level.random.nextFloat() * 0.2f);
         splash(level, impact, caster, primary, rank, radius);
-        int queued = queueBlocks(level, center, caster, rank, radius, masteryEligible);
+        int queued = queueBlocks(level, center, impact, caster, rank, radius, masteryEligible);
         // The blast scorches what it leaves: the mark waits for the blocks to go (a few dozen a tick), then lies on the crater.
         int delay = Math.min(40, queued / BombardaRules.BLOCKS_PER_TICK + 3);
         Fx.send(level, FxKinds.MARK_SCORCH, impact, 64.0, -1, (float) radius * 1.15f + 0.5f, 75.0f, (float) delay);
@@ -105,8 +105,8 @@ public final class BombardaSpell {
         }
     }
 
-    private static int queueBlocks(ServerLevel level, BlockPos center, @Nullable Entity caster, int rank, double radius,
-                                    boolean masteryEligible) {
+    private static int queueBlocks(ServerLevel level, BlockPos center, Vec3 impact, @Nullable Entity caster, int rank,
+                                    double radius, boolean masteryEligible) {
         if (!masteryEligible) {
             return 0; // a reflected blast (NPC or player) never breaks terrain
         }
@@ -125,6 +125,6 @@ public final class BombardaSpell {
                 positions.add(pos);
             }
         }
-        return BombardaBlasts.queue(level, player, rank, positions, masteryEligible) ? positions.size() : 0;
+        return BombardaBlasts.queue(level, player, rank, positions, masteryEligible, impact) ? positions.size() : 0;
     }
 }

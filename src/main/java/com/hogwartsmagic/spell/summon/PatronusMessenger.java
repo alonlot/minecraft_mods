@@ -102,7 +102,7 @@ public final class PatronusMessenger {
     private static void departFrom(ServerPlayer sender) {
         ServerLevel level = sender.serverLevel();
         ModEvents.revealInvisibilityCloak(sender);
-        level.sendParticles(ParticleTypes.END_ROD, sender.getX(), sender.getY() + 1.2D, sender.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), sender.getX(), sender.getY() + 1.2D, sender.getZ(),
                 30, 0.6D, 0.8D, 0.6D, 0.08D);
         level.playSound(null, sender.getX(), sender.getY(), sender.getZ(),
                 SpellType.EXPECTO_PATRONUM.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 1.2f);
@@ -130,7 +130,7 @@ public final class PatronusMessenger {
         }
         if (placed) {
             level.addFreshEntity(messenger);
-            level.sendParticles(ParticleTypes.END_ROD, messenger.getX(), messenger.getY() + 0.8D, messenger.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), messenger.getX(), messenger.getY() + 0.8D, messenger.getZ(),
                     24, 0.5D, 0.6D, 0.5D, 0.05D);
         }
         level.playSound(null, recipient.getX(), recipient.getY(), recipient.getZ(),

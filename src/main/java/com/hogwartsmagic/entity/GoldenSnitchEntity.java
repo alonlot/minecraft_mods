@@ -86,7 +86,7 @@ public class GoldenSnitchEntity extends Mob {
         if (this.level().isClientSide) {
             // Golden sparkle trail.
             if (this.random.nextFloat() < 0.6f) {
-                this.level().addParticle(new DustParticleOptions(new Vector3f(1.0f, 0.85f, 0.2f), 0.6f),
+                this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new DustParticleOptions(new Vector3f(1.0f, 0.85f, 0.2f), 0.6f)),
                         this.getX(), this.getY() + 0.15, this.getZ(),
                         0.0, 0.0, 0.0);
             }
@@ -183,9 +183,9 @@ public class GoldenSnitchEntity extends Mob {
         Player catcher = nearby.get(0);
 
         if (this.level() instanceof ServerLevel sl) {
-            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FIREWORK,
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.FIREWORK),
                     this.getX(), this.getY(), this.getZ(), 60, 0.5, 0.5, 0.5, 0.15);
-            sl.sendParticles(new DustParticleOptions(new Vector3f(1.0f, 0.85f, 0.2f), 1.2f),
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new DustParticleOptions(new Vector3f(1.0f, 0.85f, 0.2f), 1.2f)),
                     this.getX(), this.getY(), this.getZ(), 40, 0.8, 0.8, 0.8, 0.0);
         }
         this.level().playSound(null, this.getX(), this.getY(), this.getZ(),

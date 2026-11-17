@@ -71,7 +71,7 @@ public class MandrakePlantBlock extends BushBlock {
         level.playSound(null, pos, ModSounds.MANDRAKE_SCREAM.get(), SoundSource.BLOCKS, 1.7F, 1.0F);
 
         if (level instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.SONIC_BOOM,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SONIC_BOOM),
                     pos.getX() + 0.5D,
                     pos.getY() + 0.7D,
                     pos.getZ() + 0.5D,

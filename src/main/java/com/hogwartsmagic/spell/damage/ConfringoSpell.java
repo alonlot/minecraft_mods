@@ -72,7 +72,7 @@ public final class ConfringoSpell {
                 e -> e != primary && e.position().distanceToSqr(at) <= radius * radius
                         && DamageSupport.isSplashTarget(caster, e, primary))) {
             nearby.igniteForSeconds(seconds);
-            level.sendParticles(ParticleTypes.FLAME, nearby.getX(), nearby.getY() + nearby.getBbHeight() * 0.5, nearby.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME), nearby.getX(), nearby.getY() + nearby.getBbHeight() * 0.5, nearby.getZ(),
                     8, nearby.getBbWidth() * 0.3, nearby.getBbHeight() * 0.3, nearby.getBbWidth() * 0.3, 0.02);
         }
     }
@@ -88,7 +88,7 @@ public final class ConfringoSpell {
         }
         event.setAmount(event.getAmount() * activeBrittleBonus);
         if (target.level() instanceof ServerLevel level) {
-            level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
                     14, target.getBbWidth() * 0.4, target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.2);
         }
     }

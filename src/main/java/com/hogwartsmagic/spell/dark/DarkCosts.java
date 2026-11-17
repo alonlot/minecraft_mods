@@ -120,7 +120,7 @@ public final class DarkCosts {
         if (count <= 0) {
             return;
         }
-        player.serverLevel().sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1.0D, player.getZ(),
+        player.serverLevel().sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), player.getX(), player.getY() + 1.0D, player.getZ(),
                 count, 0.3D, 0.5D, 0.3D, 0.005D);
     }
 }

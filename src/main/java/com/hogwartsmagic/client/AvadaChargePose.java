@@ -112,6 +112,11 @@ public final class AvadaChargePose {
         double z = Mth.lerp(partial, caster.zo, caster.getZ());
         Vec3 look = caster.getViewVector(partial);
         if (firstPerson) {
+            // Your own view: the wand the first-person arm (FirstPersonWandRig) is drawing right now.
+            Vec3 drawnTip = WandCastAnimation.localTipInWorld(Minecraft.getInstance().gameRenderer.getMainCamera());
+            if (drawnTip != null) {
+                return drawnTip;
+            }
             Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
             right = right.lengthSqr() < 1.0E-4 ? new Vec3(1.0, 0.0, 0.0) : right.normalize();
             Vec3 up = right.cross(look).normalize();

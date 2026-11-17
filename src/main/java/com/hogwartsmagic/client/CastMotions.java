@@ -1,24 +1,19 @@
 package com.hogwartsmagic.client;
 
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.mixin.client.ItemInHandRendererInvoker;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellType;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderHandEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -179,6 +174,10 @@ public final class CastMotions {
     }
 
     private static final Map<Integer, Cast> CASTS = new HashMap<>();
+    /** When each caster's latest gesture started, kept a little past its end (see {@link #ownsRecentCast}). */
+    private static final Map<Integer, Double> LAST_START = new HashMap<>();
+    /** How long after a gesture starts this class still owns the caster's arm. */
+    private static final double OWNERSHIP_TICKS = 30.0;
 
     private CastMotions() {
     }
@@ -193,6 +192,7 @@ public final class CastMotions {
         // The spell is already on its way: start the gesture just short of its release, so the snap lands with
         // the beam leaving the wand instead of a beat after it.
         CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime() - (motion.snap - RELEASE_LEAD)));
+        LAST_START.put(packet.casterId(), (double) minecraft.level.getGameTime());
     }
 
     /** Drop gestures that are over for casters never drawn again (walked off, logged out). */
@@ -204,6 +204,17 @@ public final class CastMotions {
         }
         double now = minecraft.level.getGameTime();
         CASTS.values().removeIf(cast -> cast.over(now) || cast.age(now) < 0.0f);
+        LAST_START.values().removeIf(start -> now - start > OWNERSHIP_TICKS || now < start);
+    }
+
+    /**
+     * Whether a gesture from the server started for {@code entityId} lately. A player's third-person arm then
+     * belongs to this class, and the swing-driven CastGestures pose stays off it for the whole cast, so the two
+     * never fight over one arm or hand over mid-swing.
+     */
+    public static boolean ownsRecentCast(int entityId, double now) {
+        Double start = LAST_START.get(entityId);
+        return start != null && now - start <= OWNERSHIP_TICKS && now >= start;
     }
 
     /** The gesture {@code entityId} is playing now, or null. */
@@ -276,6 +287,11 @@ public final class CastMotions {
             return shoulder.add(Vec3.directionFromRotation(pitch, yaw).scale(0.95));
         }
         if (firstPerson) {
+            // Your own view: the wand the first-person arm (FirstPersonWandRig) is drawing right now.
+            Vec3 drawnTip = WandCastAnimation.localTipInWorld(Minecraft.getInstance().gameRenderer.getMainCamera());
+            if (drawnTip != null) {
+                return drawnTip;
+            }
             Vec3 look = caster.getViewVector(partial);
             Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
             right = right.lengthSqr() < 1.0E-4 ? new Vec3(1.0, 0.0, 0.0) : right.normalize();
@@ -293,37 +309,6 @@ public final class CastMotions {
         float pitch = caster.getViewXRot(partial) - p[0] * p[3] * Mth.RAD_TO_DEG;
         float yaw = Mth.rotLerp(partial, caster.yHeadRotO, caster.yHeadRot) + p[1] * p[3] * Mth.RAD_TO_DEG;
         return shoulder.add(Vec3.directionFromRotation(pitch, yaw).scale(ARM_REACH));
-    }
-
-    /** First person: turn the held wand through the gesture, drawn inside our own pushed pose. */
-    @SubscribeEvent
-    public static void onRenderHand(RenderHandEvent event) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (CASTS.isEmpty() || event.getHand() != InteractionHand.MAIN_HAND || minecraft.player == null) {
-            return;
-        }
-        Cast cast = get(minecraft.player.getId(), AvadaChargeClientState.now(event.getPartialTick()));
-        if (cast == null) {
-            return;
-        }
-        float[] p = cast.pose(AvadaChargeClientState.now(event.getPartialTick()));
-        float s = FIRST_PERSON_SCALE * p[3];
-        if (s <= 0.001f) {
-            return;
-        }
-        event.setCanceled(true);
-        PoseStack pose = event.getPoseStack();
-        pose.pushPose();
-        // Pivot about the wrist, roughly where the right hand sits in first person.
-        pose.translate(0.56, -0.52, -0.72);
-        pose.mulPose(Axis.YP.rotation(-p[1] * s));
-        pose.mulPose(Axis.XP.rotation(p[0] * s));
-        pose.translate(-0.56, 0.52 - p[2] * s * 0.01, 0.72 - p[2] * s * 0.03);
-        ((ItemInHandRendererInvoker) minecraft.getEntityRenderDispatcher().getItemInHandRenderer())
-                .hogwartsmagic$renderArmWithItem(minecraft.player, event.getPartialTick(), event.getInterpolatedPitch(),
-                        InteractionHand.MAIN_HAND, event.getSwingProgress(), event.getItemStack(),
-                        event.getEquipProgress(), pose, event.getMultiBufferSource(), event.getPackedLight());
-        pose.popPose();
     }
 
     @SubscribeEvent

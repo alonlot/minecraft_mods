@@ -174,7 +174,7 @@ public final class Lycanthropy {
         }
         clearBeastEffects(player); // a beast's or a restless night's Night Vision
         if (player.level() instanceof ServerLevel level) {
-            level.sendParticles(ParticleTypes.SOUL, player.getX(), player.getY(0.6), player.getZ(), 18, 0.35, 0.5, 0.35, 0.03);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL), player.getX(), player.getY(0.6), player.getZ(), 18, 0.35, 0.5, 0.35, 0.03);
             level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ZOMBIE_VILLAGER_CURE,
                     SoundSource.PLAYERS, 0.7F, 1.2F);
         }

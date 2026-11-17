@@ -3,7 +3,7 @@ package com.hogwartsmagic.spell.voice;
 import net.minecraftforge.common.ForgeConfigSpec;
 
 /**
- * Client settings for voice casting (hogwartsmagic-client.toml). Only the client reads them: speech is turned
+ * Client settings for voice casting (hogwartsmagic-voice-client.toml). Only the client reads them: speech is turned
  * into a spell on the player's own machine, and the cast then goes through the same packets as the radial menu.
  */
 public final class VoiceCastConfig {

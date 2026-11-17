@@ -153,7 +153,7 @@ public class AssignmentItem extends Item {
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                 com.hogwartsmagic.ModSounds.SPELL_LEARN.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
         if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-            serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.WAX_ON,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.WAX_ON),
                     player.getX(), player.getY() + 1.2, player.getZ(), 30, 0.4, 0.4, 0.4, 0.05);
         }
         ItemStack book = MagicBookItem.createBook(spell);

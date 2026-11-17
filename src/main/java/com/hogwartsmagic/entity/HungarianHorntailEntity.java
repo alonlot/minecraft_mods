@@ -439,11 +439,11 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         if (this.tickCount % period != 0) return;
         Vec3 mouth = mouthPos();
         Vec3 dir = this.getLookAngle();
-        sl.sendParticles(ParticleTypes.SMOKE,
+        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE),
                 mouth.x, mouth.y, mouth.z, 0,
                 dir.x * 0.06D, 0.03D, dir.z * 0.06D, 1.0D);
         if (isRaging() && this.random.nextInt(3) == 0) {
-            sl.sendParticles(ParticleTypes.SMALL_FLAME,
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_FLAME),
                     mouth.x, mouth.y, mouth.z, 0,
                     dir.x * 0.08D, 0.02D, dir.z * 0.08D, 1.0D);
         }
@@ -544,10 +544,10 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         }
         this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_BITE.get(), 1.5F, 1.3F);
         if (connected) {
-            sl.sendParticles(ParticleTypes.CRIT, jaw.x, jaw.y, jaw.z, 14, 0.5D, 0.5D, 0.5D, 0.15D);
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), jaw.x, jaw.y, jaw.z, 14, 0.5D, 0.5D, 0.5D, 0.15D);
         } else {
             // A missed snap still cracks shut — teeth clash, no crit sparks.
-            sl.sendParticles(ParticleTypes.SMOKE, jaw.x, jaw.y, jaw.z, 6, 0.3D, 0.2D, 0.3D, 0.02D);
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), jaw.x, jaw.y, jaw.z, 6, 0.3D, 0.2D, 0.3D, 0.02D);
         }
     }
 
@@ -710,9 +710,9 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
                 Vec3 off = new Vec3(Math.cos(a) * r, (this.random.nextDouble() - 0.5D) * r, Math.sin(a) * r);
                 Vec3 from = mouth.add(off);
                 Vec3 vel = off.normalize().scale(-0.22D);
-                sl.sendParticles(ParticleTypes.SMALL_FLAME, from.x, from.y, from.z, 0, vel.x, vel.y, vel.z, 1.0D);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_FLAME), from.x, from.y, from.z, 0, vel.x, vel.y, vel.z, 1.0D);
             }
-            sl.sendParticles(ParticleTypes.LARGE_SMOKE, mouth.x, mouth.y, mouth.z, 1, 0.2D, 0.2D, 0.2D, 0.01D);
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), mouth.x, mouth.y, mouth.z, 1, 0.2D, 0.2D, 0.2D, 0.01D);
         }
         if (t >= BREATH_WINDUP_DURATION) setAttackState(AttackState.BREATH);
     }
@@ -920,7 +920,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             if (t == 1) this.playSound(SoundEvents.FIRECHARGE_USE, 2.5F, 0.5F);
             if (this.level() instanceof ServerLevel sl) {
                 Vec3 mouth = mouthPos();
-                sl.sendParticles(ParticleTypes.SMALL_FLAME, mouth.x, mouth.y, mouth.z, 3, 0.2D, 0.2D, 0.2D, 0.02D);
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_FLAME), mouth.x, mouth.y, mouth.z, 3, 0.2D, 0.2D, 0.2D, 0.02D);
             }
         } else {
             int bt = t - AIR_BREATH_WINDUP;
@@ -1002,7 +1002,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         for (int i = 0; i < 22; i++) {
             double a = i / 22.0D * Math.PI * 2.0D;
             Vec3 out = new Vec3(Math.cos(a), 0.0D, Math.sin(a));
-            sl.sendParticles(ParticleTypes.FLAME, c.x, c.y + 0.3D, c.z, 0,
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME), c.x, c.y + 0.3D, c.z, 0,
                     out.x * 0.55D, 0.10D, out.z * 0.55D, 1.0D);
         }
         Vec3 ground = new Vec3(c.x, groundBelowY(), c.z);
@@ -1210,7 +1210,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     protected void tickDeath() {
         super.tickDeath();
         if (this.level() instanceof ServerLevel sl && this.deathTime % 4 == 0) {
-            sl.sendParticles(ParticleTypes.EXPLOSION,
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.EXPLOSION),
                     this.getX() + (this.random.nextDouble() - 0.5D) * this.getBbWidth(),
                     this.getY() + this.random.nextDouble() * this.getBbHeight(),
                     this.getZ() + (this.random.nextDouble() - 0.5D) * this.getBbWidth(),

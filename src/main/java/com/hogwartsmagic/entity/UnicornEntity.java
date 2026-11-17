@@ -207,13 +207,13 @@ public class UnicornEntity extends Animal {
             if (won) {
                 trusted.add(player.getUUID());
                 startToss();
-                ((ServerLevel) level()).sendParticles(ParticleTypes.HEART, getX(), getY() + getBbHeight() * 0.9D, getZ(),
+                ((ServerLevel) level()).sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HEART), getX(), getY() + getBbHeight() * 0.9D, getZ(),
                         5, 0.4D, 0.3D, 0.4D, 0.0D);
                 sparkleBurst(14);
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.unicorn.trusts")
                         .withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC), true);
             } else {
-                ((ServerLevel) level()).sendParticles(ParticleTypes.SMOKE, getX(), getY() + getBbHeight() * 0.9D, getZ(),
+                ((ServerLevel) level()).sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), getX(), getY() + getBbHeight() * 0.9D, getZ(),
                         4, 0.3D, 0.2D, 0.3D, 0.0D);
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.unicorn.wary")
                         .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC), true);

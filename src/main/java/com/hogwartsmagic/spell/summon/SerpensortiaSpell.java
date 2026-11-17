@@ -78,7 +78,7 @@ public final class SerpensortiaSpell {
                 snake.setTarget(target);
             }
             level.addFreshEntity(snake);
-            level.sendParticles(ParticleTypes.SQUID_INK, snake.getX(), snake.getY() + 0.2D, snake.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), snake.getX(), snake.getY() + 0.2D, snake.getZ(),
                     8, 0.2D, 0.1D, 0.2D, 0.02D);
             spawned++;
         }

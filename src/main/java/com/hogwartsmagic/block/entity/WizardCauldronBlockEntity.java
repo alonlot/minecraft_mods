@@ -283,7 +283,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
             return;
         }
         level.playSound(null, worldPosition, SoundEvents.GENERIC_SPLASH, SoundSource.BLOCKS, 0.4f, 1.4f);
-        level.sendParticles(ParticleTypes.SPLASH, cx(), surfaceY(), cz(), 6, 0.2, 0.02, 0.2, 0.05);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SPLASH), cx(), surfaceY(), cz(), 6, 0.2, 0.02, 0.2, 0.05);
         if (history.isEmpty()) {
             tell(player, "stir_water");
             return;
@@ -393,7 +393,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         }
         level.playSound(null, worldPosition, SoundEvents.BUBBLE_COLUMN_BUBBLE_POP, SoundSource.BLOCKS, 0.8f,
                 1.0f + level.random.nextFloat() * 0.3f);
-        level.sendParticles(ParticleTypes.BUBBLE_POP, cx(), surfaceY(), cz(), 6, 0.2, 0.05, 0.2, 0.01);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.BUBBLE_POP), cx(), surfaceY(), cz(), 6, 0.2, 0.05, 0.2, 0.01);
         return true;
     }
 
@@ -493,7 +493,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         }
         if (BrewRules.wantsSimmer(history)) {
             history = BrewRules.append(history, BrewRules.Step.simmer(1));
-            level.sendParticles(ParticleTypes.BUBBLE_POP, cx(), surfaceY(), cz(), 3, 0.2, 0.02, 0.2, 0.0);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.BUBBLE_POP), cx(), surfaceY(), cz(), 3, 0.2, 0.02, 0.2, 0.0);
             BrewRules.Match match = BrewRules.match(history);
             if (match.status() == BrewRules.Status.FINISHED) {
                 finish(level, match.recipe(), null);

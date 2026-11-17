@@ -475,7 +475,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
                 // Goals only tick on the server; count 0 makes the offsets act as velocity (0, 0.2, 0).
                 if (this.wizard.level() instanceof net.minecraft.server.level.ServerLevel sl) {
                     for(int i = 0; i < 5; i++) {
-                        sl.sendParticles(ParticleTypes.SQUID_INK, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(), 0, 0.0, 0.2, 0.0, 1.0);
+                        sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(), 0, 0.0, 0.2, 0.0, 1.0);
                     }
                 }
                 
@@ -864,7 +864,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
                      this.wizard.level().playSound(null, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(),
                              net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.HOSTILE, 1.0f, 1.0f);
                      if (this.wizard.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                          sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, this.wizard.getX(), this.wizard.getY() + 1.0, this.wizard.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
+                          sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.CRIT), this.wizard.getX(), this.wizard.getY() + 1.0, this.wizard.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
                      }
                 }
             
@@ -901,12 +901,12 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
             double handZ = this.wizard.getZ();
             int flameCount = Math.max(2, (int) (2 + progress * 6));
 
-            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.FLAME),
                     handX, handY, handZ, flameCount, 0.25D, 0.25D, 0.25D, 0.02D);
-            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.SMALL_FLAME,
+            sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.SMALL_FLAME),
                     handX, handY, handZ, flameCount, 0.20D, 0.20D, 0.20D, 0.0D);
             if (this.fiendfyreChargeTicks % 4 == 0) {
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.DRIPPING_LAVA,
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.DRIPPING_LAVA),
                         handX, handY + 0.2D, handZ, 1, 0.15D, 0.05D, 0.15D, 0.0D);
             }
             // Audible heartbeat / fire roar that quickens as the charge fills.
@@ -934,10 +934,10 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
             // can add an extra trail if it cares — at minimum the spawn-burst here
             // gives it a distinct visual signature on launch).
             if (this.wizard.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.LAVA,
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.LAVA),
                         this.wizard.getX(), this.wizard.getY() + 1.4D, this.wizard.getZ(),
                         12, 0.4D, 0.4D, 0.4D, 0.05D);
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.FLAME),
                         this.wizard.getX(), this.wizard.getY() + 1.4D, this.wizard.getZ(),
                         30, 0.5D, 0.5D, 0.5D, 0.25D);
             }

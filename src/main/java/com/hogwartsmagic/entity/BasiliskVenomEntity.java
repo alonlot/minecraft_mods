@@ -56,7 +56,7 @@ public class BasiliskVenomEntity extends ThrowableItemProjectile {
     public void tick() {
         super.tick();
         if (this.level().isClientSide) {
-            this.level().addParticle(ParticleTypes.ITEM_SLIME,
+            this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ITEM_SLIME),
                     this.getX(), this.getY(), this.getZ(), 0.0D, 0.0D, 0.0D);
         }
     }
@@ -92,7 +92,7 @@ public class BasiliskVenomEntity extends ThrowableItemProjectile {
         }
         spawnAcidPool();
         if (this.level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.ITEM_SLIME,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ITEM_SLIME),
                     this.getX(), this.getY(), this.getZ(), 24, 0.4D, 0.2D, 0.4D, 0.08D);
         }
         this.discard();

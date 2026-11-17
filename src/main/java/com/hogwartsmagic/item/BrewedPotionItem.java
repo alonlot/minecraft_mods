@@ -128,7 +128,7 @@ public class BrewedPotionItem extends Item {
                     com.hogwartsmagic.brewing.PotionRules.qualityTicks(PEPPERUP_FIRE_RESISTANCE_TICKS, grade), 0));
             if (level instanceof ServerLevel server) {
                 // Steam from the ears.
-                server.sendParticles(ParticleTypes.CLOUD, drinker.getX(), drinker.getEyeY() + 0.1, drinker.getZ(),
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), drinker.getX(), drinker.getEyeY() + 0.1, drinker.getZ(),
                         14, 0.3, 0.05, 0.3, 0.03);
                 server.playSound(null, drinker.getX(), drinker.getY(), drinker.getZ(), SoundEvents.FIRE_EXTINGUISH,
                         SoundSource.PLAYERS, 0.5f, 1.6f);
@@ -138,7 +138,7 @@ public class BrewedPotionItem extends Item {
             com.hogwartsmagic.spell.combat.CombatEffects.cureCursedWound(drinker);
             drinker.heal(com.hogwartsmagic.brewing.PotionRules.qualityAmount(com.hogwartsmagic.brewing.PotionRules.DITTANY_HEAL, grade));
             if (level instanceof ServerLevel server) {
-                server.sendParticles(ParticleTypes.HAPPY_VILLAGER, drinker.getX(), drinker.getY(0.5), drinker.getZ(),
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HAPPY_VILLAGER), drinker.getX(), drinker.getY(0.5), drinker.getZ(),
                         8, 0.3, 0.4, 0.3, 0.0);
             }
         } else if (kind == Kind.MANDRAKE) {
@@ -153,7 +153,7 @@ public class BrewedPotionItem extends Item {
                     com.hogwartsmagic.brewing.PotionRules.qualityTicks(com.hogwartsmagic.brewing.PotionRules.FELIX_TICKS, grade),
                     com.hogwartsmagic.brewing.PotionRules.FELIX_LUCK_AMPLIFIER));
             if (level instanceof ServerLevel server) {
-                server.sendParticles(ParticleTypes.WAX_ON, drinker.getX(), drinker.getY(0.6), drinker.getZ(),
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WAX_ON), drinker.getX(), drinker.getY(0.6), drinker.getZ(),
                         16, 0.35, 0.5, 0.35, 0.02);
                 server.playSound(null, drinker.getX(), drinker.getY(), drinker.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME,
                         SoundSource.PLAYERS, 1.0f, 1.6f);
@@ -257,7 +257,7 @@ public class BrewedPotionItem extends Item {
             v.getGossips().add(player.getUUID(), net.minecraft.world.entity.ai.gossip.GossipType.MINOR_POSITIVE,
                     Math.round(com.hogwartsmagic.brewing.PotionRules.qualityAmount(com.hogwartsmagic.brewing.PotionRules.VERITASERUM_GOSSIP, grade)));
             data.putLong(VERITASERUM_AT, now);
-            level.sendParticles(ParticleTypes.HAPPY_VILLAGER, v.getX(), v.getY(0.6), v.getZ(), 8, 0.4, 0.5, 0.4, 0.0);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.HAPPY_VILLAGER), v.getX(), v.getY(0.6), v.getZ(), 8, 0.4, 0.5, 0.4, 0.0);
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.villager"), true);
         } else if (wizard) {
             if (com.hogwartsmagic.spell.combat.CombatTags.isBoss(target)) {

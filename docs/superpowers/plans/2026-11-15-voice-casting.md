@@ -144,7 +144,7 @@ Ruling: sneak + spoken spell = self-cast, in every mode - the only way to self-c
 4. Say "Fiendfyre" and hold right-click: the channel starts; release ends it.
 5. Look up, say "Protego Maxima" and hold right-click: the dome channels.
 6. No wand in hand: V does nothing, the microphone stays closed.
-7. voiceCasting=false in hogwartsmagic-client.toml: V does nothing.
+7. voiceCasting=false in hogwartsmagic-voice-client.toml: V does nothing.
 8. Stunned or silenced: the usual "cannot cast" line.
 9. Open mic (default): hold a wand and say "Stupefy!" without any key: it casts. Say "did you see his Stupefy": nothing.
 10. Open mic: put the wand away: the system microphone light goes off after about a second.

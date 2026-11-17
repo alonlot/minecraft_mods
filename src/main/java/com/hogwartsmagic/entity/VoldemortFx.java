@@ -35,7 +35,7 @@ final class VoldemortFx {
             case VoldemortMoves.ENTRANCE -> {
                 if (e < 18) ring(level, feet.add(0, 0.1D, 0), 0.5D + e * 0.42D, 28, ParticleTypes.SQUID_INK, 0.04D);
                 if (e > 20 && e < 50 && e % 2 == 0) {
-                    level.addParticle(ParticleTypes.SOUL, feet.x + (r.nextDouble() - 0.5D) * 1.6D, feet.y + 0.2D,
+                    level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL), feet.x + (r.nextDouble() - 0.5D) * 1.6D, feet.y + 0.2D,
                             feet.z + (r.nextDouble() - 0.5D) * 1.6D, 0.0D, 0.06D, 0.0D);
                 }
             }
@@ -48,7 +48,7 @@ final class VoldemortFx {
                         level.addParticle(CRUCIO_RED, wand.x + r.nextGaussian() * 0.12D, wand.y + r.nextGaussian() * 0.12D,
                                 wand.z + r.nextGaussian() * 0.12D, 0.0D, 0.0D, 0.0D);
                     }
-                    if (e % 2 == 0) level.addParticle(ParticleTypes.ELECTRIC_SPARK, wand.x, wand.y, wand.z,
+                    if (e % 2 == 0) level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ELECTRIC_SPARK), wand.x, wand.y, wand.z,
                             r.nextGaussian() * 0.1D, r.nextGaussian() * 0.1D, r.nextGaussian() * 0.1D);
                 }
             }
@@ -65,16 +65,16 @@ final class VoldemortFx {
                     for (int side = -1; side <= 1; side += 2) {
                         Vec3 hand = feet.add(right.scale(0.45D * side)).add(fwd.scale(0.15D)).add(0.0D, lift, 0.0D);
                         double a = e * 0.7D + side;
-                        level.addParticle(ParticleTypes.FLAME, hand.x + Math.cos(a) * 0.3D, hand.y + 0.1D, hand.z + Math.sin(a) * 0.3D,
+                        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME), hand.x + Math.cos(a) * 0.3D, hand.y + 0.1D, hand.z + Math.sin(a) * 0.3D,
                                 0.0D, 0.03D, 0.0D);
-                        level.addParticle(ParticleTypes.SMALL_FLAME, hand.x + Math.cos(a + Math.PI) * 0.25D, hand.y,
+                        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_FLAME), hand.x + Math.cos(a + Math.PI) * 0.25D, hand.y,
                                 hand.z + Math.sin(a + Math.PI) * 0.25D, 0.0D, 0.02D, 0.0D);
-                        if (e % 3 == 0) level.addParticle(ParticleTypes.LAVA, hand.x, hand.y, hand.z, 0.0D, 0.0D, 0.0D);
+                        if (e % 3 == 0) level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LAVA), hand.x, hand.y, hand.z, 0.0D, 0.0D, 0.0D);
                     }
                 } else if (e == VoldemortMoves.FIRE_TICK) {
                     for (int i = 0; i < 24; i++) {
                         Vec3 d = fwd.scale(0.25D + r.nextDouble() * 0.3D).add(r.nextGaussian() * 0.08D, r.nextGaussian() * 0.08D, r.nextGaussian() * 0.08D);
-                        level.addParticle(ParticleTypes.FLAME, wand.x, wand.y, wand.z, d.x, d.y, d.z);
+                        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME), wand.x, wand.y, wand.z, d.x, d.y, d.z);
                     }
                 }
             }
@@ -86,14 +86,14 @@ final class VoldemortFx {
                         double rad = 3.0D + r.nextDouble();
                         Vec3 p = feet.add(Math.cos(a) * rad, 0.3D + r.nextDouble() * 1.8D, Math.sin(a) * rad);
                         Vec3 vel = feet.add(0, 1.2D, 0).subtract(p).scale(0.09D);
-                        level.addParticle(ParticleTypes.SQUID_INK, p.x, p.y, p.z, vel.x, vel.y, vel.z);
+                        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), p.x, p.y, p.z, vel.x, vel.y, vel.z);
                     }
-                    level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, feet.x + r.nextGaussian() * 0.3D, feet.y + 0.1D,
+                    level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME), feet.x + r.nextGaussian() * 0.3D, feet.y + 0.1D,
                             feet.z + r.nextGaussian() * 0.3D, 0.0D, 0.08D + e * 0.004D, 0.0D);
                 } else if (e < VoldemortMoves.SLAM_TICK + 14) {
                     int k = e - VoldemortMoves.SLAM_TICK;
                     if (k == 0) {
-                        level.addParticle(ParticleTypes.EXPLOSION_EMITTER, feet.x, feet.y + 0.2D, feet.z, 0.0D, 0.0D, 0.0D);
+                        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.EXPLOSION_EMITTER), feet.x, feet.y + 0.2D, feet.z, 0.0D, 0.0D, 0.0D);
                     }
                     double rad = 0.8D + k * 0.6D;
                     ring(level, feet.add(0, 0.15D, 0), rad, 40, ParticleTypes.SQUID_INK, 0.08D);
@@ -108,7 +108,7 @@ final class VoldemortFx {
                         double h = r.nextDouble() * 4.0D;
                         level.addParticle(DARK, tip.x + r.nextGaussian() * 0.05D, tip.y + h, tip.z + r.nextGaussian() * 0.05D, 0.0D, 0.15D, 0.0D);
                     }
-                    if (e % 3 == 0) level.addParticle(ParticleTypes.ELECTRIC_SPARK, tip.x, tip.y, tip.z, 0.0D, 0.2D, 0.0D);
+                    if (e % 3 == 0) level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ELECTRIC_SPARK), tip.x, tip.y, tip.z, 0.0D, 0.2D, 0.0D);
                 }
             }
             case VoldemortMoves.PHASE -> {
@@ -116,16 +116,16 @@ final class VoldemortFx {
                     for (int i = 0; i < 3; i++) {
                         double a = e * 0.35D + i * Math.PI * 2.0D / 3.0D;
                         double y = (e * 0.07D + i * 0.6D) % 3.2D;
-                        level.addParticle(ParticleTypes.SQUID_INK, feet.x + Math.cos(a) * 1.3D, feet.y + y, feet.z + Math.sin(a) * 1.3D,
+                        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), feet.x + Math.cos(a) * 1.3D, feet.y + y, feet.z + Math.sin(a) * 1.3D,
                                 0.0D, 0.02D, 0.0D);
                     }
-                    level.addParticle(ParticleTypes.SOUL, feet.x + r.nextGaussian() * 0.4D, feet.y + 0.5D, feet.z + r.nextGaussian() * 0.4D,
+                    level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL), feet.x + r.nextGaussian() * 0.4D, feet.y + 0.5D, feet.z + r.nextGaussian() * 0.4D,
                             0.0D, 0.1D, 0.0D);
-                    if (e % 2 == 0) level.addParticle(ParticleTypes.ELECTRIC_SPARK, feet.x + r.nextGaussian() * 0.5D,
+                    if (e % 2 == 0) level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ELECTRIC_SPARK), feet.x + r.nextGaussian() * 0.5D,
                             feet.y + 1.0D + r.nextDouble() * 1.2D, feet.z + r.nextGaussian() * 0.5D, 0.0D, 0.0D, 0.0D);
                 } else if (e < VoldemortMoves.PHASE_BLAST_TICK + 16) {
                     int k = e - VoldemortMoves.PHASE_BLAST_TICK;
-                    if (k == 0) level.addParticle(ParticleTypes.EXPLOSION_EMITTER, feet.x, feet.y + 1.0D, feet.z, 0.0D, 0.0D, 0.0D);
+                    if (k == 0) level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.EXPLOSION_EMITTER), feet.x, feet.y + 1.0D, feet.z, 0.0D, 0.0D, 0.0D);
                     double rad = 1.0D + k * 0.65D;
                     ring(level, feet.add(0, 1.0D, 0), rad, 44, ParticleTypes.SQUID_INK, 0.08D);
                     ring(level, feet.add(0, 1.2D, 0), rad, 22, ParticleTypes.SOUL_FIRE_FLAME, 0.02D);

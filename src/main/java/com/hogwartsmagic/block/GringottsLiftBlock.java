@@ -98,7 +98,7 @@ public class GringottsLiftBlock extends BaseEntityBlock {
                     Component.translatable("block.hogwartsmagic.gringotts_lift.stuck"), true);
             return InteractionResult.CONSUME;
         }
-        server.sendParticles(ParticleTypes.CRIT, pos.getX() + 0.5D, pos.getY() + 1.0D,
+        server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), pos.getX() + 0.5D, pos.getY() + 1.0D,
                 pos.getZ() + 0.5D, 12, 0.4D, 0.1D, 0.4D, 0.02D);
         return InteractionResult.CONSUME;
     }

@@ -75,9 +75,9 @@ public class ConcealedRockBlock extends Block implements EntityBlock, LiquidBloc
         double x = pos.getX() + random.nextDouble();
         double y = pos.getY() + random.nextDouble();
         double z = pos.getZ() + random.nextDouble();
-        level.addParticle(ParticleTypes.ENCHANT, x, y, z,
+        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), x, y, z,
                 (random.nextDouble() - 0.5) * 0.4, random.nextDouble() * 0.3, (random.nextDouble() - 0.5) * 0.4);
-        level.addParticle(ParticleTypes.GLOW, x, y, z, 0.0, 0.0, 0.0);
+        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), x, y, z, 0.0, 0.0, 0.0);
     }
 
     @Override

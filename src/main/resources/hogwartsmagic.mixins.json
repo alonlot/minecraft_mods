@@ -43,9 +43,10 @@
     "client.LevelRendererAccessor",
     "client.PensieveOcclusionGraphMixin",
     "client.PensieveTimeSyncMixin",
-    "client.ItemInHandRendererInvoker",
     "client.BloomRenderTypeMixin",
-    "client.SkyFogVeilMixin"
+    "client.SkyFogVeilMixin",
+    "client.WandGestureModelMixin",
+    "client.TenebrisGuiMixin"
   ],
   "injectors": {
     "defaultRequire": 1

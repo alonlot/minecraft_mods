@@ -191,7 +191,7 @@ public class DarkMarkEntity extends Entity {
                                 net.minecraft.world.entity.MobSpawnType.EVENT, null);
                     }
                     serverLevel.addFreshEntity(monster);
-                    serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, monster.getX(), monster.getY(), monster.getZ(), 20, 0.5, 1.0, 0.5, 0.05);
+                    serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), monster.getX(), monster.getY(), monster.getZ(), 20, 0.5, 1.0, 0.5, 0.05);
                 }
             }
         }

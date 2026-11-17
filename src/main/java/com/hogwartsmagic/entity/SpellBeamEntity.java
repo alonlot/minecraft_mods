@@ -196,6 +196,32 @@ public class SpellBeamEntity extends ThrowableProjectile {
         return this.reflected;
     }
 
+    /** Client only, kept by client.SpellPath: the drawn spell's start bend. */
+    public boolean vfxStartTaken;
+    @javax.annotation.Nullable
+    public Vec3 vfxStartOffset;
+    /** Client only, kept by client.SpellPath: whether the orb was held on the wand tip, and the age it left. */
+    public boolean vfxHeld;
+    public float vfxReleaseAge = -1.0F;
+
+    /**
+     * Client only: where this client saw the beam hit, and on which tick. The server's discard packet arrives a
+     * little later; the hit's feel (CastFeel) and the ice ribbon's fade use this instead of wherever it drifted to.
+     */
+    @javax.annotation.Nullable
+    private Vec3 clientImpact;
+    private int clientImpactTick;
+
+    @javax.annotation.Nullable
+    public Vec3 getClientImpact() {
+        return this.clientImpact;
+    }
+
+    /** True for a few ticks after a client-side hit; a hit the server did not confirm shows the orb again. */
+    public boolean hasFreshClientImpact() {
+        return this.clientImpact != null && this.tickCount - this.clientImpactTick <= 3;
+    }
+
     public void setHomingTarget(Entity target) {
         this.homingTargetUuid = target != null ? target.getUUID() : null;
     }
@@ -531,6 +557,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
 
     @Override
     protected void onHit(HitResult result) {
+        if (this.level().isClientSide && result.getType() != HitResult.Type.MISS) {
+            this.clientImpact = result.getLocation();
+            this.clientImpactTick = this.tickCount;
+        }
         if (this.visualOnly) {
             if (this.level().isClientSide) {
                 endVisualBeam();
@@ -1414,7 +1444,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         }
 
         serverLevel.removeBlock(pos, false);
-        serverLevel.levelEvent(2001, pos, net.minecraft.world.level.block.Block.getId(ExampleMod.MANDRAKE_PLANT.get().defaultBlockState()));
+        com.hogwartsmagic.spell.vfx.SpellVfx.blockBreak(serverLevel, pos, ExampleMod.MANDRAKE_PLANT.get().defaultBlockState());
         serverLevel.playSound(null, pos, ModSounds.MANDRAKE_SCREAM.get(), SoundSource.BLOCKS, 1.2F, 1.15F);
         com.hogwartsmagic.spell.SpellBeamFx.effectAt(serverLevel, SpellType.ACCIO, Vec3.atCenterOf(pos).add(0.0, 0.25, 0.0), com.hogwartsmagic.spell.SpellBeamFx.GLOW);
 

@@ -270,7 +270,7 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
             double z = cz + (rand.nextDouble() - 0.5) * 0.45;
             level.sendParticles(MagicParticles.MOTE_GOLD, x, y, z, 2, 0.28, 0.16, 0.28, 0.03);
             if (rand.nextFloat() < 0.45f) {
-                level.sendParticles(MAGIC_SPARK_GOLD, x, y, z, 1, 0.12, 0.08, 0.12, 0.02);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(MAGIC_SPARK_GOLD), x, y, z, 1, 0.12, 0.08, 0.12, 0.02);
             }
         }
         if (this.craftTicksRemaining % 5 == 0) {
@@ -288,7 +288,7 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
             double z = cz + (rand.nextDouble() - 0.5) * WIND_BOX_HALF;
             level.sendParticles(MagicParticles.SPARK_VIOLET, x, y, z, 1, 0.25, 0.1, 0.25, 0.025);
             if (rand.nextFloat() < 0.35f) {
-                level.sendParticles(MAGIC_SPARK_VIOLET, x, y, z, 1, 0.1, 0.06, 0.1, 0.015);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(MAGIC_SPARK_VIOLET), x, y, z, 1, 0.1, 0.06, 0.1, 0.015);
             }
         }
         if (rand.nextFloat() < 0.22f) {
@@ -309,12 +309,12 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
         }
 
         if (this.craftTicksRemaining % 14 == 0) {
-            level.sendParticles(ParticleTypes.GUST, cx, cy, cz, 1, 0.45, 0.18, 0.45, 0.02);
-            level.sendParticles(ParticleTypes.SMALL_GUST, cx, cy + 0.08, cz, 2, 0.5, 0.2, 0.5, 0.02);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GUST), cx, cy, cz, 1, 0.45, 0.18, 0.45, 0.02);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_GUST), cx, cy + 0.08, cz, 2, 0.5, 0.2, 0.5, 0.02);
             level.sendParticles(MagicParticles.MOTE_WHITE, cx, cy + 0.12, cz, 2, 0.25, 0.12, 0.25, 0.03);
         }
         if (this.craftTicksRemaining % 32 == 0) {
-            level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, cx, pos.getY() + 0.65, cz, 1, 0.08, 0.06, 0.08, 0.0);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GUST_EMITTER_SMALL), cx, pos.getY() + 0.65, cz, 1, 0.08, 0.06, 0.08, 0.0);
         }
         if (this.craftTicksRemaining % 22 == 0) {
             level.sendParticles(MagicParticles.GLINT_GOLD, cx, cy + 0.35, cz, 1, 0.15, 0.08, 0.15, 0.0);
@@ -410,15 +410,15 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
         double cx = pos.getX() + 0.5;
         double cy = pos.getY() + 0.55;
         double cz = pos.getZ() + 0.5;
-        level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, cx, cy, cz, 1, 0.06, 0.05, 0.06, 0.0);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GUST_EMITTER_SMALL), cx, cy, cz, 1, 0.06, 0.05, 0.06, 0.0);
         level.sendParticles(MagicParticles.MOTE_GOLD, cx, cy + 0.2, cz, 8, 0.35, 0.2, 0.35, 0.04);
-        level.sendParticles(MAGIC_SPARK_GOLD, cx, cy + 0.15, cz, 6, 0.3, 0.15, 0.3, 0.02);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(MAGIC_SPARK_GOLD), cx, cy + 0.15, cz, 6, 0.3, 0.15, 0.3, 0.02);
         double r = 0.75;
         for (int i = 0; i < 10; i++) {
             double a = (i / 10.0) * Math.PI * 2;
             double px = cx + Math.cos(a) * r;
             double pz = cz + Math.sin(a) * r;
-            level.sendParticles(ParticleTypes.SMALL_GUST, px, cy, pz, 1, 0.15, 0.08, 0.15, 0.015);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_GUST), px, cy, pz, 1, 0.15, 0.08, 0.15, 0.015);
             if (i % 2 == 0) {
                 level.sendParticles(MagicParticles.SMOKE_WHITE, px, cy + 0.04, pz, 1, 0.12, 0.06, 0.12, 0.008);
             }
@@ -438,7 +438,7 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
             double px = cx + Math.cos(a) * radius;
             double pz = cz + Math.sin(a) * radius;
             double py = cy + rand.nextDouble() * 0.6 + Math.sin(a * 2) * 0.06;
-            level.sendParticles(ParticleTypes.SMALL_GUST, px, py, pz, 1, 0.12, 0.08, 0.12, 0.012);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_GUST), px, py, pz, 1, 0.12, 0.08, 0.12, 0.012);
             if (i % 2 == 0) {
                 level.sendParticles(MagicParticles.SMOKE_WHITE, px, py, pz, 1, 0.1, 0.06, 0.1, 0.005);
             }
@@ -446,7 +446,7 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
                 level.sendParticles(MagicParticles.MOTE_GOLD, px, py + 0.06, pz, 1, 0.1, 0.06, 0.1, 0.02);
             }
             if (i % 4 == 0) {
-                level.sendParticles(MAGIC_SPARK_VIOLET, px, py + 0.04, pz, 1, 0.06, 0.04, 0.06, 0.01);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(MAGIC_SPARK_VIOLET), px, py + 0.04, pz, 1, 0.06, 0.04, 0.06, 0.01);
             }
             if (i % 5 == 0) {
                 level.sendParticles(MagicParticles.SMOKE_VIOLET, px, py - 0.02, pz, 1, 0.1, 0.06, 0.1, 0.01);
@@ -465,7 +465,7 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
                 level.sendParticles(MagicParticles.MOTE_GOLD, cx + ox * 0.85, cy + oy * 0.5, cz + oz * 0.85, 1, 0.14, 0.08, 0.14, 0.015);
             }
             if (rand.nextFloat() < 0.35f) {
-                level.sendParticles(MAGIC_SPARK_GOLD, cx + ox * 0.8, cy + oy * 0.48, cz + oz * 0.8, 1, 0.08, 0.05, 0.08, 0.012);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(MAGIC_SPARK_GOLD), cx + ox * 0.8, cy + oy * 0.48, cz + oz * 0.8, 1, 0.08, 0.05, 0.08, 0.012);
             }
             if (rand.nextFloat() < 0.2f) {
                 level.sendParticles(MagicParticles.MOTE_TEAL, cx + ox * 0.75, cy + oy * 0.42, cz + oz * 0.75, 1, 0.06, 0.04, 0.06, 0.008);
@@ -485,13 +485,13 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
                 level.sendParticles(MagicParticles.MOTE_VIOLET, sx, sy, sz, 1, 0.08, 0.05, 0.08, 0.012);
             }
             if (i % 3 == 0) {
-                level.sendParticles(ParticleTypes.SMALL_GUST, sx, sy, sz, 1, 0.1, 0.05, 0.1, 0.01);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_GUST), sx, sy, sz, 1, 0.1, 0.05, 0.1, 0.01);
             }
             if (i % 4 == 0) {
                 level.sendParticles(MagicParticles.MOTE_WHITE, sx, sy + 0.04, sz, 1, 0.06, 0.03, 0.06, 0.015);
             }
             if (i % 5 == 0) {
-                level.sendParticles(MAGIC_SPARK_VIOLET, sx, sy, sz, 1, 0.05, 0.03, 0.05, 0.01);
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(MAGIC_SPARK_VIOLET), sx, sy, sz, 1, 0.05, 0.03, 0.05, 0.01);
             }
         }
     }
@@ -530,7 +530,7 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
             double y = pos.getY() + 0.75;
             double z = pos.getZ() + 0.5;
             if (level instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, x, y, z, 1, 0.1, 0.08, 0.1, 0.0);
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GUST_EMITTER_SMALL), x, y, z, 1, 0.1, 0.08, 0.1, 0.0);
                 for (int ring = 0; ring < 2; ring++) {
                     double r = 0.45 + ring * 0.35;
                     for (int i = 0; i < 12; i++) {
@@ -538,7 +538,7 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
                         double px = x + Math.cos(a) * r;
                         double pz = z + Math.sin(a) * r;
                         double py = y - 0.05 + ring * 0.06;
-                        serverLevel.sendParticles(ParticleTypes.SMALL_GUST, px, py, pz, 1, 0.15, 0.08, 0.15, 0.015);
+                        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_GUST), px, py, pz, 1, 0.15, 0.08, 0.15, 0.015);
                         if (i % 2 == 0) {
                             serverLevel.sendParticles(MagicParticles.SMOKE_WHITE, px, py + 0.04, pz, 1, 0.12, 0.06, 0.12, 0.005);
                         }
@@ -550,8 +550,8 @@ public class WandWorkbenchBlockEntity extends BlockEntity implements net.minecra
                 serverLevel.sendParticles(MagicParticles.MOTE_WHITE, x, y, z, 6, 0.35, 0.18, 0.35, 0.03);
                 serverLevel.sendParticles(MagicParticles.GLINT_GOLD, x, y, z, 4, 0.3, 0.12, 0.3, 0.0);
                 serverLevel.sendParticles(MagicParticles.MOTE_VIOLET, x, y, z, 5, 0.35, 0.15, 0.35, 0.02);
-                serverLevel.sendParticles(MAGIC_SPARK_GOLD, x, y + 0.1, z, 10, 0.45, 0.2, 0.45, 0.03);
-                serverLevel.sendParticles(MAGIC_SPARK_VIOLET, x, y, z, 8, 0.4, 0.18, 0.4, 0.025);
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(MAGIC_SPARK_GOLD), x, y + 0.1, z, 10, 0.45, 0.2, 0.45, 0.03);
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(MAGIC_SPARK_VIOLET), x, y, z, 8, 0.4, 0.18, 0.4, 0.025);
                 this.applyCraftTornadoToMobs(serverLevel, pos, 2.4);
             }
             level.playSound(null, x, y, z, ModSounds.WAND_ACHIEVEMENT_SOUND.get(), SoundSource.BLOCKS, 0.9f, 1.0f);

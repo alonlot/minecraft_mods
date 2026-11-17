@@ -1263,6 +1263,7 @@ public class ExampleMod
 
         // Register the Deferred Register to the mod event bus so blocks get registered
         BLOCKS.register(modEventBus);
+        com.hogwartsmagic.spell.vfx.ModParticles.PARTICLE_TYPES.register(modEventBus);
         // Register the Deferred Register to the mod event bus so items get registered
         ITEMS.register(modEventBus);
         DATA_COMPONENTS.register(modEventBus);
@@ -1301,8 +1302,9 @@ public class ExampleMod
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, com.hogwartsmagic.fx.FxConfig.SPEC);
         // The voiceOnlySpells gamerule must exist before any world loads.
         com.hogwartsmagic.spell.voice.VoiceOnlyRule.register();
-        // Voice casting runs on the client only; its settings live in hogwartsmagic-client.toml.
-        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, com.hogwartsmagic.spell.voice.VoiceCastConfig.SPEC);
+        // Voice casting runs on the client only; its settings get their own file (FxConfig owns hogwartsmagic-client.toml).
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, com.hogwartsmagic.spell.voice.VoiceCastConfig.SPEC,
+                "hogwartsmagic-voice-client.toml");
     }
 
     private void commonSetup(final FMLCommonSetupEvent event)

@@ -475,7 +475,7 @@ public final class OllivandersCeremony {
             Vec3 w = stand.add(0.0D, 1.25D, 0.0D);
             int rgb = accentRgb();
             com.hogwartsmagic.fx.Fx.shake(level, w, 0.5F, 14.0F, 14);
-            level.sendParticles(ParticleTypes.FLASH, w.x, w.y, w.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), w.x, w.y, w.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             // sparks in every direction, gold and the house colour
             MagicParticles.sphere(level, MagicParticles.SPARK_GOLD, w.x, w.y, w.z, 34, 0.55D, level.random);
             MagicParticles.sphere(level, MagicParticleOptions.spark(rgb, 1.0F), w.x, w.y, w.z, 22, 0.42D, level.random);
@@ -517,7 +517,7 @@ public final class OllivandersCeremony {
                     sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_PAPER.get(), 1.0F, 1.0F);
                 }
                 case 1 -> {         // a bang
-                    level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 3, 0.6D, 0.4D, 0.6D, 0.0D);
+                    level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.EXPLOSION), at.x, at.y, at.z, 3, 0.6D, 0.4D, 0.6D, 0.0D);
                     level.sendParticles(MagicParticles.SMOKE_DARK, at.x, at.y, at.z, 40, 1.2D, 0.8D, 1.2D, 0.05D);
                     sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_BANG.get(), 1.0F, 1.0F);
                 }

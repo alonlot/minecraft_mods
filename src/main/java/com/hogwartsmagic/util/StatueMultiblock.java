@@ -123,7 +123,7 @@ public final class StatueMultiblock {
         // the point rather than an oversight. The plain fizzle means "wrong target" and says
         // nothing else; the stone knock underneath it is what separates "your heart is fine, the
         // body under it is not" from having clipped a wall. Kept quiet (0.5F) so it layers.
-        level.sendParticles(ParticleTypes.SMOKE,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE),
                 headPos.getX() + 0.5D, headPos.getY() + 0.6D, headPos.getZ() + 0.5D,
                 8, 0.22D, 0.14D, 0.22D, 0.01D);
         level.playSound(null, headPos, SoundEvents.STONE_HIT, SoundSource.BLOCKS, 0.5F, 0.6F);
@@ -211,7 +211,7 @@ public final class StatueMultiblock {
         if (state.isAir()) {
             return;
         }
-        level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, state)),
                 pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
                 22, 0.32D, 0.32D, 0.32D, 0.07D);
     }

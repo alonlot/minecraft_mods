@@ -59,7 +59,7 @@ public final class AscendioSpell {
             Vec3 motion = player.getDeltaMovement();
             player.setDeltaMovement(motion.x, AscendioRules.SURGE_SPEED, motion.z);
             player.hurtMarked = true;
-            level.sendParticles(ParticleTypes.BUBBLE_COLUMN_UP, player.getX(), player.getY(), player.getZ(), 30, 0.3, 0.5, 0.3, 0.1);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.BUBBLE_COLUMN_UP), player.getX(), player.getY(), player.getZ(), 30, 0.3, 0.5, 0.3, 0.1);
             level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BUBBLE_COLUMN_UPWARDS_INSIDE, SoundSource.PLAYERS, 1.0f, 1.0f);
             return false;
         }
@@ -85,7 +85,7 @@ public final class AscendioSpell {
         if (!doubleCast && AscendioRules.pushesOnTakeoff(rank)) {
             shoveAway(level, player);
         }
-        level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.1, player.getZ(), 16, 0.4, 0.1, 0.4, 0.05);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), player.getX(), player.getY() + 0.1, player.getZ(), 16, 0.4, 0.1, 0.4, 0.05);
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 0.8f, 1.2f);
         return doubleCast;
     }

@@ -715,7 +715,7 @@ public final class EffectVisuals {
             double r = radius(age, total);
             double glow = glow(age, total);
             if (age == 0) {
-                level.addParticle(ParticleTypes.FLASH, centre.x, centre.y + 1.0, centre.z, 0, 0, 0);
+                level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), centre.x, centre.y + 1.0, centre.z, 0, 0, 0);
             }
             // The horizontal ring on the ground plane: the wavefront, bright, with a fainter trailing ring. The points
             // live only a few ticks, so the ring stays a ring instead of leaving a filled disc (and the particle cap).
@@ -734,7 +734,7 @@ public final class EffectVisuals {
                 double y = level.random.nextDouble() * 2 - 1;
                 double a = level.random.nextDouble() * Math.PI * 2;
                 double s = Math.sqrt(1 - y * y);
-                level.addParticle(ParticleTypes.GLOW, centre.x + s * Math.cos(a) * r, centre.y + Math.abs(y) * r * 0.9,
+                level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), centre.x + s * Math.cos(a) * r, centre.y + Math.abs(y) * r * 0.9,
                         centre.z + s * Math.sin(a) * r, 0, 0, 0);
             }
             // Dense white spray at the centre, thinning with the glow.
@@ -774,7 +774,7 @@ public final class EffectVisuals {
         public boolean tick(ClientLevel level) {
             ParticleEngine engine = Minecraft.getInstance().particleEngine;
             if (age == 0) {
-                level.addParticle(ParticleTypes.FLASH, centre.x, centre.y + 1.0, centre.z, 0, 0, 0);
+                level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), centre.x, centre.y + 1.0, centre.z, 0, 0, 0);
             }
             if (age < births) {
                 if (age % FIRE_WAVE_EVERY == 0 && age > 0) {
@@ -784,7 +784,7 @@ public final class EffectVisuals {
                 for (int i = 0; i < 14; i++) {
                     double a = level.random.nextDouble() * Math.PI * 2;
                     double r = 1.0 + level.random.nextDouble() * 0.5;
-                    level.addParticle(ParticleTypes.FLAME, centre.x + Math.cos(a) * r, centre.y + 1.0 + level.random.nextDouble() * 2.0,
+                    level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME), centre.x + Math.cos(a) * r, centre.y + 1.0 + level.random.nextDouble() * 2.0,
                             centre.z + Math.sin(a) * r, -Math.sin(a) * 0.08, 0.05, Math.cos(a) * 0.08);
                 }
             }
@@ -822,13 +822,13 @@ public final class EffectVisuals {
             for (int i = 0; i < smoke; i++) {
                 double a = level.random.nextDouble() * Math.PI * 2;
                 double rr = r - 0.6;
-                level.addParticle(ParticleTypes.LARGE_SMOKE, centre.x + Math.cos(a) * rr, centre.y + height,
+                level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), centre.x + Math.cos(a) * rr, centre.y + height,
                         centre.z + Math.sin(a) * rr, 0, 0.08, 0);
             }
             int sparks = (int) Math.ceil(points / 18.0);
             for (int i = 0; i < sparks; i++) {
                 double a = level.random.nextDouble() * Math.PI * 2;
-                level.addParticle(ParticleTypes.LAVA, centre.x + Math.cos(a) * r, centre.y + 0.4, centre.z + Math.sin(a) * r, 0, 0, 0);
+                level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LAVA), centre.x + Math.cos(a) * r, centre.y + 0.4, centre.z + Math.sin(a) * r, 0, 0, 0);
             }
         }
     }

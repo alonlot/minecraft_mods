@@ -175,7 +175,7 @@ public final class CaptureFx {
             for (int k = 0; k < 2; k++) {
                 float t = level.random.nextFloat() * head;
                 Vec3 p = curve(a, t, swayAt(e.age, t));
-                level.addParticle(ParticleTypes.END_ROD, p.x, p.y, p.z, (level.random.nextDouble() - 0.5) * 0.01,
+                level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), p.x, p.y, p.z, (level.random.nextDouble() - 0.5) * 0.01,
                         0.005 + level.random.nextDouble() * 0.01, (level.random.nextDouble() - 0.5) * 0.01);
             }
         }

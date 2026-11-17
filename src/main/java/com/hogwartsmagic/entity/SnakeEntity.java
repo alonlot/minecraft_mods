@@ -238,7 +238,7 @@ public class SnakeEntity extends PathfinderMob implements OwnableEntity {
     /** A puff of smoke and gone: the end of a conjured snake's time, or a new cast replacing it. */
     public void vanish() {
         if (this.level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.SMOKE, this.getX(), this.getY() + 0.2D, this.getZ(),
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), this.getX(), this.getY() + 0.2D, this.getZ(),
                     12, 0.25D, 0.1D, 0.25D, 0.01D);
         }
         this.discard();

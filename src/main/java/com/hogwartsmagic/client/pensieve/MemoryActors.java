@@ -729,7 +729,7 @@ public final class MemoryActors {
     private static void splash(double[] at, int n, double spread) {
         double x = origin.getX() + at[0], y = origin.getY() + at[1], z = origin.getZ() + at[2];
         for (int i = 0; i < n; i++) {
-            level.addParticle(ParticleTypes.SPLASH, x + (level.random.nextDouble() - 0.5) * spread, y,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SPLASH), x + (level.random.nextDouble() - 0.5) * spread, y,
                     z + (level.random.nextDouble() - 0.5) * spread, (level.random.nextDouble() - 0.5) * 0.15,
                     0.1 + level.random.nextDouble() * 0.15, (level.random.nextDouble() - 0.5) * 0.15);
         }
@@ -875,7 +875,7 @@ public final class MemoryActors {
                     e.getZ() + oz, ox * 0.06, 0.04 + level.random.nextDouble() * 0.08, oz * 0.06);
         }
         for (int i = 0; i < 6; i++) {
-            level.addParticle(ParticleTypes.LARGE_SMOKE, e.getRandomX(0.6), e.getY() + h * (0.6 + level.random.nextDouble() * 0.5),
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), e.getRandomX(0.6), e.getY() + h * (0.6 + level.random.nextDouble() * 0.5),
                     e.getRandomZ(0.6), 0, 0.06, 0);
         }
         MemorySounds.play(SoundEvents.FIRECHARGE_USE, e.position(), 0.7f, 0.8f + level.random.nextFloat() * 0.3f);
@@ -895,7 +895,7 @@ public final class MemoryActors {
                     e.getZ() + (level.random.nextDouble() - 0.5) * r * 2, 0, 0.01, 0);
         }
         if (((e.tickCount + (int) (a.seed & 1)) & 1) == 0) {
-            level.addAlwaysVisibleParticle(ParticleTypes.LARGE_SMOKE, e.getX() + (level.random.nextDouble() - 0.5) * r,
+            level.addAlwaysVisibleParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), e.getX() + (level.random.nextDouble() - 0.5) * r,
                     e.getY() + mid + (level.random.nextDouble() - 0.5) * r,
                     e.getZ() + (level.random.nextDouble() - 0.5) * r, 0, 0.01, 0);
         }
@@ -914,7 +914,7 @@ public final class MemoryActors {
                     ox * 0.08, 0.03 + level.random.nextDouble() * 0.05, oz * 0.08);
         }
         for (int i = 0; i < 8; i++) {
-            level.addParticle(ParticleTypes.LARGE_SMOKE, e.getX() + (level.random.nextDouble() - 0.5) * w,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), e.getX() + (level.random.nextDouble() - 0.5) * w,
                     e.getY() + level.random.nextDouble() * h, e.getZ() + (level.random.nextDouble() - 0.5) * w, 0, 0.02, 0);
         }
     }
@@ -924,7 +924,7 @@ public final class MemoryActors {
         Entity e = a.entity;
         double h = Math.max(0.6, e.getBbHeight() * a.def.scale());
         for (int i = 0; i < 20; i++) {
-            level.addParticle(ParticleTypes.POOF, e.getRandomX(1.0), e.getY() + level.random.nextDouble() * h,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.POOF), e.getRandomX(1.0), e.getY() + level.random.nextDouble() * h,
                     e.getRandomZ(1.0), level.random.nextGaussian() * 0.02, level.random.nextGaussian() * 0.02,
                     level.random.nextGaussian() * 0.02);
         }

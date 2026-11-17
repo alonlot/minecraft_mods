@@ -108,10 +108,10 @@ public final class DolohovSpell {
         for (LivingEntity nearby : level.getEntitiesOfClass(LivingEntity.class, dead.getBoundingBox().inflate(radius),
                 e -> e.distanceToSqr(dead) <= radius * radius && DisableSupport.isEnemyOf(caster, e, dead))) {
             CombatEffects.applyCursedWound(nearby, ticks, hearts, caster);
-            level.sendParticles(ParticleTypes.DRAGON_BREATH, nearby.getX(), nearby.getY() + nearby.getBbHeight() * 0.5,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.DRAGON_BREATH), nearby.getX(), nearby.getY() + nearby.getBbHeight() * 0.5,
                     nearby.getZ(), 12, nearby.getBbWidth() * 0.4, nearby.getBbHeight() * 0.3, nearby.getBbWidth() * 0.4, 0.01);
         }
-        level.sendParticles(ParticleTypes.WITCH, dead.getX(), dead.getY() + dead.getBbHeight() * 0.5, dead.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.WITCH), dead.getX(), dead.getY() + dead.getBbHeight() * 0.5, dead.getZ(),
                 40, radius * 0.4, 0.5, radius * 0.4, 0.02);
         level.playSound(null, dead.getX(), dead.getY(), dead.getZ(), ModSounds.SPELL_DOLOHOV_CURSE.get(),
                 SoundSource.PLAYERS, 1.0f, 0.6f);

@@ -209,7 +209,7 @@ public final class Petrification {
 
     /** Stone cracking away: 30 stone particles and a stone break. */
     public static void stoneBurst(ServerLevel level, Entity at) {
-        level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState())),
                 at.getX(), at.getY(0.5D), at.getZ(), 30, 0.3D, 0.5D, 0.3D, 0.1D);
         level.playSound(null, at.getX(), at.getY(), at.getZ(), SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 1.0F, 0.8F);
     }

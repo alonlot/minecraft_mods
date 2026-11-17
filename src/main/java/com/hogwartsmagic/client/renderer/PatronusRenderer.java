@@ -248,11 +248,11 @@ public class PatronusRenderer extends MobRenderer<PatronusEntity, PatronusModel>
             }
             double px = x + fx * along - fz * side;
             double pz = z + fz * along + fx * side;
-            level.addParticle(ParticleTypes.END_ROD, px, y + up, pz,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), px, y + up, pz,
                     -dx * 0.1D + (random.nextDouble() - 0.5D) * 0.02D, 0.01D, -dz * 0.1D + (random.nextDouble() - 0.5D) * 0.02D);
         }
         if (random.nextInt(3) == 0) {
-            level.addParticle(ParticleTypes.GLOW, x + (random.nextDouble() - 0.5D) * 0.8D, y + 0.6D + random.nextDouble() * 0.7D,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), x + (random.nextDouble() - 0.5D) * 0.8D, y + 0.6D + random.nextDouble() * 0.7D,
                     z + (random.nextDouble() - 0.5D) * 0.8D, 0.0D, 0.0D, 0.0D);
         }
     }

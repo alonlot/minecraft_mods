@@ -120,7 +120,7 @@ public class ChamberDoorBlock extends BaseEntityBlock {
         }
         if (level instanceof ServerLevel server) {
             server.playSound(null, pos, ModSounds.BASILISK_HISS_THREAT.get(), SoundSource.BLOCKS, 0.7F, 1.4F);
-            server.sendParticles(ParticleTypes.SMOKE, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
                     12, 0.4, 0.4, 0.4, 0.01);
             player.displayClientMessage(Component.translatable("block.hogwartsmagic.chamber_door.hiss"), true);
         }

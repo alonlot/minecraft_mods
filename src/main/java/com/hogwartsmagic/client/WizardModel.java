@@ -144,6 +144,9 @@ public class WizardModel<T extends WizardEntity> extends EntityModel<T> implemen
 		} else if (entity.isAggressive()) {
 			applyAggressivePose();
 		}
+
+		// The spell's own wand gesture on release, the same one players cast with (CastGestures).
+		CastGestures.applyToArm(entity, ageInTicks, this.right_arm, this.left_arm, this.body, this.head.xRot, this.head.yRot);
 	}
 
 	/** Cast windup: right (wand) arm rises forward over ~6 ticks aiming at the target, then

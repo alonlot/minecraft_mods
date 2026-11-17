@@ -86,7 +86,7 @@ public class HiddenChainBlock extends Block implements EntityBlock, LiquidBlockC
         if (state.getValue(REVEALED) || !(entity instanceof Player) || !(level instanceof ServerLevel server)) {
             return;
         }
-        server.sendParticles(ParticleTypes.SMOKE, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+        server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
                 3, 0.2, 0.3, 0.2, 0.01);
         // Walking into the chain shows it briefly.
         server.setBlock(pos, state.setValue(REVEALED, true), Block.UPDATE_ALL);

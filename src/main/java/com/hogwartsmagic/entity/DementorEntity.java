@@ -243,13 +243,13 @@ public class DementorEntity extends Monster {
         // Frost/Soul particles flowing off them
         if (this.level().isClientSide) {
             for (int i = 0; i < 2; i++) {
-                this.level().addParticle(ParticleTypes.SOUL_FIRE_FLAME,
+                this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME),
                         this.getRandomX(0.5D),
                         this.getRandomY(),
                         this.getRandomZ(0.5D),
                         0.0D, 0.05D, 0.0D);
             }
-            this.level().addParticle(ParticleTypes.SNOWFLAKE,
+            this.level().addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SNOWFLAKE),
                     this.getRandomX(1.5D),
                     this.getRandomY() + 0.5D,
                     this.getRandomZ(1.5D),

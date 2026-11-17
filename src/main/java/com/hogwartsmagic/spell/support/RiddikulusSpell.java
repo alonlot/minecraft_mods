@@ -42,7 +42,7 @@ public final class RiddikulusSpell {
             double angle = (Math.PI * 2.0 * i) / RING_NOTES;
             double x = target.getX() + Math.cos(angle) * RING_RADIUS;
             double z = target.getZ() + Math.sin(angle) * RING_RADIUS;
-            level.sendParticles(ParticleTypes.NOTE, x, y, z, 1, 0.0, 0.02, 0.0, 0.0);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.NOTE), x, y, z, 1, 0.0, 0.02, 0.0, 0.0);
         }
         // NOTE_BLOCK_* are Holder<SoundEvent> in 1.21; playSound wants the event itself.
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.NOTE_BLOCK_BELL.value(),

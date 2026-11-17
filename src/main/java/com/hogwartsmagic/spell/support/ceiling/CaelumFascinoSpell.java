@@ -179,7 +179,7 @@ public final class CaelumFascinoSpell {
         double y = ceiling.y() - 0.1;
         for (int sx = -1; sx <= 1; sx += 2) {
             for (int sz = -1; sz <= 1; sz += 2) {
-                level.sendParticles(ParticleTypes.END_ROD, ceiling.x() + sx * ceiling.hx(), y, ceiling.z() + sz * ceiling.hz(),
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), ceiling.x() + sx * ceiling.hx(), y, ceiling.z() + sz * ceiling.hz(),
                         8, 0.3, 0.2, 0.3, 0.02);
             }
         }
@@ -209,7 +209,7 @@ public final class CaelumFascinoSpell {
         }
         registry.remove(level, ceiling.id());
         level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_BREAK, SoundSource.PLAYERS, 1.0f, 0.8f);
-        level.sendParticles(ParticleTypes.ENCHANT, ceiling.x(), ceiling.y() - 0.2, ceiling.z(), 30,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT), ceiling.x(), ceiling.y() - 0.2, ceiling.z(), 30,
                 Math.min(ceiling.hx(), 6.0), 0.2, Math.min(ceiling.hz(), 6.0), 0.05);
         tell(player, "removed", ChatFormatting.GRAY);
         return Result.REMOVED;

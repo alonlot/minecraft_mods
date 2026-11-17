@@ -810,7 +810,7 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                      this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
                              net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f);
                      if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                          sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, this.student.getX(), this.student.getY() + 1.0, this.student.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
+                          sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.CRIT), this.student.getX(), this.student.getY() + 1.0, this.student.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
                      }
                 }
             
@@ -933,12 +933,12 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
             if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
                 // Dome of end-rod sparks at the caster's head + a flash burst, then a ring
                 // of sparks rolling outward to read as the shield expanding to cover allies.
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FLASH,
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.FLASH),
                         this.student.getX(), this.student.getY() + 1.6D, this.student.getZ(), 1, 0, 0, 0, 0);
                 for (int i = 0; i < 36; i++) {
                     double a = (Math.PI * 2.0D * i) / 36.0D;
                     double r = 5.5D;
-                    sl.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
+                    sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.END_ROD),
                             this.student.getX() + Math.cos(a) * r,
                             this.student.getY() + 1.0D,
                             this.student.getZ() + Math.sin(a) * r,

@@ -393,7 +393,7 @@ public class FiendfyreSerpentEntity extends Entity implements FireBreather {
                 continue;
             }
             level.destroyBlock(pos, false);
-            level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, pos.getX() + 0.5D, pos.getY() + 0.6D, pos.getZ() + 0.5D,
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME), pos.getX() + 0.5D, pos.getY() + 0.6D, pos.getZ() + 0.5D,
                     30, 0.4D, 0.4D, 0.4D, 0.04D);
             if (caster instanceof ServerPlayer player) {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.fiendfyre.horcrux")
@@ -430,7 +430,7 @@ public class FiendfyreSerpentEntity extends Entity implements FireBreather {
     /** Rogue: hunt the nearest creature it may (caster included) until the cast's time is up. */
     private void tickRogue(ServerLevel level, int ticks) {
         if (this.rogueEndTick >= 0 && ticks >= this.rogueEndTick) {
-            level.sendParticles(ParticleTypes.LARGE_SMOKE, this.getX(), this.getY(), this.getZ(), 20, 0.6D, 0.6D, 0.6D, 0.02D);
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), this.getX(), this.getY(), this.getZ(), 20, 0.6D, 0.6D, 0.6D, 0.02D);
             this.discard();
             return;
         }

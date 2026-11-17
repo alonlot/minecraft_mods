@@ -78,7 +78,7 @@ public class MovingPortraitBlock extends HorizontalDirectionalBlock {
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
         if (random.nextInt(20) == 0) {
-            level.addParticle(ParticleTypes.ENCHANT,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ENCHANT),
                     pos.getX() + 0.5 + (random.nextDouble() - 0.5) * 0.6,
                     pos.getY() + 0.6 + random.nextDouble() * 0.5,
                     pos.getZ() + 0.5 + (random.nextDouble() - 0.5) * 0.6,

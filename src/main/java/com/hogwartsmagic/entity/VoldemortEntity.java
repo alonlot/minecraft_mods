@@ -307,8 +307,8 @@ public class VoldemortEntity extends WizardEntity {
     }
 
     private void fizzle(ServerLevel serverLevel) {
-        serverLevel.sendParticles(ParticleTypes.SMOKE, this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
-        serverLevel.sendParticles(ParticleTypes.CRIT, this.getX(), this.getY() + 1.3D, this.getZ(), 10, 0.25D, 0.35D, 0.25D, 0.05D);
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
+        serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), this.getX(), this.getY() + 1.3D, this.getZ(), 10, 0.25D, 0.35D, 0.25D, 0.05D);
         this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.GLASS_BREAK, SoundSource.HOSTILE, 0.8f, 0.8f);
     }
 
@@ -466,8 +466,8 @@ public class VoldemortEntity extends WizardEntity {
             com.hogwartsmagic.spell.mind.AvadaChargeFx.end(this, interrupted
                     ? com.hogwartsmagic.spell.mind.AvadaChargeFx.BROKEN : com.hogwartsmagic.spell.mind.AvadaChargeFx.DROPPED);
         } else if (interrupted && this.level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.SMOKE, this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
-            serverLevel.sendParticles(ParticleTypes.CRIT, this.getX(), this.getY() + 1.3D, this.getZ(), 10, 0.25D, 0.35D, 0.25D, 0.05D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CRIT), this.getX(), this.getY() + 1.3D, this.getZ(), 10, 0.25D, 0.35D, 0.25D, 0.05D);
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.GLASS_BREAK, SoundSource.HOSTILE, 0.8f, 0.8f);
         }
     }
@@ -555,7 +555,7 @@ public class VoldemortEntity extends WizardEntity {
 
         for (int i = 0; i < 3; i++) {
             double angle = this.tickCount * 0.18D + Math.PI * 2.0D * i / 3.0D;
-            level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, this.getX() + Math.cos(angle) * 0.55D,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME), this.getX() + Math.cos(angle) * 0.55D,
                     this.getY() + 1.2D, this.getZ() + Math.sin(angle) * 0.55D, 0.0D, 0.0D, 0.0D);
         }
 
@@ -564,7 +564,7 @@ public class VoldemortEntity extends WizardEntity {
         for (int i = 0; i < hem; i++) {
             double a = random.nextDouble() * Math.PI * 2.0D;
             double r = 0.28D + random.nextDouble() * 0.1D;
-            level.addParticle(ParticleTypes.SQUID_INK, this.getX() + Math.cos(a) * r, this.getY() + 0.05D + random.nextDouble() * 0.2D,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), this.getX() + Math.cos(a) * r, this.getY() + 0.05D + random.nextDouble() * 0.2D,
                     this.getZ() + Math.sin(a) * r, Math.cos(a) * 0.012D, 0.012D + random.nextDouble() * 0.01D, Math.sin(a) * 0.012D);
         }
         if (moved > 0.02D) {
@@ -572,7 +572,7 @@ public class VoldemortEntity extends WizardEntity {
             float yaw = this.yBodyRot * Mth.DEG_TO_RAD;
             double bx = Mth.sin(yaw) * 0.32D;
             double bz = -Mth.cos(yaw) * 0.32D;
-            level.addParticle(ParticleTypes.LARGE_SMOKE, this.getX() + bx + (random.nextDouble() - 0.5D) * 0.3D,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), this.getX() + bx + (random.nextDouble() - 0.5D) * 0.3D,
                     this.getY() + 0.15D + random.nextDouble() * 0.5D, this.getZ() + bz + (random.nextDouble() - 0.5D) * 0.3D,
                     bx * 0.04D, 0.005D, bz * 0.04D);
         }
@@ -643,14 +643,14 @@ public class VoldemortEntity extends WizardEntity {
             // Drawn on the clients from AvadaChargeFx: the shroud, the threads, the arcs and the drone.
             return;
         } else {
-            serverLevel.sendParticles(this.queuedSpell.getDustParticle(), handX, handY, handZ, 6, 0.14D, 0.14D, 0.14D, 0.01D);
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(this.queuedSpell.getDustParticle()), handX, handY, handZ, 6, 0.14D, 0.14D, 0.14D, 0.01D);
             Vec3 targetPos = target.getEyePosition();
             Vec3 source = new Vec3(handX, handY, handZ);
             Vec3 delta = targetPos.subtract(source);
             for (int i = 0; i < 6; i++) {
                 double progress = i / 6.0D;
                 Vec3 point = source.add(delta.scale(progress));
-                serverLevel.sendParticles(this.queuedSpell.getTrailParticle(),
+                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(this.queuedSpell.getTrailParticle()),
                         point.x, point.y, point.z, 1, 0.04D, 0.04D, 0.04D, 0.0D);
             }
         }

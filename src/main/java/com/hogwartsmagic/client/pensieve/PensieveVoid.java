@@ -112,7 +112,7 @@ public final class PensieveVoid {
                 double d = Math.max(0, r - 3 + RANDOM.nextDouble() * 3);
                 pos.set(cx + Math.cos(a) * d, o.getY() - 6 + RANDOM.nextInt(20), cz + Math.sin(a) * d);
                 if (level.getBlockState(pos).isAir()) continue;
-                level.addAlwaysVisibleParticle(ParticleTypes.LARGE_SMOKE,
+                level.addAlwaysVisibleParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE),
                         pos.getX() + RANDOM.nextDouble(), pos.getY() + 1.0, pos.getZ() + RANDOM.nextDouble(),
                         0, 0.02 + RANDOM.nextDouble() * 0.03, 0);
             }
@@ -126,7 +126,7 @@ public final class PensieveVoid {
                 double y = o.getY() - 4 + RANDOM.nextDouble() * 16;
                 double out = 0.02 + RANDOM.nextDouble() * 0.03;
                 if (RANDOM.nextInt(3) == 0) {
-                    level.addAlwaysVisibleParticle(ParticleTypes.SMOKE, x, y, z,
+                    level.addAlwaysVisibleParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMOKE), x, y, z,
                             Math.cos(a) * out, 0.01, Math.sin(a) * out);
                 } else {
                     level.addAlwaysVisibleParticle(FRAGMENT, x, y, z, Math.cos(a) * out, 0.005, Math.sin(a) * out);

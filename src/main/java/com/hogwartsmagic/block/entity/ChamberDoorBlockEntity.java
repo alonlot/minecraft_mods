@@ -407,7 +407,7 @@ public class ChamberDoorBlockEntity extends BlockEntity {
             Vec3 p = at(head[0], head[1], -0.75);
             level.sendParticles(MagicParticles.MOTE_GREEN, p.x, p.y, p.z, 2, 0.08, 0.08, 0.08, 0.004);
             if (t % 3 == 0) {
-                level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.TUFF.defaultBlockState()),
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.TUFF.defaultBlockState())),
                         p.x, p.y, p.z, 2, 0.1, 0.1, 0.1, 0.0);
             }
         }

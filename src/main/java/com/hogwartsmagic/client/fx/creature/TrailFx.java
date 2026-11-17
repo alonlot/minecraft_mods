@@ -179,7 +179,7 @@ public final class TrailFx {
         for (int i = 0; i < 14; i++) {
             double a = level.random.nextDouble() * Math.PI * 2.0;
             double s = 0.04 + level.random.nextDouble() * 0.1;
-            level.addParticle(ParticleTypes.LARGE_SMOKE, e.getX() + Math.cos(a) * 0.3, cy + (level.random.nextDouble() - 0.5),
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), e.getX() + Math.cos(a) * 0.3, cy + (level.random.nextDouble() - 0.5),
                     e.getZ() + Math.sin(a) * 0.3, Math.cos(a) * s, 0.03, Math.sin(a) * s);
         }
     }
@@ -190,11 +190,11 @@ public final class TrailFx {
         Vec3 v = e.getDeltaMovement();
         double bx = -v.x * 0.5, by = -v.y * 0.5, bz = -v.z * 0.5;
         for (int i = 0; i < 2; i++) {
-            level.addParticle(ParticleTypes.LARGE_SMOKE, e.getX() + (level.random.nextDouble() - 0.5) * 2.4,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), e.getX() + (level.random.nextDouble() - 0.5) * 2.4,
                     e.getY() + e.getBbHeight() * 0.5 + (level.random.nextDouble() - 0.5) * 1.6,
                     e.getZ() + (level.random.nextDouble() - 0.5) * 2.4, bx * 0.2, by * 0.2 + 0.02, bz * 0.2);
         }
-        level.addParticle(ParticleTypes.SMALL_FLAME, e.getX() + (level.random.nextDouble() - 0.5) * 1.6,
+        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_FLAME), e.getX() + (level.random.nextDouble() - 0.5) * 1.6,
                 e.getY() + e.getBbHeight() * 0.4 + (level.random.nextDouble() - 0.5), e.getZ() + (level.random.nextDouble() - 0.5) * 1.6,
                 bx * 0.3, by * 0.3, bz * 0.3);
     }

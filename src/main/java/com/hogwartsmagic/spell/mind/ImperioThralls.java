@@ -426,7 +426,7 @@ public final class ImperioThralls {
             }
         }
         if (now % 10 == 0) {
-            level.sendParticles(GREEN, victim.getX(), victim.getY() + victim.getBbHeight() * 0.6, victim.getZ(),
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(GREEN), victim.getX(), victim.getY() + victim.getBbHeight() * 0.6, victim.getZ(),
                     3, victim.getBbWidth() * 0.4, victim.getBbHeight() * 0.3, victim.getBbWidth() * 0.4, 0.0);
         }
     }

@@ -728,7 +728,7 @@ public class ModEvents {
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 20 * 6, 0));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 20 * 8, 0));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WEAKNESS, 20 * 12, 1));
-        level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, pos.getX() + 0.5D, pos.getY() + 1.1D, pos.getZ() + 0.5D,
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME), pos.getX() + 0.5D, pos.getY() + 1.1D, pos.getZ() + 0.5D,
                 22, 0.3D, 0.4D, 0.3D, 0.015D);
         level.playSound(null, pos, net.minecraft.sounds.SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.8F, 0.5F);
         player.displayClientMessage(Component.literal("Your Horcrux is forged. One heart is forever chained to the altar.")
@@ -3534,7 +3534,7 @@ public class ModEvents {
 
         if (entity.level().isClientSide && entity.tickCount % 2 == 0) {
             entity.level().addParticle(
-                    ParticleTypes.ASH,
+                    com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ASH),
                     entity.getRandomX(0.45D),
                     entity.getY() + entity.getBbHeight() * 0.5D,
                     entity.getRandomZ(0.45D),

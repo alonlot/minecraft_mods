@@ -57,7 +57,7 @@ public class HorcruxBlockEntity extends BlockEntity {
             }
         }
         if (horcrux.flareTicks > 0 && serverLevel.getGameTime() % 2L == 0L) {
-            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
+            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME),
                     pos.getX() + 0.5, pos.getY() + 0.85, pos.getZ() + 0.5,
                     4, 0.2, 0.2, 0.2, 0.01);
         }

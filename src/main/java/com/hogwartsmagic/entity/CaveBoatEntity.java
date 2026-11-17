@@ -91,7 +91,7 @@ public class CaveBoatEntity extends Entity {
                 yawToward(dockA.getX() + 0.5D, dockA.getZ() + 0.5D, dockB.getX() + 0.5D, dockB.getZ() + 0.5D), 0.0F);
         level.addFreshEntity(boat);
 
-        level.sendParticles(ParticleTypes.SPLASH, boat.getX(), dockA.getY() + 1.0D, boat.getZ(),
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SPLASH), boat.getX(), dockA.getY() + 1.0D, boat.getZ(),
                 30, 0.6D, 0.2D, 0.6D, 0.1D);
         level.playSound(null, boat.blockPosition(), SoundEvents.CHAIN_BREAK, SoundSource.NEUTRAL, 1.0F, 0.8F);
         level.playSound(null, boat.blockPosition(), SoundEvents.BOAT_PADDLE_WATER, SoundSource.NEUTRAL, 1.0F, 1.0F);
@@ -246,7 +246,7 @@ public class CaveBoatEntity extends Entity {
                 return;
             }
             if (++this.emptyTicks >= EMPTY_LIFETIME) {
-                server.sendParticles(ParticleTypes.BUBBLE, this.getX(), this.getY() + 0.4D, this.getZ(),
+                server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.BUBBLE), this.getX(), this.getY() + 0.4D, this.getZ(),
                         25, 0.5D, 0.2D, 0.5D, 0.05D);
                 this.discard();
             }

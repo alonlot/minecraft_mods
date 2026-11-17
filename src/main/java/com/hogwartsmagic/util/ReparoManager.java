@@ -167,7 +167,7 @@ public final class ReparoManager {
     private static void playCinematicBurst(ServerLevel level, BlockPos impactPos, int repairedCount) {
         Vec3 c = Vec3.atCenterOf(impactPos);
         int intensity = Math.min(repairedCount, 8);
-        level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLASH), c.x, c.y, c.z, 1, 0, 0, 0, 0);
         level.sendParticles(MagicParticles.MOTE_WHITE, c.x, c.y, c.z, 30 + intensity * 6, 0.45, 0.45, 0.45, 0.04);
         level.sendParticles(MagicParticles.MOTE_GOLD, c.x, c.y, c.z, 24 + intensity * 4, 0.8, 0.8, 0.8, 0.6);
         level.sendParticles(MagicParticles.GLINT_GOLD, c.x, c.y, c.z, 18 + intensity * 3, 0.6, 0.6, 0.6, 0.04);
@@ -293,11 +293,12 @@ public final class ReparoManager {
 
         level.sendParticles(MagicParticles.MOTE_VIOLET, start.x, start.y, start.z, 6, 0.1, 0.1, 0.1, 0.01);
         level.playSound(null, target, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 0.45f, 1.35f);
+        sendAssemble(level, target, state, start);
         return true;
     }
 
     private static void startRepairFlight(ServerLevel level, Player player, TrackedBreakRecord record, ItemStack payment) {
-        Vec3 start = player.getEyePosition().add(player.getLookAngle().scale(0.65D));
+        Vec3 start = rubbleSpot(level, record.pos, player);
         ItemEntity entity = new ItemEntity(level, start.x, start.y, start.z, payment.copyWithCount(1));
         entity.setNoGravity(true);
         entity.setPickUpDelay(32767);
@@ -308,6 +309,38 @@ public final class ReparoManager {
 
         level.sendParticles(MagicParticles.MOTE_VIOLET, start.x, start.y, start.z, 8, 0.15, 0.15, 0.15, 0.01);
         level.playSound(null, player.blockPosition(), SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 0.45f, 1.35f);
+        sendAssemble(level, record.pos, record.state, start);
+    }
+
+    /**
+     * Where a repair paid from the inventory (or in creative) appears: on the ground in front of the broken
+     * block, on the caster's side, where its rubble would lie. It used to appear at the caster's eye, which in
+     * first person filled the screen; rising from the rubble also matches the debris pieces the clients fly home.
+     */
+    private static Vec3 rubbleSpot(ServerLevel level, BlockPos target, Player player) {
+        Vec3 centre = Vec3.atCenterOf(target);
+        Vec3 towards = new Vec3(player.getX() - centre.x, 0.0, player.getZ() - centre.z);
+        towards = towards.lengthSqr() < 1.0E-4 ? Vec3.ZERO : towards.normalize();
+        Vec3 spot = centre.add(towards.scale(1.6));
+        BlockPos.MutableBlockPos probe = BlockPos.containing(spot).mutable();
+        for (int i = 0; i < 8 && level.isLoaded(probe) && level.getBlockState(probe.below()).getCollisionShape(level, probe.below()).isEmpty(); i++) {
+            probe.move(0, -1, 0);
+        }
+        if (!level.getBlockState(probe).getCollisionShape(level, probe).isEmpty()) {
+            return player.getEyePosition().add(player.getLookAngle().scale(0.65D)); // buried: the old start
+        }
+        return new Vec3(spot.x, probe.getY() + 0.15, spot.z);
+    }
+
+    /**
+     * Tells nearby clients that {@code target} is being put back, so the debris pieces lying around it lift
+     * and fly home (visual only; the block itself is still placed by the flight above). {@code from} is where
+     * new pieces appear if a client has no debris of that block (it was broken some other way, or before the
+     * client arrived).
+     */
+    private static void sendAssemble(ServerLevel level, BlockPos target, BlockState state, Vec3 from) {
+        SpellPackets.CHANNEL.send(new SpellPackets.ReparoAssemblePacket(target.immutable(), Block.getId(state), from.x, from.y, from.z),
+                net.minecraftforge.network.PacketDistributor.TRACKING_CHUNK.with(level.getChunkAt(target)));
     }
 
     private static boolean isRepairStillPossible(ServerLevel level, TrackedBreakRecord record) {

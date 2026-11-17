@@ -91,7 +91,8 @@ public final class WandTrailRenderer {
             Entity entity = minecraft.level.getEntity(entry.getKey());
             CastMotions.Cast cast = entry.getValue();
             if (!(entity instanceof LivingEntity caster) || AvadaChargePose.isOwnFirstPerson(caster)
-                    || cast.over(now) || hidden(minecraft, caster)) {
+                    || cast.over(now) || hidden(minecraft, caster)
+                    || CastGestures.posesModel(caster)) { // wizards and students: WandSwipeLayer follows their drawn wand
                 continue;
             }
             push(entity.getId(), BeamStyles.of(cast.spell()), CastMotions.wandTip(caster, cast, partial, false), now);

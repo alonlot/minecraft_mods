@@ -62,7 +62,7 @@ public final class RevelioSpell {
             }
             if (shown) {
                 living.addEffect(new MobEffectInstance(MobEffects.GLOWING, RevelioRules.REVEAL_TICKS, 0, false, false));
-                level.sendParticles(ParticleTypes.GLOW, living.getX(), living.getY() + 1.0, living.getZ(),
+                level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.GLOW), living.getX(), living.getY() + 1.0, living.getZ(),
                         12, 0.3, 0.5, 0.3, 0.02);
                 revealed++;
             }

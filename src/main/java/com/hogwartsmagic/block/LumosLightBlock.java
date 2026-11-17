@@ -133,7 +133,7 @@ public class LumosLightBlock extends Block {
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
         if (state.getValue(TIMED) && random.nextInt(4) == 0) {
-            level.addParticle(ParticleTypes.END_ROD,
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD),
                     pos.getX() + 0.5 + (random.nextDouble() - 0.5) * 0.3,
                     pos.getY() + 0.5 + (random.nextDouble() - 0.5) * 0.3,
                     pos.getZ() + 0.5 + (random.nextDouble() - 0.5) * 0.3,

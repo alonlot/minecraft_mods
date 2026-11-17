@@ -12,7 +12,7 @@ public class WizardRenderer<T extends WizardEntity> extends MobRenderer<T, Wizar
     public WizardRenderer(EntityRendererProvider.Context context) {
         super(context, new WizardModel<>(context.bakeLayer(WizardModel.LAYER_LOCATION)), 0.5f);
         this.addLayer(new ItemInHandLayer<>(this, context.getItemInHandRenderer()));
-        this.addLayer(new WandSwipeLayer<>(this)); // the wand tip streak while casting
+        this.addLayer(new WandSwipeLayer<>(this)); // where the wand tip is drawn mid-gesture
     }
 
     @Override

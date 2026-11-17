@@ -326,6 +326,7 @@ public class SpellGlowParticle extends SingleQuadParticle {
         @SubscribeEvent
         public static void register(RegisterParticleProvidersEvent event) {
             event.registerSpecial(ModParticles.SPELL_VFX.get(), new Provider());
+            event.registerSpecial(ModParticles.SPELL_VFX_ALWAYS.get(), new Provider());
         }
     }
 }

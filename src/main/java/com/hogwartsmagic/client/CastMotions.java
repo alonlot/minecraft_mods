@@ -174,11 +174,6 @@ public final class CastMotions {
     }
 
     private static final Map<Integer, Cast> CASTS = new HashMap<>();
-    /** When each caster's latest gesture started, kept a little past its end (see {@link #ownsRecentCast}). */
-    private static final Map<Integer, Double> LAST_START = new HashMap<>();
-    /** How long after a gesture starts this class still owns the caster's arm. */
-    private static final double OWNERSHIP_TICKS = 30.0;
-
     private CastMotions() {
     }
 
@@ -192,7 +187,6 @@ public final class CastMotions {
         // The spell is already on its way: start the gesture just short of its release, so the snap lands with
         // the beam leaving the wand instead of a beat after it.
         CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime() - (motion.snap - RELEASE_LEAD)));
-        LAST_START.put(packet.casterId(), (double) minecraft.level.getGameTime());
     }
 
     /** Drop gestures that are over for casters never drawn again (walked off, logged out). */
@@ -204,18 +198,8 @@ public final class CastMotions {
         }
         double now = minecraft.level.getGameTime();
         CASTS.values().removeIf(cast -> cast.over(now) || cast.age(now) < 0.0f);
-        LAST_START.values().removeIf(start -> now - start > OWNERSHIP_TICKS || now < start);
     }
 
-    /**
-     * Whether a gesture from the server started for {@code entityId} lately. A player's third-person arm then
-     * belongs to this class, and the swing-driven CastGestures pose stays off it for the whole cast, so the two
-     * never fight over one arm or hand over mid-swing.
-     */
-    public static boolean ownsRecentCast(int entityId, double now) {
-        Double start = LAST_START.get(entityId);
-        return start != null && now - start <= OWNERSHIP_TICKS && now >= start;
-    }
 
     /** The gesture {@code entityId} is playing now, or null. */
     public static Cast get(int entityId, double now) {
@@ -235,9 +219,14 @@ public final class CastMotions {
         return CASTS.entrySet();
     }
 
-    /** Third person: pose the wand arm. Right after the renderer's setupAnim (ActorPoseMixin). */
+    /**
+     * Third person: pose the wand arm. Right after the renderer's setupAnim (ActorPoseMixin). Only a fallback
+     * now: a player's swing starts CastGestures' gesture (the one the first-person arm plays, varied each cast),
+     * and while that owns the arm this leaves it alone. What is left is a cast that came with no swing.
+     */
     public static void apply(EntityModel<?> model, Entity entity, float partial) {
-        if (CASTS.isEmpty() || !(model instanceof HumanoidModel<?> humanoid) || !(entity instanceof Player)) {
+        if (CASTS.isEmpty() || !(model instanceof HumanoidModel<?> humanoid) || !(entity instanceof Player caster)
+                || CastGestures.ownsArm(caster)) {
             return;
         }
         Cast cast = get(entity.getId(), AvadaChargeClientState.now(partial));

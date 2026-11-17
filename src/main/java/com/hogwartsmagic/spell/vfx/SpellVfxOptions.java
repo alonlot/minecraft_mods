@@ -15,7 +15,7 @@ import net.minecraft.network.codec.StreamCodec;
  * code that used a vanilla particle can send one of these instead; the client draws it with the mod's own
  * glow sprites (client.SpellGlowParticle).
  */
-public record SpellVfxOptions(int kind, int rgb, float size, int lifetime) implements ParticleOptions {
+public record SpellVfxOptions(int kind, int rgb, float size, int lifetime, boolean always) implements ParticleOptions {
 
     /** The looks a spell effect can have. Ids are sent over the network: append, never reorder. */
     public enum Kind {
@@ -49,7 +49,8 @@ public record SpellVfxOptions(int kind, int rgb, float size, int lifetime) imple
             Codec.INT.fieldOf("kind").forGetter(SpellVfxOptions::kind),
             Codec.INT.fieldOf("rgb").forGetter(SpellVfxOptions::rgb),
             Codec.FLOAT.fieldOf("size").forGetter(SpellVfxOptions::size),
-            Codec.INT.fieldOf("lifetime").forGetter(SpellVfxOptions::lifetime)
+            Codec.INT.fieldOf("lifetime").forGetter(SpellVfxOptions::lifetime),
+            Codec.BOOL.optionalFieldOf("always", false).forGetter(SpellVfxOptions::always)
     ).apply(instance, SpellVfxOptions::new));
 
     public static final StreamCodec<ByteBuf, SpellVfxOptions> STREAM_CODEC = StreamCodec.composite(
@@ -57,10 +58,19 @@ public record SpellVfxOptions(int kind, int rgb, float size, int lifetime) imple
             ByteBufCodecs.INT, SpellVfxOptions::rgb,
             ByteBufCodecs.FLOAT, SpellVfxOptions::size,
             ByteBufCodecs.VAR_INT, SpellVfxOptions::lifetime,
+            ByteBufCodecs.BOOL, SpellVfxOptions::always,
             SpellVfxOptions::new);
 
     public SpellVfxOptions(Kind kind, int rgb, float size, int lifetime) {
-        this(kind.ordinal(), rgb, size, lifetime);
+        this(kind.ordinal(), rgb, size, lifetime, false);
+    }
+
+    /**
+     * The same effect, shown at any range and whatever the particle setting, as vanilla shows the particles
+     * it stands in for there (explosions, shockwaves, gusts).
+     */
+    public SpellVfxOptions alwaysShown() {
+        return this.always ? this : new SpellVfxOptions(this.kind, this.rgb, this.size, this.lifetime, true);
     }
 
     public Kind kindEnum() {
@@ -69,6 +79,6 @@ public record SpellVfxOptions(int kind, int rgb, float size, int lifetime) imple
 
     @Override
     public ParticleType<SpellVfxOptions> getType() {
-        return ModParticles.SPELL_VFX.get();
+        return this.always ? ModParticles.SPELL_VFX_ALWAYS.get() : ModParticles.SPELL_VFX.get();
     }
 }

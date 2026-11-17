@@ -184,7 +184,8 @@ public final class SpellVfx {
             }
         }
         int rgb = spec.tinted() && tint >= 0 ? tint : spec.rgb();
-        return new SpellVfxOptions(kind, rgb, size, life);
+        SpellVfxOptions options = new SpellVfxOptions(kind, rgb, size, life);
+        return type.getOverrideLimiter() ? options.alwaysShown() : options;
     }
 
     /** The spell's colour lifted so it reads as light (a dark spell keeps its hue at a usable brightness). */

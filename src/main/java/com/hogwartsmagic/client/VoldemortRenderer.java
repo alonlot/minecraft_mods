@@ -26,6 +26,7 @@ public class VoldemortRenderer extends MobRenderer<VoldemortEntity, VoldemortMod
     public VoldemortRenderer(EntityRendererProvider.Context context) {
         super(context, new VoldemortModel(context.bakeLayer(VoldemortModel.LAYER_LOCATION)), 0.45F);
         this.addLayer(new ItemInHandLayer<>(this, context.getItemInHandRenderer()));
+        this.addLayer(new WandSwipeLayer<>(this)); // where his wand tip is drawn mid-gesture
         this.addLayer(new EyesLayer<>(this) {
             @Override
             public RenderType renderType() {

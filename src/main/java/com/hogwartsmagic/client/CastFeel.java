@@ -85,7 +85,8 @@ public final class CastFeel {
         }
         Set<Integer> seen = new HashSet<>();
         for (Entity e : minecraft.level.entitiesForRendering()) {
-            if (!(e instanceof LivingEntity caster) || !MagicWandItem.isAnyWand(caster.getMainHandItem())) {
+            if (!(e instanceof LivingEntity caster) || !MagicWandItem.isAnyWand(caster.getMainHandItem())
+                    || caster instanceof com.hogwartsmagic.entity.VoldemortEntity) { // his moves timeline has its own sound
                 continue;
             }
             seen.add(caster.getId());

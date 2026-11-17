@@ -177,6 +177,12 @@ public class VoldemortModel extends HierarchicalModel<VoldemortEntity> implement
         if (!acting && !this.dying) {
             applyCombat(entity, ageInTicks, headPitch, netHeadYaw);
             applyFlourish(entity, limbSwingAmount, ageInTicks);
+            if (!entity.isHovering() && !entity.isChargingAvadaKedavra()) {
+                // Each spell's own wand gesture on release, the one players and wizards cast with; his hover,
+                // the Killing Curse wind-up and the moves timeline's clips keep their own poses.
+                com.hogwartsmagic.client.CastGestures.applyToArm(entity, ageInTicks, rightArm, leftArm, body,
+                        head.xRot, head.yRot);
+            }
         }
         if (acting) {
             net.minecraft.client.animation.AnimationDefinition clip = VoldemortAnimations.forAction(action);

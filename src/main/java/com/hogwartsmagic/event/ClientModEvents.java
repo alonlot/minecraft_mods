@@ -1203,6 +1203,7 @@ public class ClientModEvents {
             PlayerRenderer renderer = event.getPlayerSkin(skinName);
             if (renderer != null) {
                 renderer.addLayer(new GillyweedGillsLayer(renderer, event.getEntityModels()));
+                renderer.addLayer(new com.hogwartsmagic.client.WandSwipeLayer<>(renderer)); // tracks the drawn wand tip
             }
         }
     }

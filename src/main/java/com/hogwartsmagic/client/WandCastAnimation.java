@@ -62,8 +62,19 @@ public final class WandCastAnimation {
      */
     public static boolean flaresOwnRelease(@javax.annotation.Nullable Entity owner) {
         Minecraft minecraft = Minecraft.getInstance();
-        return owner != null && owner == minecraft.player && minecraft.options.getCameraType().isFirstPerson()
-                && net.minecraft.Util.getNanos() - lastTipFrame <= 200_000_000L;
+        if (owner == null || owner != minecraft.player || !minecraft.options.getCameraType().isFirstPerson()
+                || net.minecraft.Util.getNanos() - lastTipFrame > 200_000_000L) {
+            return false;
+        }
+        // Only while the arm's own flare is showing: from just before the gesture's release to 4 ticks after.
+        // A beam that leaves later (the Killing Curse after its windup) keeps the world muzzle flash.
+        CastGestures.Cast cast = CastGestures.castOf(minecraft.player);
+        if (cast == null) {
+            return false;
+        }
+        int since = minecraft.player.tickCount - cast.start();
+        float release = FirstPersonWandRig.motionOf(cast.gesture()).release();
+        return since >= release - 1.0F && since <= release + 4.0F;
     }
 
     public static Vec3 localTipInWorld(net.minecraft.client.Camera camera) {

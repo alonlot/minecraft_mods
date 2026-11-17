@@ -101,9 +101,9 @@ public final class SpellPath {
 
     /**
      * While the caster's gesture has not yet let the spell go, the wand tip the head is held on; null once it has
-     * (or was never held). Only for gestures drawn by {@link CastGestures}: your own first-person arm, and the
-     * wand-carrying NPCs. Other players are posed by {@link CastMotions}, whose gestures are built around a beam
-     * that is already on its way. The gap to the real beam at the last held tick is where the lunge starts.
+     * (or was never held). For every gesture drawn by {@link CastGestures}: your first-person arm, players in
+     * third person and the wand-carrying NPCs. The gap to the real beam at the last held tick is where the lunge
+     * starts.
      */
     @javax.annotation.Nullable
     private static Vec3 heldTip(SpellBeamEntity beam, float age, Vec3 base) {
@@ -115,7 +115,10 @@ public final class SpellPath {
             CastGestures.Cast cast = CastGestures.castOf(caster);
             float t = cast == null ? -1.0F : cast.progress(caster.tickCount);
             if (t >= 0.0F && t < cast.gesture().release) {
-                tip = SpellRibbon.handPosition(caster, 1.0F, Minecraft.getInstance().gameRenderer.getMainCamera());
+                Minecraft minecraft = Minecraft.getInstance();
+                tip = caster == minecraft.player && minecraft.options.getCameraType().isFirstPerson()
+                        ? WandCastAnimation.localTipInWorld(minecraft.gameRenderer.getMainCamera())
+                        : WandSwipeLayer.recentTip(caster); // never a guess: no drawn tip, no hold
             }
         }
         if (tip != null && tip.distanceToSqr(base) < 64.0) {
@@ -129,10 +132,6 @@ public final class SpellPath {
     }
 
     private static boolean heldByGesture(LivingEntity caster) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (caster instanceof Player) {
-            return caster == minecraft.player && minecraft.options.getCameraType().isFirstPerson();
-        }
         return CastGestures.posesModel(caster);
     }
 }

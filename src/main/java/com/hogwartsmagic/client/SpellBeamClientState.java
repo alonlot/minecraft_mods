@@ -101,7 +101,16 @@ public final class SpellBeamClientState {
         Minecraft minecraft = Minecraft.getInstance();
         BeamStyle style = BeamStyles.of(spell);
         if (minecraft.level != null && style != null) {
-            IMPACTS.add(new Impact(at, dir, style, kind, minecraft.level.getGameTime()));
+            Impact impact = new Impact(at, dir, style, kind, minecraft.level.getGameTime());
+            IMPACTS.add(impact);
+            spray(impact, spell);
+        }
+    }
+
+    /** A real strike whose style flings no debris throws a spray of sparks instead (SpellFx). */
+    private static void spray(Impact impact, SpellType spell) {
+        if (impact.full() && impact.style.debris == 0) {
+            SpellFx.sparkSpray(impact.pos, spell);
         }
     }
     public static final float MUZZLE_TICKS = 6.0f;
@@ -151,6 +160,8 @@ public final class SpellBeamClientState {
         int ownerId = -1;
         /** For a run of Aqua Eructo's water: how far its first point has already flown from the wand. */
         double pathOffset;
+        /** Held on your own first-person wand tip until the gesture lets it go (SpellPath). */
+        boolean heldOnScreen;
 
         Beam(int entityId, BeamStyle style, Vec3 origin, Vec3 head, Vec3 dir, double now) {
             this.entityId = entityId;
@@ -174,6 +185,14 @@ public final class SpellBeamClientState {
 
         /** The head this frame: lerped between ticks while flying, fixed once it is gone. */
         Vec3 head(float partial) {
+            if (heldOnScreen && !gone()) {
+                // Held on your own first-person wand: drawn at the tip this frame, not lerped between ticks
+                // (a turn of the view would otherwise pull it off the wand).
+                Vec3 tip = WandCastAnimation.localTipInWorld(Minecraft.getInstance().gameRenderer.getMainCamera());
+                if (tip != null) {
+                    return tip;
+                }
+            }
             return gone() ? head() : headPrev.lerp(head(), partial);
         }
 
@@ -371,7 +390,9 @@ public final class SpellBeamClientState {
             beam.struck = true;
             beam.goneAt = now;
         }
-        IMPACTS.add(new Impact(pos, dir, style, packet.kind(), now));
+        Impact impact = new Impact(pos, dir, style, packet.kind(), now);
+        IMPACTS.add(impact);
+        spray(impact, spell);
         com.hogwartsmagic.client.fx.marks.MarkSpells.onImpact(spell, packet.kind(), pos, dir);
     }
 
@@ -426,7 +447,9 @@ public final class SpellBeamClientState {
         if (beam == null || beam.gone()) {
             return;
         }
-        Vec3 end = onLine(beam, pos);
+        // A clash ends exactly where the server put it: the clash flare is drawn there, and a beam still curving
+        // in from the wand would stop short of it if its end were carried onto its own line.
+        Vec3 end = pos;
         beam.push(end, now);
         beam.headPrev = end;
         beam.struck = true;
@@ -476,7 +499,9 @@ public final class SpellBeamClientState {
                 if (spellBeam.getOwner() != null && spellBeam.getOwner().distanceToSqr(spellBeam) <= 16.0) {
                     created.ownerId = spellBeam.getOwner().getId();
                 }
+                created.heldOnScreen = heldOnOwnScreen(spellBeam);
                 BEAMS.put(spellBeam.getId(), created);
+                SpellFx.sparkleTrail(from, drawn, spellBeam.getSpellType(), spellBeam.getRandom());
                 if (!WandCastAnimation.flaresOwnRelease(spellBeam.getOwner())) {
                     MUZZLES.add(new Muzzle(from, dir, style, now)); // your own first-person wand flares on screen
                 }
@@ -485,7 +510,10 @@ public final class SpellBeamClientState {
             if (beam.gone()) {
                 continue;
             }
+            Vec3 before = beam.head();
             beam.push(head.add(SpellPath.offset(spellBeam, head, beam.style.isJet())), now);
+            beam.heldOnScreen = heldOnOwnScreen(spellBeam);
+            SpellFx.sparkleTrail(before, beam.head(), spellBeam.getSpellType(), spellBeam.getRandom());
             if (motion.lengthSqr() > 1.0E-8) {
                 beam.dir = motion.normalize();
             }
@@ -525,6 +553,13 @@ public final class SpellBeamClientState {
         CLASHES.removeIf(clash -> now - clash.start > CLASH_TICKS);
         MUZZLES.removeIf(muzzle -> now - muzzle.start > MUZZLE_TICKS || now < muzzle.start);
         SCENERY.removeIf(item -> now - item.start > item.duration || now < item.start);
+    }
+
+    /** Whether this beam's head is held on your own first-person wand right now (see SpellPath). */
+    private static boolean heldOnOwnScreen(SpellBeamEntity beam) {
+        Minecraft minecraft = Minecraft.getInstance();
+        return beam.vfxHeld && beam.vfxReleaseAge < 0.0F && beam.getOwner() == minecraft.player
+                && minecraft.player != null && minecraft.options.getCameraType().isFirstPerson();
     }
 
     /** Where the beam starts: the caster's wand tip if we know the caster, else where the beam was first seen. */

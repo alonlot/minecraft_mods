@@ -91,11 +91,19 @@ public final class WandTrailRenderer {
             Entity entity = minecraft.level.getEntity(entry.getKey());
             CastMotions.Cast cast = entry.getValue();
             if (!(entity instanceof LivingEntity caster) || AvadaChargePose.isOwnFirstPerson(caster)
-                    || cast.over(now) || hidden(minecraft, caster)
-                    || CastGestures.posesModel(caster)) { // wizards and students: WandSwipeLayer follows their drawn wand
+                    || cast.over(now) || hidden(minecraft, caster)) {
                 continue;
             }
-            push(entity.getId(), BeamStyles.of(cast.spell()), CastMotions.wandTip(caster, cast, partial, false), now);
+            Vec3 tip;
+            if (CastGestures.ownsArm(caster)) {
+                tip = WandSwipeLayer.recentTip(caster); // the wand as drawn, mid-gesture
+                if (tip == null) {
+                    continue;
+                }
+            } else {
+                tip = CastMotions.wandTip(caster, cast, partial, false);
+            }
+            push(entity.getId(), BeamStyles.of(cast.spell()), tip, now);
         }
         for (AvadaChargeClientState.Charge charge : AvadaChargeClientState.all()) {
             Entity entity = minecraft.level.getEntity(charge.entityId);

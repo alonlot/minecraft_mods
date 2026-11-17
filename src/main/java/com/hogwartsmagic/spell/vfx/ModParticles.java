@@ -28,6 +28,20 @@ public final class ModParticles {
                 }
             });
 
+    /** The same effect with the always-show flag, for the vanilla particles that are never culled. */
+    public static final RegistryObject<ParticleType<SpellVfxOptions>> SPELL_VFX_ALWAYS = PARTICLE_TYPES.register(
+            "spell_vfx_always", () -> new ParticleType<SpellVfxOptions>(true) {
+                @Override
+                public MapCodec<SpellVfxOptions> codec() {
+                    return SpellVfxOptions.CODEC;
+                }
+
+                @Override
+                public StreamCodec<? super RegistryFriendlyByteBuf, SpellVfxOptions> streamCodec() {
+                    return SpellVfxOptions.STREAM_CODEC;
+                }
+            });
+
     private ModParticles() {
     }
 }

@@ -163,14 +163,23 @@ public final class CastGestures {
     private static float holdWeightO;
 
     /**
-     * Whether this caster's model is posed by these gestures: wizards and students (WizardModel, StudentModel).
-     * Players are posed by CastMotions in third person (and by FirstPersonWandRig in your own view); Voldemort has
-     * his own rig.
+     * Whether this caster's arm is posed by these gestures: players (third person through WandGestureModelMixin,
+     * your own view through FirstPersonWandRig), wizards, students and Voldemort (WizardModel, StudentModel,
+     * VoldemortModel). The Killing Curse is the exception everywhere: AvadaChargePose plays its windup and strike.
      */
     public static boolean posesModel(LivingEntity caster) {
-        return (caster instanceof com.hogwartsmagic.entity.WizardEntity
-                && !(caster instanceof com.hogwartsmagic.entity.VoldemortEntity))
+        return caster instanceof Player || caster instanceof com.hogwartsmagic.entity.WizardEntity
                 || caster instanceof com.hogwartsmagic.entity.StudentEntity;
+    }
+
+    /** Whether {@code caster} is in the middle of one of these gestures (its swing and the settle after). */
+    public static boolean ownsArm(LivingEntity caster) {
+        Cast cast = CASTS.get(caster.getId());
+        if (cast == null) {
+            return false;
+        }
+        int since = caster.tickCount - cast.start();
+        return since >= 0 && since <= FirstPersonWandRig.motionOf(cast.gesture()).length() + 2;
     }
 
     public static Cast castOf(LivingEntity entity) {
@@ -229,8 +238,9 @@ public final class CastGestures {
                 // An NPC's beam (seen this same tick) has already started its cast with the right spell.
                 boolean justStarted = !(caster instanceof Player) && previous != null
                         && caster.tickCount - previous.start() <= 3;
-                if (!justStarted) {
-                    SpellType spell = MagicWandItem.getSelectedSpell(caster.getMainHandItem());
+                SpellType selected = MagicWandItem.getSelectedSpell(caster.getMainHandItem());
+                if (!justStarted && selected != SpellType.AVADA_KEDAVRA) { // its windup is AvadaChargePose's
+                    SpellType spell = selected;
                     Gesture gesture = forSpell(spell);
                     CASTS.put(caster.getId(), new Cast(caster.tickCount, spell, gesture,
                             nextVariant(caster, previous, gesture)));
@@ -258,8 +268,9 @@ public final class CastGestures {
      * the beam starts one. Players are left to their swing and their wand's selected spell.
      */
     public static void onCasterBeam(LivingEntity caster, SpellType spell) {
-        if (caster instanceof Player || spell == null || !MagicWandItem.isAnyWand(caster.getMainHandItem())) {
-            return;
+        if (caster instanceof Player || spell == null || spell == SpellType.AVADA_KEDAVRA
+                || !MagicWandItem.isAnyWand(caster.getMainHandItem())) {
+            return; // the Killing Curse: AvadaChargePose's windup and strike, not a gesture
         }
         Cast previous = CASTS.get(caster.getId());
         if (previous != null && caster.tickCount - previous.start() <= 3) {
@@ -300,9 +311,6 @@ public final class CastGestures {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level != null && CastMotions.ownsRecentCast(player.getId(), minecraft.level.getGameTime())) {
-            return; // the server-synced gesture (CastMotions, the same one Pensieve actors play) poses this cast
-        }
         Cast cast = CASTS.get(player.getId());
         float[] g = cast == null ? null : castAngles(cast, ageInTicks - cast.start());
         float[] p;

@@ -88,17 +88,17 @@ public final class SpellFx {
         }
     }
 
-    /** Where a spell lands: a big flash, a core, sparks thrown outwards, and a shockwave ring for heavy spells. */
-    public static void impactBurst(Vec3 at, SpellType spell) {
+    /**
+     * The spray of sparks a hit throws out under its own weight, layered on the strike SpellBeamFxRenderer draws
+     * (its flash, rings and arcs). Used for the strikes whose style flings no debris of its own.
+     */
+    public static void sparkSpray(Vec3 at, SpellType spell) {
+        if (NO_ORB.contains(spell)) {
+            return;
+        }
         float[] c = lightColor(spell);
         float[] hot = whiten(c, 0.55F);
         boolean heavy = HEAVY.contains(spell);
-        SpellGlowParticle.spawn(at.x, at.y, at.z, 0, 0, 0, c[0], c[1], c[2], 0.95F,
-                heavy ? 1.1F : 0.8F, heavy ? 2.2F : 1.4F, heavy ? 8 : 6, 0, 1, false);
-        SpellGlowParticle.spawn(at.x, at.y, at.z, 0, 0, 0, hot[0], hot[1], hot[2], 1.0F, 0.4F, 0.55F, 4, 0, 1, false);
-        if (heavy) {
-            SpellGlowParticle.spawn(at.x, at.y, at.z, 0, 0, 0, hot[0], hot[1], hot[2], 0.9F, 0.4F, 3.2F, 9, 0, 1, true);
-        }
         RandomSource random = RandomSource.create();
         int sparks = heavy ? 22 : 14;
         for (int i = 0; i < sparks; i++) {
@@ -106,6 +106,30 @@ public final class SpellFx {
             float[] sc = random.nextBoolean() ? hot : c;
             SpellGlowParticle.spawn(at.x, at.y, at.z, v.x, v.y + 0.05, v.z, sc[0], sc[1], sc[2], 1.0F,
                     0.07F + random.nextFloat() * 0.07F, 0.02F, 10 + random.nextInt(10), 0.6F, 0.88F, false);
+        }
+    }
+
+    /**
+     * One tick of sparkle trail behind a beam's drawn head, which moved from {@code from} to {@code to} this
+     * tick: small glows left along the curve that drift and fade (they bloom, being light). On top of the
+     * style's own wake; none a few blocks from the eye, where a sparkle would fill the screen.
+     */
+    public static void sparkleTrail(Vec3 from, Vec3 to, SpellType spell, RandomSource random) {
+        if (NO_ORB.contains(spell) || from.distanceToSqr(to) < 1.0E-6) {
+            return;
+        }
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        if (to.distanceToSqr(camera) < 9.0) {
+            return;
+        }
+        float[] c = lightColor(spell);
+        float[] hot = whiten(c, 0.5F);
+        for (int i = 0; i < 3; i++) {
+            Vec3 at = from.lerp(to, random.nextDouble());
+            Vec3 drift = randomUnit(random).scale(0.015 + random.nextDouble() * 0.02);
+            float[] sc = random.nextInt(3) == 0 ? hot : c;
+            SpellGlowParticle.spawn(at.x, at.y, at.z, drift.x, drift.y, drift.z, sc[0], sc[1], sc[2], 0.8F,
+                    0.09F + random.nextFloat() * 0.08F, 0.01F, 8 + random.nextInt(8), 0.0F, 0.92F, false);
         }
     }
 
@@ -135,7 +159,7 @@ public final class SpellFx {
         }
         Vec3 at = beam.getClientImpact();
         if (at == null) {
-            at = beam.position().add(0.0, SpellBeamRenderer.ORB_HEIGHT, 0.0);
+            return; // it hit nothing this client saw: a clash, a Priori lock, or it ran out of range
         }
         CastFeel.onImpact(beam, at, spell);
     }

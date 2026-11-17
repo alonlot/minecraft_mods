@@ -46,9 +46,13 @@ final class FirstPersonWandRig {
 
     // ---------------------------------------------------------------- the rest pose and the keys
 
-    static final Vector3f REST_HAND = new Vector3f(0.47F, -0.19F, -0.72F);
-    static final Vector3f REST_ARM = new Vector3f(-0.10F, 1.0F, -0.35F);
-    static final Vector3f REST_WAND = new Vector3f(-0.55F, 0.62F, -0.58F);
+    static final Vector3f REST_HAND = new Vector3f(0.50F, -0.16F, -0.74F);
+    static final Vector3f REST_ARM = new Vector3f(-0.10F, 1.0F, -0.30F);
+    /**
+     * At rest the wand points at this spot, a little way past the crosshair, so its tip sits beside the
+     * crosshair and the wand runs from the hand in towards it: aimed where the player looks.
+     */
+    static final Vector3f REST_AIM = new Vector3f(0.06F, 0.26F, -1.8F);
 
     /** Mirrored strokes are reflected about this x (the middle of the screen): they wind up on the far side and still strike the middle. */
     private static final float MIRROR_X = 0.0F;
@@ -175,6 +179,21 @@ final class FirstPersonWandRig {
     private static float lastPitch;
     private static float yawSpeed;
     private static float pitchSpeed;
+    private static float swayYaw;
+    private static float swayPitch;
+
+    /**
+     * The whole pose turned a few degrees behind a fast turn of the view, about the eye: arm and wand trail
+     * as one rigid piece and settle back, so the wand never swings about the hand. Right-hand coordinates.
+     */
+    static Key sway(Key pose) {
+        if (swayYaw == 0.0F && swayPitch == 0.0F) {
+            return pose;
+        }
+        Matrix3f turn = new Matrix3f().rotateY(swayYaw * Mth.DEG_TO_RAD).rotateX(swayPitch * Mth.DEG_TO_RAD);
+        return new Key(pose.at(), turn.transform(new Vector3f(pose.hand())), turn.transform(new Vector3f(pose.arm())),
+                turn.transform(new Vector3f(pose.wand())));
+    }
 
     /**
      * The rest pose this frame: the base pose, the cast's own settle, breathing, and a lag behind fast turns.
@@ -190,8 +209,8 @@ final class FirstPersonWandRig {
             java.util.Random random = new java.util.Random(cast.start() * 31L + player.getId());
             REST_TARGET[0] = (random.nextFloat() - 0.5F) * 0.07F;
             REST_TARGET[1] = (random.nextFloat() - 0.5F) * 0.06F;
-            REST_TARGET[2] = (random.nextFloat() - 0.5F) * 0.30F;
-            REST_TARGET[3] = (random.nextFloat() - 0.5F) * 0.24F;
+            REST_TARGET[2] = (random.nextFloat() - 0.5F) * 0.26F; // the aim spot, at REST_AIM's depth
+            REST_TARGET[3] = (random.nextFloat() - 0.5F) * 0.20F;
         }
         float ease = 1.0F - (float) Math.exp(-dt * 0.12F);
         for (int i = 0; i < 4; i++) {
@@ -209,19 +228,18 @@ final class FirstPersonWandRig {
         }
         lastYaw = yaw;
         lastPitch = pitch;
-        float lagX = Mth.clamp(-yawSpeed * 0.0045F, -0.12F, 0.12F);
-        float lagY = Mth.clamp(pitchSpeed * 0.0040F, -0.10F, 0.10F);
+        // A fast turn leaves the arm a few degrees behind the view (see sway).
+        swayYaw = Mth.clamp(yawSpeed * 0.3F, -6.0F, 6.0F);
+        swayPitch = Mth.clamp(pitchSpeed * 0.3F, -5.0F, 5.0F);
 
         float breath = age * Mth.TWO_PI / 80.0F;
         Vector3f hand = new Vector3f(REST_HAND).add(
-                REST_OFFSET[0] + 0.004F * Mth.sin(breath * 0.6F + 1.0F) + lagX,
-                REST_OFFSET[1] + 0.009F * Mth.sin(breath) + lagY,
+                REST_OFFSET[0] + 0.004F * Mth.sin(breath * 0.6F + 1.0F),
+                REST_OFFSET[1] + 0.009F * Mth.sin(breath),
                 0.0F);
-        Vector3f wand = new Vector3f(REST_WAND).normalize().add(
-                REST_OFFSET[2] + lagX * 1.6F,
-                REST_OFFSET[3] + 0.025F * Mth.sin(breath + 0.6F) + lagY * 1.4F,
-                0.0F);
-        Vector3f arm = new Vector3f(REST_ARM).normalize().add(lagX * 0.8F, 0.0F, 0.0F);
+        Vector3f aim = new Vector3f(REST_AIM).add(REST_OFFSET[2], REST_OFFSET[3] + 0.04F * Mth.sin(breath + 0.6F), 0.0F);
+        Vector3f wand = aim.sub(hand).normalize();
+        Vector3f arm = new Vector3f(REST_ARM).normalize();
         return new Key(0.0F, hand, arm, wand);
     }
 
@@ -310,19 +328,27 @@ final class FirstPersonWandRig {
     // ---------------------------------------------------------------- placing the arm
 
     /**
+     * A point on the arm as renderHand draws it, in the space the arm is drawn in: the box hangs from the pivot
+     * (-5, 2, 0) px, turned 0.1 rad about z by the idle bob, from 2 px above the pivot to 10 px below it.
+     * {@code down} is px down the arm from the pivot.
+     */
+    private static Vector3f armPoint(float side, float down) {
+        Vector3f pivot = new Vector3f(-5.0F * side / 16.0F, 2.0F / 16.0F, 0.0F);
+        return new Matrix3f().rotateZ(0.1F * side).transform(new Vector3f(-side / 16.0F, down / 16.0F, 0.0F)).add(pivot);
+    }
+
+    /**
      * Turns and moves the pose stack so the arm drawn next (PlayerRenderer.renderRightHand/LeftHand) has its
      * hand at {@code pose.hand}, its forearm along {@code pose.arm}. {@code side} is 1 for the right arm.
+     * Returns the middle of the fist in the same space as the pose (the stack's space before this call), where
+     * the wand is held.
      */
-    static void placeArm(PoseStack stack, Key pose, float side) {
+    static Vector3f placeArm(PoseStack stack, Key pose, float side) {
         Vector3f hand = new Vector3f(pose.hand()).mul(side, 1.0F, 1.0F);
         Vector3f arm = new Vector3f(pose.arm()).mul(side, 1.0F, 1.0F).normalize();
-        // The arm as renderHand draws it: pivot (-5, 2, 0) px, turned 0.1 rad about z by the idle bob,
-        // a box from 2 px above the pivot to 10 px below it (y down the arm).
-        float zRot = 0.1F * side;
-        Vector3f pivot = new Vector3f(-5.0F * side / 16.0F, 2.0F / 16.0F, 0.0F);
-        Matrix3f bob = new Matrix3f().rotateZ(zRot);
-        Vector3f shoulder = bob.transform(new Vector3f(-side / 16.0F, -2.0F / 16.0F, 0.0F)).add(pivot);
-        Vector3f handEnd = bob.transform(new Vector3f(-side / 16.0F, 10.0F / 16.0F, 0.0F)).add(pivot);
+        Matrix3f bob = new Matrix3f().rotateZ(0.1F * side);
+        Vector3f shoulder = armPoint(side, -2.0F);
+        Vector3f handEnd = armPoint(side, 10.0F);
         Vector3f axisP = new Vector3f(handEnd).sub(shoulder).normalize();
         Vector3f frontP = orthoTo(bob.transform(new Vector3f(0.0F, 0.0F, -1.0F)), axisP);
 
@@ -336,23 +362,25 @@ final class FirstPersonWandRig {
         Vector3f offset = new Vector3f(hand).sub(rotation.transform(new Vector3f(handEnd)));
         stack.translate(offset.x, offset.y, offset.z);
         stack.mulPose(new Quaternionf().setFromNormalized(rotation));
+        return rotation.transform(armPoint(side, 8.6F)).add(offset);
     }
 
+    /** The wand's own axis in its centred model space: the sprite diagonal, handle low left, tip high right. */
+    private static final Vector3f WAND_AXIS = new Vector3f(1.0F, 1.0F, 0.0F).normalize();
+    /** The wand model's size in the hand, as its third-person display scale. */
+    private static final float WAND_SCALE = 0.85F;
+
     /**
-     * Bends the wrist: turns everything drawn next (the wand) about {@code grip} so the wand that would run
-     * from {@code grip} to {@code tip} runs along {@code direction} instead. All three are in the stack's
-     * outer (view) space.
+     * Moves the stack so the wand model drawn next (with no display transform) lies with its grip on
+     * {@code fist} and its tip along {@code direction}, both in the pose's space (as placeArm takes them):
+     * held through the fist, not hung on the item transform of the hand. Anything the stack already carries
+     * (vanilla's hand sway and bobbing) moves arm and wand alike.
      */
-    static void bendWrist(PoseStack stack, Vector3f grip, Vector3f tip, Vector3f direction) {
-        Vector3f current = new Vector3f(tip).sub(grip);
-        if (current.lengthSquared() < 1.0E-8F || direction.lengthSquared() < 1.0E-8F) {
-            return;
-        }
-        Quaternionf turn = new Quaternionf().rotationTo(current.normalize(), new Vector3f(direction).normalize());
-        PoseStack.Pose last = stack.last();
-        Matrix4f bent = new Matrix4f().translate(grip).rotate(turn).translate(-grip.x, -grip.y, -grip.z).mul(last.pose());
-        last.pose().set(bent);
-        last.normal().set(new Matrix3f().rotate(turn).mul(last.normal()));
+    static void placeWand(PoseStack stack, Vector3f fist, Vector3f direction, Vector3f grip) {
+        stack.translate(fist.x, fist.y, fist.z);
+        stack.mulPose(new Quaternionf().rotationTo(WAND_AXIS, new Vector3f(direction).normalize()));
+        stack.scale(WAND_SCALE, WAND_SCALE, WAND_SCALE);
+        stack.translate(-grip.x, -grip.y, -grip.z);
     }
 
     private static Vector3f orthoTo(Vector3f v, Vector3f axis) {

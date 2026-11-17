@@ -6,14 +6,12 @@ import com.hogwartsmagic.item.MagicWandItem;
 import com.hogwartsmagic.spell.SpellType;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
-import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -117,6 +115,7 @@ public final class WandCastAnimation {
                     : FirstPersonWandRig.motionOf(CastGestures.forSpell(MagicWandItem.getSelectedSpell(stack)));
             now = FirstPersonWandRig.mix(now, held.holdKey(), hold * hold * (3.0F - 2.0F * hold));
         }
+        now = FirstPersonWandRig.sway(now);
         now.hand().y -= event.getEquipProgress() * 0.7F; // lowered while the wand is being taken out
 
         PoseStack pose = event.getPoseStack();
@@ -124,25 +123,20 @@ public final class WandCastAnimation {
         int light = event.getPackedLight();
 
         pose.pushPose();
-        FirstPersonWandRig.placeArm(pose, now, side);
+        Vector3f fist = FirstPersonWandRig.placeArm(pose, now, side);
         if (right) {
             playerRenderer.renderRightHand(pose, buffer, light, player);
         } else {
             playerRenderer.renderLeftHand(pose, buffer, light, player);
         }
-        // Into the hand, the same way a held item is placed in third person.
-        playerRenderer.getModel().translateToHand(arm, pose);
-        pose.mulPose(Axis.XP.rotationDegrees(-90.0F));
-        pose.mulPose(Axis.YP.rotationDegrees(180.0F));
-        pose.translate(side / 16.0F, 0.125F, -0.625F);
-        ItemDisplayContext context = right ? ItemDisplayContext.THIRD_PERSON_RIGHT_HAND : ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
-        // The wrist: the wand turns about the grip to point where the pose wants it.
-        FirstPersonWandRig.bendWrist(pose, itemPoint(minecraft, player, stack, context, !right, pose, GRIP),
-                itemPoint(minecraft, player, stack, context, !right, pose, TIP),
-                new Vector3f(now.wand()).mul(side, 1.0F, 1.0F));
-        minecraft.gameRenderer.itemInHandRenderer.renderItem(player, stack, context, !right, pose, buffer, light);
+        pose.popPose();
 
-        Vector3f tip = itemPoint(minecraft, player, stack, context, !right, pose, TIP);
+        // The wand through the fist, pointing where the pose wants it (no hand item transform).
+        pose.pushPose();
+        FirstPersonWandRig.placeWand(pose, fist, new Vector3f(now.wand()).mul(side, 1.0F, 1.0F), GRIP);
+        minecraft.gameRenderer.itemInHandRenderer.renderItem(player, stack, ItemDisplayContext.NONE, false, pose,
+                buffer, light);
+        Vector3f tip = pose.last().pose().transformPosition(new Vector3f(TIP));
         pose.popPose();
         LAST_TIP.set(tip);
         lastTipFrame = net.minecraft.Util.getNanos();
@@ -234,17 +228,6 @@ public final class WandCastAnimation {
 
     /** Where the hand grips the wand, in the centred item model space: on the handle, 6.5 px down the diagonal. */
     private static final Vector3f GRIP = new Vector3f(-0.287F, -0.287F, 0.0F);
-
-    /** A point of the held wand in view space, through the wand's own display transform. */
-    private static Vector3f itemPoint(Minecraft minecraft, LivingEntity holder, ItemStack stack,
-                                      ItemDisplayContext context, boolean leftHand, PoseStack pose, Vector3f point) {
-        BakedModel model = minecraft.getItemRenderer().getModel(stack, holder.level(), holder, 0);
-        pose.pushPose();
-        model.applyTransform(context, pose, leftHand);
-        Vector3f out = pose.last().pose().transformPosition(new Vector3f(point));
-        pose.popPose();
-        return out;
-    }
 
     /** The tip light: a flare with crackling arcs at release, and a steady glow while a cast is held. */
     private static void drawTipLight(Minecraft minecraft, LocalPlayer player, ItemStack stack,

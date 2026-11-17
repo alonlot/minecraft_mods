@@ -1299,6 +1299,10 @@ public class ExampleMod
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         // How strong the cinematic effects are (shake, bloom, moments...): each player's own choice.
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, com.hogwartsmagic.fx.FxConfig.SPEC);
+        // The voiceOnlySpells gamerule must exist before any world loads.
+        com.hogwartsmagic.spell.voice.VoiceOnlyRule.register();
+        // Voice casting runs on the client only; its settings live in hogwartsmagic-client.toml.
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, com.hogwartsmagic.spell.voice.VoiceCastConfig.SPEC);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event)

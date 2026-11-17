@@ -108,6 +108,17 @@ public class ClientModEvents {
     private static final int LOCK_HOLD_GRACE_TICKS = 20;
     /** Client ticks left in which a radial lock hold may still be waiting for its key to go down. */
     private static int lockHoldGrace = 0;
+    /**
+     * After a voice cast of a hold spell, the ticks in which the hold waits for right-click to go down (the words
+     * are heard about a second after they end, so the player cannot be holding right-click already). Spells that
+     * are already running (Crucio, a Protego Maxima dome, a lock pick) keep their heartbeats during the window;
+     * spells that start on the press (Fiendfyre, the Patronus, Wingardium Leviosa, Imperio) wait. When the window
+     * ends with right-click still up, each resolves as a tap would.
+     */
+    public static final int VOICE_HOLD_GRACE_TICKS = 30;
+    private static int voiceHoldGrace = 0;
+    /** The server's voiceOnlySpells gamerule, sent on login and on change (VoiceOnlyRulePacket). */
+    private static boolean voiceOnly = false;
     private static final KeyMapping WAND_RADIAL_MENU_KEY = new KeyMapping(
             "key.hogwartsmagic.wand_radial_menu",
             GLFW.GLFW_KEY_R,
@@ -188,6 +199,7 @@ public class ClientModEvents {
                     }
                 }
                 com.hogwartsmagic.client.pensieve.GhostCamera.tick();
+                com.hogwartsmagic.client.voice.VoiceCastClient.tick(mc);
                 // Sprint/boost packets first so nothing in the broom sound path can prevent them from sending.
                 if (mc.player != null && mc.player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
                     // Respect stamina lock: if broom is overheated, suppress boost input client-side
@@ -295,10 +307,19 @@ public class ClientModEvents {
                     boolean patronusSelected = holdingWand
                             && selected == com.hogwartsmagic.spell.SpellType.EXPECTO_PATRONUM;
 
-                    if (protegoMaximaChannelActive && (!useDown || !protegoMaximaSkyCast)) {
+                    if (useDown) {
+                        voiceHoldGrace = 0; // right-click took over the voice-cast hold
+                    }
+                    boolean voiceGrace = voiceHoldGrace > 0;
+                    if (voiceGrace) {
+                        voiceHoldGrace--;
+                    }
+                    boolean protegoHeld = useDown || voiceGrace;
+
+                    if (protegoMaximaChannelActive && (!protegoHeld || !protegoMaximaSkyCast)) {
                         SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
                         protegoMaximaChannelActive = false;
-                    } else if (protegoMaximaChannelActive && useDown && protegoMaximaSkyCast) {
+                    } else if (protegoMaximaChannelActive && protegoHeld && protegoMaximaSkyCast) {
                         SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
                     }
 
@@ -322,6 +343,8 @@ public class ClientModEvents {
                             } else if (fiendfyreChannelActive) {
                                 SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, attackDown), PacketDistributor.SERVER.noArg());
                             }
+                        } else if (voiceGrace && !fiendfyreChannelActive) {
+                            // voice cast: wait for right-click before choosing between the tap and the channel
                         } else {
                             if (fiendfyreChannelActive) {
                                 SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
@@ -349,6 +372,8 @@ public class ClientModEvents {
                                 wingardiumChannelActive = true;
                                 mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
                             }
+                        } else if (voiceGrace && !wingardiumChannelActive) {
+                            // voice cast: the beam is out; the server keeps its target for 40 ticks after the hit
                         } else {
                             if (wingardiumChannelActive) {
                                 SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
@@ -372,6 +397,8 @@ public class ClientModEvents {
                                 patronusChannelActive = true;
                                 mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
                             }
+                        } else if (voiceGrace && !patronusChannelActive) {
+                            // voice cast: nothing is summoned until right-click goes down
                         } else {
                             if (patronusChannelActive) {
                                 SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
@@ -391,7 +418,7 @@ public class ClientModEvents {
                         crucioHoldPending = false;
                         crucioChannelActive = false;
                     } else if (crucioHoldPending) {
-                        if (useDown) {
+                        if (useDown || voiceGrace) {
                             SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
                             crucioChannelActive = true;
                         } else {
@@ -453,6 +480,8 @@ public class ClientModEvents {
                                 mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
                             }
                             // Once possessing, PossessionClient streams the input (raw keys and the virtual look).
+                        } else if (voiceGrace && !imperioChannelActive) {
+                            // voice cast: the beam is out; the Master hold starts when right-click goes down
                         } else {
                             if (imperioChannelActive) {
                                 SpellPackets.CHANNEL.send(new SpellPackets.ImperioControlPacket(false, true, 0.0f, 0.0f, false, false, mc.player.getYRot(), mc.player.getXRot()), PacketDistributor.SERVER.noArg());
@@ -478,6 +507,7 @@ public class ClientModEvents {
                     lockHoldPending = false;
                     lockHoldKey = null;
                     lockHoldGrace = 0;
+                    voiceHoldGrace = 0;
                     imperioHoldPending = false;
                     imperioChannelActive = false;
                     imperioHoldTicks = 0;
@@ -852,6 +882,7 @@ public class ClientModEvents {
         event.register(com.hogwartsmagic.client.PetrificationClient.GIVE_IN_KEY);
         event.register(PENSIEVE_LEAVE_KEY);
         event.register(PENSIEVE_SNAP_KEY);
+        event.register(com.hogwartsmagic.client.voice.VoiceCastClient.KEY);
         for (KeyMapping spellSlotKey : SPELL_SLOT_KEYS) {
             event.register(spellSlotKey);
         }
@@ -1031,6 +1062,49 @@ public class ClientModEvents {
     /** True while an Alohomora or Revelio cast is held by a key, so a second cast press is skipped. */
     public static boolean isLockHoldPending() {
         return lockHoldPending;
+    }
+
+    public static void setVoiceOnly(boolean on) {
+        voiceOnly = on;
+    }
+
+    /** True while the server only casts spoken spells: clicks, the wheel and slot keys select but do not cast. */
+    public static boolean isVoiceOnly() {
+        return voiceOnly;
+    }
+
+    /** Any hold is waiting or running (a voice cast's right-click take-over must not be told off). */
+    public static boolean anyHoldPending() {
+        return voiceHoldGrace > 0 || fiendfyreHoldPending || wingardiumHoldPending || patronusHoldPending
+                || crucioHoldPending || imperioHoldPending || protegoMaximaChannelActive || lockHoldPending;
+    }
+
+    /** A Wingardium hold is waiting or running: right-click takes it over and never casts a second beam. */
+    public static boolean isWingardiumHoldPending() {
+        return wingardiumHoldPending;
+    }
+
+    /** An Imperio Master hold is waiting or running: right-click takes it over and never casts a second beam. */
+    public static boolean isImperioHoldPending() {
+        return imperioHoldPending;
+    }
+
+    /**
+     * A voice cast just started a hold spell: give right-click {@link #VOICE_HOLD_GRACE_TICKS} to go down and keep
+     * it. Does nothing (and returns false) for a spell with no hold. No action-bar hint: the cooldown line redraws
+     * the action bar every tick right after a cast, so the window is described in the wiki instead.
+     */
+    public static boolean startVoiceHoldGrace() {
+        boolean holding = fiendfyreHoldPending || wingardiumHoldPending || patronusHoldPending || crucioHoldPending
+                || imperioHoldPending || protegoMaximaChannelActive || lockHoldPending;
+        if (!holding) {
+            return false;
+        }
+        voiceHoldGrace = VOICE_HOLD_GRACE_TICKS;
+        if (lockHoldPending) {
+            lockHoldGrace = Math.max(lockHoldGrace, VOICE_HOLD_GRACE_TICKS);
+        }
+        return true;
     }
 
     @SubscribeEvent

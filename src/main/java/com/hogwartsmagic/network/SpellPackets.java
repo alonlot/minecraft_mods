@@ -44,7 +44,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(18)
+            .networkProtocolVersion(19)
             .simpleChannel();
 
     public static void register() {
@@ -92,6 +92,19 @@ public class SpellPackets {
                 })
                 .decoder(buf -> new SetSpellSlotPacket(buf.readInt(), buf.readUtf()))
                 .consumerMainThread(SetSpellSlotPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(VoiceCastStampPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeUtf(p.spellId, 64);
+                    buf.writeBoolean(p.selfCast);
+                })
+                .decoder(buf -> new VoiceCastStampPacket(buf.readUtf(64), buf.readBoolean()))
+                .consumerMainThread(VoiceCastStampPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(VoiceOnlyRulePacket.class)
+                .encoder((p, buf) -> buf.writeBoolean(p.on))
+                .decoder(buf -> new VoiceOnlyRulePacket(buf.readBoolean()))
+                .consumerMainThread(VoiceOnlyRulePacket::handle)
                 .add();
         CHANNEL.messageBuilder(SyncLearnedSpellsPacket.class)
                 .encoder((p, buf) -> buf.writeUtf(p.learnedSpells))
@@ -1040,6 +1053,24 @@ public class SpellPackets {
         }
     }
 
+    /** Client to server: the player just said this spell (voice casting); sent right before its cast packets. */
+    public record VoiceCastStampPacket(String spellId, boolean selfCast) {
+        public static void handle(VoiceCastStampPacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player == null) {
+                return;
+            }
+            com.hogwartsmagic.spell.voice.VoiceOnlyRule.stamp(player, p.spellId, p.selfCast);
+        }
+    }
+
+    /** Server to client: the voiceOnlySpells gamerule, on login and on every change. */
+    public record VoiceOnlyRulePacket(boolean on) {
+        public static void handle(VoiceOnlyRulePacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("voiceOnlyRule", p));
+        }
+    }
+
     public record SyncLearnedSpellsPacket(String learnedSpells) {
         public static void handle(SyncLearnedSpellsPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("syncLearnedSpells", p));
@@ -1169,6 +1200,14 @@ public class SpellPackets {
                 if (!p.channelHeartbeat && !p.releaseChannel) {
                     com.hogwartsmagic.spell.PrioriIncantatem.push(player);
                 }
+                return;
+            }
+            // voiceOnlySpells: only a spell the player said may cast (checked here, at the packet, so the server's
+            // own re-entries into castAs, such as the Avada wind-up, and puppet casts are not affected).
+            ItemStack held = player.getMainHandItem();
+            SpellType heldSpell = MagicWandItem.isAnyWand(held) ? MagicWandItem.getSelectedSpell(held) : null;
+            if (!com.hogwartsmagic.spell.voice.VoiceOnlyRule.allowsCastPacket(player,
+                    heldSpell == null ? null : heldSpell.getId(), p.releaseChannel, p.channelHeartbeat, p.selfCastProtego)) {
                 return;
             }
             castAs(player, p);
@@ -1674,6 +1713,9 @@ public class SpellPackets {
             if (!com.hogwartsmagic.spell.mind.ImperioRules.isPossessionRank(
                     com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.IMPERIO))) {
                 return; // ranks I-III make a thrall when the beam lands; only a Master holds
+            }
+            if (!com.hogwartsmagic.spell.voice.VoiceOnlyRule.allowsHoldStart(player, SpellType.IMPERIO.getId())) {
+                return; // voiceOnlySpells: the hold must follow a spoken Imperio
             }
             if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
                 com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);

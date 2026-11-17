@@ -132,6 +132,19 @@ repositories {
     // }
 }
 
+// Jar-in-jar for the voice casting library. The jarJar output is the jar players install (no classifier);
+// the plain jar without the library gets the "slim" classifier.
+jarJar.enable()
+tasks.named('jarJar') {
+    archiveClassifier = ''
+}
+tasks.named('jar', Jar) {
+    archiveClassifier = 'slim'
+}
+tasks.named('assemble') {
+    dependsOn 'jarJar'
+}
+
 dependencies {
     // Specify the version of Minecraft to use.
     // Any artifact can be supplied so long as it has a "userdev" classifier artifact and is a compatible patcher artifact.
@@ -157,6 +170,14 @@ dependencies {
     
     // Hack fix for now, force jopt-simple to be exactly 5.0.4 because Mojang ships that version, but some transitive dependencies request 6.0+ 
     implementation('net.sf.jopt-simple:jopt-simple:5.0.4') { version { strictly '5.0.4' } }
+
+    // Voice casting: offline speech to text (whisper.cpp through JNI, natives for Windows, macOS and Linux inside).
+    // Shipped inside the mod jar with jar-in-jar; minecraftLibrary puts it on the dev run classpath.
+    implementation 'io.github.givimad:whisper-jni:1.7.1'
+    minecraftLibrary 'io.github.givimad:whisper-jni:1.7.1'
+    jarJar(group: 'io.github.givimad', name: 'whisper-jni', version: '[1.7.1,1.8)') {
+        jarJar.pin(it, '1.7.1')
+    }
 
     annotationProcessor 'org.spongepowered:mixin:0.8.7:processor'
 

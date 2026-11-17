@@ -239,25 +239,28 @@ public final class WandCastAnimation {
 
         float flare = 0.0F;
         if (cast != null && since >= release) {
-            float k = (since - release) / 3.0F; // ticks
-            flare = k < 1.0F ? 1.0F - k : 0.0F;
+            float k = (since - release) / 4.0F; // ticks
+            flare = k < 1.0F ? (1.0F - k) * (1.0F - k) : 0.0F;
         }
         float charge = cast != null && since < release ? since / Math.max(0.5F, release) : 0.0F; // the wind-up
         float held = minecraft.options.keyUse.isDown() ? 1.0F : 0.0F;
-        float glow = Math.max(Math.max(charge * 0.7F, held * 0.8F), flare);
-        if (glow <= 0.01F) {
-            return;
-        }
+        // At rest the tip keeps a faint glow of the selected spell, breathing slowly.
+        float age = player.tickCount + minecraft.getTimer().getGameTimeDeltaPartialTick(false);
+        float idle = 0.16F + 0.05F * Mth.sin(age * 0.12F);
+        float sparkle = FirstPersonWandRig.switchGlow(age); // a change of spell lights the tip up briefly
+        float glow = Math.max(Math.max(Math.max(charge * 0.7F, held * 0.8F), flare), Math.max(idle, sparkle * 0.9F));
         Matrix4f matrix = new Matrix4f().translate(tip);
         VertexConsumer light = buffer.getBuffer(ModRenderTypes.SPELL_GLOW);
-        SpellFx.glowQuad(light, matrix, 0, 0, 0, 0.07F + 0.05F * glow, 1.0F, 1.0F, 1.0F, glow);
-        SpellFx.glowQuad(light, matrix, 0, 0, 0, 0.14F + 0.10F * glow, hot[0], hot[1], hot[2], 0.75F * glow);
+        SpellFx.glowQuad(light, matrix, 0, 0, 0, 0.05F + 0.07F * glow, 1.0F, 1.0F, 1.0F, glow);
+        SpellFx.glowQuad(light, matrix, 0, 0, 0, 0.12F + 0.12F * glow, hot[0], hot[1], hot[2], 0.75F * glow);
         if (flare > 0.0F) {
-            SpellFx.glowQuad(light, matrix, 0, 0, 0, 0.2F + 0.45F * flare, color[0], color[1], color[2], 0.9F * flare);
+            // The burst: a wide bloom of the spell's colour around a hot core, with arcs lashing out.
+            SpellFx.glowQuad(light, matrix, 0, 0, 0, 0.35F + 1.05F * flare, color[0], color[1], color[2], 0.85F * flare);
+            SpellFx.glowQuad(light, matrix, 0, 0, 0, 0.18F + 0.35F * flare, hot[0], hot[1], hot[2], flare);
             VertexConsumer bolts = buffer.getBuffer(RenderType.lightning());
             long seed = player.tickCount * 13L + (cast == null ? 0 : cast.start());
-            for (int i = 0; i < 4; i++) {
-                SpellFx.crackle(bolts, matrix, seed + i * 101L, 0.25F + 0.2F * flare, 0.005F,
+            for (int i = 0; i < 7; i++) {
+                SpellFx.crackle(bolts, matrix, seed + i * 101L, 0.3F + 0.4F * flare, 0.006F,
                         hot[0], hot[1], hot[2], flare);
             }
         }

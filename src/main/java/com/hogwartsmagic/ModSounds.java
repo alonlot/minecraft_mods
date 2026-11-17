@@ -275,6 +275,16 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> HORCRUX_BREAK = register("horcrux.break");
     public static final RegistryObject<SoundEvent> HORCRUX_SCREAM = register("horcrux.scream");
 
+    // Wand casting (tools/gen_cast_sounds.py): the swing, the spell leaving the wand, the hit, a spell switch.
+    public static final RegistryObject<SoundEvent> CAST_SWISH_LIGHT = register("cast.swish_light");
+    public static final RegistryObject<SoundEvent> CAST_SWISH_HEAVY = register("cast.swish_heavy");
+    public static final RegistryObject<SoundEvent> CAST_SWISH_RISE = register("cast.swish_rise");
+    public static final RegistryObject<SoundEvent> CAST_RELEASE = register("cast.release");
+    public static final RegistryObject<SoundEvent> CAST_RELEASE_DARK = register("cast.release_dark");
+    public static final RegistryObject<SoundEvent> CAST_IMPACT = register("cast.impact");
+    public static final RegistryObject<SoundEvent> CAST_IMPACT_HEAVY = register("cast.impact_heavy");
+    public static final RegistryObject<SoundEvent> WAND_SWITCH = register("cast.switch");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

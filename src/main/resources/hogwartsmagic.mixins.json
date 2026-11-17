@@ -23,7 +23,8 @@
     "client.PossessionTurnMixin",
     "client.PossessionSendPositionMixin",
     "client.BasiliskGazeGuiMixin",
-    "client.WandGestureModelMixin"
+    "client.WandGestureModelMixin",
+    "client.TenebrisGuiMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -130,8 +130,8 @@ def build(style):
 
 
 WANDS = {
-    "harry_potter_wand": ("carved", {"handle": ("#4a2c18", "#6b4226"), "shaft": ("#8a5f36", "#c69a63"),
-                                     "ring": ("#3a2212", "#5a3a22"), "tip": ("#c9a06e", "#dcb684")}),
+    "harry_potter_wand": ("carved", {"handle": ("#5a3820", "#7a5030"), "shaft": ("#c09058", "#e2bd84"),
+                                     "ring": ("#3a2212", "#5a3a22"), "tip": ("#e0bc88", "#f0d4a4")}),
     "elder_wand": ("elder", {"handle": ("#b89a62", "#d9c08a"), "shaft": ("#4f3a28", "#7a604a"),
                              "ring": ("#9a7a4a", "#c8a66a"), "tip": ("#806650", "#9a8068")}),
     "dragon_core_wand": ("plain", {"handle": ("#141414", "#262626"), "shaft": ("#1e1e1e", "#3a3a3a"),

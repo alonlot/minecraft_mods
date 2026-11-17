@@ -180,6 +180,7 @@ public final class SpellFx {
             at = beam.position().add(0.0, SpellBeamRenderer.ORB_HEIGHT, 0.0);
         }
         impactBurst(at, spell);
+        CastFeel.onImpact(beam, at, spell);
     }
 
     // ---------------------------------------------------------------- quad drawing (renderers)

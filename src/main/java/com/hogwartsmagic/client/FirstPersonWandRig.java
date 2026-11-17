@@ -161,6 +161,34 @@ final class FirstPersonWandRig {
                 k(r + 1.4F, 0.10F, -0.14F, -0.80F, -0.35F, 0.30F, -1.0F, -0.14F, 0.02F, -1.0F));
     }
 
+    /** The rest pose with no live motion (breath, settle, sway): the shared start and end of every gesture. */
+    static Key baseRest() {
+        return new Key(0.0F, new Vector3f(REST_HAND), new Vector3f(REST_ARM).normalize(),
+                new Vector3f(REST_AIM).sub(REST_HAND).normalize());
+    }
+
+    /** Where the hand is when it strikes at the middle of the screen: the arm points straight along the look. */
+    private static final Vector3f STRIKE_HAND = new Vector3f(0.05F, -0.13F, -0.70F);
+
+    /**
+     * A first-person pose read as a body pose {pitch, yaw, roll, reach} for the third-person arm (the same
+     * numbers CastGestures' models take): the arm points the way the wand does, pushed further the way the
+     * hand has moved from the strike point, so a hand lifted high raises the arm and a hand swung across
+     * swings it across. Right-hand pose in, right-hand angles out (positive yaw is across the body).
+     */
+    static float[] bodyAngles(Key pose) {
+        Vector3f d = new Vector3f(pose.wand()).normalize()
+                .add(new Vector3f(pose.hand()).sub(STRIKE_HAND).mul(1.4F));
+        if (d.lengthSquared() < 1.0E-6F) {
+            return new float[4];
+        }
+        d.normalize();
+        float pitch = -(float) Math.toDegrees(Math.asin(Mth.clamp(d.y, -1.0F, 1.0F)));
+        float yaw = (float) Math.toDegrees(Math.atan2(-d.x, -d.z));
+        float reach = Mth.clamp(pose.hand().z + 0.72F, -0.4F, 0.4F);
+        return new float[]{Mth.clamp(pitch, -110.0F, 40.0F), Mth.clamp(yaw, -70.0F, 75.0F), 0.0F, reach};
+    }
+
     static Motion motionOf(CastGestures.Gesture gesture) {
         return MOTIONS.getOrDefault(gesture, MOTIONS.get(CastGestures.FLICK));
     }
@@ -181,6 +209,18 @@ final class FirstPersonWandRig {
     private static float pitchSpeed;
     private static float swayYaw;
     private static float swayPitch;
+    /** The spell selected last frame, and when the selection last changed (player age, ticks). */
+    @javax.annotation.Nullable
+    private static com.hogwartsmagic.spell.SpellType lastSpell;
+    private static float switchAt = -100.0F;
+    /** Length of the twirl that marks a change of spell, in ticks. */
+    private static final float TWIRL_TICKS = 9.0F;
+
+    /** 0..1: how bright the tip sparkles from a change of spell (1 the moment it changes). */
+    static float switchGlow(float age) {
+        float t = (age - switchAt) / TWIRL_TICKS;
+        return t < 0.0F || t > 1.0F ? 0.0F : 1.0F - t;
+    }
 
     /**
      * The whole pose turned a few degrees behind a fast turn of the view, about the eye: arm and wand trail
@@ -203,6 +243,17 @@ final class FirstPersonWandRig {
         float age = player.tickCount + partialTick;
         float dt = Float.isNaN(lastFrameAge) ? 0.0F : Mth.clamp(age - lastFrameAge, 0.0F, 2.0F);
         lastFrameAge = age;
+
+        com.hogwartsmagic.spell.SpellType spell = com.hogwartsmagic.item.MagicWandItem.getSelectedSpell(player.getMainHandItem());
+        if (spell != lastSpell) {
+            if (lastSpell != null && spell != null) {
+                switchAt = age;
+                player.level().playLocalSound(player.getX(), player.getEyeY(), player.getZ(),
+                        com.hogwartsmagic.ModSounds.WAND_SWITCH.get(), net.minecraft.sounds.SoundSource.PLAYERS,
+                        0.45F, 0.95F + player.getRandom().nextFloat() * 0.15F, false);
+            }
+            lastSpell = spell;
+        }
 
         if (cast != null && cast.start() != lastCastStart) {
             lastCastStart = cast.start();
@@ -239,6 +290,15 @@ final class FirstPersonWandRig {
                 0.0F);
         Vector3f aim = new Vector3f(REST_AIM).add(REST_OFFSET[2], REST_OFFSET[3] + 0.04F * Mth.sin(breath + 0.6F), 0.0F);
         Vector3f wand = aim.sub(hand).normalize();
+        float twirl = (age - switchAt) / TWIRL_TICKS;
+        if (twirl >= 0.0F && twirl < 1.0F) {
+            // A change of spell: the wrist rolls the wand once around, the tip drawing a small circle, with
+            // a little lift of the hand.
+            float e = twirl * twirl * (3.0F - 2.0F * twirl);
+            Vector3f tilted = new Vector3f(wand).rotateAxis(0.45F * Mth.sin(Mth.PI * twirl), 1.0F, 0.0F, 0.0F);
+            wand = tilted.rotateAxis(e * Mth.TWO_PI, wand.x, wand.y, wand.z).normalize();
+            hand.y += 0.03F * Mth.sin(Mth.PI * twirl);
+        }
         Vector3f arm = new Vector3f(REST_ARM).normalize();
         return new Key(0.0F, hand, arm, wand);
     }

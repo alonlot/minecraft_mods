@@ -36,94 +36,49 @@ import java.util.Set;
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class CastGestures {
 
-    /** One wand gesture. Keys are {t, pitch, yaw, roll, reach}; rest (all zero) is implied at t = 0 and t = 1. */
+    /**
+     * One wand gesture: its name, length and the point at which the spell leaves the wand. The motion itself
+     * is FirstPersonWandRig's keys; everyone (first person, third person, NPCs) plays those.
+     */
     public static final class Gesture {
         public final String name;
         public final float ticks;
         /** Progress at which the spell visibly leaves the wand (the tip flare). */
         public final float release;
-        final float[][] keys;
-        /** Pose while a channelled spell is held after the gesture. */
-        final float[] hold;
         /** Whether a cast may mirror the stroke across the body. A straight lift has nothing to mirror. */
         boolean mirrorable = true;
 
-        Gesture(String name, float ticks, float release, float[] hold, float[]... keys) {
+        Gesture(String name, float ticks, float release) {
             this.name = name;
             this.ticks = ticks;
             this.release = release;
-            this.hold = hold;
-            this.keys = keys;
         }
     }
 
-    private static final float[] POINT = {-6.0F, 14.0F, 0.0F, -0.28F};
-    private static final float[] RAISED = {-48.0F, 8.0F, 0.0F, -0.12F};
-
     /** Wind up high and to the side, then a fast diagonal slash across to the crosshair. The default. */
-    public static final Gesture FLICK = new Gesture("flick", 9, 0.36F, POINT,
-            new float[]{0.2F, -34, -22, -14, 0.10F},
-            new float[]{0.4F, -8, 34, 14, -0.36F});
+    public static final Gesture FLICK = new Gesture("flick", 9, 0.36F);
     /** Draw back, then a straight jab at the target, held a moment: the duelling stunner. */
-    public static final Gesture STAB = new Gesture("stab", 8, 0.34F, POINT,
-            new float[]{0.22F, -14, -6, 0, 0.20F},
-            new float[]{0.38F, 2, 14, 0, -0.55F},
-            new float[]{0.58F, 2, 12, 0, -0.48F});
+    public static final Gesture STAB = new Gesture("stab", 8, 0.34F);
     /** A big cut from high right to low left. */
-    public static final Gesture SLASH = new Gesture("slash", 10, 0.42F, POINT,
-            new float[]{0.24F, -52, -30, -26, 0.06F},
-            new float[]{0.46F, 30, 44, 30, -0.26F});
+    public static final Gesture SLASH = new Gesture("slash", 10, 0.42F);
     /** Two cuts in a Z: high right to low left, back across, and down again. */
-    public static final Gesture DOUBLE_SLASH = new Gesture("double_slash", 13, 0.33F, POINT,
-            new float[]{0.16F, -50, -30, -25, 0.05F},
-            new float[]{0.32F, 28, 40, 25, -0.20F},
-            new float[]{0.50F, -32, 40, -12, -0.10F},
-            new float[]{0.68F, 32, -8, 12, -0.26F});
+    public static final Gesture DOUBLE_SLASH = new Gesture("double_slash", 13, 0.33F);
     /** The wand pulled in to the chest to gather force, then a heavy shove. */
-    public static final Gesture PUSH = new Gesture("push", 10, 0.44F, POINT,
-            new float[]{0.28F, -12, 8, 0, 0.32F},
-            new float[]{0.44F, 0, 18, 0, -0.62F},
-            new float[]{0.62F, 0, 16, 0, -0.55F});
+    public static final Gesture PUSH = new Gesture("push", 10, 0.44F);
     /** The wand lifted high overhead and held up. */
-    public static final Gesture RAISE = new Gesture("raise", 12, 0.36F, RAISED,
-            new float[]{0.34F, -70, 10, 0, -0.10F},
-            new float[]{0.66F, -66, 10, 0, -0.10F});
-
+    public static final Gesture RAISE = new Gesture("raise", 12, 0.36F);
     /** Swish and flick: a small loop, then a sharp flick upwards. */
-    public static final Gesture SWISH_FLICK = new Gesture("swish_flick", 14, 0.58F, new float[]{-30, 10, 0, -0.2F},
-            new float[]{0.12F, -10, -16, -6, 0.0F},
-            new float[]{0.24F, 10, 0, 0, -0.05F},
-            new float[]{0.36F, -6, 16, 6, -0.05F},
-            new float[]{0.48F, 12, 6, 0, -0.10F},
-            new float[]{0.58F, -46, 10, 0, -0.14F});
+    public static final Gesture SWISH_FLICK = new Gesture("swish_flick", 14, 0.58F);
     /** Two small circles, then a point: the mind charms and the binding. */
-    public static final Gesture SPIRAL = new Gesture("spiral", 14, 0.64F, POINT,
-            new float[]{0.08F, -14, 0, 0, 0.0F},
-            new float[]{0.18F, 0, 16, 0, -0.04F},
-            new float[]{0.28F, 14, 0, 0, -0.08F},
-            new float[]{0.38F, 0, -10, 0, -0.04F},
-            new float[]{0.48F, -14, 4, 0, -0.08F},
-            new float[]{0.56F, 4, 16, 0, -0.10F},
-            new float[]{0.64F, -2, 18, 0, -0.40F});
+    public static final Gesture SPIRAL = new Gesture("spiral", 14, 0.64F);
     /** Reach out at the target, then yank back towards the chest: Accio. */
-    public static final Gesture PULL = new Gesture("pull", 11, 0.24F, POINT,
-            new float[]{0.24F, 0, 16, 0, -0.48F},
-            new float[]{0.52F, -24, 4, -8, 0.28F});
+    public static final Gesture PULL = new Gesture("pull", 11, 0.24F);
     /** Lifted back over the shoulder, then lashed forward and down like a whip. */
-    public static final Gesture WHIP = new Gesture("whip", 11, 0.40F, POINT,
-            new float[]{0.24F, -58, -16, -12, 0.16F},
-            new float[]{0.40F, 24, 26, 10, -0.36F},
-            new float[]{0.52F, 8, 20, 4, -0.26F});
+    public static final Gesture WHIP = new Gesture("whip", 11, 0.40F);
     /** The killing stroke: the wand raised straight overhead, then driven down at the target and held. */
-    public static final Gesture CURSE = new Gesture("curse", 11, 0.42F, POINT,
-            new float[]{0.30F, -78, -10, -20, 0.20F},
-            new float[]{0.42F, 18, 24, 10, -0.46F},
-            new float[]{0.62F, 16, 22, 10, -0.42F});
+    public static final Gesture CURSE = new Gesture("curse", 11, 0.42F);
     /** Point at the lock and turn the wrist like a key. */
-    public static final Gesture TWIST = new Gesture("twist", 10, 0.46F, POINT,
-            new float[]{0.24F, -2, 18, 0, -0.32F},
-            new float[]{0.46F, -2, 18, 64, -0.32F},
-            new float[]{0.62F, -2, 18, -16, -0.32F});
+    public static final Gesture TWIST = new Gesture("twist", 10, 0.46F);
 
     static {
         // Mirroring suits strokes that cut across (flick, slash, whip, curse, swish); a lift, a jab, a shove, a
@@ -178,17 +133,6 @@ public final class CastGestures {
      */
     public record Variant(boolean mirror, float scale, float pitchOffset, float rollOffset, float shiftX, float shiftY) {
         public static final Variant NONE = new Variant(false, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F);
-
-        /** Yaw a mirrored stroke swings around: the far side of the body is MIRROR_CENTRE degrees across. */
-        private static final float MIRROR_CENTRE = 30.0F;
-
-        /** The variant applied to one key pose {pitch, yaw, roll, reach}. */
-        float[] apply(float[] key) {
-            float yaw = this.mirror ? MIRROR_CENTRE - key[1] : key[1];
-            float roll = this.mirror ? -key[2] : key[2];
-            return new float[]{key[0] * this.scale + this.pitchOffset, yaw * this.scale,
-                    roll * this.scale + this.rollOffset, key[3] * this.scale};
-        }
     }
 
     /** The variant a player's next cast plays: mostly the other side from the last, never quite the same. */
@@ -227,11 +171,28 @@ public final class CastGestures {
         return Mth.lerp(partialTick, holdWeightO, holdWeight);
     }
 
-    /** The hold pose of the local player's selected spell. */
+    /** The hold pose of the local player's selected spell, as body angles (third person). */
     public static float[] localHoldPose() {
         Player player = Minecraft.getInstance().player;
         SpellType spell = player == null ? null : MagicWandItem.getSelectedSpell(player.getMainHandItem());
-        return forSpell(spell).hold;
+        return FirstPersonWandRig.bodyAngles(FirstPersonWandRig.motionOf(forSpell(spell)).holdKey());
+    }
+
+    /**
+     * The body pose {pitch, yaw, roll, reach, weight} of a cast {@code since} ticks in, from the same keys as
+     * the first-person arm, so everyone sees the swing the caster sees; null outside the gesture. The weight
+     * blends the gesture in over the first tick and back out over the last third.
+     */
+    @javax.annotation.Nullable
+    static float[] castAngles(Cast cast, float since) {
+        FirstPersonWandRig.Motion motion = FirstPersonWandRig.motionOf(cast.gesture());
+        if (since < 0.0F || since >= motion.length()) {
+            return null;
+        }
+        FirstPersonWandRig.Key key = FirstPersonWandRig.pose(motion, cast.variant(), FirstPersonWandRig.baseRest(), since);
+        float[] p = FirstPersonWandRig.bodyAngles(key);
+        float weight = smooth(since / 1.2F) * smooth((motion.length() - since) / (motion.length() * 0.35F));
+        return new float[]{p[0], p[1], p[2], p[3], weight};
     }
 
     @SubscribeEvent
@@ -312,52 +273,6 @@ public final class CastGestures {
         return t * t * (3.0F - 2.0F * t);
     }
 
-    /** The pose {pitch, yaw, roll, reach} of a gesture at progress t (rest outside 0..1). */
-    /** The pose of a cast at progress t, with its variant. */
-    public static float[] pose(Cast cast, float t) {
-        return pose(cast.gesture(), t, cast.variant());
-    }
-
-    public static float[] pose(Gesture gesture, float t) {
-        return pose(gesture, t, Variant.NONE);
-    }
-
-    public static float[] pose(Gesture gesture, float t, Variant variant) {
-        float[] out = new float[4];
-        if (t < 0.0F || t >= 1.0F) {
-            return out;
-        }
-        float prevT = 0.0F;
-        float[] prev = out.clone();
-        for (int i = 0; i <= gesture.keys.length; i++) {
-            float keyT = i < gesture.keys.length ? gesture.keys[i][0] : 1.0F;
-            float[] key = new float[4];
-            if (i < gesture.keys.length) {
-                System.arraycopy(gesture.keys[i], 1, key, 0, 4);
-                key = variant.apply(key);
-            }
-            if (t <= keyT) {
-                float k = smooth((t - prevT) / Math.max(1.0E-4F, keyT - prevT));
-                for (int j = 0; j < 4; j++) {
-                    out[j] = Mth.lerp(k, prev[j], key[j]);
-                }
-                return out;
-            }
-            prevT = keyT;
-            prev = key;
-        }
-        return out;
-    }
-
-    /** Mixes two poses: 0 gives a, 1 gives b. */
-    public static float[] mix(float[] a, float[] b, float k) {
-        float[] out = new float[4];
-        for (int i = 0; i < 4; i++) {
-            out[i] = Mth.lerp(k, a[i], b[i]);
-        }
-        return out;
-    }
-
     // ---------------------------------------------------------------- third person
 
     /**
@@ -375,12 +290,12 @@ public final class CastGestures {
         }
         Minecraft minecraft = Minecraft.getInstance();
         Cast cast = CASTS.get(player.getId());
-        float t = cast == null ? -1.0F : cast.progress(ageInTicks);
+        float[] g = cast == null ? null : castAngles(cast, ageInTicks - cast.start());
         float[] p;
         float weight;
-        if (t >= 0.0F) {
-            p = pose(cast, t);
-            weight = smooth(t / 0.12F) * smooth((1.0F - t) / 0.3F);
+        if (g != null) {
+            p = g;
+            weight = g[4];
         } else if (player == minecraft.player) {
             float partial = ageInTicks - player.tickCount;
             weight = localHoldWeight(Mth.clamp(partial, 0.0F, 1.0F));
@@ -421,16 +336,8 @@ public final class CastGestures {
             return null;
         }
         Cast cast = CASTS.get(entity.getId());
-        float t = cast == null ? -1.0F : cast.progress(ageInTicks);
-        if (t < 0.0F) {
-            return null;
-        }
-        float weight = smooth(t / 0.12F) * smooth((1.0F - t) / 0.3F);
-        if (weight <= 0.001F) {
-            return null;
-        }
-        float[] p = pose(cast, t);
-        return new float[]{p[0], p[1], p[2], p[3], weight};
+        float[] g = cast == null ? null : castAngles(cast, ageInTicks - cast.start());
+        return g == null || g[4] <= 0.001F ? null : g;
     }
 
     /**

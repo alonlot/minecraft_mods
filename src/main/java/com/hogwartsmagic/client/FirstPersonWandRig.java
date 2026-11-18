@@ -72,7 +72,8 @@ final class FirstPersonWandRig {
     }
 
     private static void motion(FirstPersonCast.Gesture g, float recovery, Key... keys) {
-        MOTIONS.put(g, new Motion(keys, releaseOf(g), releaseOf(g) + recovery));
+        // The arm settles back fast after the strike, as in the reference.
+        MOTIONS.put(g, new Motion(keys, releaseOf(g), releaseOf(g) + recovery * 0.7F));
     }
 
     static {
@@ -302,7 +303,7 @@ final class FirstPersonWandRig {
     // ---------------------------------------------------------------- the curve
 
     /** The key with a cast's variant: mirrored across the body, scaled about rest, shifted on screen. */
-    private static Key vary(Key key, Key rest, FirstPersonCast.Variant v) {
+    private static Key vary(Key key, Key rest, FirstPersonCast.Variant v, float release) {
         Vector3f hand = new Vector3f(key.hand());
         Vector3f arm = new Vector3f(key.arm()).normalize();
         Vector3f wand = new Vector3f(key.wand()).normalize();
@@ -312,22 +313,65 @@ final class FirstPersonWandRig {
             wand.x = -wand.x;
         }
         hand.sub(rest.hand()).mul(v.scale()).add(rest.hand());
-        if (v.tilt() != 0.0F) {
-            // The whole stroke turned round the strike point on screen: a slash comes in steep, flat or
-            // diagonal. The hand is kept on screen.
-            float cos = Mth.cos(v.tilt());
-            float sin = Mth.sin(v.tilt());
+        // The whole stroke turned round the strike point on screen: a slash comes in steep, flat or diagonal.
+        // Full through the wind-up and the strike; the follow-through only half, so it drifts back to rest
+        // instead of swinging the fist at the eye. The hand is kept on screen.
+        float tilt = key.at() <= release + 0.01F ? v.tilt() : v.tilt() * 0.5F;
+        if (tilt != 0.0F) {
+            float cos = Mth.cos(tilt);
+            float sin = Mth.sin(tilt);
             float dx = hand.x - STRIKE_POINT.x;
             float dy = hand.y - STRIKE_POINT.y;
-            hand.x = Mth.clamp(STRIKE_POINT.x + dx * cos - dy * sin, -0.62F, 0.70F);
-            hand.y = Mth.clamp(STRIKE_POINT.y + dx * sin + dy * cos, -0.42F, 0.16F);
+            hand.x = STRIKE_POINT.x + dx * cos - dy * sin;
+            hand.y = STRIKE_POINT.y + dx * sin + dy * cos;
             wand.set(wand.x * cos - wand.y * sin, wand.x * sin + wand.y * cos, wand.z);
             arm.set(arm.x * cos - arm.y * sin, arm.x * sin + arm.y * cos, arm.z);
         }
         hand.add(v.shiftX() * 0.35F, v.shiftY() * 0.35F, 0.0F);
         wand.y += v.pitchOffset() / 70.0F;
+        // As in the reference: the hand stays at the right of the view at arm's length, the forearm stays
+        // upright, and the wand does the travelling. A hand crossing to the left or near the eye fills the
+        // screen with the fist or the sleeve.
+        hand.x = Mth.clamp(hand.x, HAND_MIN_X, 0.62F);
+        hand.y = Mth.clamp(hand.y, -0.26F, 0.06F);
+        hand.z = Mth.clamp(hand.z, -0.95F, -0.68F);
+        if (arm.y < 0.65F) {
+            arm.y = 0.65F;
+            arm.normalize();
+        }
+        keepWandInView(wand);
         return new Key(key.at(), hand, arm, wand);
     }
+
+    /**
+     * Keeps a wand direction (right-hand view coordinates) where the wand shows: pointing away from the eye,
+     * never more than a little below level, and turned across the view enough to show its length (pointing
+     * almost straight away from the eye it hides behind the fist). Applied to every key and to every frame's
+     * pose, as the curve between keys can swing it out of view.
+     */
+    static void keepWandInView(Vector3f wand) {
+        if (wand.lengthSquared() < 1.0E-8F) {
+            wand.set(REST_AIM).sub(REST_HAND);
+        }
+        wand.normalize();
+        if (wand.z > -0.2F) {
+            wand.z = -0.2F;
+            wand.normalize();
+        }
+        if (wand.y < -0.3F) {
+            wand.y = -0.3F;
+            wand.normalize();
+        }
+        float lateral = Mth.sqrt(wand.x * wand.x + wand.y * wand.y);
+        if (lateral < 0.55F) {
+            float lx = lateral < 1.0E-3F ? -0.64F : wand.x / lateral;
+            float ly = lateral < 1.0E-3F ? 0.77F : wand.y / lateral;
+            wand.set(lx * 0.55F, ly * 0.55F, -Mth.sqrt(1.0F - 0.55F * 0.55F));
+        }
+    }
+
+    /** The hand never comes further left than this (view x at the hand's depth). */
+    private static final float HAND_MIN_X = 0.14F;
 
     /** Where the strikes meet in the middle of the screen: the point a stroke's tilt turns round. */
     private static final Vector3f STRIKE_POINT = new Vector3f(0.05F, -0.13F, -0.70F);
@@ -341,7 +385,7 @@ final class FirstPersonWandRig {
         Key[] points = new Key[n + 2];
         points[0] = rest.copy(0.0F);
         for (int i = 0; i < n; i++) {
-            points[i + 1] = vary(motion.keys()[i], rest, variant);
+            points[i + 1] = vary(motion.keys()[i], rest, variant, motion.release());
         }
         points[n + 1] = rest.copy(motion.length());
         if (since <= 0.0F) {

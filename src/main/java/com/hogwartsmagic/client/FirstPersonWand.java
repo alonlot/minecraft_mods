@@ -46,7 +46,7 @@ public final class FirstPersonWand {
      * The strike lands this many ticks after the cast starts, at most: in first person the wind-up is played
      * faster when a gesture's own is longer, so the strike meets the beam leaving the wand.
      */
-    private static final float WINDUP = 2.5F;
+    private static final float WINDUP = 1.2F;
 
     private static final RenderType GLOW = ModRenderTypes.SPELL_GLOW;
 
@@ -174,6 +174,7 @@ public final class FirstPersonWand {
             now = FirstPersonWandRig.mix(now, raised, c * c * (3.0F - 2.0F * c));
         }
         now = FirstPersonWandRig.sway(now);
+        FirstPersonWandRig.keepWandInView(now.wand());
         now.hand().y -= event.getEquipProgress() * 0.7F; // lowered while the wand is being taken out
 
         PoseStack pose = event.getPoseStack();
@@ -237,8 +238,8 @@ public final class FirstPersonWand {
 
     // ---------------------------------------------------------------- the swipe streak
 
-    /** How long a point of the streak lasts, in ticks (130 ms), on the gesture's own clock. */
-    private static final float SWIPE_LIFE = 2.6F;
+    /** How long a point of the streak lasts, in ticks (90 ms), on the gesture's own clock. */
+    private static final float SWIPE_LIFE = 1.8F;
     private static final int SWIPE_MAX = 48;
     private static final java.util.ArrayDeque<Vector3f> SWIPE = new java.util.ArrayDeque<>();
     private static final java.util.ArrayDeque<Float> SWIPE_TIME = new java.util.ArrayDeque<>();
@@ -249,7 +250,9 @@ public final class FirstPersonWand {
             SWIPE_TIME.pollFirst();
             SWIPE.pollFirst();
         }
-        if (!stroking) {
+        // Only while the tip is on screen (and in front of the eye): off the edge the streak would be drawn as a
+        // long straight line across the view.
+        if (!stroking || tip.z > -0.05F || Math.abs(tip.x / -tip.z) > 0.85F || Math.abs(tip.y / -tip.z) > 0.55F) {
             return;
         }
         Vector3f last = SWIPE.peekLast();

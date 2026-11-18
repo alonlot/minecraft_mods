@@ -339,6 +339,9 @@ public final class SpellBeamFxRenderer {
                 double jagA = (hash(beam.seed, i, strike) - 0.5) * 2.0 * style.jitter;
                 double jagB = (hash(beam.seed, i + 4099, strike) - 0.5) * 2.0 * style.jitter;
                 path[i] = base.add(frame[0].scale((wave + jagA) * pin)).add(frame[1].scale((wave2 + jagB) * pin));
+                if (beam.curved) {
+                    path[i] = path[i].add(curve(beam, frame, along, total));
+                }
                 fromWand[i] = along;
                 // A jet brightens toward the head; a bolt fades down its tail. Either eases out of the wand while
                 // it still reaches back to it.
@@ -348,6 +351,28 @@ public final class SpellBeamFxRenderer {
                 profile[i] = wand * body;
             }
             return new Frame(beam, path, profile, fromWand, frame[0], frame[1], age, glow, thickness);
+        }
+
+        /** Distance from the wand over which the bow swings out and back onto the line, in blocks. */
+        private static final double BOW_LENGTH = 6.5;
+
+        /**
+         * How far the drawn path sits off the real line {@code along} blocks from the wand: a bow out to the
+         * beam's side and back over the first BOW_LENGTH blocks, then a gentle wobble. A function of the
+         * distance from the wand, so the curve keeps its shape as the bolt flies down it; once the beam has
+         * struck, it is drawn back onto the line over the last block or so, to meet the strike.
+         */
+        private static Vec3 curve(SpellBeamClientState.Beam beam, Vec3[] frame, double along, double total) {
+            double x = Mth.clamp(along / BOW_LENGTH, 0.0, 1.0);
+            double bow = beam.bend * Math.sin(Math.PI * x) * (1.0 - 0.35 * x);
+            double phase = (beam.seed & 1023) * 0.0061;
+            double settle = smoothstep(0.0f, 2.0f, (float) along);
+            double sway = beam.wobble * settle * (Math.sin(along * 0.55 + phase) + 0.5 * Math.sin(along * 1.3 + phase * 2.0));
+            double lift = beam.wobble * 0.7 * settle * (Math.sin(along * 0.7 + phase * 3.0) + 0.4 * Math.sin(along * 1.7 + phase));
+            double land = beam.gone() ? smoothstep(0.0f, 1.2f, (float) (total - along)) : 1.0;
+            double side = (bow * Math.cos(beam.bendAngle) + sway) * land;
+            double up = (bow * Math.sin(beam.bendAngle) + lift) * land;
+            return frame[0].scale(side).add(frame[1].scale(up));
         }
 
         /** The point {@code back} blocks back from the head along the recorded path. */

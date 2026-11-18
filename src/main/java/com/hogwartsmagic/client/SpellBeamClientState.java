@@ -39,6 +39,13 @@ public final class SpellBeamClientState {
     private static final double SILENT_END_RANGE = 48.0;
     /** A path longer than this many ticks keeps only its newest points (a jet is drawn straight back to the wand). */
     private static final int MAX_TRAIL = 400;
+    /** Spells whose beams wobble harder: the duelling hexes. */
+    private static final java.util.Set<SpellType> WILD = java.util.EnumSet.of(SpellType.STUPEFY,
+            SpellType.EXPELLIARMUS, SpellType.CONFRINGO, SpellType.INCENDIO, SpellType.DIFFINDO,
+            SpellType.PETRIFICUS_TOTALUS, SpellType.LEVICORPUS, SpellType.CRUCIO, SpellType.DOLOHOV_CURSE);
+    /** Spells that keep a straight line: a stream of water, a lash of ice. */
+    private static final java.util.Set<SpellType> STRAIGHT = java.util.EnumSet.of(SpellType.AQUA_ERUCTO,
+            SpellType.GLACIUS);
 
     private static final Map<Integer, Beam> BEAMS = new HashMap<>();
     private static final List<Impact> IMPACTS = new ArrayList<>();
@@ -152,6 +159,16 @@ public final class SpellBeamClientState {
         int ownerId = -1;
         /** For a run of Aqua Eructo's water: how far its first point has already flown from the wand. */
         double pathOffset;
+        /**
+         * The drawn path's bend (SpellBeamFxRenderer): a bow out to one side over the first blocks from the wand,
+         * then a gentle wobble round the real line. Off for jets, streams and beams made by hand (Priori, Crucio).
+         */
+        boolean curved;
+        /** How far the bow swings out, in blocks, and which way round the line (radians). */
+        float bend;
+        float bendAngle;
+        /** How far the path wobbles round the line after the bow, in blocks. */
+        float wobble;
 
         Beam(int entityId, BeamStyle style, Vec3 origin, Vec3 head, Vec3 dir, double now) {
             this.entityId = entityId;
@@ -176,6 +193,21 @@ public final class SpellBeamClientState {
         /** The head this frame: lerped between ticks while flying, fixed once it is gone. */
         Vec3 head(float partial) {
             return gone() ? head() : headPrev.lerp(head(), partial);
+        }
+
+        /** Gives a beam from {@code spell} its own bend, different every cast (from the entity id). */
+        void curve(SpellType spell) {
+            if (style.isJet() || spell == null || STRAIGHT.contains(spell)) {
+                return;
+            }
+            java.util.Random random = new java.util.Random(seed * 31L + 7L);
+            boolean wild = WILD.contains(spell);
+            this.curved = true;
+            this.bend = (wild ? 1.2f : 0.8f) * (0.7f + 0.6f * random.nextFloat());
+            // Out to either side or upwards, never down into the ground: -40 to 220 degrees round the line,
+            // measured from the side axis towards the lift axis.
+            this.bendAngle = (float) Math.toRadians(-40.0 + random.nextDouble() * 260.0);
+            this.wobble = wild ? 0.28f : 0.14f;
         }
 
         void push(Vec3 head, double now) {
@@ -465,6 +497,7 @@ public final class SpellBeamClientState {
                 Vec3 dir = motion.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 0.0, 1.0) : motion.normalize();
                 Vec3 from = origin(spellBeam, head);
                 Beam created = new Beam(spellBeam.getId(), style, from, head, dir, now);
+                created.curve(spellBeam.getSpellType());
                 if (spellBeam.getOwner() != null && spellBeam.getOwner().distanceToSqr(spellBeam) <= 16.0) {
                     created.ownerId = spellBeam.getOwner().getId();
                 }

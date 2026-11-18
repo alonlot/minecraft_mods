@@ -312,10 +312,25 @@ final class FirstPersonWandRig {
             wand.x = -wand.x;
         }
         hand.sub(rest.hand()).mul(v.scale()).add(rest.hand());
+        if (v.tilt() != 0.0F) {
+            // The whole stroke turned round the strike point on screen: a slash comes in steep, flat or
+            // diagonal. The hand is kept on screen.
+            float cos = Mth.cos(v.tilt());
+            float sin = Mth.sin(v.tilt());
+            float dx = hand.x - STRIKE_POINT.x;
+            float dy = hand.y - STRIKE_POINT.y;
+            hand.x = Mth.clamp(STRIKE_POINT.x + dx * cos - dy * sin, -0.62F, 0.70F);
+            hand.y = Mth.clamp(STRIKE_POINT.y + dx * sin + dy * cos, -0.42F, 0.16F);
+            wand.set(wand.x * cos - wand.y * sin, wand.x * sin + wand.y * cos, wand.z);
+            arm.set(arm.x * cos - arm.y * sin, arm.x * sin + arm.y * cos, arm.z);
+        }
         hand.add(v.shiftX() * 0.35F, v.shiftY() * 0.35F, 0.0F);
         wand.y += v.pitchOffset() / 70.0F;
         return new Key(key.at(), hand, arm, wand);
     }
+
+    /** Where the strikes meet in the middle of the screen: the point a stroke's tilt turns round. */
+    private static final Vector3f STRIKE_POINT = new Vector3f(0.05F, -0.13F, -0.70F);
 
     /**
      * The pose {@code since} ticks into a cast: a spline from rest through the keys and back to rest, with the

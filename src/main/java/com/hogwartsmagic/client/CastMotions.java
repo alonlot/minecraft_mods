@@ -144,11 +144,22 @@ public final class CastMotions {
         final Motion motion;
         final SpellType spell;
         final double start;
+        /** The gesture turned round the line of aim (radians), different every cast: steep, flat or diagonal. */
+        final float tilt;
 
-        Cast(Motion motion, SpellType spell, double start) {
+        Cast(Motion motion, SpellType spell, double start, float tilt) {
             this.motion = motion;
             this.spell = spell;
             this.start = start;
+            this.tilt = tilt;
+        }
+
+        /** {raise, turn, push} {@code t} ticks in, with this cast's tilt. */
+        float[] at(float t) {
+            float[] p = motion.at(t);
+            float cos = Mth.cos(tilt);
+            float sin = Mth.sin(tilt);
+            return new float[]{p[0] * cos + p[1] * sin, p[1] * cos - p[0] * sin, p[2]};
         }
 
         float age(double now) {
@@ -162,7 +173,7 @@ public final class CastMotions {
         /** {raise, turn, push, weight}: eases in over a tick, out over the last four. */
         float[] pose(double now) {
             float t = age(now);
-            float[] p = motion.at(t);
+            float[] p = at(t);
             float weight = AvadaChargePose.smoothstep(0.0f, 1.0f, t + 0.5f)
                     * (1.0f - AvadaChargePose.smoothstep(motion.length - 4.0f, motion.length, t));
             return new float[]{p[0], p[1], p[2], weight};
@@ -192,7 +203,8 @@ public final class CastMotions {
         Motion motion = MOTIONS.getOrDefault(spell, FLICK);
         // The spell is already on its way: start the gesture just short of its release, so the snap lands with
         // the beam leaving the wand instead of a beat after it.
-        CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime() - (motion.snap - RELEASE_LEAD)));
+        float tilt = (minecraft.level.random.nextFloat() - 0.5f) * 1.4f;
+        CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime() - (motion.snap - RELEASE_LEAD), tilt));
     }
 
     /** Drop gestures that are over for casters never drawn again (walked off, logged out). */
@@ -229,8 +241,8 @@ public final class CastMotions {
      * snap, turned by where the caster looks. Null when it hardly moves there.
      */
     public static Vec3 flickDirection(LivingEntity caster, Cast cast) {
-        float[] before = cast.motion.at(Math.max(0.0f, cast.motion.snap - 0.8f));
-        float[] at = cast.motion.at(cast.motion.snap);
+        float[] before = cast.at(Math.max(0.0f, cast.motion.snap - 0.8f));
+        float[] at = cast.at(cast.motion.snap);
         double up = at[0] - before[0];
         double right = at[1] - before[1];
         if (up * up + right * right < 1.0E-4) {

@@ -93,10 +93,11 @@ public final class FirstPersonCast {
 
     /**
      * How one cast differs from the last, so repeated casts never look the same: a mirrored cast winds up on the
-     * far side and cuts back across, and each gets its own size, tilt and place on screen.
+     * far side and cuts back across, and each gets its own size, tilt (the stroke turned round the strike point,
+     * radians) and place on screen.
      */
-    public record Variant(boolean mirror, float scale, float pitchOffset, float shiftX, float shiftY) {
-        public static final Variant NONE = new Variant(false, 1.0F, 0.0F, 0.0F, 0.0F);
+    public record Variant(boolean mirror, float scale, float pitchOffset, float shiftX, float shiftY, float tilt) {
+        public static final Variant NONE = new Variant(false, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F);
     }
 
     /** A gesture being played by your own arm. {@code start} is your tick count when it began. */
@@ -183,7 +184,10 @@ public final class FirstPersonCast {
         float pitch = (random.nextFloat() - 0.5F) * 22.0F;
         float shiftX = mirror ? -0.42F - random.nextFloat() * 0.18F : (random.nextFloat() - 0.3F) * 0.2F;
         float shiftY = (random.nextFloat() - 0.4F) * 0.22F;
-        return new Variant(mirror, scale, pitch, shiftX, shiftY);
+        // The stroke turned round the strike point: up to about 45 degrees either way for the cuts, less for a
+        // jab, a lift or a circle, so no two casts come from the same direction.
+        float tilt = (random.nextFloat() - 0.5F) * (gesture.mirrorable ? 1.6F : 0.9F);
+        return new Variant(mirror, scale, pitch, shiftX, shiftY, tilt);
     }
 
     @SubscribeEvent

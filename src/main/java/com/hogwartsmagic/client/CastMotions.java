@@ -224,6 +224,25 @@ public final class CastMotions {
         return CASTS.entrySet();
     }
 
+    /**
+     * Which way {@code cast}'s wand cuts as it lets the spell go, in the world: from just before the snap to the
+     * snap, turned by where the caster looks. Null when it hardly moves there.
+     */
+    public static Vec3 flickDirection(LivingEntity caster, Cast cast) {
+        float[] before = cast.motion.at(Math.max(0.0f, cast.motion.snap - 0.8f));
+        float[] at = cast.motion.at(cast.motion.snap);
+        double up = at[0] - before[0];
+        double right = at[1] - before[1];
+        if (up * up + right * right < 1.0E-4) {
+            return null;
+        }
+        Vec3 look = caster.getViewVector(1.0f);
+        Vec3 rightAxis = look.cross(new Vec3(0.0, 1.0, 0.0));
+        rightAxis = rightAxis.lengthSqr() < 1.0E-4 ? new Vec3(1.0, 0.0, 0.0) : rightAxis.normalize();
+        Vec3 upAxis = rightAxis.cross(look).normalize();
+        return rightAxis.scale(right).add(upAxis.scale(up)).normalize();
+    }
+
     /** Third person: pose the wand arm. Right after the renderer's setupAnim (ActorPoseMixin). */
     public static void apply(EntityModel<?> model, Entity entity, float partial) {
         if (CASTS.isEmpty() || !(model instanceof HumanoidModel<?> humanoid) || !(entity instanceof Player)) {

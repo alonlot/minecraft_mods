@@ -161,6 +161,30 @@ final class FirstPersonWandRig {
                 k(r + 1.4F, 0.10F, -0.14F, -0.80F, -0.35F, 0.30F, -1.0F, -0.14F, 0.02F, -1.0F));
     }
 
+    /**
+     * Which way the wand tip cuts as a cast lets the spell go, on screen (x right, y up; right-hand
+     * coordinates): from where it is shortly before the release to where it is at the release, with the cast's
+     * mirroring and variation. The spell leaves along this cut before curving onto its target. Null when the
+     * tip hardly moves there (a straight jab or a lift).
+     */
+    static Vector3f strikeDirection(FirstPersonCast.Cast cast) {
+        Motion motion = motionOf(cast.gesture());
+        Key rest = new Key(0.0F, new Vector3f(REST_HAND), new Vector3f(REST_ARM).normalize(),
+                new Vector3f(REST_AIM).sub(REST_HAND).normalize());
+        float release = motion.release();
+        Key before = pose(motion, cast.variant(), rest, Math.max(0.0F, release - 0.8F));
+        Key at = pose(motion, cast.variant(), rest, release);
+        // The tip, as seen from the eye: the hand plus a stretch of the wand, divided by depth.
+        Vector3f a = new Vector3f(before.wand()).mul(0.35F).add(before.hand());
+        Vector3f b = new Vector3f(at.wand()).mul(0.35F).add(at.hand());
+        float ax = a.x / -a.z;
+        float ay = a.y / -a.z;
+        float bx = b.x / -b.z;
+        float by = b.y / -b.z;
+        Vector3f cut = new Vector3f(bx - ax, by - ay, 0.0F);
+        return cut.lengthSquared() < 1.0E-4F ? null : cut.normalize();
+    }
+
     static Motion motionOf(FirstPersonCast.Gesture gesture) {
         return MOTIONS.getOrDefault(gesture, MOTIONS.get(FirstPersonCast.FLICK));
     }

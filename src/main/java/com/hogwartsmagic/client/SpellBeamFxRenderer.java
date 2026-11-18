@@ -370,8 +370,31 @@ public final class SpellBeamFxRenderer {
             double sway = beam.wobble * settle * (Math.sin(along * 0.55 + phase) + 0.5 * Math.sin(along * 1.3 + phase * 2.0));
             double lift = beam.wobble * 0.7 * settle * (Math.sin(along * 0.7 + phase * 3.0) + 0.4 * Math.sin(along * 1.7 + phase));
             double land = beam.gone() ? smoothstep(0.0f, 1.2f, (float) (total - along)) : 1.0;
-            double side = (bow * Math.cos(beam.bendAngle) + sway) * land;
-            double up = (bow * Math.sin(beam.bendAngle) + lift) * land;
+            double cos = Math.cos(beam.bendAngle);
+            double sin = Math.sin(beam.bendAngle);
+            if (beam.bendDir != null) {
+                // Out along the wand's cut, seen across the line; never more than a little down into the ground.
+                double cs = beam.bendDir.dot(frame[0]);
+                double cu = beam.bendDir.dot(frame[1]);
+                double len = Math.sqrt(cs * cs + cu * cu);
+                if (len > 1.0E-3) {
+                    cos = cs / len;
+                    sin = cu / len;
+                }
+                Vec3 world = frame[0].scale(cos).add(frame[1].scale(sin));
+                if (world.y < -0.45) {
+                    world = new Vec3(world.x, -0.45, world.z);
+                    double ws = world.dot(frame[0]);
+                    double wu = world.dot(frame[1]);
+                    double wl = Math.sqrt(ws * ws + wu * wu);
+                    if (wl > 1.0E-3) {
+                        cos = ws / wl;
+                        sin = wu / wl;
+                    }
+                }
+            }
+            double side = (bow * cos + sway) * land;
+            double up = (bow * sin + lift) * land;
             return frame[0].scale(side).add(frame[1].scale(up));
         }
 

@@ -39,6 +39,35 @@ public final class SpellBeamClientState {
     private static final double SILENT_END_RANGE = 48.0;
     /** A path longer than this many ticks keeps only its newest points (a jet is drawn straight back to the wand). */
     private static final int MAX_TRAIL = 400;
+    /**
+     * Which way {@code caster}'s wand cut as it let its latest spell go, in the world, or null: your own from the
+     * first-person arm (in first person), anyone else's from the gesture CastMotions is playing for them.
+     */
+    private static Vec3 flick(Entity caster) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (!(caster instanceof LivingEntity living) || minecraft.level == null) {
+            return null;
+        }
+        if (living == minecraft.player && minecraft.options.getCameraType().isFirstPerson()) {
+            FirstPersonCast.Cast cast = FirstPersonCast.current();
+            if (cast == null || living.tickCount - cast.start() > 8) {
+                return null;
+            }
+            org.joml.Vector3f cut = FirstPersonWandRig.strikeDirection(cast);
+            if (cut == null) {
+                return null;
+            }
+            net.minecraft.client.Camera camera = minecraft.gameRenderer.getMainCamera();
+            org.joml.Vector3f left = camera.getLeftVector();
+            org.joml.Vector3f up = camera.getUpVector();
+            float side = living.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT ? 1.0f : -1.0f;
+            return new Vec3(-left.x, -left.y, -left.z).scale(cut.x * side).add(new Vec3(up.x, up.y, up.z).scale(cut.y))
+                    .normalize();
+        }
+        CastMotions.Cast cast = CastMotions.get(living.getId(), AvadaChargeClientState.now(1.0f));
+        return cast == null ? null : CastMotions.flickDirection(living, cast);
+    }
+
     /** Spells whose beams wobble harder: the duelling hexes. */
     private static final java.util.Set<SpellType> WILD = java.util.EnumSet.of(SpellType.STUPEFY,
             SpellType.EXPELLIARMUS, SpellType.CONFRINGO, SpellType.INCENDIO, SpellType.DIFFINDO,
@@ -167,6 +196,11 @@ public final class SpellBeamClientState {
         /** How far the bow swings out, in blocks, and which way round the line (radians). */
         float bend;
         float bendAngle;
+        /**
+         * Which way the bow swings, in the world: the way the caster's wand cut as it let the spell go, so the
+         * spell leaves along the cut and curves onto its target. Null when no gesture is known (bendAngle then).
+         */
+        Vec3 bendDir;
         /** How far the path wobbles round the line after the bow, in blocks. */
         float wobble;
 
@@ -195,11 +229,15 @@ public final class SpellBeamClientState {
             return gone() ? head() : headPrev.lerp(head(), partial);
         }
 
-        /** Gives a beam from {@code spell} its own bend, different every cast (from the entity id). */
-        void curve(SpellType spell) {
+        /**
+         * Gives a beam from {@code spell} its own bend: out along the way {@code caster}'s wand cut as it cast,
+         * or a random way round the line when that is not known; different every cast.
+         */
+        void curve(SpellType spell, Entity caster) {
             if (style.isJet() || spell == null || STRAIGHT.contains(spell)) {
                 return;
             }
+            this.bendDir = flick(caster);
             java.util.Random random = new java.util.Random(seed * 31L + 7L);
             boolean wild = WILD.contains(spell);
             this.curved = true;
@@ -497,7 +535,7 @@ public final class SpellBeamClientState {
                 Vec3 dir = motion.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 0.0, 1.0) : motion.normalize();
                 Vec3 from = origin(spellBeam, head);
                 Beam created = new Beam(spellBeam.getId(), style, from, head, dir, now);
-                created.curve(spellBeam.getSpellType());
+                created.curve(spellBeam.getSpellType(), spellBeam.getOwner());
                 if (spellBeam.getOwner() != null && spellBeam.getOwner().distanceToSqr(spellBeam) <= 16.0) {
                     created.ownerId = spellBeam.getOwner().getId();
                 }

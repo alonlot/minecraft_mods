@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
@@ -365,6 +366,7 @@ public final class SpellBeamClientState {
             beam.goneAt = now;
         }
         IMPACTS.add(new Impact(pos, dir, style, packet.kind(), now));
+        CastSounds.impact(pos, spell);
         com.hogwartsmagic.client.fx.marks.MarkSpells.onImpact(spell, packet.kind(), pos, dir);
     }
 
@@ -468,6 +470,7 @@ public final class SpellBeamClientState {
                 }
                 BEAMS.put(spellBeam.getId(), created);
                 MUZZLES.add(new Muzzle(from, dir, style, now));
+                CastSounds.release(from, spellBeam.getSpellType(), spellBeam.getOwner() instanceof Player);
                 continue;
             }
             if (beam.gone()) {
@@ -495,6 +498,7 @@ public final class SpellBeamClientState {
                 beam.goneAt = now;
                 if (!beam.struck && beam.head().distanceTo(camera) < SILENT_END_RANGE) {
                     IMPACTS.add(new Impact(beam.head(), beam.dir, beam.style, SpellBeamFx.HIT, now));
+                    CastSounds.impact(beam.head(), null);
                 }
             }
         }

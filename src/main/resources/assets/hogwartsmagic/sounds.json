@@ -4495,5 +4495,98 @@
         "stream": true
       }
     ]
+  },
+  "cast.swish_light": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/swish_light1"
+      },
+      {
+        "name": "hogwartsmagic:cast/swish_light2"
+      },
+      {
+        "name": "hogwartsmagic:cast/swish_light3"
+      }
+    ]
+  },
+  "cast.swish_heavy": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/swish_heavy1"
+      },
+      {
+        "name": "hogwartsmagic:cast/swish_heavy2"
+      },
+      {
+        "name": "hogwartsmagic:cast/swish_heavy3"
+      }
+    ]
+  },
+  "cast.swish_rise": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/swish_rise1"
+      },
+      {
+        "name": "hogwartsmagic:cast/swish_rise2"
+      }
+    ]
+  },
+  "cast.release": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/release1"
+      },
+      {
+        "name": "hogwartsmagic:cast/release2"
+      },
+      {
+        "name": "hogwartsmagic:cast/release3"
+      }
+    ]
+  },
+  "cast.release_dark": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/release_dark1",
+        "volume": 0.45
+      },
+      {
+        "name": "hogwartsmagic:cast/release_dark2"
+      }
+    ]
+  },
+  "cast.impact": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/impact1"
+      },
+      {
+        "name": "hogwartsmagic:cast/impact2"
+      },
+      {
+        "name": "hogwartsmagic:cast/impact3"
+      }
+    ]
+  },
+  "cast.impact_heavy": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/impact_heavy1"
+      },
+      {
+        "name": "hogwartsmagic:cast/impact_heavy2"
+      }
+    ]
+  },
+  "cast.switch": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/switch1"
+      },
+      {
+        "name": "hogwartsmagic:cast/switch2"
+      }
+    ]
   }
 }

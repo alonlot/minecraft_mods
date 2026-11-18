@@ -1,24 +1,19 @@
 package com.hogwartsmagic.client;
 
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.mixin.client.ItemInHandRendererInvoker;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellType;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderHandEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -31,7 +26,7 @@ import java.util.Map;
  * gesture is built around the release: a flick snaps through the line of aim, a slash cuts across it, a whip
  * comes down from overhead, a charm swishes round and flicks, Accio points and draws back, Depulso shoves, the
  * light spells hold the wand high. Third person poses the arm (relative to where the caster looks, the way the
- * vanilla bow pose is); first person turns the held wand the same way, scaled down so it stays on screen.
+ * vanilla bow pose is); your own first-person arm is FirstPersonWand's, started from here when no swing did.
  *
  * <p>Keyframes are (tick, raise above the aim in radians, turn to the right in radians, push forward in model
  * pixels), eased between with smoothstep. A map, not a switch: switch-on-enum has failed to load in this mod's
@@ -189,6 +184,11 @@ public final class CastMotions {
         if (minecraft.level == null || spell == null) {
             return;
         }
+        if (minecraft.player != null && packet.casterId() == minecraft.player.getId()) {
+            FirstPersonCast.onServerCast(spell); // your own first-person arm (FirstPersonWand), and its whoosh
+        } else if (minecraft.level.getEntity(packet.casterId()) instanceof Entity caster) {
+            CastSounds.swing(caster, spell);
+        }
         Motion motion = MOTIONS.getOrDefault(spell, FLICK);
         // The spell is already on its way: start the gesture just short of its release, so the snap lands with
         // the beam leaving the wand instead of a beat after it.
@@ -281,8 +281,9 @@ public final class CastMotions {
             right = right.lengthSqr() < 1.0E-4 ? new Vec3(1.0, 0.0, 0.0) : right.normalize();
             Vec3 up = right.cross(look).normalize();
             float s = FIRST_PERSON_SCALE * p[3];
-            return new Vec3(x, y + caster.getEyeHeight(), z).add(look.scale(0.62)).add(right.scale(0.30 + 0.25 * p[1] * s))
-                    .add(up.scale(-0.20 + 0.3 * p[0] * s));
+            // Where the first-person arm (FirstPersonWand) last drew the tip; this estimate only before it has.
+            return FirstPersonWand.localTipOr(new Vec3(x, y + caster.getEyeHeight(), z).add(look.scale(0.62))
+                    .add(right.scale(0.30 + 0.25 * p[1] * s)).add(up.scale(-0.20 + 0.3 * p[0] * s)));
         }
         float bodyYaw = Mth.rotLerp(partial, caster.yBodyRotO, caster.yBodyRot) * Mth.DEG_TO_RAD;
         Vec3 bodyRight = new Vec3(-Mth.cos(bodyYaw), 0.0, -Mth.sin(bodyYaw));
@@ -293,37 +294,6 @@ public final class CastMotions {
         float pitch = caster.getViewXRot(partial) - p[0] * p[3] * Mth.RAD_TO_DEG;
         float yaw = Mth.rotLerp(partial, caster.yHeadRotO, caster.yHeadRot) + p[1] * p[3] * Mth.RAD_TO_DEG;
         return shoulder.add(Vec3.directionFromRotation(pitch, yaw).scale(ARM_REACH));
-    }
-
-    /** First person: turn the held wand through the gesture, drawn inside our own pushed pose. */
-    @SubscribeEvent
-    public static void onRenderHand(RenderHandEvent event) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (CASTS.isEmpty() || event.getHand() != InteractionHand.MAIN_HAND || minecraft.player == null) {
-            return;
-        }
-        Cast cast = get(minecraft.player.getId(), AvadaChargeClientState.now(event.getPartialTick()));
-        if (cast == null) {
-            return;
-        }
-        float[] p = cast.pose(AvadaChargeClientState.now(event.getPartialTick()));
-        float s = FIRST_PERSON_SCALE * p[3];
-        if (s <= 0.001f) {
-            return;
-        }
-        event.setCanceled(true);
-        PoseStack pose = event.getPoseStack();
-        pose.pushPose();
-        // Pivot about the wrist, roughly where the right hand sits in first person.
-        pose.translate(0.56, -0.52, -0.72);
-        pose.mulPose(Axis.YP.rotation(-p[1] * s));
-        pose.mulPose(Axis.XP.rotation(p[0] * s));
-        pose.translate(-0.56, 0.52 - p[2] * s * 0.01, 0.72 - p[2] * s * 0.03);
-        ((ItemInHandRendererInvoker) minecraft.getEntityRenderDispatcher().getItemInHandRenderer())
-                .hogwartsmagic$renderArmWithItem(minecraft.player, event.getPartialTick(), event.getInterpolatedPitch(),
-                        InteractionHand.MAIN_HAND, event.getSwingProgress(), event.getItemStack(),
-                        event.getEquipProgress(), pose, event.getMultiBufferSource(), event.getPackedLight());
-        pose.popPose();
     }
 
     @SubscribeEvent

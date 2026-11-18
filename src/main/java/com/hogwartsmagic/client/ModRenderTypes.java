@@ -214,6 +214,22 @@ public final class ModRenderTypes extends RenderType {
     }
 
     /**
+     * The soft round spell light at your own first-person wand tip and its swipe streak: the glow sprite added
+     * onto the scene by its alpha (source alpha, one), so its soft edge fades out where {@link #magicGlow}'s
+     * plain additive blend would show the whole square. Unlit, no depth write, no culling.
+     */
+    public static final RenderType SPELL_GLOW = create("hogwartsmagic_spell_glow", DefaultVertexFormat.NEW_ENTITY,
+            VertexFormat.Mode.QUADS, 1536, false, true,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RENDERTYPE_EYES_SHADER)
+                    .setTextureState(new RenderStateShard.TextureStateShard(
+                            ResourceLocation.fromNamespaceAndPath("hogwartsmagic", "textures/misc/spell_glow.png"), false, false))
+                    .setTransparencyState(LIGHTNING_TRANSPARENCY)
+                    .setWriteMaskState(COLOR_WRITE)
+                    .setCullState(NO_CULL)
+                    .createCompositeState(false));
+
+    /**
      * Textured spell light (the Protego Maxima and memory shield domes' hex lattice): exactly {@link #ceilingGlow},
      * but under its own name so the bloom pass lets it glow. The enchanted ceiling keeps {@link #ceilingGlow} and does
      * not bloom: a bright sky should not.

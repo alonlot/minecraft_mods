@@ -96,8 +96,9 @@ public final class FirstPersonCast {
      * far side and cuts back across, and each gets its own size, tilt (the stroke turned round the strike point,
      * radians) and place on screen.
      */
-    public record Variant(boolean mirror, float scale, float pitchOffset, float shiftX, float shiftY, float tilt) {
-        public static final Variant NONE = new Variant(false, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F);
+    public record Variant(boolean mirror, float scale, float pitchOffset, float shiftX, float shiftY, float tilt,
+                          float place) {
+        public static final Variant NONE = new Variant(false, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
     }
 
     /** A gesture being played by your own arm. {@code start} is your tick count when it began. */
@@ -163,7 +164,9 @@ public final class FirstPersonCast {
         }
         boolean wand = MagicWandItem.isAnyWand(player.getMainHandItem());
         boolean swinging = player.swinging;
-        if (wand && swinging && (!wasSwinging || player.swingTime < lastSwingTime)) {
+        // The server echoes your swing back a tick later, which restarts it: that is the same cast, not a new one.
+        boolean echo = current != null && player.tickCount - current.start() <= 4;
+        if (wand && swinging && !echo && (!wasSwinging || player.swingTime < lastSwingTime)) {
             start(player, MagicWandItem.getSelectedSpell(player.getMainHandItem()));
         }
         wasSwinging = swinging;
@@ -187,7 +190,15 @@ public final class FirstPersonCast {
         // The stroke turned round the strike point: up to about 45 degrees either way for the cuts, less for a
         // jab, a lift or a circle, so no two casts come from the same direction.
         float tilt = (random.nextFloat() - 0.5F) * (gesture.mirrorable ? 1.6F : 0.9F);
-        return new Variant(mirror, scale, pitch, shiftX, shiftY, tilt);
+        // Where a pointing strike comes in from along the bottom of the view (-1 left, 0 middle, 1 right): never
+        // the same third twice running, as in the reference (middle, left, middle, right...).
+        int lastZone = previous == null ? 1 : Math.round(previous.variant().place());
+        int zone = lastZone;
+        while (zone == lastZone) {
+            zone = random.nextInt(3) - 1;
+        }
+        float place = Mth.clamp(zone * 0.85F + (random.nextFloat() - 0.5F) * 0.3F, -1.0F, 1.0F);
+        return new Variant(mirror, scale, pitch, shiftX, shiftY, tilt, place);
     }
 
     @SubscribeEvent

@@ -32,7 +32,11 @@ final class FirstPersonWandRig {
     }
 
     /** A gesture as the first-person arm plays it: its keys, the tick the spell leaves, and its length. */
-    record Motion(Key[] keys, float release, float length) {
+    record Motion(Key[] keys, float release, float length, boolean point) {
+        Motion(Key[] keys, float release, float length) {
+            this(keys, release, length, false);
+        }
+
         /** The key the arm holds while a channelled spell is kept up: the one at (or nearest after) release. */
         Key holdKey() {
             for (Key key : this.keys) {
@@ -187,7 +191,68 @@ final class FirstPersonWandRig {
     }
 
     static Motion motionOf(FirstPersonCast.Gesture gesture) {
+        if (POINTING.contains(gesture)) {
+            return POINT;
+        }
         return MOTIONS.getOrDefault(gesture, MOTIONS.get(FirstPersonCast.FLICK));
+    }
+
+    /** The rest pose with no live motion (breath, settle, sway). */
+    static Key baseRest() {
+        return new Key(0.0F, new Vector3f(REST_HAND), new Vector3f(REST_ARM).normalize(),
+                new Vector3f(REST_AIM).sub(REST_HAND).normalize());
+    }
+
+    /** The Killing Curse gathering: the wand held high over the shoulder (the old curse wind-up). */
+    static Key raisedKey() {
+        return MOTIONS.get(FirstPersonCast.CURSE).keys()[0];
+    }
+
+    // ---------------------------------------------------------------- the pointing strike (the reference)
+
+    /**
+     * The bolt spells, cast as in the reference video: no wind-up and no slash. The whole arm snaps in from the
+     * bottom of the view (the middle, the left or the right, a different third each cast) and points at the
+     * target with the wand along it; then it drifts slowly out and down off the edge, the wand turning
+     * upright, and comes back to rest.
+     */
+    private static final java.util.Set<FirstPersonCast.Gesture> POINTING = java.util.Set.of(FirstPersonCast.FLICK,
+            FirstPersonCast.STAB, FirstPersonCast.SLASH, FirstPersonCast.DOUBLE_SLASH, FirstPersonCast.WHIP,
+            FirstPersonCast.CURSE, FirstPersonCast.PUSH);
+    /** Ticks: the snap in, the drift out, back at rest. */
+    private static final float POINT_STRIKE = 0.5F;
+    private static final float POINT_DRIFT = 9.0F;
+    private static final float POINT_LENGTH = 15.0F;
+    /** The middle strike's keys: the hold pose for a channelled bolt spell, and the template. */
+    private static final Motion POINT = new Motion(pointKeys(0.0F), POINT_STRIKE, POINT_LENGTH, true);
+
+    /**
+     * The keys of a pointing strike from {@code place} along the bottom of the view (-1 left to 1 right),
+     * right-hand view coordinates: the strike, the start of the drift, the end of the drift.
+     */
+    static Key[] pointKeys(float place) {
+        float x = 0.04F + place * 0.18F;
+        // Strike: the fist a little below and to the side of the crosshair; the forearm runs almost straight
+        // into the view from beside and below the eye on its side, so the sleeve fills that bottom corner;
+        // the wand lies along it, tipped up a little, at the target.
+        Vector3f hand = new Vector3f(x, -0.13F, -0.66F);
+        Vector3f elbow = new Vector3f(0.05F + place * 0.42F, -0.48F, 0.05F);
+        Vector3f arm = new Vector3f(hand).sub(elbow).normalize();
+        Vector3f wand = new Vector3f(-x * 0.5F, 0.42F, -1.0F).normalize();
+        Key strike = new Key(POINT_STRIKE, hand, arm, wand);
+        // The drift: out to its own side (the middle one picks a side by the sign of its jitter) and down,
+        // the arm swinging out with it and the wand easing upright.
+        float out = place >= 0.0F ? 1.0F : -1.0F;
+        // Fully below the bottom edge, so the way back to rest (from below) never crosses the view.
+        Vector3f handEnd = new Vector3f(x + out * 0.4F, -0.62F, -0.62F);
+        Vector3f armEnd = new Vector3f(handEnd).sub(new Vector3f(elbow).add(out * 0.25F, -0.1F, 0.0F)).normalize();
+        Vector3f wandEnd = new Vector3f(armEnd).add(-out * 0.1F, 0.45F, 0.0F).normalize();
+        Key hold = new Key(POINT_STRIKE + 1.5F, new Vector3f(hand).add(out * 0.015F, -0.01F, -0.01F),
+                new Vector3f(arm), new Vector3f(wand));
+        Key drift = new Key(5.0F, new Vector3f(hand).lerp(handEnd, 0.3F), new Vector3f(arm).lerp(armEnd, 0.3F).normalize(),
+                new Vector3f(wand).lerp(wandEnd, 0.3F).normalize());
+        Key end = new Key(POINT_DRIFT, handEnd, armEnd, wandEnd);
+        return new Key[]{strike, hold, drift, end};
     }
 
     private FirstPersonWandRig() {
@@ -363,10 +428,10 @@ final class FirstPersonWandRig {
             wand.normalize();
         }
         float lateral = Mth.sqrt(wand.x * wand.x + wand.y * wand.y);
-        if (lateral < 0.55F) {
+        if (lateral < 0.35F) {
             float lx = lateral < 1.0E-3F ? -0.64F : wand.x / lateral;
             float ly = lateral < 1.0E-3F ? 0.77F : wand.y / lateral;
-            wand.set(lx * 0.55F, ly * 0.55F, -Mth.sqrt(1.0F - 0.55F * 0.55F));
+            wand.set(lx * 0.35F, ly * 0.35F, -Mth.sqrt(1.0F - 0.35F * 0.35F));
         }
     }
 
@@ -381,11 +446,13 @@ final class FirstPersonWandRig {
      * speed carried smoothly through every key (no stop at each one) and easing out into rest.
      */
     static Key pose(Motion motion, FirstPersonCast.Variant variant, Key rest, float since) {
-        int n = motion.keys().length;
+        // A pointing strike is built from where it comes in; its pose is not mirrored, tilted or clamped.
+        Key[] keys = motion.point() ? pointKeys(variant.place()) : motion.keys();
+        int n = keys.length;
         Key[] points = new Key[n + 2];
         points[0] = rest.copy(0.0F);
         for (int i = 0; i < n; i++) {
-            points[i + 1] = vary(motion.keys()[i], rest, variant, motion.release());
+            points[i + 1] = motion.point() ? keys[i] : vary(keys[i], rest, variant, motion.release());
         }
         points[n + 1] = rest.copy(motion.length());
         if (since <= 0.0F) {

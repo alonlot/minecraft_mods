@@ -94,6 +94,10 @@ public final class FirstPersonWand {
             return fallback;
         }
         if (inWindup()) {
+            Vector3f strike = strikeTip();
+            if (strike != null) {
+                return viewToWorld(camera, strike);
+            }
             Vector3f look = camera.getLookVector();
             Vector3f up = camera.getUpVector();
             Vector3f left = camera.getLeftVector();
@@ -102,6 +106,37 @@ public final class FirstPersonWand {
                     .add(left.x * -0.06, left.y * -0.06, left.z * -0.06);
         }
         return tip;
+    }
+
+    /** Where the wand tip will be when your current cast strikes, in view space, or null. */
+    @javax.annotation.Nullable
+    private static Vector3f strikeTip() {
+        Minecraft minecraft = Minecraft.getInstance();
+        FirstPersonCast.Cast cast = FirstPersonCast.current();
+        if (cast == null || minecraft.player == null) {
+            return null;
+        }
+        FirstPersonWandRig.Motion motion = FirstPersonWandRig.motionOf(cast.gesture());
+        FirstPersonWandRig.Key key = FirstPersonWandRig.pose(motion, cast.variant(), FirstPersonWandRig.baseRest(),
+                motion.release());
+        float side = minecraft.player.getMainArm() == HumanoidArm.RIGHT ? 1.0F : -1.0F;
+        return new Vector3f(key.wand()).normalize().mul(0.7F).add(key.hand()).mul(side, 1.0F, 1.0F);
+    }
+
+    /** A point drawn in the hand's view space, in the world (the hand is drawn with its own field of view). */
+    private static Vec3 viewToWorld(Camera camera, Vector3f p) {
+        double worldFov = Minecraft.getInstance().options.fov().get();
+        double scale = Math.tan(Math.toRadians(worldFov) / 2.0) / Math.tan(Math.toRadians(70.0) / 2.0);
+        Vector3f look = camera.getLookVector();
+        Vector3f up = camera.getUpVector();
+        Vector3f left = camera.getLeftVector();
+        double depth = -p.z;
+        double x = p.x * scale;
+        double y = p.y * scale;
+        return camera.getPosition()
+                .add(look.x * depth, look.y * depth, look.z * depth)
+                .add(up.x * y, up.y * y, up.z * y)
+                .add(-left.x * x, -left.y * x, -left.z * x);
     }
 
     /** Whether your arm is winding up a cast and has not struck yet. */
@@ -170,7 +205,7 @@ public final class FirstPersonWand {
         AvadaChargeClientState.Charge charge = AvadaChargeClientState.get(player.getId());
         if (charge != null && !casting) {
             float c = charge.charge(AvadaChargeClientState.now(partialTick));
-            FirstPersonWandRig.Key raised = FirstPersonWandRig.motionOf(FirstPersonCast.CURSE).keys()[0];
+            FirstPersonWandRig.Key raised = FirstPersonWandRig.raisedKey();
             now = FirstPersonWandRig.mix(now, raised, c * c * (3.0F - 2.0F * c));
         }
         now = FirstPersonWandRig.sway(now);

@@ -244,8 +244,10 @@ final class FirstPersonWandRig {
 
     /** The bottom of the U: the fist low in the middle, the forearm upright, the wand on the target. */
     private static Key sweepMiddle() {
-        return new Key(SWEEP_MID, new Vector3f(0.02F, -0.19F, -0.74F), new Vector3f(0.0F, 1.0F, -0.15F).normalize(),
-                new Vector3f(0.03F, 0.15F, -1.0F).normalize());
+        Vector3f arm = new Vector3f(0.0F, 1.0F, -0.15F).normalize();
+        // The wand straight out of the fist, tipped forward at the target: a short stub, as in the reference.
+        return new Key(SWEEP_MID, new Vector3f(0.02F, -0.19F, -0.74F), arm,
+                new Vector3f(arm).mul(0.35F).add(0.02F, 0.0F, -1.0F).normalize());
     }
 
     /** The middle of the sweep for the channelled bolt spells' hold pose. */
@@ -266,9 +268,9 @@ final class FirstPersonWandRig {
         return new Key(SWEEP_END, hand, arm, sideWand(arm));
     }
 
-    /** At the sides the wand runs on from the forearm, out and away. */
+    /** At the sides the wand runs on straight out of the fist, in line with the forearm (a little forward). */
     private static Vector3f sideWand(Vector3f arm) {
-        return new Vector3f(arm).add(0.0F, 0.09F, -0.9F).normalize();
+        return new Vector3f(arm).add(0.0F, 0.0F, -0.3F).normalize();
     }
 
     /** Which side of the view a pose is on: -1 left, 1 right, 0 the middle. */
@@ -602,8 +604,6 @@ final class FirstPersonWandRig {
         return rotation.transform(armPoint(side, 8.6F)).add(offset);
     }
 
-    /** The wand's own axis in its centred model space: the sprite diagonal, handle low left, tip high right. */
-    private static final Vector3f WAND_AXIS = new Vector3f(1.0F, 1.0F, 0.0F).normalize();
     /** The wand model's size in the hand, as its third-person display scale. */
     private static final float WAND_SCALE = 0.85F;
 
@@ -615,10 +615,16 @@ final class FirstPersonWandRig {
      */
     static void placeWand(PoseStack stack, Vector3f fist, Vector3f direction, Vector3f grip) {
         stack.translate(fist.x, fist.y, fist.z);
-        stack.mulPose(new Quaternionf().rotationTo(WAND_AXIS, new Vector3f(direction).normalize()));
-        stack.scale(WAND_SCALE, WAND_SCALE, WAND_SCALE);
+        stack.mulPose(new Quaternionf().rotationTo(UP, new Vector3f(direction).normalize()));
+        // Full length, but thinner: this close to the eye the 3D wand otherwise reads as a stake.
+        stack.scale(WAND_SCALE * WAND_THIN, WAND_SCALE, WAND_SCALE * WAND_THIN);
+        stack.mulPose(new Quaternionf().rotationZ(Mth.PI / 4.0F)); // the model's diagonal onto +y
         stack.translate(-grip.x, -grip.y, -grip.z);
     }
+
+    private static final Vector3f UP = new Vector3f(0.0F, 1.0F, 0.0F);
+    /** How thick the wand is drawn in first person, against its length. */
+    private static final float WAND_THIN = 0.55F;
 
     private static Vector3f orthoTo(Vector3f v, Vector3f axis) {
         Vector3f out = new Vector3f(v).sub(new Vector3f(axis).mul(v.dot(axis)));

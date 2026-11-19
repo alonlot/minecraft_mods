@@ -122,6 +122,12 @@ public final class SpellBeamFxRenderer {
         // Smaller when it is your own wand, half a block from your eye.
         float near = (float) Mth.clamp(pos.length() / 1.5, 0.45, 1.0);
         float fade = (1.0f - f) * (1.0f - f);
+        if (muzzle.firstPerson) {
+            // Your own wand in first person: the arm's flare is the release (FirstPersonWand); no ring across
+            // the view, as in the reference.
+            billboard(out, m, pos, 0.18f * (1.0f - 0.5f * f), fade, s.coreR, s.coreG, s.coreB, true);
+            return;
+        }
         billboard(out, m, pos, 0.35f * near * (1.0f - 0.5f * f), fade, s.coreR, s.coreG, s.coreB, true);
         billboard(out, m, pos, 0.9f * near, 0.6f * fade, s.glowR, s.glowG, s.glowB, false);
         Vec3[] axes = frame(muzzle.dir);

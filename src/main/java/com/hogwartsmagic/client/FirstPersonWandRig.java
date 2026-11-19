@@ -177,8 +177,9 @@ final class FirstPersonWandRig {
         Key rest = new Key(0.0F, new Vector3f(REST_HAND), new Vector3f(REST_ARM).normalize(),
                 new Vector3f(REST_AIM).sub(REST_HAND).normalize());
         float release = motion.release();
-        Key before = pose(motion, cast.variant(), rest, Math.max(0.0F, release - 0.8F));
-        Key at = pose(motion, cast.variant(), rest, release);
+        Key from = fromOf(cast, rest);
+        Key before = pose(motion, cast.variant(), rest, Math.max(0.0F, release - 0.8F), from);
+        Key at = pose(motion, cast.variant(), rest, release, from);
         // The tip, as seen from the eye: the hand plus a stretch of the wand, divided by depth.
         Vector3f a = new Vector3f(before.wand()).mul(0.35F).add(before.hand());
         Vector3f b = new Vector3f(at.wand()).mul(0.35F).add(at.hand());
@@ -188,6 +189,20 @@ final class FirstPersonWandRig {
         float by = b.y / -b.z;
         Vector3f cut = new Vector3f(bx - ax, by - ay, 0.0F);
         return cut.lengthSquared() < 1.0E-4F ? null : cut.normalize();
+    }
+
+    /** Where the arm was when the cast that started at {@code castFrom}'s tick began (set by FirstPersonWand). */
+    private static Key castFrom;
+    private static int castFromStart = Integer.MIN_VALUE;
+
+    static void castFrom(int castStart, Key from) {
+        castFromStart = castStart;
+        castFrom = from.copy(0.0F);
+    }
+
+    /** Where {@code cast} set off from, or {@code fallback} when that was not seen. */
+    static Key fromOf(FirstPersonCast.Cast cast, Key fallback) {
+        return castFrom != null && castFromStart == cast.start() ? castFrom : fallback;
     }
 
     static Motion motionOf(FirstPersonCast.Gesture gesture) {
@@ -208,51 +223,84 @@ final class FirstPersonWandRig {
         return MOTIONS.get(FirstPersonCast.CURSE).keys()[0];
     }
 
-    // ---------------------------------------------------------------- the pointing strike (the reference)
+    // ---------------------------------------------------------------- the sweep (the reference)
 
     /**
-     * The bolt spells, cast as in the reference video: no wind-up and no slash. The whole arm snaps in from the
-     * bottom of the view (the middle, the left or the right, a different third each cast) and points at the
-     * target with the wand along it; then it drifts slowly out and down off the edge, the wand turning
-     * upright, and comes back to rest.
+     * The bolt spells, cast as in the reference video: the whole arm sweeps across the view in a fast U, from
+     * the side it is on, low and upright through the middle (where the spell leaves the wand) and up to the
+     * other side, where it stops with the sleeve across that side of the screen. It hangs there a moment,
+     * sinking slowly outwards, then goes back to rest: from the right it rises into place, from the left it
+     * drops under the bottom of the view and comes up on the right, so it never drifts back across the target.
+     * A cast can also cut down or up on the side the arm is already on.
      */
     private static final java.util.Set<FirstPersonCast.Gesture> POINTING = java.util.Set.of(FirstPersonCast.FLICK,
             FirstPersonCast.STAB, FirstPersonCast.SLASH, FirstPersonCast.DOUBLE_SLASH, FirstPersonCast.WHIP,
             FirstPersonCast.CURSE, FirstPersonCast.PUSH);
-    /** Ticks: the snap in, the drift out, back at rest. */
-    private static final float POINT_STRIKE = 2.5F;
-    private static final float POINT_DRIFT = 9.0F;
-    private static final float POINT_LENGTH = 15.0F;
-    /** The middle strike's keys: the hold pose for a channelled bolt spell, and the template. */
-    private static final Motion POINT = new Motion(pointKeys(0.0F), POINT_STRIKE, POINT_LENGTH, true);
+    /** Ticks: the arm passes the middle (the spell leaves), reaches the far side, has sunk, is back at rest. */
+    private static final float SWEEP_MID = 1.2F;
+    private static final float SWEEP_END = 2.2F;
+    private static final float SWEEP_DRIFT = 10.5F;
+    static final float SWEEP_LENGTH = 17.0F;
+
+    /** The bottom of the U: the fist low in the middle, the forearm upright, the wand on the target. */
+    private static Key sweepMiddle() {
+        return new Key(SWEEP_MID, new Vector3f(0.02F, -0.19F, -0.74F), new Vector3f(0.0F, 1.0F, -0.15F).normalize(),
+                new Vector3f(0.03F, 0.15F, -1.0F).normalize());
+    }
+
+    /** The middle of the sweep for the channelled bolt spells' hold pose. */
+    private static final Motion POINT = new Motion(new Key[]{sweepMiddle()}, SWEEP_MID, SWEEP_LENGTH, true);
 
     /**
-     * The keys of a pointing strike from {@code place} along the bottom of the view (-1 left to 1 right),
-     * right-hand view coordinates: the strike, the start of the drift, the end of the drift.
+     * Where a sweep ends, by {@code place}: its sign the side of the view (-1 left, 1 right), its size how low
+     * (0.5 the arm raised high on that side, 1 lying almost flat along the bottom). Right-hand view coordinates.
      */
-    static Key[] pointKeys(float place) {
-        float x = 0.04F + place * 0.18F;
-        // Strike: the fist a little below and to the side of the crosshair; the forearm runs almost straight
-        // into the view from beside and below the eye on its side, so the sleeve fills that bottom corner;
-        // the wand lies along it, tipped up a little, at the target.
-        Vector3f hand = new Vector3f(x, -0.13F, -0.66F);
-        Vector3f elbow = new Vector3f(0.05F + place * 0.42F, -0.48F, 0.05F);
-        Vector3f arm = new Vector3f(hand).sub(elbow).normalize();
-        Vector3f wand = new Vector3f(-x * 0.5F, 0.42F, -1.0F).normalize();
-        Key strike = new Key(POINT_STRIKE, hand, arm, wand);
-        // The drift: out to its own side (the middle one picks a side by the sign of its jitter) and down,
-        // the arm swinging out with it and the wand easing upright.
-        float out = place >= 0.0F ? 1.0F : -1.0F;
-        // Fully below the bottom edge, so the way back to rest (from below) never crosses the view.
-        Vector3f handEnd = new Vector3f(x + out * 0.4F, -0.62F, -0.62F);
-        Vector3f armEnd = new Vector3f(handEnd).sub(new Vector3f(elbow).add(out * 0.25F, -0.1F, 0.0F)).normalize();
-        Vector3f wandEnd = new Vector3f(armEnd).add(-out * 0.1F, 0.45F, 0.0F).normalize();
-        Key hold = new Key(POINT_STRIKE + 1.5F, new Vector3f(hand).add(out * 0.015F, -0.01F, -0.01F),
-                new Vector3f(arm), new Vector3f(wand));
-        Key drift = new Key(5.0F, new Vector3f(hand).lerp(handEnd, 0.3F), new Vector3f(arm).lerp(armEnd, 0.3F).normalize(),
-                new Vector3f(wand).lerp(wandEnd, 0.3F).normalize());
-        Key end = new Key(POINT_DRIFT, handEnd, armEnd, wandEnd);
-        return new Key[]{strike, hold, drift, end};
+    static Key sweepEnd(float place) {
+        float side = place < 0.0F ? -1.0F : 1.0F;
+        float low = Mth.clamp((Math.abs(place) - 0.5F) / 0.5F, 0.0F, 1.0F);
+        Vector3f hand = new Vector3f(0.32F, 0.09F, -0.90F).lerp(new Vector3f(0.36F, -0.29F, -0.80F), low);
+        Vector3f arm = new Vector3f(0.47F, 0.88F, -0.35F).lerp(new Vector3f(1.0F, 0.2F, -0.3F), low);
+        hand.x *= side;
+        arm.x *= side;
+        arm.normalize();
+        return new Key(SWEEP_END, hand, arm, sideWand(arm));
+    }
+
+    /** At the sides the wand runs on from the forearm, out and away. */
+    private static Vector3f sideWand(Vector3f arm) {
+        return new Vector3f(arm).add(0.0F, 0.09F, -0.9F).normalize();
+    }
+
+    /** Which side of the view a pose is on: -1 left, 1 right, 0 the middle. */
+    private static int sideOf(Key pose) {
+        return pose.hand().x > 0.12F ? 1 : pose.hand().x < -0.12F ? -1 : 0;
+    }
+
+    /** The keys of a sweep from {@code from} (where the arm was) to the side {@code place} names. */
+    static Key[] sweepKeys(Key from, float place) {
+        Key end = sweepEnd(place);
+        float side = Math.signum(end.hand().x);
+        Key middle;
+        if (sideOf(from) == (int) side) {
+            // A cut on the side the arm is on: straight from one height to the other, dipping a little.
+            middle = mix(from, end, 0.5F).copy(SWEEP_MID);
+            middle.hand().y -= 0.04F;
+        } else {
+            middle = sweepMiddle();
+        }
+        // A moment's overshoot as it stops, then the slow sink outwards and down.
+        Key hold = new Key(SWEEP_END + 1.0F, new Vector3f(end.hand()).add(side * 0.025F, -0.012F, 0.0F),
+                new Vector3f(end.arm()), new Vector3f(end.wand()));
+        Vector3f sunkArm = new Vector3f(end.arm()).add(side * 0.25F, -0.12F, 0.0F).normalize();
+        Key sunk = new Key(SWEEP_DRIFT, new Vector3f(end.hand()).add(side * 0.11F, -0.11F, 0.04F), sunkArm,
+                sideWand(sunkArm));
+        if (side > 0.0F) {
+            return new Key[]{middle, end, hold, sunk};
+        }
+        // From the left the way home is under the bottom of the view (the wand pointing down, out of sight).
+        Key under = new Key(SWEEP_DRIFT + 3.5F, new Vector3f(0.12F, -0.82F, -0.62F),
+                new Vector3f(0.25F, 1.0F, -0.2F).normalize(), new Vector3f(0.0F, -0.3F, -0.95F).normalize());
+        return new Key[]{middle, end, hold, sunk, under};
     }
 
     private FirstPersonWandRig() {
@@ -454,24 +502,7 @@ final class FirstPersonWandRig {
      * the cast started), so a new cast moves on from there instead of jumping back to rest first.
      */
     static Key pose(Motion motion, FirstPersonCast.Variant variant, Key rest, float since, Key from) {
-        Key[] keys;
-        if (motion.point()) {
-            // A pointing strike is built from where it comes in; its pose is not mirrored, tilted or clamped. It
-            // sweeps in from where the arm was along a low arc near the bottom of the view, so it moves across
-            // the screen under the target instead of passing in front of it.
-            Key[] strike = pointKeys(variant.place());
-            Key target = strike[0];
-            Vector3f hand = new Vector3f(from.hand()).lerp(target.hand(), 0.55F);
-            hand.y = Math.min(hand.y, target.hand().y) - 0.12F;
-            Key approach = new Key(POINT_STRIKE * 0.5F, hand,
-                    new Vector3f(from.arm()).lerp(target.arm(), 0.55F).normalize(),
-                    new Vector3f(from.wand()).lerp(target.wand(), 0.55F).normalize());
-            keys = new Key[strike.length + 1];
-            keys[0] = approach;
-            System.arraycopy(strike, 0, keys, 1, strike.length);
-        } else {
-            keys = motion.keys();
-        }
+        Key[] keys = motion.point() ? sweepKeys(from, variant.place()) : motion.keys();
         int n = keys.length;
         Key[] points = new Key[n + 2];
         points[0] = from.copy(0.0F);

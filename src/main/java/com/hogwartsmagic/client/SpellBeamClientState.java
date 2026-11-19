@@ -149,12 +149,15 @@ public final class SpellBeamClientState {
         final Vec3 dir;
         final BeamStyle style;
         final double start;
+        /** Your own cast seen in first person: the arm's tip flare already marks the release. */
+        final boolean firstPerson;
 
-        Muzzle(Vec3 pos, Vec3 dir, BeamStyle style, double start) {
+        Muzzle(Vec3 pos, Vec3 dir, BeamStyle style, double start, boolean firstPerson) {
             this.pos = pos;
             this.dir = dir;
             this.style = style;
             this.start = start;
+            this.firstPerson = firstPerson;
         }
     }
 
@@ -540,7 +543,9 @@ public final class SpellBeamClientState {
                     created.ownerId = spellBeam.getOwner().getId();
                 }
                 BEAMS.put(spellBeam.getId(), created);
-                MUZZLES.add(new Muzzle(from, dir, style, now));
+                boolean firstPerson = spellBeam.getOwner() == minecraft.player
+                        && minecraft.options.getCameraType().isFirstPerson();
+                MUZZLES.add(new Muzzle(from, dir, style, now, firstPerson));
                 CastSounds.release(from, spellBeam.getSpellType(), spellBeam.getOwner() instanceof Player);
                 continue;
             }

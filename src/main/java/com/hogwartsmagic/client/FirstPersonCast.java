@@ -190,14 +190,16 @@ public final class FirstPersonCast {
         // The stroke turned round the strike point: up to about 45 degrees either way for the cuts, less for a
         // jab, a lift or a circle, so no two casts come from the same direction.
         float tilt = (random.nextFloat() - 0.5F) * (gesture.mirrorable ? 1.6F : 0.9F);
-        // Where a pointing strike comes in from along the bottom of the view (-1 left, 0 middle, 1 right): never
-        // the same third twice running, as in the reference (middle, left, middle, right...).
-        int lastZone = previous == null ? 1 : Math.round(previous.variant().place());
-        int zone = lastZone;
-        while (zone == lastZone) {
-            zone = random.nextInt(3) - 1;
-        }
-        float place = Mth.clamp(zone * 0.85F + (random.nextFloat() - 0.5F) * 0.3F, -1.0F, 1.0F);
+        // Where a sweep ends (FirstPersonWandRig.sweepEnd: the sign the side, the size how low). Mostly across
+        // to the other side from where the arm is (rest is on the right); now and then a cut down or up on the
+        // side it is on, as in the reference (left, lower left, right...).
+        boolean back = previous == null || player.tickCount - previous.start() > FirstPersonWandRig.SWEEP_LENGTH;
+        float lastPlace = back ? 0.6F : previous.variant().place();
+        float lastSide = lastPlace < 0.0F ? -1.0F : 1.0F;
+        boolean across = back || random.nextFloat() < 0.75F;
+        float size = across ? 0.5F + random.nextFloat() * 0.5F
+                : Math.abs(lastPlace) > 0.75F ? 0.5F + random.nextFloat() * 0.15F : 0.85F + random.nextFloat() * 0.15F;
+        float place = (across ? -lastSide : lastSide) * size;
         return new Variant(mirror, scale, pitch, shiftX, shiftY, tilt, place);
     }
 

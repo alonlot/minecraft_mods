@@ -55,6 +55,10 @@ public final class FirstPersonWand {
     private static FirstPersonWandRig.Key castFrom;
     private static int fromCastStart = Integer.MIN_VALUE;
 
+    /** Where the tip was as the current cast let its spell go (view space): the flash stays there. */
+    private static final Vector3f FLARE_AT = new Vector3f();
+    private static int flareCast = Integer.MIN_VALUE;
+
     /** The wand tip in view space as last drawn, and when (nanos). */
     private static final Vector3f LAST_TIP = new Vector3f();
     private static long lastTipFrame = Long.MIN_VALUE;
@@ -122,8 +126,9 @@ public final class FirstPersonWand {
             return null;
         }
         FirstPersonWandRig.Motion motion = FirstPersonWandRig.motionOf(cast.gesture());
-        FirstPersonWandRig.Key key = FirstPersonWandRig.pose(motion, cast.variant(), FirstPersonWandRig.baseRest(),
-                motion.release());
+        FirstPersonWandRig.Key rest = FirstPersonWandRig.baseRest();
+        FirstPersonWandRig.Key key = FirstPersonWandRig.pose(motion, cast.variant(), rest, motion.release(),
+                FirstPersonWandRig.fromOf(cast, rest));
         float side = minecraft.player.getMainArm() == HumanoidArm.RIGHT ? 1.0F : -1.0F;
         return new Vector3f(key.wand()).normalize().mul(0.7F).add(key.hand()).mul(side, 1.0F, 1.0F);
     }
@@ -204,6 +209,7 @@ public final class FirstPersonWand {
             // A new cast moves on from where the arm is now, not from rest.
             fromCastStart = cast.start();
             castFrom = lastPose != null ? lastPose : rest;
+            FirstPersonWandRig.castFrom(cast.start(), castFrom);
         }
         FirstPersonWandRig.Key now = casting
                 ? FirstPersonWandRig.pose(motion, cast.variant(), rest, time, castFrom != null ? castFrom : rest) : rest;
@@ -253,7 +259,13 @@ public final class FirstPersonWand {
         recordSwipe(casting && time <= release + 2.0F, tip, age);
         SpellType spell = cast != null && cast.spell() != null ? cast.spell() : MagicWandItem.getSelectedSpell(stack);
         drawSwipe(spell, buffer, age);
-        drawTipLight(player, spell, casting, time, release, tip, buffer, age);
+        if (casting && time >= release && cast.start() != flareCast) {
+            flareCast = cast.start();
+            FLARE_AT.set(tip);
+        }
+        // A sweep carries the wand on across the view: its flash stays where the spell left, as in the reference.
+        Vector3f flareAt = casting && motion.point() && flareCast == cast.start() ? FLARE_AT : tip;
+        drawTipLight(player, spell, casting, time, release, tip, flareAt, buffer, age);
     }
 
     // ---------------------------------------------------------------- colour
@@ -364,7 +376,8 @@ public final class FirstPersonWand {
      * gathering through the wind-up, and a wide flare with arcs lashing out as the spell leaves.
      */
     private static void drawTipLight(LocalPlayer player, @javax.annotation.Nullable SpellType spell, boolean casting,
-                                     float time, float release, Vector3f tip, MultiBufferSource buffer, float age) {
+                                     float time, float release, Vector3f tip, Vector3f flareAt,
+                                     MultiBufferSource buffer, float age) {
         float[] color = lightColor(spell);
         float[] hot = whiten(color, 0.6F);
         float flare = 0.0F;
@@ -382,8 +395,11 @@ public final class FirstPersonWand {
         glowQuad(light, matrix, 0.05F + 0.07F * glow, new float[]{1.0F, 1.0F, 1.0F}, glow);
         glowQuad(light, matrix, 0.12F + 0.12F * glow, hot, 0.75F * glow);
         if (flare > 0.0F) {
-            glowQuad(light, matrix, 0.35F + 1.05F * flare, color, 0.85F * flare);
-            glowQuad(light, matrix, 0.18F + 0.35F * flare, hot, flare);
+            matrix = new Matrix4f().translate(flareAt);
+            // A hot white core in a halo about a hand across, as in the reference: not a wash over the view.
+            glowQuad(light, matrix, 0.18F + 0.32F * flare, color, 0.8F * flare);
+            glowQuad(light, matrix, 0.08F + 0.16F * flare, hot, flare);
+            glowQuad(light, matrix, 0.04F + 0.07F * flare, new float[]{1.0F, 1.0F, 1.0F}, flare);
             VertexConsumer bolts = buffer.getBuffer(RenderType.lightning());
             long seed = player.tickCount * 13L;
             for (int i = 0; i < 7; i++) {

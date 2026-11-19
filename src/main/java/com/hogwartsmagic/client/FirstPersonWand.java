@@ -50,6 +50,11 @@ public final class FirstPersonWand {
 
     private static final RenderType GLOW = ModRenderTypes.SPELL_GLOW;
 
+    /** The arm's pose last frame (before the turn sway), and where the current cast set off from. */
+    private static FirstPersonWandRig.Key lastPose;
+    private static FirstPersonWandRig.Key castFrom;
+    private static int fromCastStart = Integer.MIN_VALUE;
+
     /** The wand tip in view space as last drawn, and when (nanos). */
     private static final Vector3f LAST_TIP = new Vector3f();
     private static long lastTipFrame = Long.MIN_VALUE;
@@ -154,13 +159,14 @@ public final class FirstPersonWand {
     /** Gesture time: the cast's own clock, with the wind-up played faster so the strike lands by WINDUP. */
     static float gestureTime(FirstPersonWandRig.Motion motion, float since) {
         float release = motion.release();
-        float windup = Math.min(release, WINDUP);
+        float windup = releaseAfter(motion);
         return since < windup ? since * release / Math.max(1.0E-3F, windup) : since - windup + release;
     }
 
     /** Ticks into a cast at which the spell leaves the wand, on the cast's own clock. */
     static float releaseAfter(FirstPersonWandRig.Motion motion) {
-        return Math.min(motion.release(), WINDUP);
+        // A pointing strike keeps its own sweep in (its arm visibly moving across), never sped up.
+        return motion.point() ? motion.release() : Math.min(motion.release(), WINDUP);
     }
 
     /**
@@ -194,7 +200,13 @@ public final class FirstPersonWand {
         boolean casting = motion != null && since >= 0.0F && time < motion.length();
 
         FirstPersonWandRig.Key rest = FirstPersonWandRig.rest(player, partialTick, cast);
-        FirstPersonWandRig.Key now = casting ? FirstPersonWandRig.pose(motion, cast.variant(), rest, time) : rest;
+        if (cast != null && cast.start() != fromCastStart) {
+            // A new cast moves on from where the arm is now, not from rest.
+            fromCastStart = cast.start();
+            castFrom = lastPose != null ? lastPose : rest;
+        }
+        FirstPersonWandRig.Key now = casting
+                ? FirstPersonWandRig.pose(motion, cast.variant(), rest, time, castFrom != null ? castFrom : rest) : rest;
         float hold = FirstPersonCast.holdWeight(partialTick);
         if (hold > 0.0F) {
             FirstPersonWandRig.Motion held = casting ? motion
@@ -208,6 +220,7 @@ public final class FirstPersonWand {
             FirstPersonWandRig.Key raised = FirstPersonWandRig.raisedKey();
             now = FirstPersonWandRig.mix(now, raised, c * c * (3.0F - 2.0F * c));
         }
+        lastPose = now.copy(now.at()); // a copy: the equip drop below changes the drawn pose in place
         now = FirstPersonWandRig.sway(now);
         FirstPersonWandRig.keepWandInView(now.wand());
         now.hand().y -= event.getEquipProgress() * 0.7F; // lowered while the wand is being taken out

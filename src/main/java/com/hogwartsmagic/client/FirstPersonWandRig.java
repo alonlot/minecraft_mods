@@ -220,7 +220,7 @@ final class FirstPersonWandRig {
             FirstPersonCast.STAB, FirstPersonCast.SLASH, FirstPersonCast.DOUBLE_SLASH, FirstPersonCast.WHIP,
             FirstPersonCast.CURSE, FirstPersonCast.PUSH);
     /** Ticks: the snap in, the drift out, back at rest. */
-    private static final float POINT_STRIKE = 0.5F;
+    private static final float POINT_STRIKE = 2.5F;
     private static final float POINT_DRIFT = 9.0F;
     private static final float POINT_LENGTH = 15.0F;
     /** The middle strike's keys: the hold pose for a channelled bolt spell, and the template. */
@@ -446,11 +446,35 @@ final class FirstPersonWandRig {
      * speed carried smoothly through every key (no stop at each one) and easing out into rest.
      */
     static Key pose(Motion motion, FirstPersonCast.Variant variant, Key rest, float since) {
-        // A pointing strike is built from where it comes in; its pose is not mirrored, tilted or clamped.
-        Key[] keys = motion.point() ? pointKeys(variant.place()) : motion.keys();
+        return pose(motion, variant, rest, since, rest);
+    }
+
+    /**
+     * The pose {@code since} ticks into a cast that began with the arm at {@code from} (where it was drawn when
+     * the cast started), so a new cast moves on from there instead of jumping back to rest first.
+     */
+    static Key pose(Motion motion, FirstPersonCast.Variant variant, Key rest, float since, Key from) {
+        Key[] keys;
+        if (motion.point()) {
+            // A pointing strike is built from where it comes in; its pose is not mirrored, tilted or clamped. It
+            // sweeps in from where the arm was along a low arc near the bottom of the view, so it moves across
+            // the screen under the target instead of passing in front of it.
+            Key[] strike = pointKeys(variant.place());
+            Key target = strike[0];
+            Vector3f hand = new Vector3f(from.hand()).lerp(target.hand(), 0.55F);
+            hand.y = Math.min(hand.y, target.hand().y) - 0.12F;
+            Key approach = new Key(POINT_STRIKE * 0.5F, hand,
+                    new Vector3f(from.arm()).lerp(target.arm(), 0.55F).normalize(),
+                    new Vector3f(from.wand()).lerp(target.wand(), 0.55F).normalize());
+            keys = new Key[strike.length + 1];
+            keys[0] = approach;
+            System.arraycopy(strike, 0, keys, 1, strike.length);
+        } else {
+            keys = motion.keys();
+        }
         int n = keys.length;
         Key[] points = new Key[n + 2];
-        points[0] = rest.copy(0.0F);
+        points[0] = from.copy(0.0F);
         for (int i = 0; i < n; i++) {
             points[i + 1] = motion.point() ? keys[i] : vary(keys[i], rest, variant, motion.release());
         }

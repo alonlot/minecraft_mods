@@ -256,7 +256,10 @@ public final class FirstPersonWand {
 
         float release = casting ? motion.release() : 0.0F;
         float age = player.tickCount + partialTick;
-        recordSwipe(casting && time <= release + 2.0F, tip, age);
+        if (casting) {
+            swipeLife = motion.trailLife();
+        }
+        recordSwipe(casting && time <= motion.trailUntil(), tip, age);
         SpellType spell = cast != null && cast.spell() != null ? cast.spell() : MagicWandItem.getSelectedSpell(stack);
         drawSwipe(spell, buffer, age);
         if (casting && time >= release && cast.start() != flareCast) {
@@ -264,7 +267,7 @@ public final class FirstPersonWand {
             FLARE_AT.set(tip);
         }
         // A sweep carries the wand on across the view: its flash stays where the spell left, as in the reference.
-        Vector3f flareAt = casting && motion.point() && flareCast == cast.start() ? FLARE_AT : tip;
+        Vector3f flareAt = casting && motion.anchorFlash() && flareCast == cast.start() ? FLARE_AT : tip;
         drawTipLight(player, spell, casting, time, release, tip, flareAt, buffer, age);
     }
 
@@ -300,13 +303,15 @@ public final class FirstPersonWand {
 
     /** How long a point of the streak lasts, in ticks (90 ms), on the gesture's own clock. */
     private static final float SWIPE_LIFE = 1.8F;
+    /** The current gesture's streak life (a circle keeps a whole ring of light). */
+    private static float swipeLife = SWIPE_LIFE;
     private static final int SWIPE_MAX = 48;
     private static final java.util.ArrayDeque<Vector3f> SWIPE = new java.util.ArrayDeque<>();
     private static final java.util.ArrayDeque<Float> SWIPE_TIME = new java.util.ArrayDeque<>();
 
     private static void recordSwipe(boolean stroking, Vector3f tip, float now) {
         // The clock is the player's tick count, which starts again after a respawn: points "from the future" go too.
-        while (!SWIPE_TIME.isEmpty() && (now - SWIPE_TIME.peekFirst() > SWIPE_LIFE || SWIPE_TIME.peekLast() > now)) {
+        while (!SWIPE_TIME.isEmpty() && (now - SWIPE_TIME.peekFirst() > swipeLife || SWIPE_TIME.peekLast() > now)) {
             SWIPE_TIME.pollFirst();
             SWIPE.pollFirst();
         }
@@ -351,8 +356,8 @@ public final class FirstPersonWand {
             if (prevSide == null) {
                 prevSide = new Vector3f(side);
             }
-            float fa = 1.0F - Mth.clamp((now - times[i]) / SWIPE_LIFE, 0.0F, 1.0F);
-            float fb = 1.0F - Mth.clamp((now - times[i + 1]) / SWIPE_LIFE, 0.0F, 1.0F);
+            float fa = 1.0F - Mth.clamp((now - times[i]) / swipeLife, 0.0F, 1.0F);
+            float fb = 1.0F - Mth.clamp((now - times[i + 1]) / swipeLife, 0.0F, 1.0F);
             float wa = 0.004F + 0.012F * fa;
             float wb = 0.004F + 0.012F * fb;
             ribbonQuad(light, matrix, a, prevSide, wa * 3.0F, b, side, wb * 3.0F, color, 0.45F * fa, 0.45F * fb);

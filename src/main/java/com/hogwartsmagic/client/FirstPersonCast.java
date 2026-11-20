@@ -132,7 +132,7 @@ public final class FirstPersonCast {
 
     private static void start(LocalPlayer player, SpellType spell) {
         Gesture gesture = forSpell(spell);
-        current = new Cast(player.tickCount, spell, gesture, nextVariant(player, current, gesture));
+        current = new Cast(player.tickCount, spell, gesture, nextVariant(player, current, gesture, spell));
         CastSounds.swing(player, spell);
     }
 
@@ -179,10 +179,11 @@ public final class FirstPersonCast {
     }
 
     /** Mostly the other side from the last cast, never quite the same size, tilt or place. */
-    private static Variant nextVariant(LocalPlayer player, Cast previous, Gesture gesture) {
+    private static Variant nextVariant(LocalPlayer player, Cast previous, Gesture gesture, SpellType spell) {
         java.util.Random random = new java.util.Random(player.getId() * 341873128712L + player.tickCount * 132897987541L);
         boolean lastMirror = previous != null && previous.variant().mirror();
-        boolean mirror = gesture.mirrorable && (random.nextFloat() < 0.75F ? !lastMirror : lastMirror);
+        boolean mirror = gesture == TWIST ? spell == SpellType.COLLOPORTUS // locking turns the key the other way
+                : gesture.mirrorable && (random.nextFloat() < 0.75F ? !lastMirror : lastMirror);
         float scale = 0.8F + random.nextFloat() * 0.4F;
         float pitch = (random.nextFloat() - 0.5F) * 22.0F;
         float shiftX = mirror ? -0.42F - random.nextFloat() * 0.18F : (random.nextFloat() - 0.3F) * 0.2F;

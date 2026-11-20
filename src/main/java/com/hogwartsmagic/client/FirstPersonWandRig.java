@@ -33,9 +33,14 @@ final class FirstPersonWandRig {
 
     /** A gesture as the first-person arm plays it: its keys, the tick the spell leaves, and its length. */
     record Motion(Key[] keys, float release, float length, Builder builder, boolean anchorFlash, float trailUntil,
-                  float trailLife) {
+                  float trailLife, Roll roll) {
         Motion(Key[] keys, float release, float length) {
-            this(keys, release, length, null, false, release + 2.0F, 1.8F);
+            this(keys, release, length, null, false, release + 2.0F, 1.8F, null);
+        }
+
+        /** How far the fist is rolled about the forearm at gesture time {@code time} (radians), 0 for most. */
+        float rollAt(float time, FirstPersonCast.Variant variant) {
+            return this.roll == null ? 0.0F : this.roll.at(time, variant);
         }
 
         /**
@@ -60,6 +65,11 @@ final class FirstPersonWandRig {
     /** Builds a gesture's keys for one cast: from where the arm was, with the cast's variant. */
     interface Builder {
         Key[] build(Key from, FirstPersonCast.Variant variant);
+    }
+
+    /** A gesture's roll of the fist about the forearm through the cast (radians; positive turns it clockwise). */
+    interface Roll {
+        float at(float time, FirstPersonCast.Variant variant);
     }
 
     // ---------------------------------------------------------------- the rest pose and the keys
@@ -270,7 +280,7 @@ final class FirstPersonWandRig {
 
     /** The middle of the sweep for the channelled bolt spells' hold pose. */
     private static final Motion POINT = new Motion(new Key[]{sweepMiddle()}, SWEEP_MID, SWEEP_LENGTH,
-            (from, variant) -> sweepKeys(from, variant.place()), true, SWEEP_MID + 2.0F, 1.8F);
+            (from, variant) -> sweepKeys(from, variant.place()), true, SWEEP_MID + 2.0F, 1.8F, null);
 
     /**
      * Where a sweep ends, by {@code place}: its sign the side of the view (-1 left, 1 right), its size how low
@@ -341,8 +351,13 @@ final class FirstPersonWandRig {
 
     /** A built gesture with its template keys (built from rest) for the channel hold. */
     private static Motion built(Builder builder, float release, float length, float trailUntil, float trailLife) {
+        return built(builder, release, length, trailUntil, trailLife, null);
+    }
+
+    private static Motion built(Builder builder, float release, float length, float trailUntil, float trailLife,
+                                Roll roll) {
         return new Motion(builder.build(baseRest(), FirstPersonCast.Variant.NONE), release, length, builder, false,
-                trailUntil, trailLife);
+                trailUntil, trailLife, roll);
     }
 
     /**
@@ -445,28 +460,54 @@ final class FirstPersonWandRig {
     private static final float YANK_RELEASE = 1.2F;
 
     /**
-     * The key turn (Alohomora, Colloportus): the wand pushed in at the lock like a key, then the wrist turns it a
-     * quarter round with a snap and a click (clockwise to open, the other way to lock), held, and drawn out.
+     * The key turn (Alohomora, Colloportus): the arm reaches out and pushes the wand in at the lock like a key,
+     * in line with the forearm; then the whole fist rolls a quarter turn about the forearm with a snap and a
+     * little bounce (clockwise to open, the other way to lock), holds, and draws back. The roll is
+     * {@link #keyRoll}; the wand, a few degrees off the forearm, turns with the fist.
      */
     static Key[] keyTurnKeys(Key from, FirstPersonCast.Variant variant) {
-        float turn = variant.mirror() ? -1.0F : 1.0F;
-        Vector3f hand = v(0.16F, -0.12F, -0.86F);
-        Vector3f arm = new Vector3f(hand).sub(0.34F, -0.5F, -0.2F);
-        return new Key[]{
-                key(KEY_RELEASE, hand, arm, keyWand(-turn * 65.0F)),
-                key(2.2F, v(0.16F, -0.12F, -0.90F), arm, keyWand(-turn * 65.0F)),
-                key(3.4F, v(0.16F, -0.12F, -0.90F), arm, keyWand(turn * 55.0F)),
-                key(3.7F, v(0.16F, -0.12F, -0.90F), arm, keyWand(turn * 63.0F)),
-                key(4.1F, v(0.16F, -0.12F, -0.90F), arm, keyWand(turn * 55.0F)),
-                key(6.0F, v(0.16F, -0.12F, -0.90F), arm, keyWand(turn * 55.0F)),
-                key(7.5F, v(0.18F, -0.13F, -0.80F), arm, keyWand(turn * 48.0F)),
-        };
+        Vector3f hand = v(0.14F, -0.12F, -0.86F);
+        Vector3f arm = new Vector3f(hand).sub(0.34F, -0.5F, -0.2F).normalize();
+        Vector3f in = v(0.14F, -0.12F, -0.90F);
+        float[] at = {KEY_RELEASE, 2.2F, KEY_TURN_END, KEY_TURN_END + 0.4F, KEY_TURN_END + 0.8F, 7.5F, 9.0F};
+        Vector3f[] hands = {hand, in, in, in, in, in, v(0.17F, -0.13F, -0.80F)};
+        Key[] keys = new Key[at.length];
+        for (int i = 0; i < at.length; i++) {
+            Vector3f wand = new Vector3f(arm).add(0.0F, 0.0F, -0.25F).normalize();
+            wand.rotateAxis(keyRoll(at[i], variant), arm.x, arm.y, arm.z);
+            keys[i] = key(at[i], hands[i], arm, wand);
+        }
+        return keys;
     }
 
-    /** The wand at the lock, turned {@code degrees} clockwise from upright on the screen. */
-    private static Vector3f keyWand(float degrees) {
-        float a = degrees * Mth.DEG_TO_RAD;
-        return v(Mth.sin(a) * 0.6F, Mth.cos(a) * 0.6F, -1.0F);
+    private static final float KEY_TURN_END = 4.4F;
+
+    /** The key turn's roll of the fist: turned back as it goes in, a quarter round with a bounce, held, let go. */
+    static float keyRoll(float time, FirstPersonCast.Variant variant) {
+        float turn = variant.mirror() ? -1.0F : 1.0F;
+        float back = -60.0F * Mth.DEG_TO_RAD;
+        float open = 45.0F * Mth.DEG_TO_RAD;
+        float roll;
+        if (time < KEY_RELEASE) {
+            roll = back * smooth(time / KEY_RELEASE);
+        } else if (time < 2.2F) {
+            roll = back;
+        } else if (time < KEY_TURN_END) {
+            roll = Mth.lerp(smooth((time - 2.2F) / (KEY_TURN_END - 2.2F)), back, open);
+        } else if (time < KEY_TURN_END + 0.8F) {
+            // The click: a little past, and back.
+            roll = open + 7.0F * Mth.DEG_TO_RAD * Mth.sin(Mth.PI * (time - KEY_TURN_END) / 0.8F);
+        } else if (time < 7.5F) {
+            roll = open;
+        } else {
+            roll = open * (1.0F - smooth(Math.min(1.0F, (time - 7.5F) / 4.0F)));
+        }
+        return turn * roll;
+    }
+
+    private static float smooth(float t) {
+        t = Mth.clamp(t, 0.0F, 1.0F);
+        return t * t * (3.0F - 2.0F * t);
     }
 
     private static final float KEY_RELEASE = 1.2F;
@@ -481,7 +522,8 @@ final class FirstPersonWandRig {
                 CIRCLE_RELEASE + CIRCLES * CIRCLE_LOOP + 5.5F, CIRCLE_RELEASE + CIRCLES * CIRCLE_LOOP + 0.2F,
                 CIRCLE_LOOP));
         BUILT.put(FirstPersonCast.PULL, built(FirstPersonWandRig::yankKeys, YANK_RELEASE, 11.0F, 4.2F, 2.0F));
-        BUILT.put(FirstPersonCast.TWIST, built(FirstPersonWandRig::keyTurnKeys, KEY_RELEASE, 13.0F, 4.4F, 2.0F));
+        BUILT.put(FirstPersonCast.TWIST, built(FirstPersonWandRig::keyTurnKeys, KEY_RELEASE, 15.0F, KEY_TURN_END + 0.8F, 2.0F,
+                FirstPersonWandRig::keyRoll));
     }
 
     private FirstPersonWandRig() {
@@ -762,6 +804,11 @@ final class FirstPersonWandRig {
      * the wand is held.
      */
     static Vector3f placeArm(PoseStack stack, Key pose, float side) {
+        return placeArm(stack, pose, side, 0.0F);
+    }
+
+    /** As {@link #placeArm(PoseStack, Key, float)}, the fist rolled {@code roll} radians about the forearm. */
+    static Vector3f placeArm(PoseStack stack, Key pose, float side, float roll) {
         Vector3f hand = new Vector3f(pose.hand()).mul(side, 1.0F, 1.0F);
         Vector3f arm = new Vector3f(pose.arm()).mul(side, 1.0F, 1.0F).normalize();
         Matrix3f bob = new Matrix3f().rotateZ(0.1F * side);
@@ -773,6 +820,11 @@ final class FirstPersonWandRig {
         Vector3f front = orthoTo(new Vector3f(FRONT).mul(side, 1.0F, 1.0F), arm);
         if (front.lengthSquared() < 1.0E-4F) {
             front = orthoTo(new Vector3f(0.0F, -1.0F, 0.0F), arm);
+        }
+        if (roll != 0.0F) {
+            // The same way the key's wand turns (clockwise as you look along the forearm); the left arm is the
+            // mirror image, so it turns the other way about its own forearm.
+            front.rotateAxis(roll * side, arm.x, arm.y, arm.z);
         }
         Matrix3f from = basis(axisP, frontP);
         Matrix3f to = basis(arm, front);

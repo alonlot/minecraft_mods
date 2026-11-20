@@ -236,7 +236,8 @@ public final class FirstPersonWand {
         int light = event.getPackedLight();
 
         pose.pushPose();
-        Vector3f fist = FirstPersonWandRig.placeArm(pose, now, side);
+        float roll = casting ? motion.rollAt(time, cast.variant()) : 0.0F;
+        Vector3f fist = FirstPersonWandRig.placeArm(pose, now, side, roll);
         if (right) {
             playerRenderer.renderRightHand(pose, buffer, light, player);
         } else {

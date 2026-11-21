@@ -62,6 +62,48 @@ public final class FirstPersonWand {
     private static Vector3f settleDir;
     private static int settleCast = Integer.MIN_VALUE;
 
+    /**
+     * Overlapping action: the forearm and the wand follow the keyed pose on springs, so they lag behind the hand
+     * when it moves fast, then whip past and settle. The forearm is stiffer than the wand.
+     */
+    private static final Vector3f WAND_AT = new Vector3f();
+    private static final Vector3f WAND_SPEED = new Vector3f();
+    private static final Vector3f ARM_AT = new Vector3f();
+    private static final Vector3f ARM_SPEED = new Vector3f();
+    private static float springAge = Float.NaN;
+
+    /** One spring step: {@code at} chases {@code target} (omega rad/tick, zeta damping) over dt ticks. */
+    private static void spring(Vector3f at, Vector3f speed, Vector3f target, float omega, float zeta, float dt) {
+        int steps = Math.max(1, (int) Math.ceil(dt / 0.05F));
+        float h = dt / steps;
+        for (int i = 0; i < steps; i++) {
+            float ax = omega * omega * (target.x - at.x) - 2.0F * zeta * omega * speed.x;
+            float ay = omega * omega * (target.y - at.y) - 2.0F * zeta * omega * speed.y;
+            float az = omega * omega * (target.z - at.z) - 2.0F * zeta * omega * speed.z;
+            speed.add(ax * h, ay * h, az * h);
+            at.add(speed.x * h, speed.y * h, speed.z * h);
+        }
+    }
+
+    /** Lays the springs over {@code pose} (changed in place). */
+    private static void overlap(FirstPersonWandRig.Key pose, float age) {
+        float dt = Float.isNaN(springAge) ? -1.0F : age - springAge;
+        springAge = age;
+        Vector3f wand = new Vector3f(pose.wand()).normalize();
+        Vector3f arm = new Vector3f(pose.arm()).normalize();
+        if (dt < 0.0F || dt > 2.0F) {
+            WAND_AT.set(wand);
+            ARM_AT.set(arm);
+            WAND_SPEED.zero();
+            ARM_SPEED.zero();
+            return;
+        }
+        spring(WAND_AT, WAND_SPEED, wand, 1.9F, 0.48F, dt);
+        spring(ARM_AT, ARM_SPEED, arm, 2.6F, 0.7F, dt);
+        pose.wand().set(WAND_AT).normalize();
+        pose.arm().set(ARM_AT).normalize();
+    }
+
     /** Where the tip was as the current cast let its spell go (view space): the flash stays there. */
     private static final Vector3f FLARE_AT = new Vector3f();
     private static int flareCast = Integer.MIN_VALUE;
@@ -269,6 +311,7 @@ public final class FirstPersonWand {
             now = FirstPersonWandRig.mix(now, raised, c * c * (3.0F - 2.0F * c));
         }
         lastPose = now.copy(now.at()); // a copy: the equip drop below changes the drawn pose in place
+        overlap(now, player.tickCount + partialTick);
         now = FirstPersonWandRig.sway(now);
         // Crucio: the hand shakes from the release on and while the curse is held.
         float shake = 0.0F;

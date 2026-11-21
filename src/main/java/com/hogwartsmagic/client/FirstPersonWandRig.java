@@ -315,8 +315,8 @@ final class FirstPersonWandRig {
      * How far each cast turns its whole gesture on the screen, times its tilt (up to 0.8 rad either way): the
      * sweep a little (up to about 14 degrees, so a cut runs a little uphill or downhill), the others more.
      */
-    private static final float SWEEP_TURN = 0.3F;
-    private static final float BUILT_TURN = 0.4F;
+    private static final float SWEEP_TURN = 0.0F;
+    private static final float BUILT_TURN = 0.0F;
 
     /** The bottom of the U: the fist low in the middle, the forearm upright, the wand on the target. */
     private static Key sweepMiddle() {
@@ -1182,10 +1182,8 @@ final class FirstPersonWandRig {
         if (cast != null && cast.start() != lastCastStart) {
             lastCastStart = cast.start();
             java.util.Random random = new java.util.Random(cast.start() * 31L + player.getId());
-            REST_TARGET[0] = (random.nextFloat() - 0.5F) * 0.07F;
-            REST_TARGET[1] = (random.nextFloat() - 0.5F) * 0.06F;
-            REST_TARGET[2] = (random.nextFloat() - 0.5F) * 0.26F; // the aim spot, at REST_AIM's depth
-            REST_TARGET[3] = (random.nextFloat() - 0.5F) * 0.20F;
+            // Hand-keyed: the arm always comes home to the same rest pose (no random drift).
+            java.util.Arrays.fill(REST_TARGET, 0.0F);
         }
         float ease = 1.0F - (float) Math.exp(-dt * 0.12F);
         for (int i = 0; i < 4; i++) {
@@ -1337,7 +1335,7 @@ final class FirstPersonWandRig {
         Key a = points[seg];
         Key b = points[seg + 1];
         float span = Math.max(1.0E-3F, b.at() - a.at());
-        float u = (since - a.at()) / span;
+        float u = spacing((since - a.at()) / span, a.at(), b.at(), span, motion.release());
         return new Key(since,
                 hermite(points, seg, u, span, Key::hand),
                 hermite(points, seg, u, span, Key::arm),
@@ -1378,6 +1376,28 @@ final class FirstPersonWandRig {
 
     private static Vector3f turn2d(Vector3f v, float cos, float sin) {
         return new Vector3f(v.x * cos - v.y * sin, v.x * sin + v.y * cos, v.z);
+    }
+
+    /**
+     * Hand-keyed spacing on one segment: the path keeps its arc, but the speed along it is set as an animator
+     * sets it. Into the strike the hand accelerates and hits the pose at full speed; out of it, it shoots on
+     * and brakes into the next pose; wind-ups and settles ease into their poses and hold there. Short runs of
+     * keys (a circle, a loop) keep an even speed, so they stay round.
+     */
+    private static float spacing(float u, float at0, float at1, float span, float release) {
+        u = Mth.clamp(u, 0.0F, 1.0F);
+        if (span < 0.75F && Math.abs(at1 - release) > 1.0E-3F && Math.abs(at0 - release) > 1.0E-3F) {
+            return u; // a run of close keys: even spacing
+        }
+        if (Math.abs(at1 - release) <= 1.0E-3F) {
+            return u * u * u; // into the strike: slow out of the anticipation, all the speed at the hit
+        }
+        if (Math.abs(at0 - release) <= 1.0E-3F) {
+            float r = 1.0F - u;
+            return 1.0F - r * r * r; // out of the strike: shoots on, brakes hard into the follow-through
+        }
+        // A wind-up or a settle: eases out of one pose and slowly into the next, which holds.
+        return u * u * u * (u * (u * 6.0F - 15.0F) + 10.0F);
     }
 
     /** Catmull-Rom style tangents over uneven key times; zero speed at the rest ends. */

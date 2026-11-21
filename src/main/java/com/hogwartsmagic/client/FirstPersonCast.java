@@ -184,15 +184,16 @@ public final class FirstPersonCast {
         boolean lastMirror = previous != null && previous.variant().mirror();
         boolean mirror = gesture == TWIST ? spell == SpellType.COLLOPORTUS // locking turns the key the other way
                 : gesture.mirrorable && (random.nextFloat() < 0.75F ? !lastMirror : lastMirror);
-        float scale = 0.8F + random.nextFloat() * 0.4F;
-        float pitch = (random.nextFloat() - 0.5F) * 22.0F;
-        float shiftX = mirror ? -0.42F - random.nextFloat() * 0.18F : (random.nextFloat() - 0.3F) * 0.2F;
-        float shiftY = (random.nextFloat() - 0.4F) * 0.22F;
+        // Hand-keyed, not generated: each value is one of two authored versions (A or B), never a random spread.
+        float scale = random.nextBoolean() ? 0.9F : 1.1F;
+        float pitch = random.nextBoolean() ? -11.0F : 11.0F;
+        float shiftX = 0.0F;
+        float shiftY = random.nextBoolean() ? -0.08F : 0.08F;
         // The stroke turned round the strike point: up to about 45 degrees either way for the cuts, less for a
         // jab, a lift or a circle, so no two casts come from the same direction.
         // Which way the whole gesture is turned on the screen (and, by its sign, which way a lift, a circle or a
         // spiral goes): the same spread for every gesture, so no two casts come in from quite the same direction.
-        float tilt = (random.nextFloat() - 0.5F) * 1.6F;
+        float tilt = random.nextBoolean() ? -0.5F : 0.5F;
         // Where a sweep ends (FirstPersonWandRig.sweepEnd: the sign the side, the size how low). Mostly across
         // to the other side from where the arm is (rest is on the right); now and then a cut down or up on the
         // side it is on, as in the reference (left, lower left, right...).
@@ -203,12 +204,11 @@ public final class FirstPersonCast {
         // right, so casts with a pause between them do not all go the same way.
         boolean across = random.nextFloat() < (back ? 0.6F : 0.75F);
         float size;
-        if (across) {
-            size = 0.5F + random.nextFloat() * 0.5F;
-        } else if (back) {
-            size = random.nextBoolean() ? 0.5F + random.nextFloat() * 0.12F : 0.88F + random.nextFloat() * 0.12F;
+        // Two authored endings: high (0.55) or low (0.95) on that side.
+        if (across || back) {
+            size = random.nextBoolean() ? 0.55F : 0.95F;
         } else {
-            size = Math.abs(lastPlace) > 0.75F ? 0.5F + random.nextFloat() * 0.15F : 0.85F + random.nextFloat() * 0.15F;
+            size = Math.abs(lastPlace) > 0.75F ? 0.55F : 0.95F;
         }
         float place = (across ? -lastSide : lastSide) * size;
         return new Variant(mirror, scale, pitch, shiftX, shiftY, tilt, place);
@@ -217,11 +217,11 @@ public final class FirstPersonCast {
     /** A random variant for someone else's cast (third person), as {@link #nextVariant} gives your own. */
     static Variant randomVariant(java.util.Random random, Gesture gesture, SpellType spell) {
         boolean mirror = gesture == TWIST ? spell == SpellType.COLLOPORTUS : gesture.mirrorable && random.nextBoolean();
-        float scale = 0.8F + random.nextFloat() * 0.4F;
-        float pitch = (random.nextFloat() - 0.5F) * 22.0F;
-        float shiftY = (random.nextFloat() - 0.4F) * 0.22F;
-        float tilt = (random.nextFloat() - 0.5F) * 1.6F;
-        float place = (random.nextBoolean() ? 1.0F : -1.0F) * (0.5F + random.nextFloat() * 0.5F);
+        float scale = random.nextBoolean() ? 0.9F : 1.1F;
+        float pitch = random.nextBoolean() ? -11.0F : 11.0F;
+        float shiftY = random.nextBoolean() ? -0.08F : 0.08F;
+        float tilt = random.nextBoolean() ? -0.5F : 0.5F;
+        float place = (random.nextBoolean() ? 1.0F : -1.0F) * (random.nextBoolean() ? 0.55F : 0.95F);
         return new Variant(mirror, scale, pitch, 0.0F, shiftY, tilt, place);
     }
 

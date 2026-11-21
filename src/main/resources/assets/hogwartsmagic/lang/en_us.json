@@ -13,6 +13,7 @@
   "biome.hogwartsmagic.dementor_fen": "Dementor Fen",
   "biome.hogwartsmagic.horntail_peaks": "Horntail Peaks",
   "biome.hogwartsmagic.giants_highland": "Giants' Highland",
+  "biome.hogwartsmagic.cursebreakers_desert": "Cursebreaker's Desert",
   "biome.hogwartsmagic.chamber_depths": "Chamber Depths",
   "biome.hogwartsmagic.goblin_undercity": "Goblin Undercity",
   "biome.hogwartsmagic.black_lake": "The Black Lake",
@@ -1961,5 +1962,16 @@
   "hogwartsmagic.boss_intro.troll.name": "Troll",
   "hogwartsmagic.boss_intro.troll.sub": "all muscle and no mind",
   "hogwartsmagic.boss_intro.voldemort.name": "Lord Voldemort",
-  "hogwartsmagic.boss_intro.voldemort.sub": "he who must not be named"
+  "hogwartsmagic.boss_intro.voldemort.sub": "he who must not be named",
+  "block.hogwartsmagic.hieroglyph_sandstone": "Hieroglyph Sandstone",
+  "block.hogwartsmagic.cursed_glyph": "Cursed Glyph",
+  "block.hogwartsmagic.concealed_sandstone": "Concealed Sandstone",
+  "message.hogwartsmagic.tomb_curse.collapse": "A curse goes off: the ceiling comes down!",
+  "message.hogwartsmagic.tomb_curse.risen": "A curse goes off: the dead get up!",
+  "message.hogwartsmagic.tomb_curse.withering": "A curse goes off: the pharaoh's curse settles on you.",
+  "message.hogwartsmagic.tomb_curse.lifted": "You lift the curse.",
+  "advancement.hogwartsmagic.curse_breaker.title": "Curse-Breaker",
+  "advancement.hogwartsmagic.curse_breaker.description": "Show a tomb's curse with Revelio, then lift it by breaking the glyph",
+  "advancement.hogwartsmagic.cursed_tomb.title": "Valley of the Tombs",
+  "advancement.hogwartsmagic.cursed_tomb.description": "Go into a cursed tomb in the Cursebreaker's Desert"
 }

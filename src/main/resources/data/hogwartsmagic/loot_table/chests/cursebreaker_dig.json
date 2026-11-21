@@ -1,0 +1,143 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:written_book",
+          "functions": [
+            {
+              "function": "minecraft:set_written_book_pages",
+              "pages": [
+                "Gringotts Curse-Breakers\nField notes\n\nThe old tombs here were built to kill robbers, and they still work. Read this before you go in.",
+                "1. The curse is in the floor.\n\nSome of the carved tiles are cursed. They look the same as the plain ones. Step on one and it goes off: the roof falls, the dead get up, or the old curse takes your strength.",
+                "2. Revelio shows them.\n\nCast Revelio near the tiles. A cursed tile glows red for a minute. It reaches about eight paces, so cast again in each room.",
+                "3. Lift a shown curse.\n\nWhile a tile glows, break it. The curse goes out of it. Break it before it glows and the curse goes off in your face.",
+                "4. The walls lie too.\n\nThe way down to the true burial chamber is behind a wall. The same Revelio opens it. Do not linger in the gap.",
+                "5. Do not touch the gold.\n\nThe pharaohs' gold carries the Gemino curse, the same as the deepest Gringotts vaults. It copies itself and burns. Drop it, or get into water. Bring water."
+              ],
+              "mode": "replace_all"
+            },
+            {
+              "function": "minecraft:set_book_cover",
+              "title": "Field Notes",
+              "author": "A Gringotts Curse-Breaker",
+              "generation": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 3,
+        "max": 6
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:brush",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:water_bucket",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:bread",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 5
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:torch",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 4,
+                "max": 12
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:paper",
+          "weight": 5,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:galleon",
+          "weight": 6,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:gold_nugget",
+          "weight": 6,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 8
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:archer_pottery_sherd",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:spyglass",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:lead",
+          "weight": 2
+        }
+      ]
+    }
+  ]
+}

@@ -5011,6 +5011,619 @@ def audit_locket_cave(blocks):
     return problems
 
 
+# --- Cursebreaker's Desert: the cursed tomb -----------------------------------------------------------
+# Gringotts pays curse-breakers to open old tombs for their gold, and the tombs fight back. This one
+# is a pyramid over a burial chamber cut deep into the rock, laid out like the real thing: an entrance
+# up on the north face, a long descending passage, an antechamber, a false burial chamber to waste a
+# robber's time, and the true one below, behind a wall that is not there.
+#
+# The whole tomb is one lesson, taught by the field notes at the dig sites: Revelio shows a curse.
+# Cursed glyph tiles hide among plain ones and only Revelio tells them apart; the same cast opens the
+# concealed wall to the burial chamber. TombCurses keeps that reveal short (8 blocks), so the tomb is
+# cleared one room at a time.
+#
+# Template frame: x and z run 0..32 across the pyramid's base (the forecourt spills north, past z=0,
+# and is moved back in by shift_to_origin). TOMB_G is the first air level above the terrain: the
+# structure JSON's start height is -TOMB_G, so template y=TOMB_G lands one block above the ground.
+
+TOMB_G = 23
+TOMB_N = 32                      # pyramid base runs 0..TOMB_N on x and z
+TOMB_C = 16
+TOMB_FA = TOMB_G - 10            # antechamber floor block (stand at FA+1)
+TOMB_BF = TOMB_G - 21            # burial chamber floor block (stand at BF+1)
+TOMB_CASING = [('minecraft:sandstone_stairs', 7), ('minecraft:smooth_sandstone_stairs', 3)]
+TOMB_CORE = [('minecraft:sandstone', 8), ('minecraft:smooth_sandstone', 2)]
+TOMB_WALL = [('minecraft:cut_sandstone', 6), ('minecraft:sandstone', 3), ('minecraft:smooth_sandstone', 2)]
+TOMB_FLOOR = [('minecraft:smooth_sandstone', 6), ('minecraft:cut_sandstone', 2)]
+GLYPH = 'hogwartsmagic:hieroglyph_sandstone'
+POT_LOOT = 'hogwartsmagic:chests/tomb_pot'
+SAND_LOOT = 'hogwartsmagic:archaeology/cursed_tomb'
+OUTWARD = {'north': 'south', 'south': 'north', 'west': 'east', 'east': 'west'}
+
+
+def cursed(b, pos, curse):
+    """A cursed glyph tile. Same look as the plain GLYPH tiles round it until Revelio shows it."""
+    b[pos] = ('hogwartsmagic:cursed_glyph', {'curse': curse, 'revealed': 'false'},
+              {'id': 'hogwartsmagic:tomb_marker'})
+
+
+def concealed(b, pos):
+    b[pos] = ('hogwartsmagic:concealed_sandstone', {'revealed': 'false'}, {'id': 'hogwartsmagic:tomb_marker'})
+
+
+def pot(b, pos, facing='north', loot=POT_LOOT):
+    b[pos] = ('minecraft:decorated_pot', {'facing': facing, 'cracked': 'false', 'waterlogged': 'false'},
+              {'id': 'minecraft:decorated_pot', 'LootTable': loot})
+
+
+def sus_sand(b, pos, loot=SAND_LOOT):
+    b[pos] = ('minecraft:suspicious_sand', {'dusted': '0'}, {'id': 'minecraft:brushable_block', 'LootTable': loot})
+
+
+def carve(b, air, x0, y0, z0, x1, y1, z1):
+    for x in range(min(x0, x1), max(x0, x1) + 1):
+        for y in range(min(y0, y1), max(y0, y1) + 1):
+            for z in range(min(z0, z1), max(z0, z1) + 1):
+                put(b, (x, y, z), 'minecraft:air')
+                air.add((x, y, z))
+
+
+def shell(b, air, palette, salt):
+    """Close every carved space in: anything next to air that the build did not set is terrain, and
+    under the desert terrain can be a cave or an aquifer. A tomb that opens into a cave has a second
+    way in that skips every curse."""
+    for (x, y, z) in list(air):
+        for dx, dy, dz in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)):
+            n = (x + dx, y + dy, z + dz)
+            # Above the ground the pyramid's own core already closes every passage, and an unset
+            # cell there is open air outside it (the doorway is one), so only rock is shelled.
+            if n not in b and n[1] < TOMB_G:
+                put(b, n, tex(palette, n[0], n[1], n[2], salt))
+
+
+def pyramid(b):
+    G, N = TOMB_G, TOMB_N
+    # Foundation: three courses under the whole base, so where the ground dips the pyramid stands
+    # on dressed stone and not on nothing.
+    for x in range(N + 1):
+        for z in range(N + 1):
+            for y in range(G - 3, G):
+                put(b, (x, y, z), tex(TOMB_CORE, x, y, z, 2001))
+    for k in range(N // 2 + 1):
+        y = G + k
+        lo, hi = k, N - k
+        for x in range(lo, hi + 1):
+            for z in range(lo, hi + 1):
+                edge = x in (lo, hi) or z in (lo, hi)
+                if not edge or k == N // 2:
+                    put(b, (x, y, z), tex(TOMB_CORE, x, y, z, 2002))
+                    continue
+                if k == 0:
+                    # The plinth course: dressed blocks, not a slope.
+                    put(b, (x, y, z), 'minecraft:cut_sandstone')
+                    continue
+                corner = x in (lo, hi) and z in (lo, hi)
+                if corner:
+                    # A full block at each corner made the arris a row of teeth. An outer-corner
+                    # stair keeps the slope running round it. Its tall quarter points inward.
+                    facing = 'south' if z == lo else 'north'
+                    shape = {(lo, lo): 'outer_left', (hi, lo): 'outer_right',
+                             (lo, hi): 'outer_right', (hi, hi): 'outer_left'}[(x, z)]
+                    stair(b, (x, y, z), 'minecraft:sandstone_stairs', facing, shape=shape)
+                    continue
+                face = 'north' if z == lo else 'south' if z == hi else 'west' if x == lo else 'east'
+                # Weathered casing: some stones are gone and the step behind shows.
+                if noise(x, y, z, 2003) < 0.07 and k > 1:
+                    put(b, (x, y, z), tex(TOMB_CORE, x, y, z, 2004))
+                    continue
+                stair(b, (x, y, z), tex(TOMB_CASING, x, y, z, 2005), OUTWARD[face])
+    # The gilded cap, the last thing still catching the sun.
+    put(b, (TOMB_C, G + N // 2 + 1, TOMB_C), 'minecraft:gold_block')
+
+
+def tomb_entrance(b, air):
+    G, C = TOMB_G, TOMB_C
+    # Doorway up on the north face, reached by climbing the casing steps.
+    carve(b, air, C - 1, G + 3, 3, C + 1, G + 5, 5)
+    for z in (3, 4, 5):
+        for x in (C - 1, C, C + 1):
+            put(b, (x, G + 2, z), GLYPH if z == 4 else 'minecraft:smooth_sandstone')
+    # Jambs, lintel and the chevron of great blocks over it.
+    for y in range(G + 3, G + 6):
+        for z in (3, 4, 5):
+            for x in (C - 2, C + 2):
+                put(b, (x, y, z), 'minecraft:chiseled_sandstone' if (y == G + 5 and z == 3) else 'minecraft:cut_sandstone')
+    for z in (3, 4, 5):
+        fill(b, C - 2, G + 6, z, C + 2, G + 6, z, 'minecraft:cut_sandstone')
+    stair(b, (C - 1, G + 7, 3), 'minecraft:smooth_sandstone_stairs', 'east')
+    put(b, (C, G + 7, 3), 'minecraft:chiseled_sandstone')
+    stair(b, (C + 1, G + 7, 3), 'minecraft:smooth_sandstone_stairs', 'west')
+    for z in (4, 5):
+        fill(b, C - 1, G + 7, z, C + 1, G + 7, z, 'minecraft:cut_sandstone')
+    # Clear the casing stairs in front of the jambs so the steps up read as one flight.
+    for k in range(1, 3):
+        for x in (C - 1, C, C + 1):
+            stair(b, (x, G + k, k), 'minecraft:sandstone_stairs', 'south')
+
+
+def descending_passage(b, air):
+    """Down from the doorway to the antechamber: two flights with a landing between.
+
+    Stair rule used throughout: a flight going down toward +z has its high side to the north, and
+    each stair sits one block lower than the one before. A stair at height y is walked at y + 1.
+    """
+    G, C, FA = TOMB_G, TOMB_C, TOMB_FA
+    xs = (C - 1, C, C + 1)
+    # First flight: z=6..10, stairs from G+2 down to G-2.
+    for z in range(6, 11):
+        s = G + 2 - (z - 6)
+        for x in xs:
+            stair(b, (x, s, z), 'minecraft:sandstone_stairs', 'north')
+        carve(b, air, C - 1, s + 1, z, C + 1, s + 4, z)
+    # Landing at G-3 (walked at G-2): the first curse, among plain glyph tiles.
+    for z in (11, 12):
+        for x in xs:
+            put(b, (x, G - 3, z), GLYPH)
+        carve(b, air, C - 1, G - 2, z, C + 1, G + 1, z)
+    cursed(b, (C, G - 3, 12), 'collapse')
+    # Second flight: z=13..20, stairs from G-3 down to G-10 = FA.
+    for z in range(13, 21):
+        s = G - 3 - (z - 13)
+        for x in xs:
+            stair(b, (x, s, z), 'minecraft:sandstone_stairs', 'north')
+        carve(b, air, C - 1, s + 1, z, C + 1, s + 4, z)
+    # Into the antechamber through its north wall (z=21).
+    for x in xs:
+        put(b, (x, FA, 21), 'minecraft:smooth_sandstone')
+    carve(b, air, C - 1, FA + 1, 21, C + 1, FA + 3, 21)
+    # Walls: dressed sandstone with a glyph band at eye height, the whole way down.
+    for z in range(3, 22):
+        floor = passage_floor(z)
+        for y in range(floor, floor + 6):
+            for x in (C - 2, C + 2):
+                if (x, y, z) not in air:
+                    put(b, (x, y, z), GLYPH if y == floor + 2 else tex(TOMB_WALL, x, y, z, 2010))
+
+
+def passage_floor(z):
+    """The y of the block walked on, at each z of the descending passage."""
+    G = TOMB_G
+    if z <= 5:
+        return G + 2
+    if z <= 10:
+        return G + 2 - (z - 6)
+    if z <= 12:
+        return G - 3
+    if z <= 20:
+        return G - 3 - (z - 13)
+    return TOMB_FA
+
+
+def antechamber(b, air):
+    """Pots, sand blown in through the cracks, and three cursed tiles in the floor."""
+    FA, C = TOMB_FA, TOMB_C
+    x0, x1, z0, z1 = 11, 21, 22, 30
+    carve(b, air, x0, FA + 1, z0, x1, FA + 5, z1)
+    for x in range(x0, x1 + 1):
+        for z in range(z0, z1 + 1):
+            border = x in (x0, x1) or z in (z0, z1)
+            put(b, (x, FA, z), 'minecraft:cut_sandstone' if border else
+                (GLYPH if (x + z) % 2 == 0 else tex(TOMB_FLOOR, x, FA, z, 2020)))
+    # The floor curses sit on glyph tiles ((x + z) even), so they match the tiles round them.
+    cursed(b, (14, FA, 24), 'risen')
+    cursed(b, (18, FA, 28), 'collapse')
+    cursed(b, (20, FA, 26), 'withering')     # in front of the hidden wall
+    # Walls with pilasters and a glyph frieze.
+    for y in range(FA + 1, FA + 6):
+        for x in range(x0 - 1, x1 + 2):
+            for z in (z0 - 1, z1 + 1):
+                if (x, y, z) not in air:
+                    put(b, (x, y, z), GLYPH if y in (FA + 3, FA + 4) else tex(TOMB_WALL, x, y, z, 2021))
+        for z in range(z0 - 1, z1 + 2):
+            for x in (x0 - 1, x1 + 1):
+                if (x, y, z) not in air:
+                    put(b, (x, y, z), GLYPH if y in (FA + 3, FA + 4) else tex(TOMB_WALL, x, y, z, 2022))
+    for x in range(x0, x1 + 1):
+        for z in range(z0, z1 + 1):
+            put(b, (x, FA + 6, z), 'minecraft:chiseled_sandstone' if (x - C) % 4 == 0 and z == 26
+                else 'minecraft:smooth_sandstone')
+    # Pots against the walls, with a gap where each doorway is.
+    for pos, facing in (((11, FA + 1, 22), 'south'), ((12, FA + 1, 22), 'south'), ((20, FA + 1, 22), 'south'),
+                        ((11, FA + 1, 30), 'north'), ((13, FA + 1, 30), 'north'), ((21, FA + 1, 30), 'north'),
+                        ((21, FA + 1, 23), 'west')):
+        pot(b, pos, facing)
+        air.discard(pos)
+    # Sand that blew in over the centuries, banked in the corners. Some of it hides things.
+    for pos in ((11, FA + 1, 29), (12, FA + 1, 29), (11, FA + 1, 28), (20, FA + 1, 29), (21, FA + 1, 29)):
+        sus_sand(b, pos) if noise(*pos, salt=2023) < 0.6 else put(b, pos, 'minecraft:sand')
+        air.discard(pos)
+    put(b, (11, FA + 2, 29), 'minecraft:sand')
+    air.discard((11, FA + 2, 29))
+    for pos in ((x0, FA + 5, z0), (x1, FA + 5, z0), (x0, FA + 5, z1), (x1, FA + 5, z1), (x1, FA + 4, z1)):
+        put(b, pos, 'minecraft:cobweb')
+        air.discard(pos)
+
+
+def false_chamber(b, air):
+    """West of the antechamber: a burial chamber with nothing in it. Robbers stop here."""
+    FA = TOMB_FA
+    carve(b, air, 9, FA + 1, 25, 10, FA + 3, 26)            # doorway through both walls
+    for x in (9, 10):
+        for z in (25, 26):
+            put(b, (x, FA, z), 'minecraft:smooth_sandstone')
+    carve(b, air, 3, FA + 1, 23, 8, FA + 4, 29)
+    for x in range(3, 9):
+        for z in range(23, 30):
+            put(b, (x, FA, z), GLYPH if (x + z) % 2 == 0 else tex(TOMB_FLOOR, x, FA, z, 2030))
+            put(b, (x, FA + 5, z), 'minecraft:smooth_sandstone')
+    cursed(b, (8, FA, 26), 'withering')
+    # The robbed sarcophagus: lid gone, hollow, one side broken out, a bone left in it.
+    for x in (4, 5, 6):
+        for z in (25, 26, 27, 28):
+            hollow = x == 5 and z in (26, 27)
+            broken = (x, z) == (6, 27)
+            if not hollow and not broken:
+                put(b, (x, FA + 1, z), 'minecraft:cut_sandstone')
+                air.discard((x, FA + 1, z))
+    put(b, (5, FA + 1, 26), 'minecraft:bone_block', {'axis': 'z'})
+    air.discard((5, FA + 1, 26))
+    put(b, (7, FA + 1, 29), 'minecraft:bone_block', {'axis': 'x'})
+    air.discard((7, FA + 1, 29))
+    pot(b, (3, FA + 1, 23), 'south')
+    air.discard((3, FA + 1, 23))
+    put(b, (3, FA + 4, 29), 'minecraft:cobweb')
+    air.discard((3, FA + 4, 29))
+
+
+def hidden_way_down(b, air):
+    """The concealed wall in the antechamber's east side, and the stair down to the burial chamber.
+
+    The wall is three by three of Concealed Sandstone. Revelio cast in the antechamber opens it for a
+    minute; it closes again when nobody stands in it.
+    """
+    FA, BF = TOMB_FA, TOMB_BF
+    for z in (25, 26, 27):
+        for y in (FA + 1, FA + 2, FA + 3):
+            concealed(b, (22, y, z))
+    # Landing behind the wall.
+    carve(b, air, 23, FA + 1, 25, 25, FA + 3, 27)
+    for x in (23, 24, 25):
+        for z in (25, 26, 27):
+            put(b, (x, FA, z), 'minecraft:smooth_sandstone')
+    # The stair runs north along x=24..25, from FA at z=24 down to BF at z=13.
+    for z in range(24, 12, -1):
+        s = FA - (24 - z)
+        for x in (24, 25):
+            stair(b, (x, s, z), 'minecraft:sandstone_stairs', 'south')
+        carve(b, air, 24, s + 1, z, 25, s + 4, z)
+    # Bottom landing, and the door west into the burial chamber's east wall.
+    for z in (11, 12):
+        for x in (24, 25):
+            put(b, (x, BF, z), 'minecraft:smooth_sandstone')
+        carve(b, air, 24, BF + 1, z, 25, BF + 4, z)
+    carve(b, air, 23, BF + 1, 11, 23, BF + 3, 12)
+    for z in (11, 12):
+        put(b, (23, BF, z), 'minecraft:smooth_sandstone')
+
+
+def burial_chamber(b, air):
+    """The true tomb: columns, the sarcophagus on its dais, the treasure, and its keepers."""
+    BF, C = TOMB_BF, TOMB_C
+    x0, x1, z0, z1 = 8, 22, 8, 24
+    carve(b, air, x0, BF + 1, z0, x1, BF + 7, z1)
+    for x in range(x0, x1 + 1):
+        for z in range(z0, z1 + 1):
+            put(b, (x, BF, z), tex(TOMB_FLOOR, x, BF, z, 2040))
+            put(b, (x, BF + 8, z), 'minecraft:chiseled_sandstone' if (x - C) % 3 == 0 and (z - 16) % 4 == 0
+                else 'minecraft:smooth_sandstone')
+    # The processional way from the east door to the dais, paved in glyph tiles, with curses in it.
+    for x in range(14, 23):
+        for z in (11, 12):
+            put(b, (x, BF, z), GLYPH)
+    for x in (14, 15, 16):
+        for z in (13, 14, 15):
+            put(b, (x, BF, z), GLYPH)
+    cursed(b, (19, BF, 11), 'risen')
+    cursed(b, (15, BF, 14), 'collapse')
+    # Walls: cut sandstone below, a deep glyph frieze, smooth above.
+    for y in range(BF + 1, BF + 8):
+        for x in range(x0 - 1, x1 + 2):
+            for z in (z0 - 1, z1 + 1):
+                if (x, y, z) not in air:
+                    put(b, (x, y, z), GLYPH if BF + 3 <= y <= BF + 5 else tex(TOMB_WALL, x, y, z, 2041))
+        for z in range(z0 - 1, z1 + 2):
+            for x in (x0 - 1, x1 + 1):
+                if (x, y, z) not in air:
+                    put(b, (x, y, z), GLYPH if BF + 3 <= y <= BF + 5 else tex(TOMB_WALL, x, y, z, 2042))
+    # Columns, two rows of three, chiseled at foot and capital.
+    for x in (10, 20):
+        for z in (10, 16, 22):
+            for y in range(BF + 1, BF + 8):
+                put(b, (x, y, z), 'minecraft:chiseled_sandstone' if y in (BF + 1, BF + 7) else 'minecraft:cut_sandstone')
+                air.discard((x, y, z))
+    # The dais and the sarcophagus.
+    for x in range(13, 18):
+        for z in range(16, 22):
+            put(b, (x, BF + 1, z), 'minecraft:smooth_sandstone' if 14 <= x <= 16 and 17 <= z <= 20
+                else 'minecraft:cut_sandstone')
+            air.discard((x, BF + 1, z))
+    for x in (14, 15, 16):
+        for z in range(17, 21):
+            put(b, (x, BF + 2, z), GLYPH if x != 15 else 'minecraft:cut_sandstone')
+            air.discard((x, BF + 2, z))
+    # The lid: the head is the gold mask, the rest glyph tiles, two of them cursed.
+    for x in (14, 15, 16):
+        for z in range(17, 21):
+            if z == 17 and x == 15:
+                put(b, (x, BF + 3, z), 'minecraft:gold_block')
+            elif z == 17:
+                put(b, (x, BF + 3, z), 'minecraft:smooth_sandstone')
+            else:
+                put(b, (x, BF + 3, z), GLYPH)
+            air.discard((x, BF + 3, z))
+    cursed(b, (15, BF + 3, 18), 'withering')
+    cursed(b, (15, BF + 3, 20), 'risen')
+    # Braziers at the dais's front corners: the only light in the tomb.
+    for x in (13, 17):
+        put(b, (x, BF + 2, 21), 'minecraft:soul_campfire',
+            {'facing': 'south', 'lit': 'true', 'signal_fire': 'false', 'waterlogged': 'false'})
+        air.discard((x, BF + 2, 21))
+    # The treasure: two chests beside the dais, and gold that copies itself if you step in it.
+    chest(b, (12, BF + 1, 18), 'west', 'hogwartsmagic:chests/cursed_tomb')
+    chest(b, (18, BF + 1, 19), 'east', 'hogwartsmagic:chests/cursed_tomb')
+    for pos in ((12, BF + 1, 19), (12, BF + 1, 17), (18, BF + 1, 18), (18, BF + 1, 20),
+                (13, BF + 1, 22), (14, BF + 1, 23), (15, BF + 1, 23), (16, BF + 1, 23), (17, BF + 1, 22),
+                (12, BF + 1, 21), (18, BF + 1, 21)):
+        put(b, pos, 'hogwartsmagic:gemino_pile', {'generation': '0'})
+    for pos in ((12, BF + 1, 18), (18, BF + 1, 19)):
+        air.discard(pos)
+    # Pots along the back wall.
+    for x in (9, 12, 18, 21):
+        pot(b, (x, BF + 1, 24), 'north')
+        air.discard((x, BF + 1, 24))
+    for pos in ((x0, BF + 7, z0), (x1, BF + 7, z1), (x0, BF + 7, z1), (x0, BF + 6, z1)):
+        put(b, pos, 'minecraft:cobweb')
+        air.discard(pos)
+
+
+def forecourt(b):
+    """North of the pyramid: a paved way between two obelisks, one fallen, half under the sand."""
+    G, C = TOMB_G, TOMB_C
+    for z in range(-9, 0):
+        for x in range(C - 3, C + 4):
+            drift = vnoise(x, z, 3, 2050) < 0.35
+            put(b, (x, G - 1, z), 'minecraft:sand' if drift else tex(TOMB_FLOOR, x, G - 1, z, 2051))
+            put(b, (x, G - 2, z), 'minecraft:sandstone')
+    for ox, fallen in ((C - 5, False), (C + 5, True)):
+        oz = -6
+        for dx in (-1, 0, 1):
+            for dz in (-1, 0, 1):
+                put(b, (ox + dx, G - 1, oz + dz), 'minecraft:cut_sandstone')
+                put(b, (ox + dx, G - 2, oz + dz), 'minecraft:sandstone')
+                put(b, (ox + dx, G, oz + dz), 'minecraft:smooth_sandstone_slab', {'type': 'bottom', 'waterlogged': 'false'})
+        put(b, (ox, G, oz), 'minecraft:chiseled_sandstone')
+        top = G + 3 if fallen else G + 9
+        for y in range(G + 1, top + 1):
+            put(b, (ox, y, oz), 'minecraft:chiseled_sandstone' if (y - G) % 4 == 0 else 'minecraft:cut_sandstone')
+        if fallen:
+            # The broken top lies where it fell, toward the pyramid's east corner.
+            for i in range(5):
+                put(b, (ox + 2 + i, G, oz + 1 + i // 3), 'minecraft:cut_sandstone' if i != 2 else 'minecraft:chiseled_sandstone')
+            put(b, (ox + 7, G, oz + 2), 'minecraft:sandstone_wall',
+                {'east': 'none', 'north': 'none', 'south': 'none', 'up': 'true', 'waterlogged': 'false', 'west': 'low'})
+        else:
+            put(b, (ox, top + 1, oz), 'minecraft:sandstone_wall',
+                {'east': 'none', 'north': 'none', 'south': 'none', 'up': 'true', 'waterlogged': 'false', 'west': 'none'})
+
+
+def sand_drifts(b):
+    """The south and west faces take the wind: sand banked up against the first few courses."""
+    G, N = TOMB_G, TOMB_N
+    for x in range(-4, N + 5):
+        for z in range(-4, N + 5):
+            inside = 0 <= x <= N and 0 <= z <= N
+            if inside or z < 0:
+                continue
+            d = max(-x if x < 0 else 0, x - N if x > N else 0, z - N if z > N else 0)
+            wind = 1.0 if (z > N or x < 0) else 0.35
+            h = int(round((3.2 - d) * wind * (0.6 + 0.6 * vnoise(x, z, 4, 2060))))
+            if h <= 0:
+                continue
+            put(b, (x, G - 2, z), 'minecraft:sandstone')
+            for y in range(G - 1, G - 1 + h):
+                put(b, (x, y, z), 'minecraft:sand')
+
+
+def cursed_tomb():
+    """Cursebreaker's Desert: a pyramid over a deep burial chamber, full of curses Revelio can show."""
+    b, air = {}, set()
+    pyramid(b)
+    forecourt(b)
+    sand_drifts(b)
+    tomb_entrance(b, air)
+    descending_passage(b, air)
+    antechamber(b, air)
+    false_chamber(b, air)
+    hidden_way_down(b, air)
+    burial_chamber(b, air)
+    shell(b, air, TOMB_WALL, 2070)
+    FA, BF = TOMB_FA, TOMB_BF
+    keep = {'PersistenceRequired': ('byte', 1)}
+    return shift_to_origin(b, [
+        entity(10.5, float(BF + 1), 13.5, 'hogwartsmagic:inferius', dict(keep)),
+        entity(20.5, float(BF + 1), 13.5, 'hogwartsmagic:inferius', dict(keep)),
+        entity(15.5, float(BF + 1), 9.5, 'hogwartsmagic:inferius', dict(keep)),
+        entity(7.5, float(FA + 1), 24.5, 'minecraft:husk', dict(keep)),
+        entity(4.5, float(FA + 1), 29.5, 'minecraft:husk', dict(keep)),
+    ])
+
+
+def tomb_walk(blocks, start, open_concealed):
+    """Every standing cell a player can reach from `start`, walking, climbing one block, dropping up
+    to three. Concealed sandstone counts as open only when `open_concealed` is set (it has been
+    revealed). Cells the template does not set are open air above the ground and rock below it."""
+    ground = TOMB_G
+
+    def solid(p):
+        v = blocks.get(p)
+        if v is None:
+            return p[1] < ground
+        name = v[0]
+        if name == 'hogwartsmagic:concealed_sandstone':
+            return not open_concealed
+        return name not in ('minecraft:air', 'minecraft:cobweb', 'hogwartsmagic:gemino_pile',
+                            'minecraft:soul_campfire')
+
+    def stands(p):
+        x, y, z = p
+        return not solid(p) and not solid((x, y + 1, z)) and solid((x, y - 1, z))
+
+    # Unset cells below the ground count as rock, so outside the template the walk would cross an
+    # endless plain. Keep it inside the template's box.
+    lo = [min(p[i] for p in blocks) for i in range(3)]
+    hi = [max(p[i] for p in blocks) for i in range(3)]
+    seen, queue = {start}, [start]
+    while queue:
+        x, y, z = queue.pop()
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            for dy in (1, 0, -1, -2, -3):
+                n = (x + dx, y + dy, z + dz)
+                if not all(lo[i] <= n[i] <= hi[i] for i in range(3)):
+                    continue
+                if n in seen or not stands(n):
+                    continue
+                if dy == 1 and solid((x, y + 2, z)):
+                    continue        # no headroom to step up
+                seen.add(n)
+                queue.append(n)
+                break
+    return seen
+
+
+def audit_cursed_tomb(blocks):
+    """The tomb claims one way in to the burial chamber, behind the concealed wall. Check both halves:
+    with the wall revealed a player can walk from the forecourt to the sarcophagus, and with it shut
+    they cannot. Built blind, either half is easy to get wrong by one block."""
+    problems = []
+    # shift_to_origin moved everything; the capstone is the fixed point to measure from.
+    cap = max((p for p in blocks if blocks[p][0] == 'minecraft:gold_block'), key=lambda p: p[1])
+    ox, oz = cap[0] - TOMB_C, cap[2] - TOMB_C
+
+    def at(x, y, z):
+        return (x + ox, y, z + oz)
+
+    start = at(TOMB_C, TOMB_G, -2)
+    antechamber = {at(x, TOMB_FA + 1, z) for x in range(12, 21) for z in range(23, 30)}
+    burial = {at(x, TOMB_BF + 1, z) for x in range(9, 22) for z in range(9, 16)}
+    open_walk = tomb_walk(blocks, start, True)
+    if not open_walk & antechamber:
+        problems.append('the antechamber cannot be reached from the forecourt')
+    if not open_walk & burial:
+        problems.append('with the wall revealed, the burial chamber cannot be reached')
+    if tomb_walk(blocks, start, False) & burial:
+        problems.append('the burial chamber can be reached with the concealed wall shut')
+    glyphs = [p for p, v in blocks.items() if v[0] == 'hogwartsmagic:cursed_glyph']
+    if len(glyphs) < 6:
+        problems.append('only %d cursed glyphs' % len(glyphs))
+    # A cursed tile must look like the tiles round it, or it is found by eye and Revelio is pointless.
+    for (x, y, z) in glyphs:
+        if not any(blocks.get((x + dx, y, z + dz), (None,))[0] == GLYPH
+                   for dx, dz in ((1, 1), (1, -1), (-1, 1), (-1, -1), (2, 0), (0, 2), (-2, 0), (0, -2), (1, 0), (0, 1))):
+            problems.append('cursed glyph at %s has no plain glyph tiles round it to hide among' % ((x, y, z),))
+    return problems
+
+
+# --- Cursebreaker's Desert: the dig site ----------------------------------------------------------------
+# A Gringotts excavation: a pit dug down to the top of a buried tomb door, two awnings, a goblin to
+# watch the gold. Its chest holds the field notes that teach the tomb: Revelio shows a curse, and a
+# shown curse is lifted by breaking its tile. The tomb itself never says so.
+
+DIG_W, DIG_D = 25, 21
+DIG_G = 4                      # first air level; the structure's start height is -DIG_G
+DIG_SAND = [('minecraft:sand', 9), ('minecraft:sandstone', 1)]
+CANVAS = [('minecraft:white_wool', 1)]   # grey patches read as a chessboard at this size
+
+
+def dig_footprint(x, z):
+    return math.hypot((x - 12) / 12.0, (z - 10) / 10.0) <= 1.0 + 0.1 * vnoise(x, z, 3, 2101)
+
+
+def awning(b, x0, z0, x1, z1, salt):
+    """Four posts and a canvas roof with a ridge: shade, not a house."""
+    G = DIG_G
+    for x, z in ((x0, z0), (x1, z0), (x0, z1), (x1, z1)):
+        fill(b, x, G, z, x, G + 2, z, 'minecraft:birch_fence')
+    mid = (z0 + z1) // 2
+    for x in range(x0, x1 + 1):
+        for z in range(z0, z1 + 1):
+            put(b, (x, G + (4 if z == mid else 3), z), tex(CANVAS, x, 0, z, salt))
+    for x in range(x0, x1 + 1):
+        put(b, (x, G + 3, mid), 'minecraft:birch_planks')
+
+
+def cursebreaker_dig():
+    """Cursebreaker's Desert: a Gringotts dig, down to the lintel of a buried tomb door."""
+    b = {}
+    G = DIG_G
+    for x in range(DIG_W):
+        for z in range(DIG_D):
+            if not dig_footprint(x, z):
+                continue
+            for y in range(0, G - 1):
+                put(b, (x, y, z), 'minecraft:sandstone')
+            put(b, (x, G - 1, z), tex(DIG_SAND, x, G - 1, z, 2102))
+            for y in range(G, G + 5):
+                put(b, (x, y, z), 'minecraft:air')
+    # The pit, three deep, its floor of packed sand with finds still in it.
+    px0, px1, pz0, pz1 = 8, 16, 7, 12
+    for x in range(px0, px1 + 1):
+        for z in range(pz0, pz1 + 1):
+            for y in range(G - 3, G):
+                put(b, (x, y, z), 'minecraft:air')
+            put(b, (x, G - 4, z), 'minecraft:sand')
+    for pos in ((9, G - 4, 9), (11, G - 4, 11), (13, G - 4, 8), (15, G - 4, 10), (12, G - 4, 10)):
+        sus_sand(b, pos)
+    # What they dug down to: the top of a tomb doorway, set in the pit's north side.
+    for x in range(9, 16):
+        put(b, (x, G - 1, pz0 - 1), 'minecraft:cut_sandstone')
+        for y in (G - 3, G - 2):
+            put(b, (x, y, pz0 - 1), GLYPH if 10 <= x <= 14 else 'minecraft:cut_sandstone')
+    put(b, (12, G - 1, pz0 - 1), 'minecraft:chiseled_sandstone')
+    # Ladders down the south side, against the pit wall.
+    for y in range(G - 3, G):
+        put(b, (15, y, pz1), 'minecraft:ladder', {'facing': 'north', 'waterlogged': 'false'})
+    put(b, (15, G - 4, pz1), 'minecraft:sand')
+    for y in range(G - 3, G):
+        put(b, (15, y, pz1 + 1), 'minecraft:sandstone')
+    # Spoil heap: the sand they took out.
+    for x, z, h in ((19, 5, 2), (20, 6, 2), (19, 6, 3), (18, 5, 1), (21, 7, 1), (20, 5, 1)):
+        for y in range(G, G + h):
+            put(b, (x, y, z), 'minecraft:sand')
+    # The work tent: the finds table, the chest with the notes, lamplight.
+    awning(b, 3, 13, 7, 17, 2103)
+    put(b, (5, G, 15), 'minecraft:cartography_table')
+    chest(b, (4, G, 14), 'east', 'hogwartsmagic:chests/cursebreaker_dig')
+    put(b, (5, G + 1, 15), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+    put(b, (6, G, 16), 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    pot(b, (4, G, 17), 'north')
+    pot(b, (6, G, 17), 'north')
+    # The sleeping tent.
+    awning(b, 17, 13, 21, 17, 2104)
+    for x in (18, 20):
+        for z in (14, 15, 16):
+            put(b, (x, G, z), 'minecraft:white_carpet' if x == 18 else 'minecraft:light_gray_carpet')
+    # A fire, kerbed in sandstone.
+    put(b, (12, G, 16), 'minecraft:campfire', {'facing': 'north', 'lit': 'true', 'signal_fire': 'false',
+                                                'waterlogged': 'false'})
+    for dx, dz, facing in ((0, -1, 'north'), (0, 1, 'south'), (-1, 0, 'west'), (1, 0, 'east')):
+        stair(b, (12 + dx, G, 16 + dz), 'minecraft:sandstone_stairs', facing)
+    # A lamp post by the pit, so the dig is found at night.
+    fill(b, 7, G, 12, 7, G + 2, 12, 'minecraft:birch_fence')
+    put(b, (7, G + 3, 12), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+    keep = {'PersistenceRequired': ('byte', 1)}
+    return b, [entity(10.5, float(G), 14.5, 'hogwartsmagic:goblin', dict(keep))]
+
+
 BUILDS = {
     'fen_gibbet': fen_gibbet,
     'fen_prison': fen_prison,
@@ -5030,6 +5643,8 @@ BUILDS = {
     'death_eater_camp': death_eater_camp,
     'hogwarts_ruin_camp': hogwarts_ruin_camp,
     'locket_cave': locket_cave,
+    'cursed_tomb': cursed_tomb,
+    'cursebreaker_dig': cursebreaker_dig,
 }
 
 # Builds whose empty space is water rather than air. Anything waterloggable inside one has to say so,
@@ -5339,6 +5954,8 @@ if __name__ == '__main__':
             problems += audit_submerged(blocks)
         if name == 'locket_cave':
             problems += audit_locket_cave(blocks)
+        if name == 'cursed_tomb':
+            problems += audit_cursed_tomb(blocks)
         path = os.path.join(OUT, name + '.nbt')
         write_nbt(path, build_template(blocks, entities))
         kinds = len({v[0] for v in blocks.values()})

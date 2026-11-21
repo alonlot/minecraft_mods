@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/cursed_tomb",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:cursed_glyph",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.curse_breaker.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.curse_breaker.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "lifted_curse": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

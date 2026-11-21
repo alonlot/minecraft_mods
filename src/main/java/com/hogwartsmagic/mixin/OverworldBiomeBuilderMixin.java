@@ -3,6 +3,7 @@ package com.hogwartsmagic.mixin;
 import com.hogwartsmagic.worldgen.BlackLakeClimateZones;
 import com.hogwartsmagic.worldgen.BlackLakeShallowsClimateZones;
 import com.hogwartsmagic.worldgen.ChamberDepthsClimateZones;
+import com.hogwartsmagic.worldgen.CursebreakersDesertClimateZones;
 import com.hogwartsmagic.worldgen.DementorFenClimateZones;
 import com.hogwartsmagic.worldgen.ForbiddenForestClimateZones;
 import com.hogwartsmagic.worldgen.GiantsHighlandClimateZones;
@@ -18,6 +19,7 @@ import net.minecraft.world.level.biome.OverworldBiomeBuilder;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.function.Consumer;
@@ -42,10 +44,36 @@ public abstract class OverworldBiomeBuilderMixin {
         add(consumer, HorntailPeaksClimateZones.POINTS, ModBiomes.HORNTAIL_PEAKS);
         // After the forest and the peaks: where the boxes touch, they keep the ground they had.
         add(consumer, GiantsHighlandClimateZones.POINTS, ModBiomes.GIANTS_HIGHLAND);
+        // Takes part of the vanilla desert's hot band, below the peaks and off the badlands.
+        add(consumer, CursebreakersDesertClimateZones.POINTS, ModBiomes.CURSEBREAKERS_DESERT);
         add(consumer, BlackLakeClimateZones.POINTS, ModBiomes.BLACK_LAKE);
         add(consumer, BlackLakeShallowsClimateZones.POINTS, ModBiomes.BLACK_LAKE_SHALLOWS);
         add(consumer, ChamberDepthsClimateZones.POINTS, ModBiomes.CHAMBER_DEPTHS);
         add(consumer, GoblinUndercityClimateZones.POINTS, ModBiomes.GOBLIN_UNDERCITY);
+    }
+
+    /**
+     * Vanilla's own entries reach the consumer through this wrapper, which cuts the Cursebreaker's
+     * Desert boxes out of any vanilla box that overlaps them (see {@link
+     * com.hogwartsmagic.worldgen.ClimateCarve} for why a tie is not enough). The mod's own entries
+     * pass through unchanged, whichever order the two HEAD injections run in.
+     */
+    @ModifyVariable(
+            method = "addBiomes(Ljava/util/function/Consumer;)V",
+            at = @At("HEAD"),
+            argsOnly = true)
+    private Consumer<Pair<Climate.ParameterPoint, ResourceKey<Biome>>> hogwartsmagic$carveDesert(
+            Consumer<Pair<Climate.ParameterPoint, ResourceKey<Biome>>> consumer) {
+        return pair -> {
+            if ("hogwartsmagic".equals(pair.getSecond().location().getNamespace())) {
+                consumer.accept(pair);
+                return;
+            }
+            for (Climate.ParameterPoint piece : com.hogwartsmagic.worldgen.ClimateCarve.carve(
+                    pair.getFirst(), CursebreakersDesertClimateZones.POINTS)) {
+                consumer.accept(Pair.of(piece, pair.getSecond()));
+            }
+        };
     }
 
     private static void add(

@@ -1,0 +1,18 @@
+{
+  "structures": [
+    {
+      "structure": "hogwartsmagic:cursebreaker_dig",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 18,
+    "separation": 7,
+    "salt": 741220032,
+    "exclusion_zone": {
+      "other_set": "hogwartsmagic:cursed_tomb",
+      "chunk_count": 2
+    }
+  }
+}

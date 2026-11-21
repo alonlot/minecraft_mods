@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "hogwartsmagic:block/cursed_glyph_revealed",
+    "side": "hogwartsmagic:block/cursed_glyph_revealed"
+  }
+}

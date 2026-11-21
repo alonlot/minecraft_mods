@@ -877,6 +877,12 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Ingredients need a full cauldron (3 doses of water).
 - Keep your other hand empty when you sneak-stir.
 
+### Hieroglyph Sandstone, Cursed Glyph and Concealed Sandstone
+
+- Hieroglyph Sandstone: carved sandstone with an ankh and the Eye of Horus. Decorative.
+- Cursed Glyph: looks like Hieroglyph Sandstone until Revelio shows it. See Cursebreaker's Desert. It drops as Hieroglyph Sandstone.
+- Concealed Sandstone: looks like sandstone, and opens for a minute when Revelio is cast within 8 blocks. It closes again when nobody stands in it.
+
 ### Sneakoscope
 
 - A small glass spinning top on a brass plate. It spins, glows and whistles when a Death Eater, Lord Voldemort or a Dementor is within 16 blocks, or the Dark Mark within 48 (both ranges are in the config).
@@ -1485,6 +1491,30 @@ Each tier keeps the costs of the tiers below it, except where a harder cost repl
 ### Dittany Patches
 
 - Small patches of Dittany, two to four plants, on the ground of the Forbidden Forest and the Horntail Peaks.
+
+### Cursebreaker's Desert
+
+A hot, dry desert of sand and bare sandstone, where Gringotts sends its curse-breakers to open old tombs for their gold.
+
+- Custom biome, about 1% of the overworld (measured by a biome census game test). It takes the dry part of the vanilla desert's climate and leaves the rest, so vanilla deserts, desert villages and desert pyramids still generate next to it. Rivers still cross it, and badlands are not touched.
+- Sand over sandstone, with bare sandstone on steep faces and in wide flats between the drifts. A warm, light heat haze. No rain.
+- Husks, skeletons, spiders and creepers at night, plus the odd Inferius. Rabbits. Dead bushes, cactus and sugar cane, and buried fossils.
+
+**Cursed tombs.** A pyramid with a gilded cap, two obelisks (one fallen) in front, and a deep tomb under it, laid out like the real thing:
+
+- An entrance up on the north face: climb the casing steps. Then a long descending passage to an antechamber with pots and sand that blew in over the centuries (brush it).
+- A false burial chamber to the west, robbed and empty.
+- The true burial chamber is deeper, behind a wall of Concealed Sandstone in the antechamber's east side. Revelio cast close to it opens it for a minute.
+- In the burial chamber: the sarcophagus with its gold mask, two treasure chests, and gold on the floor that carries the Gemino curse (as in the deepest Gringotts vaults). Three Inferi keep it. Soul fire braziers are the only light in the tomb.
+
+**Curses.** Cursed Glyph tiles hide among the plain Hieroglyph Sandstone in the floors and on the sarcophagus lid. They look exactly the same.
+
+- Step on one, or mine it, and the curse goes off once: **Collapse** (two layers of sand fall round you from the ceiling), **Risen** (two husks and an Inferius climb out of the floor, already hunting you) or **Withering** (Wither, Mining Fatigue and Hunger).
+- Revelio cast within 8 blocks shows every cursed tile in reach: it glows red and gives light for a minute. A shown tile is safe to walk on, and mining it lifts the curse for experience and the Curse-Breaker advancement.
+- The reach is short on purpose. One cast shows one room, so the tomb is cleared as you go.
+- Creative and spectator players never set a curse off.
+
+**Curse-breaker dig sites.** A Gringotts excavation: a pit dug down to the top of a buried doorway, with suspicious sand to brush in its floor, a work tent, a sleeping tent, a fire and a goblin watching the gold. The chest always holds the **Field Notes**, a six-page book that explains the tombs. It is the only place in the game that does.
 
 ### Mini Hogwarts
 

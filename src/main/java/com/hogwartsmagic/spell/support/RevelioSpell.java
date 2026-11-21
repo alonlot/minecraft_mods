@@ -36,6 +36,7 @@ public final class RevelioSpell {
 
     public static int revealHidden(ServerLevel level, Vec3 center, @Nullable Entity caster) {
         LocketCaves.reveal(level, center, LocketCaves.REVEAL_RADIUS);
+        com.hogwartsmagic.tomb.TombCurses.reveal(level, center);
         int rank = DisableSupport.casterRank(caster, SpellType.REVELIO);
         if (!RevelioRules.revealsDisguises(rank)) {
             return 0;

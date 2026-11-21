@@ -33,6 +33,9 @@ public final class ModBiomes {
     /** Cold, stony high country where the giants who stayed out of hiding still live. */
     public static final ResourceKey<Biome> GIANTS_HIGHLAND = key("giants_highland");
 
+    /** Hot, dry sand and bare sandstone, with cursed tombs that Gringotts sends its curse-breakers to. */
+    public static final ResourceKey<Biome> CURSEBREAKERS_DESERT = key("cursebreakers_desert");
+
     /** Cave biome: flooded green stone where the Basilisk finally has somewhere to live. */
     public static final ResourceKey<Biome> CHAMBER_DEPTHS = key("chamber_depths");
 

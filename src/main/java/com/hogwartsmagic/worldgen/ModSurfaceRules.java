@@ -57,7 +57,8 @@ public final class ModSurfaceRules {
         if (mod == null) {
             java.util.List<SurfaceRules.RuleSource> rules = modRules;
             if (rules == null) {
-                rules = java.util.List.of(dementorFen(), horntailPeaks(), giantsHighland(), chamberDepths(), goblinUndercity());
+                rules = java.util.List.of(dementorFen(), horntailPeaks(), giantsHighland(), cursebreakersDesert(),
+                        chamberDepths(), goblinUndercity());
                 modRules = rules;
             }
             mod = SurfaceRules.ifTrue(
@@ -187,6 +188,43 @@ public final class ModSurfaceRules {
                                         SurfaceRules.ifTrue(SurfaceRules.steep(),
                                                 SurfaceRules.state(Blocks.STONE.defaultBlockState())),
                                         SurfaceRules.state(Blocks.DIRT.defaultBlockState()))))));
+    }
+
+    /** The three blocks of loose sand under a desert floor, before the sandstone starts. */
+    private static final SurfaceRules.ConditionSource SAND_DEPTH =
+            SurfaceRules.stoneDepthCheck(0, true, 3, CaveSurface.FLOOR);
+
+    /**
+     * Sand over sandstone, as in a vanilla desert, but with bare rock showing through: sandstone on
+     * every face too steep to hold sand, and broad flats of wind-scoured sandstone between the
+     * drifts. A desert that is sand from edge to edge reads as a beach; the bare rock is what makes
+     * it read as the old, dry country the tombs were cut into.
+     *
+     * <p>The ceiling rule comes first for the same reason vanilla has one: sand on the underside of
+     * an overhang falls the first time a block next to it updates.
+     */
+    private static SurfaceRules.RuleSource cursebreakersDesert() {
+        SurfaceRules.RuleSource sandstone = SurfaceRules.state(Blocks.SANDSTONE.defaultBlockState());
+        SurfaceRules.RuleSource sand = SurfaceRules.state(Blocks.SAND.defaultBlockState());
+        return SurfaceRules.ifTrue(
+                SurfaceRules.isBiome(ModBiomes.CURSEBREAKERS_DESERT),
+                SurfaceRules.ifTrue(
+                        SurfaceRules.abovePreliminarySurface(),
+                        SurfaceRules.sequence(
+                                SurfaceRules.ifTrue(
+                                        SurfaceRules.stoneDepthCheck(0, false, CaveSurface.CEILING), sandstone),
+                                SurfaceRules.ifTrue(ON_FLOOR, SurfaceRules.sequence(
+                                        SurfaceRules.ifTrue(SurfaceRules.steep(), sandstone),
+                                        // Scoured rock in broad patches, not speckle.
+                                        SurfaceRules.ifTrue(
+                                                SurfaceRules.noiseCondition(Noises.SURFACE, 0.40D), sandstone),
+                                        sand)),
+                                SurfaceRules.ifTrue(SAND_DEPTH, SurfaceRules.sequence(
+                                        SurfaceRules.ifTrue(SurfaceRules.steep(), sandstone),
+                                        SurfaceRules.ifTrue(
+                                                SurfaceRules.noiseCondition(Noises.SURFACE, 0.40D), sandstone),
+                                        sand)),
+                                SurfaceRules.ifTrue(UNDER_FLOOR, sandstone))));
     }
 
     private ModSurfaceRules() {}

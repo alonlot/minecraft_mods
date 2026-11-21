@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "revealed=false": {
+      "model": "hogwartsmagic:block/hieroglyph_sandstone"
+    },
+    "revealed=true": {
+      "model": "hogwartsmagic:block/cursed_glyph_revealed"
+    }
+  }
+}

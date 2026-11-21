@@ -72,6 +72,9 @@ public final class BiomeFogClient {
             // Cold blue-grey mountain air: thin, so a giant reads as a shape on the far slope long before he
             // reads as a giant. Mist only at dawn, in the valley floors.
             new Entry(ModBiomes.GIANTS_HIGHLAND, 0.70F, 0.76F, 0.82F, true, 112.0F, 1.6F, 0.35F, 0.4F),
+            // Warm, pale heat haze. Light, and far back: a desert is open country, and a pyramid has to read as a
+            // pyramid from a long way off. No mist and no wisps; nothing here is wet.
+            new Entry(ModBiomes.CURSEBREAKERS_DESERT, 0.90F, 0.82F, 0.66F, true, 176.0F, 1.3F, 0.0F, 0.0F),
             // Sickly green and tight: in the Chamber you see the next pillar and not the thing behind it.
             new Entry(ModBiomes.CHAMBER_DEPTHS, 0.05F, 0.11F, 0.07F, false, 24.0F, 2.5F, 0.0F, 0.3F),
             // Forge-lit soot. Loose enough to still read the shape of a vault.

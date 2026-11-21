@@ -506,6 +506,27 @@ public class ExampleMod
                     CONCEALED_ROCK.get(), HIDDEN_CHAIN.get()
             ).build(null));
 
+    // Desert tomb dressing: hieroglyph walls, the cursed tiles hidden among them, and the sandstone
+    // wall that hides the way down to the burial chamber. See TombCurses.
+    public static final RegistryObject<Block> HIEROGLYPH_SANDSTONE = BLOCKS.register("hieroglyph_sandstone",
+            () -> new Block(BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.CHISELED_SANDSTONE)));
+    public static final RegistryObject<Block> CURSED_GLYPH = BLOCKS.register("cursed_glyph",
+            () -> new com.hogwartsmagic.block.CursedGlyphBlock(
+                    BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.CHISELED_SANDSTONE)
+                            // Revealed, it lights itself: the tombs are dark, and a curse you can not
+                            // see is no better shown than hidden.
+                            .lightLevel(s -> s.getValue(com.hogwartsmagic.block.CursedGlyphBlock.REVEALED) ? 7 : 0)));
+    public static final RegistryObject<Block> CONCEALED_SANDSTONE = BLOCKS.register("concealed_sandstone",
+            () -> new com.hogwartsmagic.block.ConcealedSandstoneBlock(BlockBehaviour.Properties.of()
+                    .mapColor(net.minecraft.world.level.material.MapColor.SAND)
+                    .sound(net.minecraft.world.level.block.SoundType.STONE)
+                    .strength(0.8f, 6.0f).requiresCorrectToolForDrops()));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.TombMarkerBlockEntity>> TOMB_MARKER_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("tomb_marker", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.TombMarkerBlockEntity::new,
+                    CURSED_GLYPH.get(), CONCEALED_SANDSTONE.get()
+            ).build(null));
+
     public static final RegistryObject<Block> DESPAIR_BASIN = BLOCKS.register("despair_basin",
             () -> new com.hogwartsmagic.block.DespairBasinBlock(BlockBehaviour.Properties.of()
                     .mapColor(net.minecraft.world.level.material.MapColor.COLOR_BLACK)
@@ -608,6 +629,9 @@ public class ExampleMod
     public static final RegistryObject<Item> WARD_ITEM = ITEMS.register("ward", () -> new BlockItem(WARD.get(), new Item.Properties()));
     public static final RegistryObject<Item> HORCRUX_ITEM = ITEMS.register("horcrux", () -> new BlockItem(HORCRUX.get(), new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> CONCEALED_ROCK_ITEM = ITEMS.register("concealed_rock", () -> new BlockItem(CONCEALED_ROCK.get(), new Item.Properties()));
+    public static final RegistryObject<Item> HIEROGLYPH_SANDSTONE_ITEM = ITEMS.register("hieroglyph_sandstone", () -> new BlockItem(HIEROGLYPH_SANDSTONE.get(), new Item.Properties()));
+    public static final RegistryObject<Item> CURSED_GLYPH_ITEM = ITEMS.register("cursed_glyph", () -> new BlockItem(CURSED_GLYPH.get(), new Item.Properties()));
+    public static final RegistryObject<Item> CONCEALED_SANDSTONE_ITEM = ITEMS.register("concealed_sandstone", () -> new BlockItem(CONCEALED_SANDSTONE.get(), new Item.Properties()));
     public static final RegistryObject<Item> HIDDEN_CHAIN_ITEM = ITEMS.register("hidden_chain", () -> new BlockItem(HIDDEN_CHAIN.get(), new Item.Properties()));
     public static final RegistryObject<Item> BLOOD_SEAL_ITEM = ITEMS.register("blood_seal", () -> new BlockItem(BLOOD_SEAL.get(), new Item.Properties()));
     public static final RegistryObject<Item> DESPAIR_BASIN_ITEM = ITEMS.register("despair_basin", () -> new BlockItem(DESPAIR_BASIN.get(), new Item.Properties()));
@@ -1121,6 +1145,9 @@ public class ExampleMod
                 output.accept(WARD_ITEM.get());
                 output.accept(HORCRUX_ITEM.get());
                 output.accept(CONCEALED_ROCK_ITEM.get());
+                output.accept(HIEROGLYPH_SANDSTONE_ITEM.get());
+                output.accept(CURSED_GLYPH_ITEM.get());
+                output.accept(CONCEALED_SANDSTONE_ITEM.get());
                 output.accept(HIDDEN_CHAIN_ITEM.get());
                 output.accept(BLOOD_SEAL_ITEM.get());
                 output.accept(DESPAIR_BASIN_ITEM.get());

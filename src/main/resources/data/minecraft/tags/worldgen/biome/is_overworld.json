@@ -32,6 +32,10 @@
     {
       "id": "hogwartsmagic:giants_highland",
       "required": false
+    },
+    {
+      "id": "hogwartsmagic:cursebreakers_desert",
+      "required": false
     }
   ]
 }

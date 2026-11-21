@@ -1,0 +1,37 @@
+{
+  "parent": "hogwartsmagic:hp/chosen_wand",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:hieroglyph_sandstone",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.cursed_tomb.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.cursed_tomb.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "entered_tomb": {
+      "trigger": "minecraft:location",
+      "conditions": {
+        "player": [
+          {
+            "condition": "minecraft:entity_properties",
+            "entity": "this",
+            "predicate": {
+              "location": {
+                "structures": "hogwartsmagic:cursed_tomb"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

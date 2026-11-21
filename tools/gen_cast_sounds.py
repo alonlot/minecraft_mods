@@ -33,6 +33,12 @@ SOUNDS = {
                        "game sound effect, no music, no voice"),
     "impact_heavy": (2, 1.4, "a powerful magic blast hitting a stone wall: a deep boom with crackling sparks and "
                              "falling debris, fantasy game sound effect, no music"),
+    "whoosh_snap": (3, 0.5, "an extremely fast sharp whoosh of a thin wand whipped through the air ending in a "
+                            "crisp snap, close, dry, punchy, no reverb, no music"),
+    "release_punch": (3, 0.6, "a punchy deep magical bass thump with a sharp crack at the start, a powerful spell "
+                              "blasting out of a wand, satisfying fantasy game sound effect, no music, no voice"),
+    "impact_crunch": (3, 0.8, "a hard punchy magic spell hitting a body: a sharp crack, a deep heavy thud and a "
+                              "sizzling burst of sparks, satisfying fantasy game hit sound, no music, no voice"),
     "switch": (2, 0.5, "a tiny delicate magical sparkle chime, short and soft, fantasy game interface sound, "
                        "no music"),
 }

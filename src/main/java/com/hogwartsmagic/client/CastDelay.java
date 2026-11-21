@@ -30,6 +30,17 @@ public final class CastDelay {
             SpellType.CAVE_INIMICUM, SpellType.CAELUM_FASCINO, SpellType.HEAL, SpellType.MORSMORDRE,
             SpellType.COLLOPORTUS, SpellType.RIDDIKULUS);
 
+    /**
+     * Spells sent on the press, with no anticipation: shields and blocks must be instant, held and channelled
+     * spells have their own key handling, and the Killing Curse has its own charge.
+     */
+    private static final Set<SpellType> NO_WAIT = EnumSet.of(SpellType.PROTEGO, SpellType.PROTEGO_MAXIMA,
+            SpellType.ALOHOMORA, SpellType.REVELIO, SpellType.CRUCIO, SpellType.FIENDFYRE,
+            SpellType.EXPECTO_PATRONUM, SpellType.WINGARDIUM_LEVIOSA, SpellType.IMPERIO, SpellType.AQUA_ERUCTO,
+            SpellType.APPARITION, SpellType.TENEBRIS_FLIGHT, SpellType.AVADA_KEDAVRA, SpellType.LUMOS);
+    /** Ticks the arm cocks back before a move strikes (the anticipation), for the spells that have one. */
+    public static final float ANTICIPATION = 2.0F;
+
     private static SpellType pending;
     private static int due;
 
@@ -38,11 +49,20 @@ public final class CastDelay {
 
     /** Ticks between the press and the cast for {@code spell}: its move's release, less the tick a beam takes. */
     public static int ticks(SpellType spell) {
-        if (spell == null || !DELAYED.contains(spell)) {
+        if (spell == null || NO_WAIT.contains(spell)) {
             return 0;
         }
         FirstPersonWandRig.Motion motion = FirstPersonWandRig.motionOf(spell, FirstPersonCast.forSpell(spell));
-        return Math.max(0, Math.round(motion.release()) - 1);
+        if (DELAYED.contains(spell)) {
+            return Math.max(0, Math.round(motion.release()) - 1);
+        }
+        // The arm cocks back, then strikes: the spell leaves on the strike, about a tenth of a second on.
+        return Math.max(0, Math.round(ANTICIPATION + FirstPersonWand.releaseAfter(motion)) - 1);
+    }
+
+    /** How long {@code spell}'s move cocks back before it strikes, in ticks; 0 for none. */
+    public static float anticipation(SpellType spell) {
+        return spell == null || NO_WAIT.contains(spell) || DELAYED.contains(spell) ? 0.0F : ANTICIPATION;
     }
 
     /** Sends a plain cast of {@code spell} now, or when its move lets it go. */

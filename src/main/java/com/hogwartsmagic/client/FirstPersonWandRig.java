@@ -1097,6 +1097,20 @@ final class FirstPersonWandRig {
 
     // ---------------------------------------------------------------- the off hand
 
+    /**
+     * The anticipation: {@code base} drawn back against the way the strike will go ({@code dir}, on screen,
+     * right-hand coordinates; null for a straight push), pulled in towards the body, the wrist cocked so the
+     * wand tips back.
+     */
+    static Key cocked(Key base, @javax.annotation.Nullable Vector3f dir) {
+        float dx = dir == null ? 0.0F : dir.x;
+        float dy = dir == null ? -0.4F : dir.y;
+        Vector3f hand = new Vector3f(base.hand()).add(-dx * 0.07F, -dy * 0.05F - 0.02F, 0.05F);
+        Vector3f wand = new Vector3f(base.wand()).add(-dx * 0.5F, -dy * 0.4F + 0.35F, 0.35F);
+        keepWandInView(wand);
+        return new Key(0.0F, hand, new Vector3f(base.arm()), wand);
+    }
+
     /** The off hand out of sight below the view. */
     static Key offhandRest() {
         return new Key(0.0F, new Vector3f(0.50F, -0.80F, -0.90F), new Vector3f(-0.1F, 1.0F, -0.1F).normalize(),

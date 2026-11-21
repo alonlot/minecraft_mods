@@ -1136,6 +1136,18 @@ public final class SpellBeamFxRenderer {
         billboard(out, m, pos, flashRadius, Math.min(1.0f, flash), s.coreR, s.coreG, s.coreB, true);
         billboard(out, m, pos, 1.9f * scale, s.impactGlow * (1.0f - f) * (1.0f - f) * bright, s.glowR, s.glowG, s.glowB,
                 false);
+        if (impact.kind == SpellBeamFx.HIT && impact.full() && age < 5.0f) {
+            // The blow: hot lines of light thrown out from the point of contact, gone in a quarter of a second.
+            float e = 1.0f - (1.0f - age / 5.0f) * (1.0f - age / 5.0f);
+            for (int k = 0; k < 16; k++) {
+                Vec3 d = randomDirection(impact.seed + k * 41);
+                float reach = (0.8f + 0.5f * hash(impact.seed + k, 3, 3)) * scale;
+                Vec3 p0 = pos.add(d.scale((0.15 + 1.6 * e) * reach));
+                Vec3 p1 = pos.add(d.scale((0.55 + 2.6 * e) * reach));
+                streak(out, m, p0, p1, 0.035f * (1.0f - e) + 0.01f, (1.0f - e) * bright, s.coreR, s.coreG, s.coreB);
+            }
+            billboard(out, m, pos, (0.5f + 1.2f * e) * scale, 0.9f * (1.0f - e) * bright, 1.0f, 1.0f, 1.0f, true);
+        }
         if (age < IMPACT_HOLD) {
             // The moment of contact: a tight white-hot point, everything else held back.
             billboard(out, m, pos, 0.4f * scale, bright, 1.0f, 1.0f, 1.0f, true);

@@ -566,6 +566,9 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> CAST_RELEASE_DARK = register("cast.release_dark");
     public static final RegistryObject<SoundEvent> CAST_IMPACT = register("cast.impact");
     public static final RegistryObject<SoundEvent> CAST_IMPACT_HEAVY = register("cast.impact_heavy");
+    public static final RegistryObject<SoundEvent> CAST_WHOOSH_SNAP = register("cast.whoosh_snap");
+    public static final RegistryObject<SoundEvent> CAST_RELEASE_PUNCH = register("cast.release_punch");
+    public static final RegistryObject<SoundEvent> CAST_IMPACT_CRUNCH = register("cast.impact_crunch");
     public static final RegistryObject<SoundEvent> WAND_SWITCH = register("cast.switch");
 
     private static RegistryObject<SoundEvent> register(String name) {

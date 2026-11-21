@@ -41,7 +41,12 @@ public final class CastSounds {
         SoundEvent sound = HEAVY_SWING.contains(gesture) ? ModSounds.CAST_SWISH_HEAVY.get()
                 : RISING_SWING.contains(gesture) ? ModSounds.CAST_SWISH_RISE.get()
                 : ModSounds.CAST_SWISH_LIGHT.get();
-        play(caster.position().add(0.0, caster.getEyeHeight() * 0.8, 0.0), sound, 0.5F, caster instanceof Player);
+        Vec3 at = caster.position().add(0.0, caster.getEyeHeight() * 0.8, 0.0);
+        play(at, sound, 0.5F, caster instanceof Player);
+        if (CastDelay.anticipation(spell) > 0.0F) {
+            // A fighting spell: the wand whips through with a snap as it strikes.
+            play(at, ModSounds.CAST_WHOOSH_SNAP.get(), 0.6F, caster instanceof Player);
+        }
     }
 
     /** {@code spell} leaves a wand at {@code at}. */
@@ -49,12 +54,16 @@ public final class CastSounds {
         SoundEvent sound = spell != null && DARK.contains(spell) ? ModSounds.CAST_RELEASE_DARK.get()
                 : ModSounds.CAST_RELEASE.get();
         play(at, sound, 0.65F, player);
+        // Under the crack, a deep punch: heavier for the hard-hitting spells.
+        play(at, ModSounds.CAST_RELEASE_PUNCH.get(), spell != null && HEAVY.contains(spell) ? 0.85F : 0.5F, player);
     }
 
     /** A spell strikes at {@code at}; {@code spell} may be unknown (null). */
     public static void impact(Vec3 at, SpellType spell) {
         boolean heavy = spell != null && HEAVY.contains(spell);
         play(at, heavy ? ModSounds.CAST_IMPACT_HEAVY.get() : ModSounds.CAST_IMPACT.get(), heavy ? 0.9F : 0.7F, true);
+        // The blow itself: a crack and a thud under the burst.
+        play(at, ModSounds.CAST_IMPACT_CRUNCH.get(), heavy ? 0.9F : 0.65F, true);
     }
 
     private static void play(Vec3 at, SoundEvent sound, float volume, boolean player) {

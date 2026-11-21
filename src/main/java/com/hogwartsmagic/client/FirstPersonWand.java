@@ -53,6 +53,8 @@ public final class FirstPersonWand {
     /** The arm's pose last frame (before the turn sway), and where the current cast set off from. */
     private static FirstPersonWandRig.Key lastPose;
     private static FirstPersonWandRig.Key castFrom;
+    /** Where the arm was when the current cast began, before it cocked back. */
+    private static FirstPersonWandRig.Key castBase;
     private static int fromCastStart = Integer.MIN_VALUE;
 
     /** The way the current cast's strike went (on screen), for the settle after it; null when it hardly moved. */
@@ -163,7 +165,7 @@ public final class FirstPersonWand {
         }
         FirstPersonWandRig.Motion motion = FirstPersonWandRig.motionOf(cast);
         float since = minecraft.player.tickCount + minecraft.getTimer().getGameTimeDeltaPartialTick(false) - cast.start();
-        return since >= 0.0F && since < releaseAfter(motion);
+        return since >= 0.0F && since < CastDelay.anticipation(cast.spell()) + releaseAfter(motion);
     }
 
     /**
@@ -224,20 +226,34 @@ public final class FirstPersonWand {
         boolean right = player.getMainArm() == HumanoidArm.RIGHT;
         float side = right ? 1.0F : -1.0F;
         FirstPersonCast.Cast cast = FirstPersonCast.current();
-        float since = cast == null ? -1.0F : player.tickCount + partialTick - cast.start();
+        float sinceStart = cast == null ? -1.0F : player.tickCount + partialTick - cast.start();
+        // The anticipation: the first ticks of a fighting spell's cast the arm cocks back; its move starts after.
+        float ant = cast == null ? 0.0F : CastDelay.anticipation(cast.spell());
+        float since = sinceStart - ant;
         FirstPersonWandRig.Motion motion = cast == null ? null : FirstPersonWandRig.motionOf(cast);
-        float time = motion == null ? -1.0F : gestureTime(motion, since, hitStop(cast));
-        boolean casting = motion != null && since >= 0.0F && time < motion.length();
+        float time = motion == null ? -1.0F : gestureTime(motion, Math.max(0.0F, since), hitStop(cast));
+        boolean casting = motion != null && sinceStart >= 0.0F && time < motion.length();
+        boolean cocking = casting && since < 0.0F;
 
         FirstPersonWandRig.Key rest = FirstPersonWandRig.rest(player, partialTick, cast);
         if (cast != null && cast.start() != fromCastStart) {
             // A new cast moves on from where the arm is now, not from rest.
             fromCastStart = cast.start();
-            castFrom = lastPose != null ? lastPose : rest;
+            castBase = lastPose != null ? lastPose : rest;
+            FirstPersonWandRig.castFrom(cast.start(), castBase);
+            castFrom = ant > 0.0F
+                    ? FirstPersonWandRig.cocked(castBase, FirstPersonWandRig.strikeDirection(cast)) : castBase;
             FirstPersonWandRig.castFrom(cast.start(), castFrom);
         }
-        FirstPersonWandRig.Key now = casting
-                ? FirstPersonWandRig.pose(motion, cast.variant(), rest, time, castFrom != null ? castFrom : rest) : rest;
+        FirstPersonWandRig.Key now;
+        if (cocking) {
+            // Drawn back fast, then a hair's held tension before the strike.
+            float k = smooth(Math.min(1.0F, (since + ant) / (ant * 0.8F)));
+            now = FirstPersonWandRig.mix(castBase, castFrom, k);
+        } else {
+            now = casting ? FirstPersonWandRig.pose(motion, cast.variant(), rest, time,
+                    castFrom != null ? castFrom : rest) : rest;
+        }
         float hold = FirstPersonCast.holdWeight(partialTick);
         if (hold > 0.0F) {
             FirstPersonWandRig.Motion held = casting ? motion
@@ -342,9 +358,9 @@ public final class FirstPersonWand {
         if (casting) {
             swipeLife = motion.trailLife();
         }
-        recordSwipe(casting && time <= motion.trailUntil(), tip, age);
+        recordSwipe(casting && !cocking && time <= motion.trailUntil(), tip, age);
         SpellType spell = cast != null && cast.spell() != null ? cast.spell() : MagicWandItem.getSelectedSpell(stack);
-        recordSmear(casting && time > release - 1.5F && time < release + 3.0F, grip, tip, age);
+        recordSmear(casting && !cocking && time > release - 1.5F && time < release + 3.0F, grip, tip, age);
         drawSmear(spell, buffer, age);
         drawSwipe(spell, buffer, age);
         if (casting && time >= release && cast.start() != flareCast) {
@@ -353,7 +369,12 @@ public final class FirstPersonWand {
         }
         // A sweep carries the wand on across the view: its flash stays where the spell left, as in the reference.
         Vector3f flareAt = casting && motion.anchorFlash() && flareCast == cast.start() ? FLARE_AT : tip;
-        drawTipLight(player, spell, casting, time, release, tip, flareAt, buffer, age);
+        float build = casting ? Mth.clamp(sinceStart / Math.max(0.5F, ant + releaseAfter(motion)), 0.0F, 1.0F) : 0.0F;
+        drawTipLight(player, spell, casting && (cocking || time < release), build, casting && !cocking ? time : -1.0F,
+                release, tip, flareAt, buffer, age);
+        if (casting && !cocking && time >= release && time < release + 3.0F) {
+            drawEdgeFlash(spell, buffer, (time - release) / 3.0F, cast.spell() != null && HEAVY.contains(cast.spell()));
+        }
     }
 
     // ---------------------------------------------------------------- colour
@@ -532,9 +553,10 @@ public final class FirstPersonWand {
      * The tip: a faint breathing glow of the selected spell at rest, a sparkle on a change of spell, light
      * gathering through the wind-up, and a wide flare with arcs lashing out as the spell leaves.
      */
-    private static void drawTipLight(LocalPlayer player, @javax.annotation.Nullable SpellType spell, boolean casting,
-                                     float time, float release, Vector3f tip, Vector3f flareAt,
+    private static void drawTipLight(LocalPlayer player, @javax.annotation.Nullable SpellType spell, boolean charging,
+                                     float build, float time, float release, Vector3f tip, Vector3f flareAt,
                                      MultiBufferSource buffer, float age) {
+        boolean casting = time >= 0.0F;
         float[] color = lightColor(spell);
         float[] hot = whiten(color, 0.6F);
         float flare = 0.0F;
@@ -542,7 +564,7 @@ public final class FirstPersonWand {
             float k = (time - release) / 4.0F;
             flare = k < 1.0F ? (1.0F - k) * (1.0F - k) : 0.0F;
         }
-        float charge = casting && time < release ? time / Math.max(0.5F, release) : 0.0F;
+        float charge = charging ? build : 0.0F;
         float held = Minecraft.getInstance().options.keyUse.isDown() ? 1.0F : 0.0F;
         float idle = 0.16F + 0.05F * Mth.sin(age * 0.12F);
         float sparkle = FirstPersonWandRig.switchGlow(age);
@@ -551,9 +573,9 @@ public final class FirstPersonWand {
         VertexConsumer light = buffer.getBuffer(GLOW);
         glowQuad(light, matrix, 0.05F + 0.07F * glow, new float[]{1.0F, 1.0F, 1.0F}, glow);
         glowQuad(light, matrix, 0.12F + 0.12F * glow, hot, 0.75F * glow);
-        if (casting && time < release) {
+        if (charging) {
             // The charge: sparks of the spell's light drawn in from round the tip.
-            float c = Mth.clamp(time / Math.max(0.5F, release) * 1.5F, 0.0F, 1.0F);
+            float c = Mth.clamp(build * 1.5F, 0.0F, 1.0F);
             for (int i = 0; i < 10; i++) {
                 float phase = (i * 0.173F + age * 0.45F) % 1.0F;
                 float angle = i * 2.399F;
@@ -587,6 +609,40 @@ public final class FirstPersonWand {
                 crackle(bolts, matrix, seed + i * 101L, 0.3F + 0.4F * flare, 0.006F, hot, flare);
             }
         }
+    }
+
+    /**
+     * The release felt across the screen: a short glow of the spell's light round the edges of the view, gone
+     * in three ticks. Drawn just in front of the eye; the camera does not move.
+     */
+    private static void drawEdgeFlash(@javax.annotation.Nullable SpellType spell, MultiBufferSource buffer, float k,
+                                      boolean heavy) {
+        float a = (heavy ? 0.42F : 0.26F) * (1.0F - k) * (1.0F - k);
+        if (a <= 0.005F) {
+            return;
+        }
+        float[] c = lightColor(spell);
+        Minecraft minecraft = Minecraft.getInstance();
+        float aspect = (float) minecraft.getWindow().getWidth() / Math.max(1, minecraft.getWindow().getHeight());
+        float z = -0.1F;
+        float h = 0.1F * (float) Math.tan(Math.toRadians(35.0)) * 1.05F;
+        float w = h * aspect;
+        float band = h * (heavy ? 0.55F : 0.42F);
+        VertexConsumer out = buffer.getBuffer(RenderType.lightning());
+        Matrix4f m = new Matrix4f();
+        // Four bands, bright at the edge of the view and clear towards the middle.
+        edgeQuad(out, m, -w, h, w, h, w - band, h - band, -w + band, h - band, z, c, a);
+        edgeQuad(out, m, w, -h, -w, -h, -w + band, -h + band, w - band, -h + band, z, c, a);
+        edgeQuad(out, m, -w, -h, -w, h, -w + band, h - band, -w + band, -h + band, z, c, a);
+        edgeQuad(out, m, w, h, w, -h, w - band, -h + band, w - band, h - band, z, c, a);
+    }
+
+    private static void edgeQuad(VertexConsumer out, Matrix4f m, float x0, float y0, float x1, float y1, float x2,
+                                 float y2, float x3, float y3, float z, float[] c, float a) {
+        out.addVertex(m, x0, y0, z).setColor(c[0], c[1], c[2], a);
+        out.addVertex(m, x1, y1, z).setColor(c[0], c[1], c[2], a);
+        out.addVertex(m, x2, y2, z).setColor(c[0], c[1], c[2], 0.0F);
+        out.addVertex(m, x3, y3, z).setColor(c[0], c[1], c[2], 0.0F);
     }
 
     /** One camera-facing glow quad (view space, so the plane faces the eye). */

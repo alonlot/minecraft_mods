@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/cursed_tomb",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:sphinx_spawn_egg",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.sphinx_riddle.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.sphinx_riddle.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "answered": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

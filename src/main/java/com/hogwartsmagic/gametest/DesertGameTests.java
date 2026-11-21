@@ -214,6 +214,63 @@ public final class DesertGameTests {
         helper.succeed();
     }
 
+    private static com.hogwartsmagic.entity.SphinxEntity sphinx(GameTestHelper helper) {
+        for (int x = 0; x <= 8; x++) {
+            for (int z = 0; z <= 8; z++) {
+                helper.setBlock(x, 1, z, net.minecraft.world.level.block.Blocks.SANDSTONE);
+            }
+        }
+        return helper.spawn(com.hogwartsmagic.entity.ModEntities.SPHINX.get(), new net.minecraft.core.BlockPos(4, 2, 6));
+    }
+
+    /**
+     * The right answer shows the curses round her (far beyond Revelio's reach), gives a gift, and
+     * she has nothing more to ask that player.
+     */
+    @GameTest(template = ROOM, timeoutTicks = 20)
+    public static void sphinxRewardsTheRightAnswer(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        com.hogwartsmagic.entity.SphinxEntity sphinx = sphinx(helper);
+        net.minecraft.core.BlockPos glyphPos = helper.absolutePos(new net.minecraft.core.BlockPos(4, 1, 6)).offset(0, 0, 20);
+        level.setBlock(glyphPos, glyph(com.hogwartsmagic.tomb.TombCurse.WITHERING), 3);
+        net.minecraft.server.level.ServerPlayer p = player(helper, 4, 2, 3);
+        p.getInventory().clearContent();
+        sphinx.ask(p);
+        int right = sphinx.rightAnswerShownAt(p);
+        helper.assertTrue(right >= 0, "a riddle should be pending after she asks");
+        boolean taken = sphinx.answer(p, right);
+        boolean shown = level.getBlockState(glyphPos).getValue(com.hogwartsmagic.block.CursedGlyphBlock.REVEALED);
+        boolean gifted = !p.getInventory().isEmpty();
+        boolean again = sphinx.rightAnswerShownAt(p) >= 0;
+        level.setBlock(glyphPos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+        sphinx.discard();
+        helper.assertTrue(taken, "the answer should be taken");
+        helper.assertTrue(shown, "a cursed glyph 20 blocks off should show after the right answer");
+        helper.assertTrue(gifted, "the right answer should give a gift");
+        helper.assertFalse(again, "nothing should be pending after an answer");
+        helper.assertFalse(sphinx.isAngry(), "she should not be angry after a right answer");
+        helper.succeed();
+    }
+
+    /** A wrong answer turns her on the player who gave it; an answer from too far away is not heard. */
+    @GameTest(template = ROOM, timeoutTicks = 20)
+    public static void sphinxAttacksAWrongAnswer(GameTestHelper helper) {
+        com.hogwartsmagic.entity.SphinxEntity sphinx = sphinx(helper);
+        net.minecraft.server.level.ServerPlayer p = player(helper, 4, 2, 3);
+        sphinx.ask(p);
+        int wrong = (sphinx.rightAnswerShownAt(p) + 1) % 3;
+        p.teleportTo(p.getX(), p.getY(), p.getZ() - 20);
+        boolean heardFar = sphinx.answer(p, wrong);
+        p.teleportTo(p.getX(), p.getY(), p.getZ() + 20);
+        boolean heard = sphinx.answer(p, wrong);
+        boolean angry = sphinx.isAngry() && sphinx.getTarget() == p;
+        sphinx.discard();
+        helper.assertFalse(heardFar, "an answer from 20 blocks away should not be heard");
+        helper.assertTrue(heard, "the wrong answer should be taken");
+        helper.assertTrue(angry, "she should turn on the player who answered wrong");
+        helper.succeed();
+    }
+
     private static String pct(int count, int all) {
         return String.format("%.2f", 100.0 * count / all);
     }

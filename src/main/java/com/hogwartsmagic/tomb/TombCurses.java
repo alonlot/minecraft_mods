@@ -71,7 +71,11 @@ public final class TombCurses {
      * @return how many blocks were revealed
      */
     public static int reveal(ServerLevel level, Vec3 center) {
-        int radius = REVEAL_RADIUS;
+        return reveal(level, center, REVEAL_RADIUS, REVEAL_TICKS);
+    }
+
+    /** As {@link #reveal(ServerLevel, Vec3)}, with its own reach and time: the Sphinx's gift is wider. */
+    public static int reveal(ServerLevel level, Vec3 center, int radius, int ticks) {
         double r2 = (double) radius * radius;
         int count = 0;
         for (int cx = SectionPos.blockToSectionCoord(center.x - radius);
@@ -95,7 +99,7 @@ public final class TombCurses {
                         continue;
                     }
                     level.setBlock(p, s.setValue(ConcealedRockBlock.REVEALED, true), Block.UPDATE_ALL);
-                    level.scheduleTick(p, s.getBlock(), REVEAL_TICKS);
+                    level.scheduleTick(p, s.getBlock(), ticks);
                     count++;
                 }
             }

@@ -896,6 +896,8 @@ public class ExampleMod
 
     public static final RegistryObject<Item> UNICORN_SPAWN_EGG = ITEMS.register("unicorn_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.UNICORN, 0xF2F4FB, 0xE3B54A, new Item.Properties()));
+    public static final RegistryObject<Item> SPHINX_SPAWN_EGG = ITEMS.register("sphinx_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.SPHINX, 0xC89B52, 0x2A4C9C, new Item.Properties()));
 
     public static final RegistryObject<Item> ACROMANTULA_SPAWN_EGG = ITEMS.register("acromantula_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.ACROMANTULA, 0x1A1A1A, 0x4D0000, new Item.Properties()));
@@ -1236,6 +1238,7 @@ public class ExampleMod
                 output.accept(OWL_SPAWN_EGG.get()); // Owl Spawn Egg
                 output.accept(HIPPOGRIFF_SPAWN_EGG.get()); // Hippogriff Spawn Egg
                 output.accept(UNICORN_SPAWN_EGG.get()); // Unicorn Spawn Egg
+                output.accept(SPHINX_SPAWN_EGG.get());
                 output.accept(ACROMANTULA_SPAWN_EGG.get()); // Acromantula Spawn Egg
                 output.accept(DEMENTOR_SPAWN_EGG.get()); // Dementor Spawn Egg
                 output.accept(MINATOR_SPAWN_EGG.get()); // Minator Spawn Egg
@@ -1397,6 +1400,7 @@ public class ExampleMod
         com.hogwartsmagic.command.ImperioCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.LockInfoCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.ColloportusCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.SphinxCommand.register(event.getDispatcher());
         com.hogwartsmagic.pensieve.PensieveCommand.register(event.getDispatcher());
     }
 

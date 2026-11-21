@@ -222,6 +222,14 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("hippogriff"));
 
+    public static final RegistryObject<EntityType<SphinxEntity>> SPHINX =
+            ENTITY_TYPES.register("sphinx",
+                    () -> EntityType.Builder.<SphinxEntity>of(SphinxEntity::new, MobCategory.MONSTER)
+                            .sized(1.4f, 2.5f)
+                            .fireImmune()
+                            .clientTrackingRange(10)
+                            .build("sphinx"));
+
     public static final RegistryObject<EntityType<UnicornEntity>> UNICORN =
             ENTITY_TYPES.register("unicorn",
                     () -> EntityType.Builder.<UnicornEntity>of(UnicornEntity::new, MobCategory.CREATURE)

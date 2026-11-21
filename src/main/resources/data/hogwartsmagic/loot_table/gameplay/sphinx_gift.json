@@ -1,0 +1,65 @@
+{
+  "type": "minecraft:gift",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:refined_mana_charm",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:arcane_focus",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:moonlit_phial",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:enchanted_inkwell",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:golden_apple",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 3
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:galleon",
+          "weight": 1,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 8,
+                "max": 16
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

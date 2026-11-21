@@ -781,6 +781,15 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Gives Elder Wand casts priority in beam clashes.
 - Contains major block-hit logic for utility spells.
 
+### Sphinx
+
+- A lion's body and a woman's head in a gold and lapis nemes headdress, with the cobra on her brow. One lies in the forecourt of every cursed tomb in the Cursebreaker's Desert.
+- Right-click her and she asks a riddle, with three answers to click in chat. She knows nine, all old folk riddles, the first of them the Sphinx's own from the Greek story.
+- Right: every hidden curse and concealed wall within 40 blocks shows for three minutes, and she gives a gift (a relic or two golden apples, plus Galleons). Once per player per Sphinx, and the "A Riddle Answered" advancement.
+- Wrong: she stands and attacks. 150 health, 10 armor, heavy claws. She stops when you die or get 24 blocks away, then goes back to her place and lies down.
+- No answer: nothing happens. A riddle lapses after a minute, and you must stand within 8 blocks to answer.
+- She never wanders from her place. Spawn egg in the creative tab.
+
 ### Boggart
 
 - A shape-shifter with no shape of its own. It spawns in dark covered places in the Forbidden Forest and the Dementor Fen, at most one per 64 blocks.
@@ -1506,6 +1515,7 @@ A hot, dry desert of sand and bare sandstone, where Gringotts sends its curse-br
 - A false burial chamber to the west, robbed and empty.
 - The true burial chamber is deeper, behind a wall of Concealed Sandstone in the antechamber's east side. Revelio cast close to it opens it for a minute.
 - In the burial chamber: the sarcophagus with its gold mask, two treasure chests, and gold on the floor that carries the Gemino curse (as in the deepest Gringotts vaults). Three Inferi keep it. Soul fire braziers are the only light in the tomb.
+- A Sphinx lies in the forecourt. Answer her riddle and she shows you every curse in the tomb at once (see Sphinx).
 
 **Curses.** Cursed Glyph tiles hide among the plain Hieroglyph Sandstone in the floors and on the sarcophagus lid. They look exactly the same.
 

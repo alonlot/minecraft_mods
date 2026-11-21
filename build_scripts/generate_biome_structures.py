@@ -5455,6 +5455,9 @@ def cursed_tomb():
         entity(15.5, float(BF + 1), 9.5, 'hogwartsmagic:inferius', dict(keep)),
         entity(7.5, float(FA + 1), 24.5, 'minecraft:husk', dict(keep)),
         entity(4.5, float(FA + 1), 29.5, 'minecraft:husk', dict(keep)),
+        # The Sphinx lies across the forecourt, facing whoever comes up the processional way.
+        entity(TOMB_C + 0.5, float(TOMB_G), -3.5, 'hogwartsmagic:sphinx',
+               dict(keep, Rotation=('list', 'float', [('float', 180.0), ('float', 0.0)]))),
     ])
 
 
@@ -5762,7 +5765,8 @@ def audit_entities(blocks, entities, size):
 # whole box.
 ENTITY_BOX = {'hogwartsmagic:hungarian_horntail': (3.0, 3.2), 'hogwartsmagic:dementor': (1.0, 3.0),
               'hogwartsmagic:troll': (1.75, 3.25), 'hogwartsmagic:giant': (2.2, 5.5),
-              'hogwartsmagic:acromantula': (1.6, 1.2)}      # times its SpiderScale, if it has one
+              'hogwartsmagic:acromantula': (1.6, 1.2), 'hogwartsmagic:sphinx': (1.4, 2.5),
+              'hogwartsmagic:inferius': (0.6, 1.95)}      # times its SpiderScale, if it has one
 
 
 def audit_entity_room(blocks, entities):

@@ -33,9 +33,25 @@ final class FirstPersonWandRig {
 
     /** A gesture as the first-person arm plays it: its keys, the tick the spell leaves, and its length. */
     record Motion(Key[] keys, float release, float length, Builder builder, boolean anchorFlash, float trailUntil,
-                  float trailLife, Roll roll) {
+                  float trailLife, Roll roll, boolean holdLast, float tremor) {
         Motion(Key[] keys, float release, float length) {
-            this(keys, release, length, null, false, release + 2.0F, 1.8F, null);
+            this(keys, release, length, null, false, release + 2.0F, 1.8F, null, false, 0.0F);
+        }
+
+        /** The same gesture, its flash left where the spell left the wand (the arm moves on across the view). */
+        Motion anchored() {
+            return new Motion(keys, release, length, builder, true, trailUntil, trailLife, roll, holdLast, tremor);
+        }
+
+        /** The same gesture, its last key held while the spell is kept up (not the one at the release). */
+        Motion holdingLast() {
+            return new Motion(keys, release, length, builder, anchorFlash, trailUntil, trailLife, roll, true, tremor);
+        }
+
+        /** The same gesture, the hand shaking from the release on and while the spell is kept up. */
+        Motion trembling(float amount) {
+            return new Motion(keys, release, length, builder, anchorFlash, trailUntil, trailLife, roll, holdLast,
+                    amount);
         }
 
         /** How far the fist is rolled about the forearm at gesture time {@code time} (radians), 0 for most. */
@@ -53,6 +69,9 @@ final class FirstPersonWandRig {
 
         /** The key the arm holds while a channelled spell is kept up: the one at (or nearest after) release. */
         Key holdKey() {
+            if (this.holdLast) {
+                return this.keys[this.keys.length - 1];
+            }
             for (Key key : this.keys) {
                 if (key.at() >= this.release - 0.01F) {
                     return key;
@@ -197,7 +216,7 @@ final class FirstPersonWandRig {
      * tip hardly moves there (a straight jab or a lift).
      */
     static Vector3f strikeDirection(FirstPersonCast.Cast cast) {
-        Motion motion = motionOf(cast.gesture());
+        Motion motion = motionOf(cast);
         Key rest = new Key(0.0F, new Vector3f(REST_HAND), new Vector3f(REST_ARM).normalize(),
                 new Vector3f(REST_AIM).sub(REST_HAND).normalize());
         float release = motion.release();
@@ -227,6 +246,17 @@ final class FirstPersonWandRig {
     /** Where {@code cast} set off from, or {@code fallback} when that was not seen. */
     static Key fromOf(FirstPersonCast.Cast cast, Key fallback) {
         return castFrom != null && castFromStart == cast.start() ? castFrom : fallback;
+    }
+
+    /** The motion your arm plays for {@code cast}: the spell's own signature move, or its gesture's. */
+    static Motion motionOf(FirstPersonCast.Cast cast) {
+        return motionOf(cast.spell(), cast.gesture());
+    }
+
+    static Motion motionOf(@javax.annotation.Nullable com.hogwartsmagic.spell.SpellType spell,
+                           FirstPersonCast.Gesture gesture) {
+        Motion own = spell == null ? null : SIGNATURE.get(spell);
+        return own != null ? own : motionOf(gesture);
     }
 
     static Motion motionOf(FirstPersonCast.Gesture gesture) {
@@ -280,7 +310,7 @@ final class FirstPersonWandRig {
 
     /** The middle of the sweep for the channelled bolt spells' hold pose. */
     private static final Motion POINT = new Motion(new Key[]{sweepMiddle()}, SWEEP_MID, SWEEP_LENGTH,
-            (from, variant) -> sweepKeys(from, variant.place()), true, SWEEP_MID + 2.0F, 1.8F, null);
+            (from, variant) -> sweepKeys(from, variant.place()), true, SWEEP_MID + 2.0F, 1.8F, null, false, 0.0F);
 
     /**
      * Where a sweep ends, by {@code place}: its sign the side of the view (-1 left, 1 right), its size how low
@@ -357,7 +387,7 @@ final class FirstPersonWandRig {
     private static Motion built(Builder builder, float release, float length, float trailUntil, float trailLife,
                                 Roll roll) {
         return new Motion(builder.build(baseRest(), FirstPersonCast.Variant.NONE), release, length, builder, false,
-                trailUntil, trailLife, roll);
+                trailUntil, trailLife, roll, false, 0.0F);
     }
 
     /**
@@ -524,6 +554,273 @@ final class FirstPersonWandRig {
         BUILT.put(FirstPersonCast.PULL, built(FirstPersonWandRig::yankKeys, YANK_RELEASE, 11.0F, 4.2F, 2.0F));
         BUILT.put(FirstPersonCast.TWIST, built(FirstPersonWandRig::keyTurnKeys, KEY_RELEASE, 15.0F, KEY_TURN_END + 0.8F, 2.0F,
                 FirstPersonWandRig::keyRoll));
+    }
+
+    // ---------------------------------------------------------------- the signature moves
+
+    /** The arm along from an elbow below and to the right of the view to {@code hand}. */
+    private static Vector3f from(Vector3f hand, float ex, float ey, float ez) {
+        return new Vector3f(hand).sub(ex, ey, ez).normalize();
+    }
+
+    /**
+     * After a cut ends on a side: a moment's overshoot, the slow sink outwards and down, and (from the left) the
+     * way home under the bottom of the view; as the sweep's own, from tick {@code t0}.
+     */
+    private static Key[] sideTail(Key end, float side, float t0) {
+        Key hold = new Key(t0 + 1.0F, new Vector3f(end.hand()).add(side * 0.025F, -0.012F, 0.0F),
+                new Vector3f(end.arm()), new Vector3f(end.wand()));
+        Vector3f sunkArm = new Vector3f(end.arm()).add(side * 0.25F, -0.12F, 0.0F).normalize();
+        Key sunk = new Key(t0 + 8.3F, new Vector3f(end.hand()).add(side * 0.11F, -0.11F, 0.04F), sunkArm,
+                sideWand(sunkArm));
+        if (side > 0.0F) {
+            return new Key[]{hold, sunk};
+        }
+        Key under = new Key(t0 + 11.8F, new Vector3f(0.12F, -0.82F, -0.62F),
+                new Vector3f(0.25F, 1.0F, -0.2F).normalize(), new Vector3f(0.0F, -0.3F, -0.95F).normalize());
+        return new Key[]{hold, sunk, under};
+    }
+
+    /** How long a gesture ending in {@link #sideTail} from {@code t0} lasts. */
+    private static float tailLength(float t0) {
+        return t0 + 14.8F;
+    }
+
+    private static Key[] join(Key[] a, Key... b) {
+        Key[] out = java.util.Arrays.copyOf(a, a.length + b.length);
+        System.arraycopy(b, 0, out, a.length, b.length);
+        return out;
+    }
+
+    /** Expelliarmus: the sweep, and at its end the wand flicked up and back, tearing the wand from their hand. */
+    static Key[] expelliarmusKeys(Key from, FirstPersonCast.Variant variant) {
+        Key[] keys = sweepKeys(from, variant.place());
+        Key end = keys[1];
+        float side = Math.signum(end.hand().x);
+        keys[2] = key(SWEEP_END + 0.8F, new Vector3f(end.hand()).add(-side * 0.03F, 0.07F, 0.03F),
+                new Vector3f(end.arm()).add(-side * 0.15F, 0.2F, 0.0F),
+                new Vector3f(end.wand()).add(-side * 0.3F, 1.2F, 0.2F));
+        return keys;
+    }
+
+    /**
+     * Petrificus Totalus: the wand raised upright, then chopped straight down at the target and frozen there,
+     * dead still, for a moment, before it lets go.
+     */
+    static Key[] petrificusKeys(Key from, FirstPersonCast.Variant variant) {
+        Vector3f upArm = v(0.15F, 1.0F, -0.05F);
+        Vector3f chop = v(0.12F, -0.14F, -0.82F);
+        Vector3f chopArm = from(chop, 0.40F, -0.55F, -0.25F);
+        Vector3f aim = v(-0.06F, 0.40F, -1.0F);
+        Vector3f frozen = v(0.12F, -0.145F, -0.82F);
+        return new Key[]{
+                key(0.9F, v(0.24F, 0.12F, -0.78F), upArm, v(0.05F, 1.0F, -0.25F)),
+                key(PETRIFICUS_RELEASE, chop, chopArm, aim),
+                key(1.8F, frozen, chopArm, aim),
+                key(5.8F, frozen, chopArm, aim),
+                key(7.8F, v(0.16F, -0.19F, -0.80F), chopArm, v(-0.04F, 0.45F, -1.0F)),
+        };
+    }
+
+    private static final float PETRIFICUS_RELEASE = 1.6F;
+
+    /** Diffindo: one flat, very fast cut straight across at the target's height, the wand lying along it. */
+    static Key[] diffindoKeys(Key from, FirstPersonCast.Variant variant) {
+        float s = variant.place() < 0.0F ? -1.0F : 1.0F;
+        Vector3f endArm = v(s * 0.8F, 0.55F, -0.25F);
+        Key end = key(1.6F, v(s * 0.36F, -0.16F, -0.84F), endArm, v(s * 0.9F, 0.05F, -0.45F));
+        Key middle;
+        if (sideOf(from) == (int) s) {
+            middle = mix(from, end, 0.5F).copy(0.9F);
+        } else {
+            middle = key(0.9F, v(0.02F, -0.08F, -0.80F), v(s * 0.35F, 0.9F, -0.35F), v(s * 0.9F, 0.15F, -0.45F));
+        }
+        return join(new Key[]{middle, end}, sideTail(end, s, 1.6F));
+    }
+
+    /** Sectumsempra: two cuts in a Z, high across one way, then back low the other way. */
+    static Key[] sectumsempraKeys(Key from, FirstPersonCast.Variant variant) {
+        float s = variant.place() < 0.0F ? -1.0F : 1.0F;
+        Key endA = sweepEnd(s * 0.55F).copy(1.7F);
+        Key middleA = sideOf(from) == (int) s ? mix(from, endA, 0.5F).copy(1.0F) : sweepMiddle().copy(1.0F);
+        Vector3f lowArm = v(0.0F, 1.0F, -0.1F);
+        Key middleB = key(2.5F, v(0.02F, -0.26F, -0.72F), lowArm, inLine(lowArm));
+        Key endB = sweepEnd(-s * 0.95F).copy(3.2F);
+        return join(new Key[]{middleA, endA, middleB, endB}, sideTail(endB, -s, 3.2F));
+    }
+
+    /** Bombarda, Depulso: the arm drawn back to the shoulder, then a heavy punch out at the target. */
+    static Key[] punchKeys(Key from, FirstPersonCast.Variant variant) {
+        Vector3f backArm = v(0.1F, 1.0F, 0.15F);
+        Vector3f punch = v(0.08F, -0.10F, -0.95F);
+        Vector3f punchArm = from(punch, 0.28F, -0.5F, -0.3F);
+        Vector3f wand = inLine(punchArm).add(0.0F, 0.1F, 0.0F);
+        return new Key[]{
+                key(0.9F, v(0.40F, -0.24F, -0.56F), backArm, v(-0.05F, 1.0F, -0.25F)),
+                key(PUNCH_RELEASE, punch, punchArm, wand),
+                key(2.2F, v(0.08F, -0.10F, -0.99F), punchArm, wand),
+                key(3.2F, v(0.12F, -0.13F, -0.86F), punchArm, wand),
+                key(5.4F, v(0.13F, -0.14F, -0.85F), punchArm, wand),
+        };
+    }
+
+    private static final float PUNCH_RELEASE = 1.8F;
+
+    /**
+     * Avada Kedavra: the wand high over the shoulder (where the charge holds it), then one hard chop down
+     * across the body through the target, following through low to the left.
+     */
+    static Key[] avadaKeys(Key from, FirstPersonCast.Variant variant) {
+        Key through = sweepEnd(-0.9F).copy(2.2F);
+        return join(new Key[]{
+                key(0.6F, v(0.36F, 0.16F, -0.64F), v(0.2F, 1.0F, 0.1F), v(-0.1F, 1.0F, -0.2F)),
+                key(1.4F, v(0.02F, -0.17F, -0.74F), v(-0.25F, 1.0F, -0.15F), v(-0.04F, 0.40F, -1.0F)),
+                through}, sideTail(through, -1.0F, 2.2F));
+    }
+
+    /** Crucio: a thrust at the target, then held there with the hand shaking (the motion's tremor). */
+    static Key[] crucioKeys(Key from, FirstPersonCast.Variant variant) {
+        Vector3f hand = v(0.06F, -0.10F, -0.92F);
+        Vector3f arm = from(hand, 0.30F, -0.5F, -0.25F);
+        Vector3f wand = new Vector3f(arm).add(0.0F, 0.12F, 0.0F);
+        return new Key[]{
+                key(1.2F, hand, arm, wand),
+                key(1.6F, v(0.06F, -0.10F, -0.94F), arm, wand),
+                key(8.0F, v(0.06F, -0.10F, -0.94F), arm, wand),
+                key(9.5F, v(0.10F, -0.12F, -0.88F), arm, wand),
+        };
+    }
+
+    /**
+     * Expecto Patronum: the wand thrust out, then spiralled up in two widening-to-the-sky turns, ending high
+     * with the wand to the sky, where it stays while the Patronus is held.
+     */
+    static Key[] patronusKeys(Key from, FirstPersonCast.Variant variant) {
+        float turn = variant.tilt() < 0.0F ? -1.0F : 1.0F;
+        Vector3f startHand = v(0.10F, -0.10F, -0.88F);
+        Vector3f startArm = v(-0.15F, 0.45F, -0.65F);
+        Vector3f startWand = v(-0.02F, 0.4F, -1.0F);
+        Vector3f topHand = v(0.14F, 0.10F, -0.80F);
+        Vector3f topArm = v(-0.05F, 1.0F, -0.25F);
+        Vector3f topWand = v(-0.02F, 0.80F, -0.60F);
+        int steps = 16;
+        Key[] keys = new Key[steps + 2];
+        keys[0] = key(1.3F, startHand, startArm, startWand);
+        for (int i = 1; i <= steps; i++) {
+            float u = i / (float) steps;
+            float a = turn * Mth.TWO_PI * 2.0F * u;
+            float c = Mth.cos(a);
+            float sn = Mth.sin(a);
+            Vector3f hand = new Vector3f(startHand).lerp(topHand, u).add(c * 0.06F * (1.0F - 0.5F * u),
+                    sn * 0.05F * (1.0F - 0.5F * u), 0.0F);
+            Vector3f arm = new Vector3f(startArm).lerp(topArm, u);
+            Vector3f wand = new Vector3f(startWand).lerp(topWand, u).add(c * 0.25F * (1.0F - u),
+                    sn * 0.25F * (1.0F - u), 0.0F);
+            keys[i] = key(1.3F + 5.0F * u, hand, arm, wand);
+        }
+        keys[steps + 1] = key(7.0F, topHand, topArm, topWand);
+        return keys;
+    }
+
+    /**
+     * Incarcerous: the rope thrown out at the target, wound twice round with the wrist, and pulled tight with a
+     * hard yank back to the shoulder.
+     */
+    static Key[] incarcerousKeys(Key from, FirstPersonCast.Variant variant) {
+        Vector3f hand = v(0.08F, -0.08F, -0.90F);
+        Vector3f arm = from(hand, 0.30F, -0.5F, -0.25F);
+        Vector3f aim = v(0.0F, 0.38F, -1.0F).normalize();
+        Vector3f across = new Vector3f(aim).cross(0.0F, 1.0F, 0.0F).normalize();
+        Vector3f up = new Vector3f(across).cross(aim).normalize();
+        int steps = 16;
+        Key[] keys = new Key[steps + 4];
+        keys[0] = key(1.2F, hand, arm, aim);
+        for (int i = 0; i <= steps; i++) {
+            float phi = Mth.HALF_PI + Mth.TWO_PI * 2.0F * i / steps;
+            float c = Mth.cos(phi);
+            float sn = Mth.sin(phi);
+            Vector3f wand = new Vector3f(aim).add(new Vector3f(across).mul(c * 0.22F))
+                    .add(new Vector3f(up).mul(sn * 0.22F));
+            keys[i + 1] = key(1.6F + 5.0F * i / steps, new Vector3f(hand).add(c * 0.008F, sn * 0.008F, 0.0F),
+                    arm, wand);
+        }
+        Vector3f backArm = v(0.1F, 1.0F, 0.15F);
+        keys[steps + 2] = key(7.4F, v(0.38F, -0.24F, -0.60F), backArm, v(-0.08F, 1.0F, -0.25F));
+        keys[steps + 3] = key(8.0F, v(0.40F, -0.22F, -0.62F), backArm, v(-0.1F, 1.0F, -0.3F));
+        return keys;
+    }
+
+    /**
+     * Obliviate: one slow, wide wipe across the whole view from right to left at the target's height, as if
+     * wiping it out, fast through the middle and easing off to the left.
+     */
+    static Key[] obliviateKeys(Key from, FirstPersonCast.Variant variant) {
+        Vector3f startArm = v(0.45F, 0.9F, -0.3F);
+        Vector3f midArm = v(0.0F, 1.0F, -0.35F);
+        Vector3f farArm = v(-0.35F, 0.95F, -0.3F);
+        Vector3f endArm = v(-0.5F, 0.85F, -0.3F);
+        Key end = key(OBLIVIATE_END, v(-0.38F, -0.14F, -0.88F), endArm,
+                sideWand(new Vector3f(endArm).normalize()));
+        return join(new Key[]{
+                key(0.6F, v(0.40F, -0.06F, -0.82F), startArm, sideWand(new Vector3f(startArm).normalize())),
+                key(1.3F, v(0.04F, -0.10F, -0.84F), midArm, inLine(midArm)),
+                key(3.2F, v(-0.24F, -0.11F, -0.86F), farArm, sideWand(new Vector3f(farArm).normalize())),
+                end}, sideTail(end, -1.0F, OBLIVIATE_END));
+    }
+
+    private static final float OBLIVIATE_END = 5.0F;
+
+    /** Serpensortia: the wand drawn down in an S, a snake's wave, its tip swinging out at every bend. */
+    static Key[] serpensortiaKeys(Key from, FirstPersonCast.Variant variant) {
+        float[][] wave = {{0.24F, 0.08F}, {0.05F, 0.03F}, {0.22F, -0.04F}, {0.05F, -0.11F}, {0.22F, -0.18F},
+                {0.12F, -0.24F}};
+        float[] at = {0.6F, 1.3F, 2.1F, 2.9F, 3.7F, 4.5F};
+        Key[] keys = new Key[wave.length + 1];
+        for (int i = 0; i < wave.length; i++) {
+            Vector3f hand = v(wave[i][0], wave[i][1], -0.84F);
+            Vector3f arm = from(hand, 0.40F, -0.6F, -0.3F);
+            float lean = wave[i][0] < 0.13F ? -0.3F : 0.3F;
+            keys[i] = key(at[i], hand, arm, new Vector3f(arm).mul(0.4F).add(lean, 0.15F, -1.0F));
+        }
+        Vector3f lastArm = from(v(0.14F, -0.24F, -0.84F), 0.40F, -0.6F, -0.3F);
+        keys[wave.length] = key(6.5F, v(0.14F, -0.24F, -0.84F), lastArm, v(0.0F, 0.40F, -1.0F));
+        return keys;
+    }
+
+    /** The spells with a move of their own (Stupefy and the rest keep their gesture's). */
+    private static final Map<com.hogwartsmagic.spell.SpellType, Motion> SIGNATURE =
+            new java.util.EnumMap<>(com.hogwartsmagic.spell.SpellType.class);
+
+    static {
+        java.util.function.BiConsumer<Motion, com.hogwartsmagic.spell.SpellType[]> put = (motion, spells) -> {
+            for (com.hogwartsmagic.spell.SpellType spell : spells) {
+                SIGNATURE.put(spell, motion);
+            }
+        };
+        put.accept(built(FirstPersonWandRig::expelliarmusKeys, SWEEP_MID, SWEEP_LENGTH, SWEEP_MID + 2.2F, 2.0F)
+                .anchored(), new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.EXPELLIARMUS});
+        put.accept(built(FirstPersonWandRig::petrificusKeys, PETRIFICUS_RELEASE, 13.0F, 1.8F, 1.8F),
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.PETRIFICUS_TOTALUS});
+        put.accept(built(FirstPersonWandRig::diffindoKeys, 0.9F, tailLength(1.6F), 2.2F, 1.8F).anchored(),
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.DIFFINDO});
+        put.accept(built(FirstPersonWandRig::sectumsempraKeys, 1.0F, tailLength(3.2F), 3.4F, 2.6F).anchored(),
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.SECTUMSEMPRA});
+        put.accept(built(FirstPersonWandRig::punchKeys, PUNCH_RELEASE, 12.0F, 2.4F, 1.8F),
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.BOMBARDA,
+                        com.hogwartsmagic.spell.SpellType.DEPULSO});
+        put.accept(built(FirstPersonWandRig::avadaKeys, 1.4F, tailLength(2.2F), 2.4F, 2.2F).anchored(),
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.AVADA_KEDAVRA});
+        put.accept(built(FirstPersonWandRig::crucioKeys, 1.2F, 14.0F, 1.4F, 1.8F).trembling(1.0F),
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.CRUCIO});
+        put.accept(built(FirstPersonWandRig::patronusKeys, 1.3F, 15.0F, 7.0F, 4.0F).holdingLast(),
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.EXPECTO_PATRONUM});
+        put.accept(built(FirstPersonWandRig::incarcerousKeys, 1.2F, 14.0F, 6.8F, 2.4F),
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.INCARCEROUS});
+        put.accept(built(FirstPersonWandRig::obliviateKeys, 1.3F, tailLength(OBLIVIATE_END), OBLIVIATE_END, 4.0F)
+                .anchored(),
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.OBLIVIATE});
+        put.accept(built(FirstPersonWandRig::serpensortiaKeys, 1.3F, 13.0F, 4.8F, 4.0F),
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.SERPENSORTIA});
     }
 
     private FirstPersonWandRig() {

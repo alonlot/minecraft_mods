@@ -125,7 +125,7 @@ public final class FirstPersonWand {
         if (cast == null || minecraft.player == null) {
             return null;
         }
-        FirstPersonWandRig.Motion motion = FirstPersonWandRig.motionOf(cast.gesture());
+        FirstPersonWandRig.Motion motion = FirstPersonWandRig.motionOf(cast);
         FirstPersonWandRig.Key rest = FirstPersonWandRig.baseRest();
         FirstPersonWandRig.Key key = FirstPersonWandRig.pose(motion, cast.variant(), rest, motion.release(),
                 FirstPersonWandRig.fromOf(cast, rest));
@@ -156,7 +156,7 @@ public final class FirstPersonWand {
         if (cast == null || minecraft.player == null) {
             return false;
         }
-        FirstPersonWandRig.Motion motion = FirstPersonWandRig.motionOf(cast.gesture());
+        FirstPersonWandRig.Motion motion = FirstPersonWandRig.motionOf(cast);
         float since = minecraft.player.tickCount + minecraft.getTimer().getGameTimeDeltaPartialTick(false) - cast.start();
         return since >= 0.0F && since < releaseAfter(motion);
     }
@@ -200,7 +200,7 @@ public final class FirstPersonWand {
         float side = right ? 1.0F : -1.0F;
         FirstPersonCast.Cast cast = FirstPersonCast.current();
         float since = cast == null ? -1.0F : player.tickCount + partialTick - cast.start();
-        FirstPersonWandRig.Motion motion = cast == null ? null : FirstPersonWandRig.motionOf(cast.gesture());
+        FirstPersonWandRig.Motion motion = cast == null ? null : FirstPersonWandRig.motionOf(cast);
         float time = motion == null ? -1.0F : gestureTime(motion, since);
         boolean casting = motion != null && since >= 0.0F && time < motion.length();
 
@@ -216,7 +216,8 @@ public final class FirstPersonWand {
         float hold = FirstPersonCast.holdWeight(partialTick);
         if (hold > 0.0F) {
             FirstPersonWandRig.Motion held = casting ? motion
-                    : FirstPersonWandRig.motionOf(FirstPersonCast.forSpell(FirstPersonCast.heldSpell()));
+                    : FirstPersonWandRig.motionOf(FirstPersonCast.heldSpell(),
+                            FirstPersonCast.forSpell(FirstPersonCast.heldSpell()));
             now = FirstPersonWandRig.mix(now, held.holdKey(), hold * hold * (3.0F - 2.0F * hold));
         }
         // The Killing Curse gathering: the wand held high over the shoulder until it strikes.
@@ -228,6 +229,23 @@ public final class FirstPersonWand {
         }
         lastPose = now.copy(now.at()); // a copy: the equip drop below changes the drawn pose in place
         now = FirstPersonWandRig.sway(now);
+        // Crucio: the hand shakes from the release on and while the curse is held.
+        float shake = 0.0F;
+        if (casting && motion.tremor() > 0.0F && time >= motion.release()) {
+            shake = motion.tremor() * Mth.clamp((motion.length() - time) / 4.0F, 0.0F, 1.0F);
+        }
+        if (hold > 0.0F) {
+            FirstPersonWandRig.Motion held = casting ? motion : FirstPersonWandRig.motionOf(
+                    FirstPersonCast.heldSpell(), FirstPersonCast.forSpell(FirstPersonCast.heldSpell()));
+            shake = Math.max(shake, held.tremor() * hold);
+        }
+        if (shake > 0.0F) {
+            float age = player.tickCount + partialTick;
+            float dx = 0.5F * (Mth.sin(age * 7.3F) + Mth.sin(age * 12.9F + 1.3F));
+            float dy = 0.5F * (Mth.sin(age * 8.7F + 2.1F) + Mth.sin(age * 15.1F));
+            now.hand().add(dx * 0.007F * shake, dy * 0.007F * shake, 0.0F);
+            now.wand().add(dy * 0.035F * shake, dx * 0.035F * shake, 0.0F);
+        }
         FirstPersonWandRig.keepWandInView(now.wand());
         now.hand().y -= event.getEquipProgress() * 0.7F; // lowered while the wand is being taken out
 

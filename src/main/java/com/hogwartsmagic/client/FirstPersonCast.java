@@ -142,7 +142,7 @@ public final class FirstPersonCast {
         if (player == null) {
             return;
         }
-        if (current != null && player.tickCount - current.start() <= 4) {
+        if (current != null && player.tickCount - current.start() <= 4 + CastDelay.ticks(current.spell())) {
             if (current.spell() != spell) { // the swing guessed the wand's spell; the server knows better
                 current = new Cast(current.start(), spell, forSpell(spell), current.variant());
             }
@@ -165,7 +165,7 @@ public final class FirstPersonCast {
         boolean wand = MagicWandItem.isAnyWand(player.getMainHandItem());
         boolean swinging = player.swinging;
         // The server echoes your swing back a tick later, which restarts it: that is the same cast, not a new one.
-        boolean echo = current != null && player.tickCount - current.start() <= 4;
+        boolean echo = current != null && player.tickCount - current.start() <= 4 + CastDelay.ticks(current.spell());
         if (wand && swinging && !echo && (!wasSwinging || player.swingTime < lastSwingTime)) {
             start(player, MagicWandItem.getSelectedSpell(player.getMainHandItem()));
         }
@@ -212,6 +212,17 @@ public final class FirstPersonCast {
         }
         float place = (across ? -lastSide : lastSide) * size;
         return new Variant(mirror, scale, pitch, shiftX, shiftY, tilt, place);
+    }
+
+    /** A random variant for someone else's cast (third person), as {@link #nextVariant} gives your own. */
+    static Variant randomVariant(java.util.Random random, Gesture gesture, SpellType spell) {
+        boolean mirror = gesture == TWIST ? spell == SpellType.COLLOPORTUS : gesture.mirrorable && random.nextBoolean();
+        float scale = 0.8F + random.nextFloat() * 0.4F;
+        float pitch = (random.nextFloat() - 0.5F) * 22.0F;
+        float shiftY = (random.nextFloat() - 0.4F) * 0.22F;
+        float tilt = (random.nextFloat() - 0.5F) * 1.6F;
+        float place = (random.nextBoolean() ? 1.0F : -1.0F) * (0.5F + random.nextFloat() * 0.5F);
+        return new Variant(mirror, scale, pitch, 0.0F, shiftY, tilt, place);
     }
 
     @SubscribeEvent

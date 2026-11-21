@@ -476,14 +476,17 @@ final class FirstPersonWandRig {
                     .add(new Vector3f(up).mul(sn * CIRCLE_SIZE));
             // The palm turns; the hand itself hardly moves.
             Vector3f palm = new Vector3f(hand).add(c * 0.006F, sn * 0.006F, 0.0F);
-            keys[i] = key(CIRCLE_RELEASE + i * CIRCLE_LOOP / CIRCLE_STEPS, palm, arm, wand);
+            keys[i] = key(CIRCLE_START + i * CIRCLE_LOOP / CIRCLE_STEPS, palm, arm, wand);
         }
-        keys[steps + 1] = key(CIRCLE_RELEASE + CIRCLES * CIRCLE_LOOP + 1.0F, v(0.39F, -0.11F, -0.81F), arm, aim);
+        // The circles done, a little point at the target lets the spell go.
+        keys[steps + 1] = key(CIRCLE_RELEASE, v(0.38F, -0.11F, -0.84F), arm, aim);
         return keys;
     }
 
-    private static final float CIRCLE_RELEASE = 1.2F;
-    private static final float CIRCLE_LOOP = 4.0F;
+    private static final float CIRCLE_START = 0.6F;
+    private static final float CIRCLE_LOOP = 2.6F;
+    /** The spell leaves after the circles (CastDelay sends it then). */
+    private static final float CIRCLE_RELEASE = CIRCLE_START + 2 * CIRCLE_LOOP + 0.6F;
     private static final int CIRCLES = 2;
     private static final int CIRCLE_STEPS = 8;
     /** How wide the tip's circle is, as a share of the wand's length. */
@@ -570,8 +573,7 @@ final class FirstPersonWandRig {
         BUILT.put(FirstPersonCast.RAISE, built(FirstPersonWandRig::riseKeys, RISE_RELEASE, 12.0F, 2.2F, 2.5F));
         BUILT.put(FirstPersonCast.SWISH_FLICK, built(FirstPersonWandRig::swishKeys, SWISH_RELEASE, 14.0F, 4.8F, 4.0F));
         BUILT.put(FirstPersonCast.SPIRAL, built(FirstPersonWandRig::circleKeys, CIRCLE_RELEASE,
-                CIRCLE_RELEASE + CIRCLES * CIRCLE_LOOP + 5.5F, CIRCLE_RELEASE + CIRCLES * CIRCLE_LOOP + 0.2F,
-                CIRCLE_LOOP));
+                CIRCLE_RELEASE + 5.5F, CIRCLE_RELEASE, CIRCLE_LOOP));
         BUILT.put(FirstPersonCast.PULL, built(FirstPersonWandRig::yankKeys, YANK_RELEASE, 11.0F, 4.2F, 2.0F));
         BUILT.put(FirstPersonCast.TWIST, built(FirstPersonWandRig::keyTurnKeys, KEY_RELEASE, 15.0F, KEY_TURN_END + 0.8F, 2.0F,
                 FirstPersonWandRig::keyRoll));
@@ -1011,20 +1013,20 @@ final class FirstPersonWandRig {
                 {0.7F, 0.20F, -0.10F, -0.80F, 0.0F}, {1.3F, 0.12F, 0.12F, -0.80F, 0.0F},
                 {1.8F, 0.04F, 0.14F, -0.82F, 0.0F}, {2.3F, 0.16F, 0.12F, -0.80F, 0.0F},
                 {2.8F, 0.06F, 0.10F, -0.82F, 0.0F}, {3.3F, 0.14F, 0.08F, -0.80F, 0.0F},
-                {5.5F, 0.13F, 0.10F, -0.80F, 0.0F}}, 1.3F, 3.0F));
+                {3.8F, 0.10F, 0.17F, -0.80F, 0.0F}, {5.8F, 0.11F, 0.13F, -0.80F, 0.0F}}, 3.8F, 3.0F));
         // Ascendio: crouched low, then rocketed straight up past the top and dropped back.
         put.accept(com.hogwartsmagic.spell.SpellType.ASCENDIO, pathMotion(new float[][]{
                 {0.7F, 0.12F, -0.38F, -0.70F, 0.0F}, {1.2F, 0.10F, 0.18F, -0.74F, 0.0F},
                 {1.7F, 0.10F, 0.36F, -0.66F, 0.0F}, {3.4F, 0.12F, 0.10F, -0.78F, 0.0F}}, 1.2F, 2.2F));
         // Heal: the wand held upright, then tipped slowly forward and down, pouring light out.
         put.accept(com.hogwartsmagic.spell.SpellType.HEAL, pathMotion(new float[][]{
-                {1.2F, -0.06F, 0.04F, -0.84F, 0.0F}, {2.4F, -0.06F, 0.03F, -0.85F, 0.3F},
-                {4.5F, -0.05F, 0.0F, -0.86F, 1.0F}, {6.0F, -0.04F, -0.02F, -0.86F, 1.0F}}, 1.2F, 3.0F));
+                {0.8F, -0.06F, 0.04F, -0.84F, 0.0F}, {2.0F, -0.06F, 0.03F, -0.85F, 0.3F},
+                {3.6F, -0.05F, 0.0F, -0.86F, 1.0F}, {5.4F, -0.04F, -0.02F, -0.86F, 1.0F}}, 3.6F, 3.0F));
         // Cave Inimicum: one big slow circle round the view, a ward drawn round you.
         put.accept(com.hogwartsmagic.spell.SpellType.CAVE_INIMICUM, pathMotion(rows(
-                new float[][]{{0.6F, 0.22F, 0.04F, -0.82F, 0.4F}},
-                loop(0.06F, -0.06F, 0.21F, 0.14F, -0.84F, 1.2F, 6.0F, 1.0F, Mth.HALF_PI, 1.0F, 0.6F, 12)),
-                1.2F, 4.5F));
+                new float[][]{{0.5F, 0.22F, 0.04F, -0.82F, 0.4F}},
+                loop(0.06F, -0.06F, 0.21F, 0.14F, -0.84F, 0.9F, 5.0F, 1.0F, Mth.HALF_PI, 1.0F, 0.6F, 12),
+                new float[][]{{5.6F, 0.06F, -0.04F, -0.92F, 1.0F}}), 5.6F, 4.5F));
         // Piertotum Locomotor: orders: a jab left, a jab right, a jab straight on.
         put.accept(com.hogwartsmagic.spell.SpellType.PIERTOTUM_LOCOMOTOR, pathMotion(new float[][]{
                 {0.7F, 0.20F, -0.12F, -0.80F, 0.5F}, {1.3F, -0.16F, -0.08F, -0.90F, 1.0F},
@@ -1045,7 +1047,7 @@ final class FirstPersonWandRig {
                 {0.6F, 0.18F, -0.18F, -0.80F, 0.6F}, {1.1F, 0.10F, -0.06F, -0.84F, 1.0F},
                 {1.6F, 0.16F, -0.14F, -0.82F, 0.6F}, {2.1F, 0.06F, -0.04F, -0.84F, 0.0F},
                 {2.6F, 0.14F, -0.12F, -0.82F, 0.6F}, {3.1F, 0.04F, -0.02F, -0.84F, 0.0F},
-                {4.5F, 0.10F, -0.10F, -0.82F, 0.6F}}, 1.1F, 2.5F));
+                {4.5F, 0.10F, -0.10F, -0.82F, 0.6F}}, 3.1F, 2.5F));
         // Imperio: the wand on them, tugged up and let down twice, working the strings; held.
         put.accept(com.hogwartsmagic.spell.SpellType.IMPERIO, pathMotion(new float[][]{
                 {1.2F, 0.08F, -0.08F, -0.90F, 1.0F}, {2.4F, 0.10F, 0.04F, -0.84F, 0.5F},
@@ -1053,9 +1055,9 @@ final class FirstPersonWandRig {
                 {5.6F, 0.09F, 0.0F, -0.86F, 0.7F}}, 1.2F, 2.5F).holdingLast());
         // Reparo: a circle of the hand the other way round, then the pieces gathered in to the chest.
         put.accept(com.hogwartsmagic.spell.SpellType.REPARO, pathMotion(rows(
-                new float[][]{{0.6F, 0.20F, -0.04F, -0.82F, 0.8F}},
-                loop(0.10F, -0.08F, 0.08F, 0.07F, -0.84F, 1.2F, 5.2F, 1.0F, 0.0F, -1.0F, 0.8F, 10),
-                new float[][]{{6.2F, 0.24F, -0.20F, -0.66F, 0.3F}}), 1.2F, 4.0F));
+                new float[][]{{0.5F, 0.20F, -0.04F, -0.82F, 0.8F}},
+                loop(0.10F, -0.08F, 0.08F, 0.07F, -0.84F, 0.9F, 4.6F, 1.0F, 0.0F, -1.0F, 0.8F, 10),
+                new float[][]{{5.2F, 0.08F, -0.06F, -0.90F, 1.0F}, {6.4F, 0.24F, -0.20F, -0.66F, 0.3F}}), 5.2F, 4.0F));
         // Glacius: from high, one straight whip down through the target, following through low.
         put.accept(com.hogwartsmagic.spell.SpellType.GLACIUS, pathMotion(new float[][]{
                 {0.7F, 0.16F, 0.14F, -0.80F, 0.0F}, {1.3F, 0.06F, -0.10F, -0.84F, 1.0F},
@@ -1081,13 +1083,46 @@ final class FirstPersonWandRig {
                 {2.3F, 0.06F, -0.20F, -0.82F, 0.5F}, {2.8F, -0.16F, -0.26F, -0.80F, 0.3F}}, 1.1F, 2.5F).anchored());
         // Caelum Fascino: raised to the sky, then a wide slow stir round overhead.
         put.accept(com.hogwartsmagic.spell.SpellType.CAELUM_FASCINO, pathMotion(rows(
-                new float[][]{{0.8F, 0.20F, 0.0F, -0.82F, 0.0F}},
-                loop(0.06F, 0.08F, 0.14F, 0.05F, -0.84F, 1.3F, 7.3F, 1.0F, 0.0F, 1.0F, 0.0F, 12)), 1.3F, 4.5F));
+                new float[][]{{0.6F, 0.20F, 0.0F, -0.82F, 0.0F}},
+                loop(0.06F, 0.08F, 0.14F, 0.05F, -0.84F, 1.0F, 5.0F, 1.0F, 0.0F, 1.0F, 0.0F, 12),
+                new float[][]{{5.6F, 0.08F, 0.14F, -0.86F, 0.0F}}), 5.6F, 4.5F));
         // The two with a roll of the wrist.
         SIGNATURE.put(com.hogwartsmagic.spell.SpellType.APPARITION, built(FirstPersonWandRig::apparitionKeys, 1.2F,
                 9.0F, 2.2F, 2.5F, FirstPersonWandRig::apparitionRoll));
         SIGNATURE.put(com.hogwartsmagic.spell.SpellType.COLLOPORTUS, built(FirstPersonWandRig::colloportusKeys,
-                KEY_RELEASE, 15.0F, KEY_TURN_END + 0.8F, 2.0F, FirstPersonWandRig::keyRoll));
+                6.0F, 15.0F, 6.2F, 2.0F, FirstPersonWandRig::keyRoll));
+    }
+
+    // ---------------------------------------------------------------- the off hand
+
+    /**
+     * Where the off hand goes for the great spells, written as for a right hand (it is drawn mirrored onto the
+     * other side): the open hand raised at the shield, both hands up for the Patronus, held out to steady
+     * Fiendfyre, reaching out under the Killing Curse. Null for the rest.
+     */
+    @javax.annotation.Nullable
+    static Key offhand(com.hogwartsmagic.spell.SpellType spell) {
+        return OFFHAND.get(spell);
+    }
+
+    /** The off hand out of sight below the view. */
+    static Key offhandRest() {
+        return new Key(0.0F, new Vector3f(0.50F, -0.80F, -0.90F), new Vector3f(-0.1F, 1.0F, -0.1F).normalize(),
+                new Vector3f(0.0F, 1.0F, -0.3F).normalize());
+    }
+
+    private static final Map<com.hogwartsmagic.spell.SpellType, Key> OFFHAND =
+            new java.util.EnumMap<>(com.hogwartsmagic.spell.SpellType.class);
+
+    static {
+        OFFHAND.put(com.hogwartsmagic.spell.SpellType.PROTEGO_MAXIMA, new Key(0.0F, new Vector3f(0.46F, 0.04F, -1.0F),
+                new Vector3f(-0.12F, 1.0F, -0.12F).normalize(), new Vector3f(0.0F, 1.0F, -0.3F).normalize()));
+        OFFHAND.put(com.hogwartsmagic.spell.SpellType.EXPECTO_PATRONUM, new Key(0.0F, new Vector3f(0.44F, 0.14F, -1.0F),
+                new Vector3f(-0.08F, 1.0F, -0.1F).normalize(), new Vector3f(0.0F, 1.0F, -0.3F).normalize()));
+        OFFHAND.put(com.hogwartsmagic.spell.SpellType.FIENDFYRE, new Key(0.0F, new Vector3f(0.48F, -0.10F, -1.0F),
+                new Vector3f(-0.2F, 1.0F, -0.15F).normalize(), new Vector3f(0.0F, 1.0F, -0.3F).normalize()));
+        OFFHAND.put(com.hogwartsmagic.spell.SpellType.AVADA_KEDAVRA, new Key(0.0F, new Vector3f(0.50F, -0.06F, -1.0F),
+                new Vector3f(-0.15F, 1.0F, -0.15F).normalize(), new Vector3f(0.0F, 1.0F, -0.3F).normalize()));
     }
 
     private FirstPersonWandRig() {

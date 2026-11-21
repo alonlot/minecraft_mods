@@ -55,6 +55,11 @@ public final class FirstPersonWand {
     private static FirstPersonWandRig.Key castFrom;
     private static int fromCastStart = Integer.MIN_VALUE;
 
+    /** The way the current cast's strike went (on screen), for the settle after it; null when it hardly moved. */
+    @javax.annotation.Nullable
+    private static Vector3f settleDir;
+    private static int settleCast = Integer.MIN_VALUE;
+
     /** Where the tip was as the current cast let its spell go (view space): the flash stays there. */
     private static final Vector3f FLARE_AT = new Vector3f();
     private static int flareCast = Integer.MIN_VALUE;
@@ -161,11 +166,31 @@ public final class FirstPersonWand {
         return since >= 0.0F && since < releaseAfter(motion);
     }
 
-    /** Gesture time: the cast's own clock, with the wind-up played faster so the strike lands by WINDUP. */
-    static float gestureTime(FirstPersonWandRig.Motion motion, float since) {
+    /**
+     * Gesture time: the cast's own clock, with the wind-up played faster so the strike lands by WINDUP, and a
+     * hit-stop at the release: the arm holds still for {@code stop} ticks as the spell leaves, then goes on.
+     */
+    static float gestureTime(FirstPersonWandRig.Motion motion, float since, float stop) {
         float release = motion.release();
         float windup = releaseAfter(motion);
-        return since < windup ? since * release / Math.max(1.0E-3F, windup) : since - windup + release;
+        if (since < windup) {
+            return since * release / Math.max(1.0E-3F, windup);
+        }
+        if (since < windup + stop) {
+            return release;
+        }
+        return since - windup - stop + release;
+    }
+
+    /** The heavy hits: a longer hit-stop as they leave the wand. */
+    private static final java.util.Set<SpellType> HEAVY = java.util.EnumSet.of(SpellType.BOMBARDA,
+            SpellType.CONFRINGO, SpellType.AVADA_KEDAVRA, SpellType.SECTUMSEMPRA, SpellType.DEPULSO,
+            SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.PETRIFICUS_TOTALUS, SpellType.DIFFINDO,
+            SpellType.DOLOHOV_CURSE, SpellType.GLACIUS);
+
+    /** How long the arm holds still as {@code cast}'s spell leaves, in ticks (two or three frames). */
+    static float hitStop(FirstPersonCast.Cast cast) {
+        return cast.spell() != null && HEAVY.contains(cast.spell()) ? 1.3F : 0.7F;
     }
 
     /** Ticks into a cast at which the spell leaves the wand, on the cast's own clock. */
@@ -201,7 +226,7 @@ public final class FirstPersonWand {
         FirstPersonCast.Cast cast = FirstPersonCast.current();
         float since = cast == null ? -1.0F : player.tickCount + partialTick - cast.start();
         FirstPersonWandRig.Motion motion = cast == null ? null : FirstPersonWandRig.motionOf(cast);
-        float time = motion == null ? -1.0F : gestureTime(motion, since);
+        float time = motion == null ? -1.0F : gestureTime(motion, since, hitStop(cast));
         boolean casting = motion != null && since >= 0.0F && time < motion.length();
 
         FirstPersonWandRig.Key rest = FirstPersonWandRig.rest(player, partialTick, cast);
@@ -246,6 +271,18 @@ public final class FirstPersonWand {
             now.hand().add(dx * 0.007F * shake, dy * 0.007F * shake, 0.0F);
             now.wand().add(dy * 0.035F * shake, dx * 0.035F * shake, 0.0F);
         }
+        // The settle: after the hit-stop the hand runs on a touch past the strike and springs back.
+        if (casting && time > motion.release()) {
+            if (cast.start() != settleCast) {
+                settleCast = cast.start();
+                settleDir = FirstPersonWandRig.strikeDirection(cast);
+            }
+            if (settleDir != null) {
+                float u = time - motion.release();
+                float k = 0.022F * (float) Math.exp(-1.1F * u) * Mth.sin(3.4F * u);
+                now.hand().add(settleDir.x * k, settleDir.y * k, 0.0F);
+            }
+        }
         FirstPersonWandRig.keepWandInView(now.wand());
         now.hand().y -= event.getEquipProgress() * 0.7F; // lowered while the wand is being taken out
 
@@ -263,12 +300,45 @@ public final class FirstPersonWand {
         }
         pose.popPose();
 
+        // The off hand for the great spells: up for the shield and the Patronus, out to steady Fiendfyre and
+        // reaching for the Killing Curse.
+        SpellType castSpell = cast != null ? cast.spell() : null;
+        float off = 0.0F;
+        FirstPersonWandRig.Key offKey = null;
+        if (casting && castSpell != null && FirstPersonWandRig.offhand(castSpell) != null) {
+            offKey = FirstPersonWandRig.offhand(castSpell);
+            off = smooth(time / 2.0F) * (1.0F - smooth((time - (motion.length() - 5.0F)) / 4.0F));
+        }
+        SpellType heldSpell = FirstPersonCast.heldSpell();
+        if (hold > 0.0F && heldSpell != null && FirstPersonWandRig.offhand(heldSpell) != null) {
+            offKey = FirstPersonWandRig.offhand(heldSpell);
+            off = Math.max(off, hold);
+        }
+        if (charge != null && !casting) {
+            offKey = FirstPersonWandRig.offhand(SpellType.AVADA_KEDAVRA);
+            off = Math.max(off, smooth(charge.charge(AvadaChargeClientState.now(partialTick))));
+        }
+        if (offKey != null && off > 0.01F) {
+            FirstPersonWandRig.Key offPose = FirstPersonWandRig.mix(FirstPersonWandRig.offhandRest(), offKey, smooth(off));
+            float breathe = player.tickCount + partialTick;
+            offPose.hand().add(0.004F * Mth.sin(breathe * 0.21F), 0.006F * Mth.sin(breathe * 0.17F + 1.0F), 0.0F);
+            pose.pushPose();
+            FirstPersonWandRig.placeArm(pose, offPose, -side);
+            if (right) {
+                playerRenderer.renderLeftHand(pose, buffer, light, player);
+            } else {
+                playerRenderer.renderRightHand(pose, buffer, light, player);
+            }
+            pose.popPose();
+        }
+
         // The wand through the fist, pointing where the pose wants it (no hand item transform).
         pose.pushPose();
         FirstPersonWandRig.placeWand(pose, fist, new Vector3f(now.wand()).mul(side, 1.0F, 1.0F), GRIP);
         minecraft.gameRenderer.itemInHandRenderer.renderItem(player, stack, ItemDisplayContext.NONE, false, pose,
                 buffer, light);
         Vector3f tip = pose.last().pose().transformPosition(new Vector3f(TIP));
+        Vector3f grip = pose.last().pose().transformPosition(new Vector3f(GRIP));
         pose.popPose();
         LAST_TIP.set(tip);
         lastTipFrame = net.minecraft.Util.getNanos();
@@ -280,6 +350,8 @@ public final class FirstPersonWand {
         }
         recordSwipe(casting && time <= motion.trailUntil(), tip, age);
         SpellType spell = cast != null && cast.spell() != null ? cast.spell() : MagicWandItem.getSelectedSpell(stack);
+        recordSmear(casting && time > release - 1.5F && time < release + 3.0F, grip, tip, age);
+        drawSmear(spell, buffer, age);
         drawSwipe(spell, buffer, age);
         if (casting && time >= release && cast.start() != flareCast) {
             flareCast = cast.start();
@@ -377,9 +449,10 @@ public final class FirstPersonWand {
             }
             float fa = 1.0F - Mth.clamp((now - times[i]) / swipeLife, 0.0F, 1.0F);
             float fb = 1.0F - Mth.clamp((now - times[i + 1]) / swipeLife, 0.0F, 1.0F);
-            float wa = 0.004F + 0.012F * fa;
-            float wb = 0.004F + 0.012F * fb;
-            ribbonQuad(light, matrix, a, prevSide, wa * 3.0F, b, side, wb * 3.0F, color, 0.45F * fa, 0.45F * fb);
+            // A broad ribbon of the spell's light with a hot core.
+            float wa = 0.007F + 0.024F * fa;
+            float wb = 0.007F + 0.024F * fb;
+            ribbonQuad(light, matrix, a, prevSide, wa * 3.0F, b, side, wb * 3.0F, color, 0.55F * fa, 0.55F * fb);
             ribbonQuad(light, matrix, a, prevSide, wa, b, side, wb, hot, fa, fb);
             prevSide.set(side);
         }
@@ -391,6 +464,72 @@ public final class FirstPersonWand {
         vertex(consumer, matrix, a.x - sideA.x * wa, a.y - sideA.y * wa, a.z - sideA.z * wa, 1.0F, 0.5F, c, alphaA);
         vertex(consumer, matrix, b.x - sideB.x * wb, b.y - sideB.y * wb, b.z - sideB.z * wb, 1.0F, 0.5F, c, alphaB);
         vertex(consumer, matrix, b.x + sideB.x * wb, b.y + sideB.y * wb, b.z + sideB.z * wb, 0.0F, 0.5F, c, alphaB);
+    }
+
+    // ---------------------------------------------------------------- the smear
+
+    /** How long the wand's smear lingers, ticks: a few frames of afterimage through the fast part. */
+    private static final float SMEAR_LIFE = 1.0F;
+    private static final java.util.ArrayDeque<Vector3f> SMEAR_GRIP = new java.util.ArrayDeque<>();
+    private static final java.util.ArrayDeque<Vector3f> SMEAR_TIP = new java.util.ArrayDeque<>();
+    private static final java.util.ArrayDeque<Float> SMEAR_TIME = new java.util.ArrayDeque<>();
+
+    private static void recordSmear(boolean on, Vector3f grip, Vector3f tip, float now) {
+        while (!SMEAR_TIME.isEmpty() && (now - SMEAR_TIME.peekFirst() > SMEAR_LIFE || SMEAR_TIME.peekLast() > now)) {
+            SMEAR_TIME.pollFirst();
+            SMEAR_GRIP.pollFirst();
+            SMEAR_TIP.pollFirst();
+        }
+        if (!on || tip.z > -0.05F || grip.z > -0.05F) {
+            return;
+        }
+        Vector3f last = SMEAR_TIP.peekLast();
+        if (last != null && last.distanceSquared(tip) < 1.0E-6F) {
+            return;
+        }
+        SMEAR_GRIP.addLast(new Vector3f(grip));
+        SMEAR_TIP.addLast(new Vector3f(tip));
+        SMEAR_TIME.addLast(now);
+        if (SMEAR_TIME.size() > 24) {
+            SMEAR_TIME.pollFirst();
+            SMEAR_GRIP.pollFirst();
+            SMEAR_TIP.pollFirst();
+        }
+    }
+
+    /**
+     * The smear: the band the wand swept through over the last frames, filled with a faint light that is
+     * brightest at the tip and fades towards the hand and with age, as an animator draws a fast swing. Only
+     * where the wand moved fast.
+     */
+    private static void drawSmear(@javax.annotation.Nullable SpellType spell, MultiBufferSource buffer, float now) {
+        if (SMEAR_TIP.size() < 2) {
+            return;
+        }
+        float[] c = whiten(lightColor(spell), 0.65F);
+        Vector3f[] grips = SMEAR_GRIP.toArray(new Vector3f[0]);
+        Vector3f[] tips = SMEAR_TIP.toArray(new Vector3f[0]);
+        Float[] times = SMEAR_TIME.toArray(new Float[0]);
+        Matrix4f matrix = new Matrix4f();
+        VertexConsumer light = buffer.getBuffer(GLOW);
+        for (int i = 0; i < tips.length - 1; i++) {
+            float step = tips[i].distance(tips[i + 1]);
+            if (step < 0.012F) {
+                continue; // slow here: no smear
+            }
+            float speed = Mth.clamp((step - 0.012F) / 0.05F, 0.0F, 1.0F);
+            float fa = (1.0F - Mth.clamp((now - times[i]) / SMEAR_LIFE, 0.0F, 1.0F)) * speed;
+            float fb = (1.0F - Mth.clamp((now - times[i + 1]) / SMEAR_LIFE, 0.0F, 1.0F)) * speed;
+            vertex(light, matrix, grips[i].x, grips[i].y, grips[i].z, 0.5F, 0.5F, c, 0.03F * fa);
+            vertex(light, matrix, tips[i].x, tips[i].y, tips[i].z, 0.5F, 0.5F, c, 0.32F * fa);
+            vertex(light, matrix, tips[i + 1].x, tips[i + 1].y, tips[i + 1].z, 0.5F, 0.5F, c, 0.32F * fb);
+            vertex(light, matrix, grips[i + 1].x, grips[i + 1].y, grips[i + 1].z, 0.5F, 0.5F, c, 0.03F * fb);
+        }
+    }
+
+    private static float smooth(float t) {
+        t = Mth.clamp(t, 0.0F, 1.0F);
+        return t * t * (3.0F - 2.0F * t);
     }
 
     // ---------------------------------------------------------------- the tip light
@@ -418,6 +557,30 @@ public final class FirstPersonWand {
         VertexConsumer light = buffer.getBuffer(GLOW);
         glowQuad(light, matrix, 0.05F + 0.07F * glow, new float[]{1.0F, 1.0F, 1.0F}, glow);
         glowQuad(light, matrix, 0.12F + 0.12F * glow, hot, 0.75F * glow);
+        if (casting && time < release) {
+            // The charge: sparks of the spell's light drawn in from round the tip.
+            float c = Mth.clamp(time / Math.max(0.5F, release) * 1.5F, 0.0F, 1.0F);
+            for (int i = 0; i < 10; i++) {
+                float phase = (i * 0.173F + age * 0.45F) % 1.0F;
+                float angle = i * 2.399F;
+                float r = 0.17F * (1.0F - phase);
+                Matrix4f mote = new Matrix4f().translate(tip.x + Mth.cos(angle) * r, tip.y + Mth.sin(angle) * r,
+                        tip.z + 0.03F * Mth.sin(angle * 3.0F) * (1.0F - phase));
+                glowQuad(light, mote, 0.008F + 0.006F * phase, hot, phase * c);
+            }
+        }
+        if (casting && time >= release && time < release + 4.0F) {
+            // The burst: the gathered sparks thrown out as the spell leaves.
+            float k = (time - release) / 4.0F;
+            float e = 1.0F - (1.0F - k) * (1.0F - k);
+            for (int i = 0; i < 14; i++) {
+                float angle = i * 2.399F + (player.tickCount % 7) * 0.9F;
+                float reach = (0.04F + 0.36F * e) * (0.6F + 0.4F * ((i * 0.37F) % 1.0F));
+                Matrix4f mote = new Matrix4f().translate(flareAt.x + Mth.cos(angle) * reach,
+                        flareAt.y + Mth.sin(angle) * reach, flareAt.z);
+                glowQuad(light, mote, 0.004F + 0.012F * (1.0F - k), hot, 1.0F - k);
+            }
+        }
         if (flare > 0.0F) {
             matrix = new Matrix4f().translate(flareAt);
             // A hot white core in a halo about a hand across, as in the reference: not a wash over the view.

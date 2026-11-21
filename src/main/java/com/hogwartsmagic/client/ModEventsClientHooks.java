@@ -169,7 +169,8 @@ public final class ModEventsClientHooks {
             com.hogwartsmagic.event.ClientModEvents.startLockHold(holdKey, grace);
         }
 
-        SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, false, false), PacketDistributor.SERVER.noArg());
+        // A charm whose move builds up is sent when the move lets it go (CastDelay).
+        CastDelay.send(player, selected);
         player.swing(InteractionHand.MAIN_HAND);
         return true;
     }

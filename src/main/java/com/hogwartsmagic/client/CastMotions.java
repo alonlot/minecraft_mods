@@ -146,16 +146,47 @@ public final class CastMotions {
         final double start;
         /** The gesture turned round the line of aim (radians), different every cast: steep, flat or diagonal. */
         final float tilt;
+        /** The spell's first-person move, played by the whole arm in third person; null for the old keys. */
+        @javax.annotation.Nullable
+        final FirstPersonWandRig.Motion move;
+        final FirstPersonCast.Variant variant;
 
         Cast(Motion motion, SpellType spell, double start, float tilt) {
+            this(motion, spell, start, tilt, null, FirstPersonCast.Variant.NONE);
+        }
+
+        Cast(Motion motion, SpellType spell, double start, float tilt, @javax.annotation.Nullable FirstPersonWandRig.Motion move,
+             FirstPersonCast.Variant variant) {
             this.motion = motion;
             this.spell = spell;
             this.start = start;
             this.tilt = tilt;
+            this.move = move;
+            this.variant = variant;
+        }
+
+        float length() {
+            return move != null ? move.length() : motion.length;
+        }
+
+        float snap() {
+            return move != null ? move.release() : motion.snap;
         }
 
         /** {raise, turn, push} {@code t} ticks in, with this cast's tilt. */
         float[] at(float t) {
+            if (move != null) {
+                // The first-person move, seen from outside: the arm points from the shoulder to where the hand is
+                // in the first-person view (x right, y up, -z ahead of the eye).
+                FirstPersonWandRig.Key rest = FirstPersonWandRig.baseRest();
+                FirstPersonWandRig.Key key = FirstPersonWandRig.pose(move, variant, rest, t, rest);
+                float dx = key.hand().x - 0.36F;
+                float dy = key.hand().y + 0.30F;
+                float dz = key.hand().z - 0.06F;
+                float raise = (float) Math.atan2(dy, Math.sqrt(dx * dx + dz * dz));
+                float turn = (float) Math.atan2(dx, -dz);
+                return new float[]{Mth.clamp(raise, -0.9F, 1.4F), Mth.clamp(turn, -1.2F, 1.0F), 0.0F};
+            }
             float[] p = motion.at(t);
             float cos = Mth.cos(tilt);
             float sin = Mth.sin(tilt);
@@ -167,7 +198,7 @@ public final class CastMotions {
         }
 
         boolean over(double now) {
-            return age(now) > motion.length;
+            return age(now) > length();
         }
 
         /** {raise, turn, push, weight}: eases in over a tick, out over the last four. */
@@ -175,7 +206,7 @@ public final class CastMotions {
             float t = age(now);
             float[] p = at(t);
             float weight = AvadaChargePose.smoothstep(0.0f, 1.0f, t + 0.5f)
-                    * (1.0f - AvadaChargePose.smoothstep(motion.length - 4.0f, motion.length, t));
+                    * (1.0f - AvadaChargePose.smoothstep(length() - 4.0f, length(), t));
             return new float[]{p[0], p[1], p[2], weight};
         }
 
@@ -204,7 +235,13 @@ public final class CastMotions {
         // The spell is already on its way: start the gesture just short of its release, so the snap lands with
         // the beam leaving the wand instead of a beat after it.
         float tilt = (minecraft.level.random.nextFloat() - 0.5f) * 1.4f;
-        CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime() - (motion.snap - RELEASE_LEAD), tilt));
+        // The arm plays the spell's own first-person move (each spell has one), seen from outside.
+        FirstPersonCast.Gesture gesture = FirstPersonCast.forSpell(spell);
+        FirstPersonWandRig.Motion move = FirstPersonWandRig.motionOf(spell, gesture);
+        FirstPersonCast.Variant variant = FirstPersonCast.randomVariant(
+                new java.util.Random(minecraft.level.random.nextLong()), gesture, spell);
+        CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime() - (move.release() - RELEASE_LEAD),
+                tilt, move, variant));
     }
 
     /** Drop gestures that are over for casters never drawn again (walked off, logged out). */
@@ -241,8 +278,8 @@ public final class CastMotions {
      * snap, turned by where the caster looks. Null when it hardly moves there.
      */
     public static Vec3 flickDirection(LivingEntity caster, Cast cast) {
-        float[] before = cast.at(Math.max(0.0f, cast.motion.snap - 0.8f));
-        float[] at = cast.at(cast.motion.snap);
+        float[] before = cast.at(Math.max(0.0f, cast.snap() - 0.8f));
+        float[] at = cast.at(cast.snap());
         double up = at[0] - before[0];
         double right = at[1] - before[1];
         if (up * up + right * right < 1.0E-4) {

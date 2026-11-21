@@ -656,10 +656,13 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Ukrainian Ironbelly
 
-- The dragon chained in front of the deepest Gringotts vault (200 health, heavy armour). It never flies.
-- Nearly blind: it finds you by noise (sprinting, breaking blocks) or when you come within 8 blocks. Walking past it, wall-side, works.
+- The dragon chained in its own hall at the bottom of the Gringotts undercroft, in front of the deepest vault (200 health, heavy armour). It never flies: its wings are torn.
+- Its own model, not a recoloured Horntail: heavier and larger, with a plated iron keel under its belly, a blunt horned head, a clubbed tail, an iron collar, and a shackle on its left ankle.
+- You can see the chains. One runs from the shackle to each anchor stub still standing. They lie slack on the floor near the anchor and come taut when it reaches the end of its tether.
+- Nearly blind: it finds you by noise (sprinting, breaking blocks, opening a chest, dropping hard off a ledge) or when you come within 8 blocks, 5 if you crouch. Walking past it, crouched and wall-side, works.
+- When it has no target it sniffs: head low, sweeping slowly. At the end of its chain it strains and its shackled leg drags back.
 - Held within 11 blocks of its anchor; past the chain it stops following and breathes fire instead.
-- Clankers cow it for 5 seconds. Break every anchor stub in the floor around it and it climbs out of the cavern and is gone.
+- Clankers cow it for 5 seconds: it drops flat, turns its head away and curls its tail. Break every anchor stub in the floor around it and it climbs out of the cavern and is gone.
 - Drops Blaze Powder, bone, Arcane Dust and, when a player kills it, sometimes a Dragon Heartstring Core.
 
 ### Gringotts Goblin
@@ -1591,13 +1594,19 @@ at generation time for headroom, floor, gradient and self-intersection, so it is
 or it is not built.
 
 The corridor changes shape as it goes - enclosed bore, open ledge, trestle over the void, and
-galleries where something happens - and no one profile runs more than about forty blocks. The stone
-is banded by depth, from the bank's own dressed masonry at the top to raw blackstone at the bottom,
-and the lamps turn from iron lanterns to soul lanterns as you pass out of the bank and into the
-caves. Nothing is lit below the last ledge, which is what keeps the chasm floor invisible.
+galleries where something happens - and no one profile runs more than about forty blocks. The ledges
+open onto the chasm, with the drop right at the edge of the deck, and the cart leans into every turn.
+The line is old: sleepers are missing, rails run over bare rock in places, broken chains hang under
+the ledges and posts hold the trestles up. The stone is banded by depth, from the bank's own dressed
+masonry at the top to raw blackstone at the bottom. Lanterns hang at regular intervals only through
+the first stretch below the bank; deeper down the light comes in warm clusters with long dark runs
+between them. The only cold light in the undercroft is at the Thief's Downfall. Nothing is lit below
+the last ledge, which is what keeps the chasm floor invisible.
 
-**The vaults.** Seven of them, cut into the rock side of the line. A vault is a door, a throat and a
-chamber, so "the door is open" and "you have the gold" are two different moments. The door opens the
+**The vaults.** Seven of them, cut level into the rock side of the line, each with its number on a
+glowing plaque beside the door (687, 211, 459, 802, 118, 640, 713). Two more mouths along the line
+were bricked up long ago and go nowhere. A vault is a door, a throat and a chamber, so "the door is
+open" and "you have the gold" are two different moments. The door opens the
 way the films open one: a bare hand on the leaf, then ten seconds of touch, ripple, mechanism, bolts
 and parting. Opening one as yourself wakes the bank and starts a one-minute reseal; opening one as a
 goblin does not.
@@ -1608,8 +1617,12 @@ goblin does not.
   invisibility cloak and every potion effect, including the Fire Resistance you were relying on. It
   does not touch item enchantments. It also destroys cursed gold, so the trap on the way in is the
   cure on the way out.
-- **The Ukrainian Ironbelly** - chained in front of the deepest vault, half-blind and hunting by
-  hearing rather than by sight, so you can walk past it if you walk. **Clankers** cow it for five
+- **The dragon's hall** - the line ends in a cavern cut into the rock at the very bottom, lit red
+  from fissures in the floor, open on one side onto the floor of the chasm. A buffer stop marks the
+  end of the track. The deepest vault is in the hall's back wall.
+- **The Ukrainian Ironbelly** - chained in the middle of that hall, between the track and the
+  deepest vault, half-blind and hunting by hearing rather than by sight, so you can walk past it if
+  you walk. **Clankers** cow it for five
   seconds, and the same noise brings every goblin guard within thirty-two blocks. Break the last
   anchor stub and it leaves.
 - **Gemino and Flagrante** - the deepest hoard is cursed. Standing on it multiplies it, carrying it

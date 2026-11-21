@@ -27,8 +27,14 @@ public class HungarianHorntailRenderer extends MobRenderer<HungarianHorntailEnti
 
     /** With a model of its own (the memory dragon's blends its poses: client/MemoryHorntailRenderer). */
     protected HungarianHorntailRenderer(EntityRendererProvider.Context context, HungarianHorntailModel model) {
-        super(context, model, 1.6F);
-        this.addLayer(new EyesLayer(this));
+        this(context, model, 1.6F, EyesLayer.HORNTAIL_EYES);
+    }
+
+    /** With its own model, shadow and eye glow (the Ironbelly's: client/renderer/UkrainianIronbellyRenderer). */
+    protected HungarianHorntailRenderer(EntityRendererProvider.Context context, HungarianHorntailModel model,
+                                        float shadow, ResourceLocation eyes) {
+        super(context, model, shadow);
+        this.addLayer(new EyesLayer(this, eyes));
         this.addLayer(new FireMouthLayer(this));
     }
 
@@ -44,20 +50,23 @@ public class HungarianHorntailRenderer extends MobRenderer<HungarianHorntailEnti
         poseStack.scale(1.15F, 1.15F, 1.15F);
     }
 
-    /** Burning amber eyes that stay lit in the dark, the way the film dragon's do. */
+    /** Eyes that stay lit in the dark: burning amber on the Horntail, as the film dragon's are. */
     private static class EyesLayer extends RenderLayer<HungarianHorntailEntity, HungarianHorntailModel> {
-        private static final RenderType EYES = RenderType.eyes(
-                ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/hungarian_horntail_eyes.png"));
+        static final ResourceLocation HORNTAIL_EYES =
+                ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/hungarian_horntail_eyes.png");
 
-        EyesLayer(RenderLayerParent<HungarianHorntailEntity, HungarianHorntailModel> parent) {
+        private final RenderType eyes;
+
+        EyesLayer(RenderLayerParent<HungarianHorntailEntity, HungarianHorntailModel> parent, ResourceLocation texture) {
             super(parent);
+            this.eyes = RenderType.eyes(texture);
         }
 
         @Override
         public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight,
                            HungarianHorntailEntity entity, float limbSwing, float limbSwingAmount,
                            float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
-            VertexConsumer consumer = buffer.getBuffer(EYES);
+            VertexConsumer consumer = buffer.getBuffer(this.eyes);
             this.getParentModel().renderToBuffer(poseStack, consumer, 15728640,
                     OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
         }

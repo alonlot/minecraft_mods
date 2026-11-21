@@ -56,9 +56,12 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
             SynchedEntityData.defineId(UkrainianIronbellyEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_CHAINED =
             SynchedEntityData.defineId(UkrainianIronbellyEntity.class, EntityDataSerializers.BOOLEAN);
+    /** The anchor, so the client can draw the chains to the stubs round it and pose the strain. */
+    private static final EntityDataAccessor<java.util.Optional<BlockPos>> DATA_ANCHOR =
+            SynchedEntityData.defineId(UkrainianIronbellyEntity.class, EntityDataSerializers.OPTIONAL_BLOCK_POS);
 
     /** How far it can get from its anchor before the chains take up. */
-    private static final double CHAIN_RADIUS = 11.0D;
+    public static final double CHAIN_RADIUS = 11.0D;
     /** How long a ringing of Clankers keeps it cowed. */
     public static final int COWER_TICKS = 100;
     /** How far a noise carries to it. Deliberately further than it can see. */
@@ -71,6 +74,8 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
      * the track: hug the wall and you get by, walk down the middle and it has you.
      */
     private static final double SMELL = 8.0D;
+    /** Crouched, you are nearer still before it knows. The way past is to slow down AND get low. */
+    private static final double SMELL_CROUCHED = 5.0D;
     private static final int HEARD_MEMORY = 60;
     /** Ticks of the departure once it is freed. */
     private static final int LEAVING_TICKS = 200;
@@ -82,6 +87,11 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
     @Nullable
     private Vec3 lastHeardAt;
     private int leavingTicks = -1;
+
+    // Client-side pose blends, eased so nothing snaps: 0..1 each, with last tick's value.
+    private float cowerAnim, cowerAnimO;
+    private float strainAnim, strainAnimO;
+    private float sniffAnim, sniffAnimO;
 
     public UkrainianIronbellyEntity(EntityType<? extends HungarianHorntailEntity> type, Level level) {
         super(type, level);
@@ -101,6 +111,7 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         super.defineSynchedData(builder);
         builder.define(DATA_COWERING, Boolean.FALSE);
         builder.define(DATA_CHAINED, Boolean.TRUE);
+        builder.define(DATA_ANCHOR, java.util.Optional.empty());
     }
 
     @Override
@@ -121,7 +132,8 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
                 10, false, false, living -> living instanceof Player player
                         && !player.isCreative() && !player.isSpectator()
                         && !isCowering()
-                        && (distanceToSqr(player) < SMELL * SMELL || recentlyHeard())));
+                        && (distanceToSqr(player) < smellFor(player) * smellFor(player)
+                                || recentlyHeard())));
     }
 
     public boolean isCowering() {
@@ -134,6 +146,47 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
 
     public void setAnchor(BlockPos pos) {
         this.anchor = pos.immutable();
+        this.entityData.set(DATA_ANCHOR, java.util.Optional.of(this.anchor));
+    }
+
+    /** The anchor as the client knows it, for the chains and the strain pose. */
+    @Nullable
+    public BlockPos syncedAnchor() {
+        return this.entityData.get(DATA_ANCHOR).orElse(null);
+    }
+
+    private static double smellFor(Player player) {
+        return player.isCrouching() ? SMELL_CROUCHED : SMELL;
+    }
+
+    public float cowerAmount(float partial) {
+        return net.minecraft.util.Mth.lerp(partial, this.cowerAnimO, this.cowerAnim);
+    }
+
+    public float strainAmount(float partial) {
+        return net.minecraft.util.Mth.lerp(partial, this.strainAnimO, this.strainAnim);
+    }
+
+    public float sniffAmount(float partial) {
+        return net.minecraft.util.Mth.lerp(partial, this.sniffAnimO, this.sniffAnim);
+    }
+
+    /** Eases the three pose blends toward what the synced state says, on the client. */
+    private void tickPoseBlends() {
+        this.cowerAnimO = this.cowerAnim;
+        this.strainAnimO = this.strainAnim;
+        this.sniffAnimO = this.sniffAnim;
+        float cower = isCowering() ? 1.0F : 0.0F;
+        BlockPos at = syncedAnchor();
+        float strain = 0.0F;
+        if (at != null && isChained()) {
+            double d = Math.hypot(getX() - (at.getX() + 0.5D), getZ() - (at.getZ() + 0.5D));
+            strain = (float) net.minecraft.util.Mth.clamp((d - (CHAIN_RADIUS - 2.0D)) / 2.0D, 0.0D, 1.0D);
+        }
+        float sniff = isAggressive() || isCowering() ? 0.0F : 1.0F;
+        this.cowerAnim += (cower - this.cowerAnim) * 0.18F;
+        this.strainAnim += (strain - this.strainAnim) * 0.15F;
+        this.sniffAnim += (sniff - this.sniffAnim) * 0.06F;
     }
 
     @Nullable
@@ -226,6 +279,7 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
     public void tick() {
         super.tick();
         if (this.level().isClientSide) {
+            tickPoseBlends();
             return;
         }
 
@@ -290,7 +344,7 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         if (tag.contains("Anchor")) {
-            this.anchor = BlockPos.of(tag.getLong("Anchor"));
+            setAnchor(BlockPos.of(tag.getLong("Anchor")));
         }
         this.entityData.set(DATA_CHAINED, !tag.contains("Chained") || tag.getBoolean("Chained"));
         // The departure is not saved: a freed dragon reloaded mid-climb resumes leaving instead of staying loose.
@@ -345,8 +399,15 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         }
 
         @Override
+        public void start() {
+            // Synced to the client, which drops the sniffing head the moment it has somebody.
+            this.dragon.setAggressive(true);
+        }
+
+        @Override
         public void stop() {
             this.dragon.getNavigation().stop();
+            this.dragon.setAggressive(false);
             this.cooldown = 0;
         }
 

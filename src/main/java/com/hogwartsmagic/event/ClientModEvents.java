@@ -1172,6 +1172,8 @@ public class ClientModEvents {
         event.registerLayerDefinition(com.hogwartsmagic.client.model.GiantModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.GiantModel::createBodyLayer);
         event.registerLayerDefinition(HungarianHorntailModel.LAYER_LOCATION, HungarianHorntailModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.UkrainianIronbellyModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.UkrainianIronbellyModel::createIronbellyLayer);
         event.registerLayerDefinition(WhulvkWerewolfLycanModel.LAYER_LOCATION, WhulvkWerewolfLycanModel::createBodyLayer);
         event.registerLayerDefinition(GillyweedGillsModel.LAYER_LOCATION, GillyweedGillsModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.GoldenSnitchModel.LAYER_LOCATION, com.hogwartsmagic.client.GoldenSnitchModel::createBodyLayer);

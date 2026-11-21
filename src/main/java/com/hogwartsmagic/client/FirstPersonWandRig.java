@@ -853,8 +853,8 @@ final class FirstPersonWandRig {
         put.accept(built(FirstPersonWandRig::sectumsempraKeys, 1.0F, tailLength(3.2F), 3.4F, 2.6F).anchored(),
                 new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.SECTUMSEMPRA});
         put.accept(built(FirstPersonWandRig::punchKeys, PUNCH_RELEASE, 12.0F, 2.4F, 1.8F),
-                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.BOMBARDA,
-                        com.hogwartsmagic.spell.SpellType.DEPULSO});
+                new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.BOMBARDA});
+        addPathMoves();
         put.accept(built(FirstPersonWandRig::avadaKeys, 1.4F, tailLength(2.2F), 2.4F, 2.2F).anchored(),
                 new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.AVADA_KEDAVRA});
         put.accept(built(FirstPersonWandRig::crucioKeys, 1.2F, 14.0F, 1.4F, 1.8F).trembling(1.0F),
@@ -868,6 +868,226 @@ final class FirstPersonWandRig {
                 new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.OBLIVIATE});
         put.accept(built(FirstPersonWandRig::serpensortiaKeys, 1.3F, 13.0F, 4.8F, 4.0F),
                 new com.hogwartsmagic.spell.SpellType[]{com.hogwartsmagic.spell.SpellType.SERPENSORTIA});
+    }
+
+    // ---------------------------------------------------------------- moves drawn as a path of the hand
+
+    // Where the forearm comes from for a path move (below the middle of the view, a little in front), and what
+    // the wand points at when a path point aims it (just above the crosshair, far off). Plain numbers, not
+    // static vectors: the moves are built while the class is still loading.
+    private static final float ELBOW_X = 0.08F;
+    private static final float ELBOW_Y = -0.62F;
+
+    /**
+     * A move drawn as a path of the hand: rows of {tick, x, y, z, aim}. The forearm runs to the hand from
+     * below the middle of the view; the wand blends from in line with the forearm (aim 0) to pointing at the
+     * target (aim 1). A path that ends on the left goes home under the bottom of the view.
+     */
+    private static Key[] path(float[][] rows) {
+        Key[] keys = new Key[rows.length];
+        for (int i = 0; i < rows.length; i++) {
+            float[] r = rows[i];
+            Vector3f hand = v(r[1], r[2], r[3]);
+            // The forearm stands up from below the middle of the view, leaning only a little away, so you see
+            // the sleeve, never the end of the fist.
+            float rise = r[2] - ELBOW_Y;
+            Vector3f arm = v(r[1] - ELBOW_X, rise, -0.3F * rise).normalize();
+            Vector3f line = inLine(arm).normalize();
+            Vector3f aim = v(0.0F, 0.06F, -2.2F).sub(hand).normalize();
+            // A row may give the wand's way outright (x, y, z after the aim).
+            Vector3f wand = r.length >= 8 ? v(r[5], r[6], r[7]) : line.lerp(aim, r[4]);
+            keys[i] = key(r[0], hand, arm, wand);
+        }
+        float[] last = rows[rows.length - 1];
+        if (last[1] < -0.12F) {
+            Key under = new Key(last[0] + 3.5F, new Vector3f(0.12F, -0.82F, -0.62F),
+                    new Vector3f(0.25F, 1.0F, -0.2F).normalize(), new Vector3f(0.0F, -0.3F, -0.95F).normalize());
+            return join(keys, under);
+        }
+        return keys;
+    }
+
+    /** Rows of a loop of the hand round (cx, cy), from tick t0 to t1, turning {@code dir} (1 anticlockwise). */
+    private static float[][] loop(float cx, float cy, float rx, float ry, float z, float t0, float t1, float turns,
+                                  float start, float dir, float aim, int steps) {
+        float[][] rows = new float[steps + 1][];
+        for (int i = 0; i <= steps; i++) {
+            float a = start + dir * Mth.TWO_PI * turns * i / steps;
+            rows[i] = new float[]{t0 + (t1 - t0) * i / steps, cx + rx * Mth.cos(a), cy + ry * Mth.sin(a), z, aim};
+        }
+        return rows;
+    }
+
+    private static float[][] rows(float[][]... parts) {
+        java.util.List<float[]> all = new java.util.ArrayList<>();
+        for (float[][] part : parts) {
+            java.util.Collections.addAll(all, part);
+        }
+        return all.toArray(new float[0][]);
+    }
+
+    /** A path move: released at {@code release}, its streak lasting {@code trailLife}. */
+    private static Motion pathMotion(float[][] rows, float release, float trailLife) {
+        float last = rows[rows.length - 1][0];
+        float end = rows[rows.length - 1][1] < -0.12F ? last + 3.5F : last;
+        return built((from, variant) -> path(rows), release, end + 4.5F, Math.max(release + 0.5F, last - 0.5F),
+                trailLife);
+    }
+
+    /** Apparition: the hand drawn in close, and the wand twirled once right round with the wrist. */
+    static Key[] apparitionKeys(Key from, FirstPersonCast.Variant variant) {
+        Vector3f hand = v(0.10F, -0.18F, -0.70F);
+        float rise = hand.y - ELBOW_Y;
+        Vector3f arm = v(hand.x - ELBOW_X, rise, -0.3F * rise).normalize();
+        Vector3f base = new Vector3f(arm).add(0.55F, 0.0F, -0.45F).normalize();
+        int steps = 8;
+        Key[] keys = new Key[steps + 2];
+        for (int i = 0; i <= steps; i++) {
+            float t = 0.4F + 1.6F * i / steps;
+            Vector3f wand = new Vector3f(base).rotateAxis(apparitionRoll(t, variant), arm.x, arm.y, arm.z);
+            keys[i] = key(t, hand, arm, wand);
+        }
+        keys[steps + 1] = key(3.5F, v(0.11F, -0.17F, -0.72F), arm, base);
+        return keys;
+    }
+
+    static float apparitionRoll(float time, FirstPersonCast.Variant variant) {
+        return (variant.tilt() < 0.0F ? -1.0F : 1.0F) * Mth.TWO_PI * smooth((time - 0.4F) / 1.6F);
+    }
+
+    /** Colloportus: the key turned the other way (the cast's mirror), then pushed home to seal the lock. */
+    static Key[] colloportusKeys(Key from, FirstPersonCast.Variant variant) {
+        Key[] keys = keyTurnKeys(from, variant);
+        Key turned = keys[4];
+        keys[5] = key(6.0F, v(0.14F, -0.12F, -0.98F), turned.arm(), turned.wand());
+        keys[6] = key(7.4F, v(0.16F, -0.13F, -0.84F), turned.arm(), turned.wand());
+        return keys;
+    }
+
+    private static void addPathMoves() {
+        java.util.function.BiConsumer<com.hogwartsmagic.spell.SpellType, Motion> put = SIGNATURE::put;
+        // Levicorpus: an uppercut that hoists them, held high.
+        put.accept(com.hogwartsmagic.spell.SpellType.LEVICORPUS, pathMotion(new float[][]{
+                {0.6F, -0.04F, -0.34F, -0.74F, 0.0F}, {1.2F, 0.04F, -0.12F, -0.82F, 1.0F},
+                {1.9F, 0.18F, 0.06F, -0.84F, 0.2F}, {2.6F, 0.24F, 0.12F, -0.83F, 0.0F},
+                {5.5F, 0.25F, 0.11F, -0.83F, 0.0F}, {7.5F, 0.30F, 0.0F, -0.80F, 0.0F}}, 1.2F, 2.5F));
+        // Revelio: a slow scan across at eye level, the wand on the line ahead.
+        put.accept(com.hogwartsmagic.spell.SpellType.REVELIO, pathMotion(new float[][]{
+                {0.7F, 0.22F, 0.02F, -0.84F, 0.5F}, {1.3F, 0.10F, 0.06F, -0.86F, 1.0F},
+                {3.5F, -0.10F, 0.08F, -0.88F, 1.0F}, {5.5F, -0.22F, 0.06F, -0.88F, 1.0F}}, 1.3F, 4.0F).anchored());
+        // Confringo: coiled low on the right, a rising slash up through the target to high on the left.
+        put.accept(com.hogwartsmagic.spell.SpellType.CONFRINGO, pathMotion(new float[][]{
+                {0.6F, 0.30F, -0.36F, -0.72F, 0.0F}, {1.2F, 0.02F, -0.10F, -0.80F, 0.6F},
+                {1.8F, -0.26F, 0.08F, -0.86F, 0.0F}, {2.8F, -0.30F, 0.10F, -0.86F, 0.0F}}, 1.2F, 2.2F).anchored());
+        // Incendio: two quick jabs, like striking a match.
+        put.accept(com.hogwartsmagic.spell.SpellType.INCENDIO, pathMotion(new float[][]{
+                {0.6F, 0.22F, -0.22F, -0.66F, 0.5F}, {1.2F, 0.08F, -0.10F, -0.92F, 1.0F},
+                {1.8F, 0.16F, -0.16F, -0.72F, 0.6F}, {2.5F, 0.06F, -0.08F, -0.94F, 1.0F},
+                {3.2F, 0.12F, -0.12F, -0.86F, 1.0F}, {5.0F, 0.13F, -0.13F, -0.85F, 1.0F}}, 1.2F, 2.0F));
+        // Depulso: a backhand swat from the left out to the right.
+        put.accept(com.hogwartsmagic.spell.SpellType.DEPULSO, pathMotion(new float[][]{
+                {0.8F, -0.12F, -0.30F, -0.74F, 0.0F, -0.9F, 0.2F, -0.4F},
+                {1.5F, 0.06F, -0.12F, -0.82F, 0.0F, 0.3F, 0.3F, -1.0F},
+                {2.2F, 0.36F, -0.06F, -0.86F, 0.0F, 1.0F, 0.15F, -0.35F},
+                {3.0F, 0.40F, -0.08F, -0.86F, 0.0F, 1.0F, 0.1F, -0.35F}}, 1.5F, 2.2F).anchored());
+        // Arresto Momentum: a thrust, then pressed slowly down, straining (a little tremor).
+        put.accept(com.hogwartsmagic.spell.SpellType.ARRESTO_MOMENTUM, pathMotion(new float[][]{
+                {1.2F, 0.08F, -0.06F, -0.92F, 1.0F}, {2.0F, 0.08F, -0.07F, -0.93F, 1.0F},
+                {6.0F, 0.08F, -0.20F, -0.88F, 1.0F}, {7.5F, 0.10F, -0.22F, -0.86F, 1.0F}}, 1.2F, 2.0F)
+                .trembling(0.35F));
+        // Protego: the wand snapped upright in front, a sword's block, with a little jolt.
+        put.accept(com.hogwartsmagic.spell.SpellType.PROTEGO, pathMotion(new float[][]{
+                {1.1F, 0.12F, -0.16F, -0.72F, 0.0F, -1.0F, 0.12F, -0.35F},
+                {1.5F, 0.12F, -0.14F, -0.72F, 0.0F, -1.0F, 0.14F, -0.35F},
+                {2.0F, 0.13F, -0.17F, -0.73F, 0.0F, -1.0F, 0.10F, -0.35F},
+                {5.0F, 0.13F, -0.16F, -0.72F, 0.0F, -1.0F, 0.12F, -0.35F}}, 1.1F, 1.8F));
+        // Protego Maxima: up on the right, then a great arch over the top and down the left, held.
+        put.accept(com.hogwartsmagic.spell.SpellType.PROTEGO_MAXIMA, pathMotion(new float[][]{
+                {0.8F, 0.30F, 0.04F, -0.84F, 0.0F}, {1.4F, 0.10F, 0.13F, -0.86F, 0.0F},
+                {2.6F, -0.12F, 0.13F, -0.86F, 0.0F}, {3.6F, -0.10F, 0.06F, -0.86F, 0.0F}}, 1.4F, 4.0F)
+                .holdingLast());
+        // Morsmordre: thrust to the sky, then a sharp zigzag up there, drawing the mark.
+        put.accept(com.hogwartsmagic.spell.SpellType.MORSMORDRE, pathMotion(new float[][]{
+                {0.7F, 0.20F, -0.10F, -0.80F, 0.0F}, {1.3F, 0.12F, 0.12F, -0.80F, 0.0F},
+                {1.8F, 0.04F, 0.14F, -0.82F, 0.0F}, {2.3F, 0.16F, 0.12F, -0.80F, 0.0F},
+                {2.8F, 0.06F, 0.10F, -0.82F, 0.0F}, {3.3F, 0.14F, 0.08F, -0.80F, 0.0F},
+                {5.5F, 0.13F, 0.10F, -0.80F, 0.0F}}, 1.3F, 3.0F));
+        // Ascendio: crouched low, then rocketed straight up past the top and dropped back.
+        put.accept(com.hogwartsmagic.spell.SpellType.ASCENDIO, pathMotion(new float[][]{
+                {0.7F, 0.12F, -0.38F, -0.70F, 0.0F}, {1.2F, 0.10F, 0.18F, -0.74F, 0.0F},
+                {1.7F, 0.10F, 0.36F, -0.66F, 0.0F}, {3.4F, 0.12F, 0.10F, -0.78F, 0.0F}}, 1.2F, 2.2F));
+        // Heal: the wand held upright, then tipped slowly forward and down, pouring light out.
+        put.accept(com.hogwartsmagic.spell.SpellType.HEAL, pathMotion(new float[][]{
+                {1.2F, -0.06F, 0.04F, -0.84F, 0.0F}, {2.4F, -0.06F, 0.03F, -0.85F, 0.3F},
+                {4.5F, -0.05F, 0.0F, -0.86F, 1.0F}, {6.0F, -0.04F, -0.02F, -0.86F, 1.0F}}, 1.2F, 3.0F));
+        // Cave Inimicum: one big slow circle round the view, a ward drawn round you.
+        put.accept(com.hogwartsmagic.spell.SpellType.CAVE_INIMICUM, pathMotion(rows(
+                new float[][]{{0.6F, 0.22F, 0.04F, -0.82F, 0.4F}},
+                loop(0.06F, -0.06F, 0.21F, 0.14F, -0.84F, 1.2F, 6.0F, 1.0F, Mth.HALF_PI, 1.0F, 0.6F, 12)),
+                1.2F, 4.5F));
+        // Piertotum Locomotor: orders: a jab left, a jab right, a jab straight on.
+        put.accept(com.hogwartsmagic.spell.SpellType.PIERTOTUM_LOCOMOTOR, pathMotion(new float[][]{
+                {0.7F, 0.20F, -0.12F, -0.80F, 0.5F}, {1.3F, -0.16F, -0.08F, -0.90F, 1.0F},
+                {2.2F, 0.10F, -0.14F, -0.78F, 0.5F}, {3.0F, 0.28F, -0.06F, -0.90F, 1.0F},
+                {3.9F, 0.08F, -0.12F, -0.80F, 0.5F}, {4.7F, 0.06F, -0.04F, -0.94F, 1.0F},
+                {6.5F, 0.10F, -0.08F, -0.88F, 1.0F}}, 1.3F, 2.2F));
+        // Tenebris Flight: the arm flung up and out of the top of the view, as if taking off.
+        put.accept(com.hogwartsmagic.spell.SpellType.TENEBRIS_FLIGHT, pathMotion(new float[][]{
+                {0.7F, 0.22F, -0.30F, -0.70F, 0.0F}, {1.3F, 0.10F, 0.12F, -0.76F, 0.0F},
+                {2.2F, 0.14F, 0.30F, -0.62F, 0.0F}, {3.5F, 0.18F, 0.30F, -0.60F, 0.0F}}, 1.3F, 2.2F));
+        // Alatus: two wing beats, up and out, down and in.
+        put.accept(com.hogwartsmagic.spell.SpellType.ALATUS, pathMotion(new float[][]{
+                {0.6F, 0.36F, 0.12F, -0.82F, 0.0F}, {1.2F, 0.06F, -0.18F, -0.84F, 0.7F},
+                {1.9F, 0.36F, 0.14F, -0.82F, 0.0F}, {2.6F, 0.08F, -0.16F, -0.84F, 0.7F},
+                {3.3F, 0.34F, 0.10F, -0.82F, 0.0F}, {4.2F, 0.22F, -0.04F, -0.82F, 0.4F}}, 1.2F, 2.5F));
+        // Riddikulus: a bouncy little zigzag of flicks, for a laugh.
+        put.accept(com.hogwartsmagic.spell.SpellType.RIDDIKULUS, pathMotion(new float[][]{
+                {0.6F, 0.18F, -0.18F, -0.80F, 0.6F}, {1.1F, 0.10F, -0.06F, -0.84F, 1.0F},
+                {1.6F, 0.16F, -0.14F, -0.82F, 0.6F}, {2.1F, 0.06F, -0.04F, -0.84F, 0.0F},
+                {2.6F, 0.14F, -0.12F, -0.82F, 0.6F}, {3.1F, 0.04F, -0.02F, -0.84F, 0.0F},
+                {4.5F, 0.10F, -0.10F, -0.82F, 0.6F}}, 1.1F, 2.5F));
+        // Imperio: the wand on them, tugged up and let down twice, working the strings; held.
+        put.accept(com.hogwartsmagic.spell.SpellType.IMPERIO, pathMotion(new float[][]{
+                {1.2F, 0.08F, -0.08F, -0.90F, 1.0F}, {2.4F, 0.10F, 0.04F, -0.84F, 0.5F},
+                {3.4F, 0.08F, -0.06F, -0.88F, 1.0F}, {4.6F, 0.10F, 0.05F, -0.84F, 0.5F},
+                {5.6F, 0.09F, 0.0F, -0.86F, 0.7F}}, 1.2F, 2.5F).holdingLast());
+        // Reparo: a circle of the hand the other way round, then the pieces gathered in to the chest.
+        put.accept(com.hogwartsmagic.spell.SpellType.REPARO, pathMotion(rows(
+                new float[][]{{0.6F, 0.20F, -0.04F, -0.82F, 0.8F}},
+                loop(0.10F, -0.08F, 0.08F, 0.07F, -0.84F, 1.2F, 5.2F, 1.0F, 0.0F, -1.0F, 0.8F, 10),
+                new float[][]{{6.2F, 0.24F, -0.20F, -0.66F, 0.3F}}), 1.2F, 4.0F));
+        // Glacius: from high, one straight whip down through the target, following through low.
+        put.accept(com.hogwartsmagic.spell.SpellType.GLACIUS, pathMotion(new float[][]{
+                {0.7F, 0.16F, 0.14F, -0.80F, 0.0F}, {1.3F, 0.06F, -0.10F, -0.84F, 1.0F},
+                {1.9F, 0.04F, -0.30F, -0.76F, 0.6F}, {3.5F, 0.08F, -0.32F, -0.76F, 0.5F}}, 1.3F, 2.2F).anchored());
+        // Aqua Eructo: held out like a hose, swaying side to side.
+        put.accept(com.hogwartsmagic.spell.SpellType.AQUA_ERUCTO, pathMotion(new float[][]{
+                {1.2F, 0.08F, -0.10F, -0.92F, 1.0F}, {2.8F, -0.02F, -0.10F, -0.92F, 1.0F},
+                {4.4F, 0.14F, -0.10F, -0.92F, 1.0F}, {6.0F, 0.02F, -0.10F, -0.92F, 1.0F},
+                {7.6F, 0.10F, -0.10F, -0.92F, 1.0F}}, 1.2F, 3.0F));
+        // Fiendfyre: a great figure of eight, wild; held at its end.
+        float[][] eight = new float[17][];
+        for (int i = 0; i <= 16; i++) {
+            float a = Mth.TWO_PI * i / 16.0F;
+            eight[i] = new float[]{1.2F + 8.0F * i / 16.0F, 0.06F + 0.20F * Mth.sin(a), -0.04F + 0.08F * Mth.sin(2.0F * a),
+                    -0.84F, 0.7F};
+        }
+        put.accept(com.hogwartsmagic.spell.SpellType.FIENDFYRE, pathMotion(rows(
+                new float[][]{{0.6F, 0.20F, -0.10F, -0.82F, 0.5F}}, eight), 1.2F, 4.0F).holdingLast());
+        // Dolohov Curse: a jagged zigzag down and across, like lightning.
+        put.accept(com.hogwartsmagic.spell.SpellType.DOLOHOV_CURSE, pathMotion(new float[][]{
+                {0.6F, 0.30F, 0.08F, -0.82F, 0.0F}, {1.1F, 0.10F, -0.02F, -0.84F, 1.0F},
+                {1.5F, 0.18F, -0.08F, -0.82F, 0.5F}, {1.9F, -0.02F, -0.14F, -0.84F, 1.0F},
+                {2.3F, 0.06F, -0.20F, -0.82F, 0.5F}, {2.8F, -0.16F, -0.26F, -0.80F, 0.3F}}, 1.1F, 2.5F).anchored());
+        // Caelum Fascino: raised to the sky, then a wide slow stir round overhead.
+        put.accept(com.hogwartsmagic.spell.SpellType.CAELUM_FASCINO, pathMotion(rows(
+                new float[][]{{0.8F, 0.20F, 0.0F, -0.82F, 0.0F}},
+                loop(0.06F, 0.08F, 0.14F, 0.05F, -0.84F, 1.3F, 7.3F, 1.0F, 0.0F, 1.0F, 0.0F, 12)), 1.3F, 4.5F));
+        // The two with a roll of the wrist.
+        SIGNATURE.put(com.hogwartsmagic.spell.SpellType.APPARITION, built(FirstPersonWandRig::apparitionKeys, 1.2F,
+                9.0F, 2.2F, 2.5F, FirstPersonWandRig::apparitionRoll));
+        SIGNATURE.put(com.hogwartsmagic.spell.SpellType.COLLOPORTUS, built(FirstPersonWandRig::colloportusKeys,
+                KEY_RELEASE, 15.0F, KEY_TURN_END + 0.8F, 2.0F, FirstPersonWandRig::keyRoll));
     }
 
     private FirstPersonWandRig() {

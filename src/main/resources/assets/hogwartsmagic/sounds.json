@@ -4588,5 +4588,44 @@
         "name": "hogwartsmagic:cast/switch2"
       }
     ]
+  },
+  "cast.whoosh_snap": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/whoosh_snap1"
+      },
+      {
+        "name": "hogwartsmagic:cast/whoosh_snap2"
+      },
+      {
+        "name": "hogwartsmagic:cast/whoosh_snap3"
+      }
+    ]
+  },
+  "cast.release_punch": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/release_punch1"
+      },
+      {
+        "name": "hogwartsmagic:cast/release_punch2"
+      },
+      {
+        "name": "hogwartsmagic:cast/release_punch3"
+      }
+    ]
+  },
+  "cast.impact_crunch": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cast/impact_crunch1"
+      },
+      {
+        "name": "hogwartsmagic:cast/impact_crunch2"
+      },
+      {
+        "name": "hogwartsmagic:cast/impact_crunch3"
+      }
+    ]
   }
 }

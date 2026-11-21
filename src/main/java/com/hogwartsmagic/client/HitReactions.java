@@ -54,7 +54,9 @@ public final class HitReactions {
     private static final int DRAINED = 4;
 
     private static final float TUMBLE_TICKS = 22.0f;
-    private static final float FLINCH_TICKS = 8.0f;
+    private static final float FLINCH_TICKS = 11.0f;
+    /** How long a struck body flashes with the spell's light, ticks. */
+    private static final float FLASH_TICKS = 4.0f;
     private static final float DISARM_TICKS = 12.0f;
     private static final float DRAINED_TICKS = 40.0f;
     private static final float FLIGHT_TICKS = 30.0f;
@@ -67,7 +69,9 @@ public final class HitReactions {
         KINDS.put(SpellType.AVADA_KEDAVRA, DRAINED);
         for (SpellType spell : new SpellType[]{SpellType.CONFRINGO, SpellType.BOMBARDA, SpellType.DIFFINDO,
                 SpellType.SECTUMSEMPRA, SpellType.INCENDIO, SpellType.FIENDFYRE, SpellType.CRUCIO,
-                SpellType.DOLOHOV_CURSE, SpellType.GLACIUS, SpellType.DEPULSO}) {
+                SpellType.DOLOHOV_CURSE, SpellType.GLACIUS, SpellType.DEPULSO, SpellType.PETRIFICUS_TOTALUS,
+                SpellType.LEVICORPUS, SpellType.INCARCEROUS, SpellType.CONFUNDO, SpellType.OBLIVIATE,
+                SpellType.IMPERIO, SpellType.ARRESTO_MOMENTUM}) {
             KINDS.put(spell, FLINCH);
         }
     }
@@ -78,6 +82,8 @@ public final class HitReactions {
         final double start;
         /** Where a drained body fell, for the light that rises from it. */
         Vec3 fell;
+        /** The light it flashes with as it is struck. */
+        float[] flash = {1.0f, 1.0f, 1.0f};
 
         Reaction(int kind, Vec3 dir, double start) {
             this.kind = kind;
@@ -177,6 +183,10 @@ public final class HitReactions {
         Vec3 dir = new Vec3(packet.dx(), 0.0, packet.dz());
         dir = dir.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 0.0, 1.0) : dir.normalize();
         Reaction reaction = new Reaction(kind, dir, now);
+        BeamStyle style = BeamStyles.of(spell);
+        if (style != null) {
+            reaction.flash = new float[]{style.glowR, style.glowG, style.glowB};
+        }
         Entity entity = minecraft.level.getEntity(packet.entityId());
         if (entity != null) {
             reaction.fell = entity.position().add(0.0, entity.getBbHeight() * 0.5, 0.0);
@@ -230,6 +240,17 @@ public final class HitReactions {
             return;
         }
         float t = reaction.age(now);
+        if (reaction.kind != DRAINED && t < FLASH_TICKS) {
+            // Struck: the body flares with the spell's light for a moment (a colour past 1 brightens it).
+            float f = 1.0f - t / FLASH_TICKS;
+            f *= f;
+            if (event.getMultiBufferSource() instanceof MultiBufferSource.BufferSource pending) {
+                pending.endBatch();
+            }
+            RenderSystem.setShaderColor(1.0f + 1.8f * f * reaction.flash[0], 1.0f + 1.8f * f * reaction.flash[1],
+                    1.0f + 1.8f * f * reaction.flash[2], 1.0f);
+            TINTED.add(entity.getId());
+        }
         if (reaction.kind == DRAINED) {
             // A green-white flash over the body, draining to a sickly green pallor.
             float flash = 1.0f - AvadaChargePose.smoothstep(0.0f, 6.0f, t);
@@ -249,6 +270,8 @@ public final class HitReactions {
         }
         float tilt;
         float spin = 0.0f;
+        float knock = 0.0f;
+        float squash = 0.0f;
         if (reaction.kind == TUMBLE) {
             // Thrown back and round, held down a moment, then up again.
             float down = AvadaChargePose.smoothstep(0.0f, 5.0f, t);
@@ -256,12 +279,15 @@ public final class HitReactions {
             tilt = 1.25f * down * (1.0f - up);
             spin = (float) Math.PI * AvadaChargePose.smoothstep(0.0f, 7.0f, t) * (1.0f - up);
         } else {
-            // A jolt away from the beam, recovering at once.
-            float jolt = AvadaChargePose.smoothstep(0.0f, 1.5f, t) * (1.0f - AvadaChargePose.smoothstep(1.5f,
+            // A hard jolt away from the beam: snapped back, knocked a step, squashed by the blow, recovering.
+            float jolt = AvadaChargePose.smoothstep(0.0f, 0.8f, t) * (1.0f - AvadaChargePose.smoothstep(1.2f,
                     reaction.length(), t));
-            tilt = (reaction.kind == DISARM ? 0.3f : 0.25f) * jolt;
+            tilt = (reaction.kind == DISARM ? 0.5f : 0.45f) * jolt;
+            knock = 0.3f * jolt;
+            squash = 1.0f - AvadaChargePose.smoothstep(0.0f, 3.0f, t);
+            squash *= AvadaChargePose.smoothstep(0.0f, 0.5f, t);
         }
-        if (tilt <= 0.001f && spin <= 0.001f) {
+        if (tilt <= 0.001f && spin <= 0.001f && squash <= 0.001f) {
             return;
         }
         PoseStack pose = event.getPoseStack();
@@ -272,6 +298,10 @@ public final class HitReactions {
         // Pivot at mid-height; a body thrown flat rests on its back, half a body depth above the ground.
         if (reaction.kind == TUMBLE) {
             pose.translate(0.0, (entity.getBbWidth() * 0.5 - half) * Math.min(1.0f, tilt / 1.25f), 0.0);
+        }
+        pose.translate(reaction.dir.x * knock, 0.0, reaction.dir.z * knock);
+        if (squash > 0.0f) {
+            pose.scale(1.0f + 0.08f * squash, 1.0f - 0.12f * squash, 1.0f + 0.08f * squash);
         }
         pose.translate(0.0, half, 0.0);
         pose.mulPose(new Quaternionf().rotateAxis(tilt, (float) axis.x, 0.0f, (float) axis.z));

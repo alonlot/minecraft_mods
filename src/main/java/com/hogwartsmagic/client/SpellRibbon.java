@@ -57,20 +57,7 @@ public final class SpellRibbon {
         if (hand == null) {
             return;
         }
-        Minecraft minecraft = Minecraft.getInstance();
-        if (ice && beam.getOwner() == minecraft.player && minecraft.options.getCameraType().isFirstPerson()) {
-            // The whip is still winding up (the wand is above the view): the ribbon lashes out at release.
-            CastGestures.Cast cast = CastGestures.castOf(minecraft.player);
-            if (cast != null) {
-                float t = cast.progress(minecraft.player.tickCount + partialTick);
-                if (t >= 0.0F && t < cast.gesture().release) {
-                    return;
-                }
-                if (t >= 0.0F) {
-                    fade *= Mth.clamp((t - cast.gesture().release) / 0.08F, 0.0F, 1.0F);
-                }
-            }
-        }
+        // Your own whip needs no wait for the wind-up: CastDelay sends Glacius as the arm strikes.
         Vec3 d = orb.subtract(hand);
         double length = d.length();
         if (length < 0.4) {
@@ -190,7 +177,7 @@ public final class SpellRibbon {
         }
         Minecraft minecraft = Minecraft.getInstance();
         if (caster == minecraft.player && minecraft.options.getCameraType().isFirstPerson()) {
-            Vec3 tip = WandCastAnimation.localTipInWorld(camera);
+            Vec3 tip = FirstPersonWand.localTipInWorld(camera);
             if (tip != null) {
                 return tip;
             }

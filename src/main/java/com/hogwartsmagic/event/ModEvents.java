@@ -3983,7 +3983,8 @@ public class ModEvents {
                     lockUseLatched = true;
                     com.hogwartsmagic.util.ClientSideBridge.startLockHold(player);
                 }
-                SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, false, false), PacketDistributor.SERVER.noArg());
+                // Client side only here: a charm whose move builds up is sent when the move lets it go.
+                com.hogwartsmagic.client.CastDelay.send(player, selected);
                 player.swing(InteractionHand.MAIN_HAND);
                                 
                 return true;

@@ -21,9 +21,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Where a caster's wand tip is really drawn, as seen from outside. While a caster's (player's or NPC's) gesture
- * plays (CastGestures), this layer finds the tip the way the held item is placed (ItemInHandLayer, then the wand's
- * own display transform) and keeps it, so the spell leaves from the wand you see (SpellBeamClientState, SpellPath)
+ * Where a caster's wand tip is really drawn, as seen from outside. While a caster's gesture plays (a player's
+ * CastMotions move, an NPC's CastGestures one), this layer finds the tip the way the held item is placed (ItemInHandLayer, then the wand's
+ * own display transform) and keeps it, so the spell leaves from the wand you see (SpellBeamClientState)
  * and the wand trail follows it (WandTrailRenderer draws the trail, in the spell's beam colours). Draws nothing.
  */
 public class WandSwipeLayer<T extends LivingEntity, M extends EntityModel<T> & ArmedModel> extends RenderLayer<T, M> {
@@ -53,7 +53,7 @@ public class WandSwipeLayer<T extends LivingEntity, M extends EntityModel<T> & A
                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
                        float netHeadYaw, float headPitch) {
         ItemStack stack = caster.getMainHandItem();
-        if (!MagicWandItem.isAnyWand(stack) || caster.isInvisible() || !CastGestures.ownsArm(caster)) {
+        if (!MagicWandItem.isAnyWand(stack) || caster.isInvisible() || !CastGestures.castingSeen(caster)) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();

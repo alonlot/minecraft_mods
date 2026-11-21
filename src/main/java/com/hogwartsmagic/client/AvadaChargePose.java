@@ -112,16 +112,12 @@ public final class AvadaChargePose {
         double z = Mth.lerp(partial, caster.zo, caster.getZ());
         Vec3 look = caster.getViewVector(partial);
         if (firstPerson) {
-            // Your own view: the wand the first-person arm (FirstPersonWandRig) is drawing right now.
-            Vec3 drawnTip = WandCastAnimation.localTipInWorld(Minecraft.getInstance().gameRenderer.getMainCamera());
-            if (drawnTip != null) {
-                return drawnTip;
-            }
+            // Your own view: the wand the first-person arm (FirstPersonWand) is drawing, else an estimate.
             Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
             right = right.lengthSqr() < 1.0E-4 ? new Vec3(1.0, 0.0, 0.0) : right.normalize();
             Vec3 up = right.cross(look).normalize();
-            return new Vec3(x, y + caster.getEyeHeight(), z).add(look.scale(0.62)).add(right.scale(0.30))
-                    .add(up.scale(-0.20));
+            return FirstPersonWand.localTipOr(new Vec3(x, y + caster.getEyeHeight(), z).add(look.scale(0.62))
+                    .add(right.scale(0.30)).add(up.scale(-0.20)));
         }
         float bodyYaw = Mth.rotLerp(partial, caster.yBodyRotO, caster.yBodyRot) * Mth.DEG_TO_RAD;
         Vec3 bodyRight = new Vec3(-Mth.cos(bodyYaw), 0.0, -Mth.sin(bodyYaw));

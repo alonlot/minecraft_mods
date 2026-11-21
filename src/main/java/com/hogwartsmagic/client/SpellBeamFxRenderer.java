@@ -122,6 +122,12 @@ public final class SpellBeamFxRenderer {
         // Smaller when it is your own wand, half a block from your eye.
         float near = (float) Mth.clamp(pos.length() / 1.5, 0.45, 1.0);
         float fade = (1.0f - f) * (1.0f - f);
+        if (muzzle.firstPerson) {
+            // Your own wand in first person: the arm's flare is the release (FirstPersonWand); no ring across
+            // the view, as in the reference.
+            billboard(out, m, pos, 0.18f * (1.0f - 0.5f * f), fade, s.coreR, s.coreG, s.coreB, true);
+            return;
+        }
         billboard(out, m, pos, 0.35f * near * (1.0f - 0.5f * f), fade, s.coreR, s.coreG, s.coreB, true);
         billboard(out, m, pos, 0.9f * near, 0.6f * fade, s.glowR, s.glowG, s.glowB, false);
         Vec3[] axes = frame(muzzle.dir);
@@ -246,6 +252,14 @@ public final class SpellBeamFxRenderer {
     // ---- the beam's shape this frame ---------------------------------------------------------------------------
 
     /** One beam's drawn path this frame, camera-relative, tail end first, and how bright it still is. */
+    /**
+     * Where a curved bolt is drawn off its real line {@code along} blocks from the wand, for what is laid along
+     * the drawn path while it flies (the sparkle trail). Zero for a straight beam.
+     */
+    static Vec3 curveOffset(SpellBeamClientState.Beam beam, double along) {
+        return beam.curved && !beam.gone() ? Frame.curve(beam, frame(beam.dir), along, along) : Vec3.ZERO;
+    }
+
     private static final class Frame {
         final SpellBeamClientState.Beam beam;
         final BeamStyle style;
@@ -339,6 +353,9 @@ public final class SpellBeamFxRenderer {
                 double jagA = (hash(beam.seed, i, strike) - 0.5) * 2.0 * style.jitter;
                 double jagB = (hash(beam.seed, i + 4099, strike) - 0.5) * 2.0 * style.jitter;
                 path[i] = base.add(frame[0].scale((wave + jagA) * pin)).add(frame[1].scale((wave2 + jagB) * pin));
+                if (beam.curved) {
+                    path[i] = path[i].add(curve(beam, frame, along, total));
+                }
                 fromWand[i] = along;
                 // A jet brightens toward the head; a bolt fades down its tail. Either eases out of the wand while
                 // it still reaches back to it.
@@ -348,6 +365,51 @@ public final class SpellBeamFxRenderer {
                 profile[i] = wand * body;
             }
             return new Frame(beam, path, profile, fromWand, frame[0], frame[1], age, glow, thickness);
+        }
+
+        /** Distance from the wand over which the bow swings out and back onto the line, in blocks. */
+        private static final double BOW_LENGTH = 6.5;
+
+        /**
+         * How far the drawn path sits off the real line {@code along} blocks from the wand: a bow out to the
+         * beam's side and back over the first BOW_LENGTH blocks, then a gentle wobble. A function of the
+         * distance from the wand, so the curve keeps its shape as the bolt flies down it; once the beam has
+         * struck, it is drawn back onto the line over the last block or so, to meet the strike.
+         */
+        private static Vec3 curve(SpellBeamClientState.Beam beam, Vec3[] frame, double along, double total) {
+            double x = Mth.clamp(along / BOW_LENGTH, 0.0, 1.0);
+            double bow = beam.bend * Math.sin(Math.PI * x) * (1.0 - 0.35 * x);
+            double phase = (beam.seed & 1023) * 0.0061;
+            double settle = smoothstep(0.0f, 2.0f, (float) along);
+            double sway = beam.wobble * settle * (Math.sin(along * 0.55 + phase) + 0.5 * Math.sin(along * 1.3 + phase * 2.0));
+            double lift = beam.wobble * 0.7 * settle * (Math.sin(along * 0.7 + phase * 3.0) + 0.4 * Math.sin(along * 1.7 + phase));
+            double land = beam.gone() ? smoothstep(0.0f, 1.2f, (float) (total - along)) : 1.0;
+            double cos = Math.cos(beam.bendAngle);
+            double sin = Math.sin(beam.bendAngle);
+            if (beam.bendDir != null) {
+                // Out along the wand's cut, seen across the line; never more than a little down into the ground.
+                double cs = beam.bendDir.dot(frame[0]);
+                double cu = beam.bendDir.dot(frame[1]);
+                double len = Math.sqrt(cs * cs + cu * cu);
+                if (len > 1.0E-3) {
+                    cos = cs / len;
+                    sin = cu / len;
+                }
+                Vec3 world = frame[0].scale(cos).add(frame[1].scale(sin));
+                if (world.y < -0.45) {
+                    world = new Vec3(world.x, -0.45, world.z);
+                    double ws = world.dot(frame[0]);
+                    double wu = world.dot(frame[1]);
+                    double wl = Math.sqrt(ws * ws + wu * wu);
+                    if (wl > 1.0E-3) {
+                        cos = ws / wl;
+                        sin = wu / wl;
+                    }
+                }
+            }
+            double side = (bow * cos + sway) * land;
+            double up = (bow * sin + lift) * land;
+            return frame[0].scale(side).add(frame[1].scale(up));
         }
 
         /** The point {@code back} blocks back from the head along the recorded path. */
@@ -1082,6 +1144,18 @@ public final class SpellBeamFxRenderer {
         billboard(out, m, pos, flashRadius, Math.min(1.0f, flash), s.coreR, s.coreG, s.coreB, true);
         billboard(out, m, pos, 1.9f * scale, s.impactGlow * (1.0f - f) * (1.0f - f) * bright, s.glowR, s.glowG, s.glowB,
                 false);
+        if (impact.kind == SpellBeamFx.HIT && impact.full() && age < 5.0f) {
+            // The blow: hot lines of light thrown out from the point of contact, gone in a quarter of a second.
+            float e = 1.0f - (1.0f - age / 5.0f) * (1.0f - age / 5.0f);
+            for (int k = 0; k < 16; k++) {
+                Vec3 d = randomDirection(impact.seed + k * 41);
+                float reach = (0.8f + 0.5f * hash(impact.seed + k, 3, 3)) * scale;
+                Vec3 p0 = pos.add(d.scale((0.15 + 1.6 * e) * reach));
+                Vec3 p1 = pos.add(d.scale((0.55 + 2.6 * e) * reach));
+                streak(out, m, p0, p1, 0.035f * (1.0f - e) + 0.01f, (1.0f - e) * bright, s.coreR, s.coreG, s.coreB);
+            }
+            billboard(out, m, pos, (0.5f + 1.2f * e) * scale, 0.9f * (1.0f - e) * bright, 1.0f, 1.0f, 1.0f, true);
+        }
         if (age < IMPACT_HOLD) {
             // The moment of contact: a tight white-hot point, everything else held back.
             billboard(out, m, pos, 0.4f * scale, bright, 1.0f, 1.0f, 1.0f, true);

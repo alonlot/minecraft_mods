@@ -196,14 +196,6 @@ public class SpellBeamEntity extends ThrowableProjectile {
         return this.reflected;
     }
 
-    /** Client only, kept by client.SpellPath: the drawn spell's start bend. */
-    public boolean vfxStartTaken;
-    @javax.annotation.Nullable
-    public Vec3 vfxStartOffset;
-    /** Client only, kept by client.SpellPath: whether the orb was held on the wand tip, and the age it left. */
-    public boolean vfxHeld;
-    public float vfxReleaseAge = -1.0F;
-
     /**
      * Client only: where this client saw the beam hit, and on which tick. The server's discard packet arrives a
      * little later; the hit's feel (CastFeel) and the ice ribbon's fade use this instead of wherever it drifted to.

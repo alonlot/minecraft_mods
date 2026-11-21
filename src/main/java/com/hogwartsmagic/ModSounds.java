@@ -567,6 +567,10 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> CAST_IMPACT_HEAVY = register("cast.impact_heavy");
     public static final RegistryObject<SoundEvent> WAND_SWITCH = register("cast.switch");
 
+    public static final RegistryObject<SoundEvent> CAST_WHOOSH_SNAP = register("cast.whoosh_snap");
+    public static final RegistryObject<SoundEvent> CAST_RELEASE_PUNCH = register("cast.release_punch");
+    public static final RegistryObject<SoundEvent> CAST_IMPACT_CRUNCH = register("cast.impact_crunch");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

@@ -26,7 +26,7 @@ import java.util.Map;
  * gesture is built around the release: a flick snaps through the line of aim, a slash cuts across it, a whip
  * comes down from overhead, a charm swishes round and flicks, Accio points and draws back, Depulso shoves, the
  * light spells hold the wand high. Third person poses the arm (relative to where the caster looks, the way the
- * vanilla bow pose is); first person turns the held wand the same way, scaled down so it stays on screen.
+ * vanilla bow pose is); your own first-person arm is FirstPersonWand's, started from here when no swing did.
  *
  * <p>Keyframes are (tick, raise above the aim in radians, turn to the right in radians, push forward in model
  * pixels), eased between with smoothstep. A map, not a switch: switch-on-enum has failed to load in this mod's
@@ -144,11 +144,53 @@ public final class CastMotions {
         final Motion motion;
         final SpellType spell;
         final double start;
+        /** The gesture turned round the line of aim (radians), different every cast: steep, flat or diagonal. */
+        final float tilt;
+        /** The spell's first-person move, played by the whole arm in third person; null for the old keys. */
+        @javax.annotation.Nullable
+        final FirstPersonWandRig.Motion move;
+        final FirstPersonCast.Variant variant;
 
-        Cast(Motion motion, SpellType spell, double start) {
+        Cast(Motion motion, SpellType spell, double start, float tilt) {
+            this(motion, spell, start, tilt, null, FirstPersonCast.Variant.NONE);
+        }
+
+        Cast(Motion motion, SpellType spell, double start, float tilt, @javax.annotation.Nullable FirstPersonWandRig.Motion move,
+             FirstPersonCast.Variant variant) {
             this.motion = motion;
             this.spell = spell;
             this.start = start;
+            this.tilt = tilt;
+            this.move = move;
+            this.variant = variant;
+        }
+
+        float length() {
+            return move != null ? move.length() : motion.length;
+        }
+
+        float snap() {
+            return move != null ? move.release() : motion.snap;
+        }
+
+        /** {raise, turn, push} {@code t} ticks in, with this cast's tilt. */
+        float[] at(float t) {
+            if (move != null) {
+                // The first-person move, seen from outside: the arm points from the shoulder to where the hand is
+                // in the first-person view (x right, y up, -z ahead of the eye).
+                FirstPersonWandRig.Key rest = FirstPersonWandRig.baseRest();
+                FirstPersonWandRig.Key key = FirstPersonWandRig.pose(move, variant, rest, t, rest);
+                float dx = key.hand().x - 0.36F;
+                float dy = key.hand().y + 0.30F;
+                float dz = key.hand().z - 0.06F;
+                float raise = (float) Math.atan2(dy, Math.sqrt(dx * dx + dz * dz));
+                float turn = (float) Math.atan2(dx, -dz);
+                return new float[]{Mth.clamp(raise, -0.9F, 1.4F), Mth.clamp(turn, -1.2F, 1.0F), 0.0F};
+            }
+            float[] p = motion.at(t);
+            float cos = Mth.cos(tilt);
+            float sin = Mth.sin(tilt);
+            return new float[]{p[0] * cos + p[1] * sin, p[1] * cos - p[0] * sin, p[2]};
         }
 
         float age(double now) {
@@ -156,15 +198,15 @@ public final class CastMotions {
         }
 
         boolean over(double now) {
-            return age(now) > motion.length;
+            return age(now) > length();
         }
 
         /** {raise, turn, push, weight}: eases in over a tick, out over the last four. */
         float[] pose(double now) {
             float t = age(now);
-            float[] p = motion.at(t);
+            float[] p = at(t);
             float weight = AvadaChargePose.smoothstep(0.0f, 1.0f, t + 0.5f)
-                    * (1.0f - AvadaChargePose.smoothstep(motion.length - 4.0f, motion.length, t));
+                    * (1.0f - AvadaChargePose.smoothstep(length() - 4.0f, length(), t));
             return new float[]{p[0], p[1], p[2], weight};
         }
 
@@ -174,6 +216,7 @@ public final class CastMotions {
     }
 
     private static final Map<Integer, Cast> CASTS = new HashMap<>();
+
     private CastMotions() {
     }
 
@@ -183,10 +226,23 @@ public final class CastMotions {
         if (minecraft.level == null || spell == null) {
             return;
         }
+        if (minecraft.player != null && packet.casterId() == minecraft.player.getId()) {
+            FirstPersonCast.onServerCast(spell); // your own first-person arm (FirstPersonWand), and its whoosh
+        } else if (minecraft.level.getEntity(packet.casterId()) instanceof Entity caster
+                && !(caster instanceof com.hogwartsmagic.entity.VoldemortEntity)) { // his moves have their own sound
+            CastSounds.swing(caster, spell);
+        }
         Motion motion = MOTIONS.getOrDefault(spell, FLICK);
         // The spell is already on its way: start the gesture just short of its release, so the snap lands with
         // the beam leaving the wand instead of a beat after it.
-        CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime() - (motion.snap - RELEASE_LEAD)));
+        float tilt = (minecraft.level.random.nextFloat() - 0.5f) * 1.4f;
+        // The arm plays the spell's own first-person move (each spell has one), seen from outside.
+        FirstPersonCast.Gesture gesture = FirstPersonCast.forSpell(spell);
+        FirstPersonWandRig.Motion move = FirstPersonWandRig.motionOf(spell, gesture);
+        FirstPersonCast.Variant variant = FirstPersonCast.randomVariant(
+                new java.util.Random(minecraft.level.random.nextLong()), gesture, spell);
+        CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime() - (move.release() - RELEASE_LEAD),
+                tilt, move, variant));
     }
 
     /** Drop gestures that are over for casters never drawn again (walked off, logged out). */
@@ -199,7 +255,6 @@ public final class CastMotions {
         double now = minecraft.level.getGameTime();
         CASTS.values().removeIf(cast -> cast.over(now) || cast.age(now) < 0.0f);
     }
-
 
     /** The gesture {@code entityId} is playing now, or null. */
     public static Cast get(int entityId, double now) {
@@ -220,13 +275,27 @@ public final class CastMotions {
     }
 
     /**
-     * Third person: pose the wand arm. Right after the renderer's setupAnim (ActorPoseMixin). Only a fallback
-     * now: a player's swing starts CastGestures' gesture (the one the first-person arm plays, varied each cast),
-     * and while that owns the arm this leaves it alone. What is left is a cast that came with no swing.
+     * Which way {@code cast}'s wand cuts as it lets the spell go, in the world: from just before the snap to the
+     * snap, turned by where the caster looks. Null when it hardly moves there.
      */
+    public static Vec3 flickDirection(LivingEntity caster, Cast cast) {
+        float[] before = cast.at(Math.max(0.0f, cast.snap() - 0.8f));
+        float[] at = cast.at(cast.snap());
+        double up = at[0] - before[0];
+        double right = at[1] - before[1];
+        if (up * up + right * right < 1.0E-4) {
+            return null;
+        }
+        Vec3 look = caster.getViewVector(1.0f);
+        Vec3 rightAxis = look.cross(new Vec3(0.0, 1.0, 0.0));
+        rightAxis = rightAxis.lengthSqr() < 1.0E-4 ? new Vec3(1.0, 0.0, 0.0) : rightAxis.normalize();
+        Vec3 upAxis = rightAxis.cross(look).normalize();
+        return rightAxis.scale(right).add(upAxis.scale(up)).normalize();
+    }
+
+    /** Third person: pose the wand arm. Right after the renderer's setupAnim (ActorPoseMixin). */
     public static void apply(EntityModel<?> model, Entity entity, float partial) {
-        if (CASTS.isEmpty() || !(model instanceof HumanoidModel<?> humanoid) || !(entity instanceof Player caster)
-                || CastGestures.ownsArm(caster)) {
+        if (CASTS.isEmpty() || !(model instanceof HumanoidModel<?> humanoid) || !(entity instanceof Player)) {
             return;
         }
         Cast cast = get(entity.getId(), AvadaChargeClientState.now(partial));
@@ -276,18 +345,14 @@ public final class CastMotions {
             return shoulder.add(Vec3.directionFromRotation(pitch, yaw).scale(0.95));
         }
         if (firstPerson) {
-            // Your own view: the wand the first-person arm (FirstPersonWandRig) is drawing right now.
-            Vec3 drawnTip = WandCastAnimation.localTipInWorld(Minecraft.getInstance().gameRenderer.getMainCamera());
-            if (drawnTip != null) {
-                return drawnTip;
-            }
             Vec3 look = caster.getViewVector(partial);
             Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
             right = right.lengthSqr() < 1.0E-4 ? new Vec3(1.0, 0.0, 0.0) : right.normalize();
             Vec3 up = right.cross(look).normalize();
             float s = FIRST_PERSON_SCALE * p[3];
-            return new Vec3(x, y + caster.getEyeHeight(), z).add(look.scale(0.62)).add(right.scale(0.30 + 0.25 * p[1] * s))
-                    .add(up.scale(-0.20 + 0.3 * p[0] * s));
+            // Where the first-person arm (FirstPersonWand) last drew the tip; this estimate only before it has.
+            return FirstPersonWand.localTipOr(new Vec3(x, y + caster.getEyeHeight(), z).add(look.scale(0.62))
+                    .add(right.scale(0.30 + 0.25 * p[1] * s)).add(up.scale(-0.20 + 0.3 * p[0] * s)));
         }
         float bodyYaw = Mth.rotLerp(partial, caster.yBodyRotO, caster.yBodyRot) * Mth.DEG_TO_RAD;
         Vec3 bodyRight = new Vec3(-Mth.cos(bodyYaw), 0.0, -Mth.sin(bodyYaw));

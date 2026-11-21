@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
@@ -38,6 +39,42 @@ public final class SpellBeamClientState {
     private static final double SILENT_END_RANGE = 48.0;
     /** A path longer than this many ticks keeps only its newest points (a jet is drawn straight back to the wand). */
     private static final int MAX_TRAIL = 400;
+    /**
+     * Which way {@code caster}'s wand cut as it let its latest spell go, in the world, or null: your own from the
+     * first-person arm (in first person), anyone else's from the gesture CastMotions is playing for them.
+     */
+    private static Vec3 flick(Entity caster) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (!(caster instanceof LivingEntity living) || minecraft.level == null) {
+            return null;
+        }
+        if (living == minecraft.player && minecraft.options.getCameraType().isFirstPerson()) {
+            FirstPersonCast.Cast cast = FirstPersonCast.current();
+            if (cast == null || living.tickCount - cast.start() > 8) {
+                return null;
+            }
+            org.joml.Vector3f cut = FirstPersonWandRig.strikeDirection(cast);
+            if (cut == null) {
+                return null;
+            }
+            net.minecraft.client.Camera camera = minecraft.gameRenderer.getMainCamera();
+            org.joml.Vector3f left = camera.getLeftVector();
+            org.joml.Vector3f up = camera.getUpVector();
+            float side = living.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT ? 1.0f : -1.0f;
+            return new Vec3(-left.x, -left.y, -left.z).scale(cut.x * side).add(new Vec3(up.x, up.y, up.z).scale(cut.y))
+                    .normalize();
+        }
+        CastMotions.Cast cast = CastMotions.get(living.getId(), AvadaChargeClientState.now(1.0f));
+        return cast == null ? null : CastMotions.flickDirection(living, cast);
+    }
+
+    /** Spells whose beams wobble harder: the duelling hexes. */
+    private static final java.util.Set<SpellType> WILD = java.util.EnumSet.of(SpellType.STUPEFY,
+            SpellType.EXPELLIARMUS, SpellType.CONFRINGO, SpellType.INCENDIO, SpellType.DIFFINDO,
+            SpellType.PETRIFICUS_TOTALUS, SpellType.LEVICORPUS, SpellType.CRUCIO, SpellType.DOLOHOV_CURSE);
+    /** Spells that keep a straight line: a stream of water, a lash of ice, Reparo (its tether ends on the line). */
+    private static final java.util.Set<SpellType> STRAIGHT = java.util.EnumSet.of(SpellType.AQUA_ERUCTO,
+            SpellType.GLACIUS, SpellType.REPARO);
 
     private static final Map<Integer, Beam> BEAMS = new HashMap<>();
     private static final List<Impact> IMPACTS = new ArrayList<>();
@@ -121,12 +158,15 @@ public final class SpellBeamClientState {
         final Vec3 dir;
         final BeamStyle style;
         final double start;
+        /** Your own cast seen in first person: the arm's tip flare already marks the release. */
+        final boolean firstPerson;
 
-        Muzzle(Vec3 pos, Vec3 dir, BeamStyle style, double start) {
+        Muzzle(Vec3 pos, Vec3 dir, BeamStyle style, double start, boolean firstPerson) {
             this.pos = pos;
             this.dir = dir;
             this.style = style;
             this.start = start;
+            this.firstPerson = firstPerson;
         }
     }
 
@@ -160,8 +200,21 @@ public final class SpellBeamClientState {
         int ownerId = -1;
         /** For a run of Aqua Eructo's water: how far its first point has already flown from the wand. */
         double pathOffset;
-        /** Held on your own first-person wand tip until the gesture lets it go (SpellPath). */
-        boolean heldOnScreen;
+        /**
+         * The drawn path's bend (SpellBeamFxRenderer): a bow out to one side over the first blocks from the wand,
+         * then a gentle wobble round the real line. Off for jets, streams and beams made by hand (Priori, Crucio).
+         */
+        boolean curved;
+        /** How far the bow swings out, in blocks, and which way round the line (radians). */
+        float bend;
+        float bendAngle;
+        /**
+         * Which way the bow swings, in the world: the way the caster's wand cut as it let the spell go, so the
+         * spell leaves along the cut and curves onto its target. Null when no gesture is known (bendAngle then).
+         */
+        Vec3 bendDir;
+        /** How far the path wobbles round the line after the bow, in blocks. */
+        float wobble;
 
         Beam(int entityId, BeamStyle style, Vec3 origin, Vec3 head, Vec3 dir, double now) {
             this.entityId = entityId;
@@ -185,15 +238,26 @@ public final class SpellBeamClientState {
 
         /** The head this frame: lerped between ticks while flying, fixed once it is gone. */
         Vec3 head(float partial) {
-            if (heldOnScreen && !gone()) {
-                // Held on your own first-person wand: drawn at the tip this frame, not lerped between ticks
-                // (a turn of the view would otherwise pull it off the wand).
-                Vec3 tip = WandCastAnimation.localTipInWorld(Minecraft.getInstance().gameRenderer.getMainCamera());
-                if (tip != null) {
-                    return tip;
-                }
-            }
             return gone() ? head() : headPrev.lerp(head(), partial);
+        }
+
+        /**
+         * Gives a beam from {@code spell} its own bend: out along the way {@code caster}'s wand cut as it cast,
+         * or a random way round the line when that is not known; different every cast.
+         */
+        void curve(SpellType spell, Entity caster) {
+            if (style.isJet() || spell == null || STRAIGHT.contains(spell)) {
+                return;
+            }
+            this.bendDir = flick(caster);
+            java.util.Random random = new java.util.Random(seed * 31L + 7L);
+            boolean wild = WILD.contains(spell);
+            this.curved = true;
+            this.bend = (wild ? 1.2f : 0.8f) * (0.7f + 0.6f * random.nextFloat());
+            // Out to either side or upwards, never down into the ground: -40 to 220 degrees round the line,
+            // measured from the side axis towards the lift axis.
+            this.bendAngle = (float) Math.toRadians(-40.0 + random.nextDouble() * 260.0);
+            this.wobble = wild ? 0.28f : 0.14f;
         }
 
         void push(Vec3 head, double now) {
@@ -393,6 +457,7 @@ public final class SpellBeamClientState {
         Impact impact = new Impact(pos, dir, style, packet.kind(), now);
         IMPACTS.add(impact);
         spray(impact, spell);
+        CastSounds.impact(pos, spell);
         com.hogwartsmagic.client.fx.marks.MarkSpells.onImpact(spell, packet.kind(), pos, dir);
     }
 
@@ -492,18 +557,19 @@ public final class SpellBeamClientState {
                 }
                 Vec3 dir = motion.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 0.0, 1.0) : motion.normalize();
                 Vec3 from = origin(spellBeam, head);
-                // Drawn off the straight line: out of the wand tip, curving in, a bolt wobbling (SpellPath).
-                SpellPath.takeStart(spellBeam, head, from);
-                Vec3 drawn = head.add(SpellPath.offset(spellBeam, head, style.isJet()));
-                Beam created = new Beam(spellBeam.getId(), style, from, drawn, dir, now);
+                Beam created = new Beam(spellBeam.getId(), style, from, head, dir, now);
+                created.curve(spellBeam.getSpellType(), spellBeam.getOwner());
                 if (spellBeam.getOwner() != null && spellBeam.getOwner().distanceToSqr(spellBeam) <= 16.0) {
                     created.ownerId = spellBeam.getOwner().getId();
                 }
-                created.heldOnScreen = heldOnOwnScreen(spellBeam);
                 BEAMS.put(spellBeam.getId(), created);
-                SpellFx.sparkleTrail(from, drawn, spellBeam.getSpellType(), spellBeam.getRandom());
-                if (!WandCastAnimation.flaresOwnRelease(spellBeam.getOwner())) {
-                    MUZZLES.add(new Muzzle(from, dir, style, now)); // your own first-person wand flares on screen
+                // The sparkle trail drifts off the bolt as drawn: along its bow out of the wand.
+                SpellFx.sparkleTrail(from, drawn(created, head), spellBeam.getSpellType(), spellBeam.getRandom());
+                boolean firstPerson = spellBeam.getOwner() == minecraft.player
+                        && minecraft.options.getCameraType().isFirstPerson();
+                MUZZLES.add(new Muzzle(from, dir, style, now, firstPerson));
+                if (!(spellBeam.getOwner() instanceof com.hogwartsmagic.entity.VoldemortEntity)) {
+                    CastSounds.release(from, spellBeam.getSpellType(), spellBeam.getOwner() instanceof Player);
                 }
                 continue;
             }
@@ -511,9 +577,8 @@ public final class SpellBeamClientState {
                 continue;
             }
             Vec3 before = beam.head();
-            beam.push(head.add(SpellPath.offset(spellBeam, head, beam.style.isJet())), now);
-            beam.heldOnScreen = heldOnOwnScreen(spellBeam);
-            SpellFx.sparkleTrail(before, beam.head(), spellBeam.getSpellType(), spellBeam.getRandom());
+            beam.push(head, now);
+            SpellFx.sparkleTrail(drawn(beam, before), drawn(beam, head), spellBeam.getSpellType(), spellBeam.getRandom());
             if (motion.lengthSqr() > 1.0E-8) {
                 beam.dir = motion.normalize();
             }
@@ -535,6 +600,7 @@ public final class SpellBeamClientState {
                 beam.goneAt = now;
                 if (!beam.struck && beam.head().distanceTo(camera) < SILENT_END_RANGE) {
                     IMPACTS.add(new Impact(beam.head(), beam.dir, beam.style, SpellBeamFx.HIT, now));
+                    CastSounds.impact(beam.head(), null);
                 }
             }
         }
@@ -555,11 +621,9 @@ public final class SpellBeamClientState {
         SCENERY.removeIf(item -> now - item.start > item.duration || now < item.start);
     }
 
-    /** Whether this beam's head is held on your own first-person wand right now (see SpellPath). */
-    private static boolean heldOnOwnScreen(SpellBeamEntity beam) {
-        Minecraft minecraft = Minecraft.getInstance();
-        return beam.vfxHeld && beam.vfxReleaseAge < 0.0F && beam.getOwner() == minecraft.player
-                && minecraft.player != null && minecraft.options.getCameraType().isFirstPerson();
+    /** {@code p} on {@code beam}'s real line, moved to where the bolt is drawn there (its bow, SpellBeamFxRenderer). */
+    private static Vec3 drawn(Beam beam, Vec3 p) {
+        return p.add(SpellBeamFxRenderer.curveOffset(beam, p.distanceTo(beam.trail.get(0))));
     }
 
     /** Where the beam starts: the caster's wand tip if we know the caster, else where the beam was first seen. */
@@ -576,13 +640,13 @@ public final class SpellBeamClientState {
         AvadaChargeClientState.Charge charge = AvadaChargeClientState.get(caster.getId());
         boolean firstPerson = AvadaChargePose.isOwnFirstPerson(caster);
         if (firstPerson) {
-            // Your own view: the wand the first-person arm (FirstPersonWandRig) is drawing right now.
-            Vec3 drawnTip = WandCastAnimation.localTipInWorld(Minecraft.getInstance().gameRenderer.getMainCamera());
-            if (drawnTip != null) {
-                return drawnTip;
+            // Your own view: the wand the first-person arm (FirstPersonWand) is drawing right now, or where its
+            // strike will land while it is still winding up.
+            if (FirstPersonWand.localTipInWorld(Minecraft.getInstance().gameRenderer.getMainCamera()) != null) {
+                return FirstPersonWand.localTipOr(fallback);
             }
         } else if (CastGestures.posesModel(caster)) {
-            // A wizard or student mid-gesture: the tip of the wand its model is drawing.
+            // A player, wizard or student mid-gesture: the tip of the wand its model is drawing.
             Vec3 drawnTip = WandSwipeLayer.recentTip(caster);
             if (drawnTip != null) {
                 return drawnTip;

@@ -94,13 +94,12 @@ public final class WandTrailRenderer {
                     || cast.over(now) || hidden(minecraft, caster)) {
                 continue;
             }
-            Vec3 tip;
-            if (CastGestures.ownsArm(caster)) {
-                tip = WandSwipeLayer.recentTip(caster); // the wand as drawn, mid-gesture
-                if (tip == null) {
-                    continue;
+            // The wand as drawn, mid-gesture; before its model has been drawn, where the gesture puts it.
+            Vec3 tip = WandSwipeLayer.recentTip(caster);
+            if (tip == null) {
+                if (!(caster instanceof net.minecraft.world.entity.player.Player) && CastGestures.ownsArm(caster)) {
+                    continue; // an NPC's model draws its arm: wait for the drawn tip, never mix in an estimate
                 }
-            } else {
                 tip = CastMotions.wandTip(caster, cast, partial, false);
             }
             push(entity.getId(), BeamStyles.of(cast.spell()), tip, now);

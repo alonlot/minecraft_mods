@@ -55,6 +55,10 @@ public interface CarveSink {
     default void setLoot(int x, int y, int z, ResourceLocation table) {
     }
 
+    /** Writes the text on a sign already placed at a cell: glowing gold, waxed so it stays put. */
+    default void setSign(int x, int y, int z, String[] lines) {
+    }
+
     // ---------------------------------------------------------------------------------
 
     /** Writes straight into the world. */
@@ -102,6 +106,26 @@ public interface CarveSink {
                     instanceof net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity box) {
                 box.setLootTable(net.minecraft.resources.ResourceKey.create(
                         net.minecraft.core.registries.Registries.LOOT_TABLE, table), this.level.random.nextLong());
+            }
+        }
+
+        @Override
+        public void setSign(int x, int y, int z, String[] lines) {
+            this.cursor.set(x, y, z);
+            if (this.level.getBlockEntity(this.cursor)
+                    instanceof net.minecraft.world.level.block.entity.SignBlockEntity sign) {
+                net.minecraft.world.level.block.entity.SignText text =
+                        new net.minecraft.world.level.block.entity.SignText()
+                                .setColor(net.minecraft.world.item.DyeColor.YELLOW)
+                                .setHasGlowingText(true);
+                for (int i = 0; i < Math.min(4, lines.length); i++) {
+                    text = text.setMessage(i, net.minecraft.network.chat.Component.literal(lines[i]));
+                }
+                sign.setText(text, true);
+                sign.setWaxed(true);
+                sign.setChanged();
+                BlockState state = this.level.getBlockState(this.cursor);
+                this.level.sendBlockUpdated(this.cursor, state, state, Block.UPDATE_CLIENTS);
             }
         }
 

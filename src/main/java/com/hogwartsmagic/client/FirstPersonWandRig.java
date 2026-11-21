@@ -1075,7 +1075,9 @@ final class FirstPersonWandRig {
                     -0.84F, 0.7F};
         }
         put.accept(com.hogwartsmagic.spell.SpellType.FIENDFYRE, pathMotion(rows(
-                new float[][]{{0.6F, 0.20F, -0.10F, -0.82F, 0.5F}}, eight), 1.2F, 4.0F).holdingLast());
+                new float[][]{{0.6F, 0.20F, -0.10F, -0.82F, 0.5F}}, eight,
+                new float[][]{{10.2F, 0.14F, -0.04F, -0.86F, 0.0F, -0.05F, 0.70F, -0.70F}}), 1.2F, 4.0F).holdingLast()
+                .trembling(0.3F));
         // Dolohov Curse: a jagged zigzag down and across, like lightning.
         put.accept(com.hogwartsmagic.spell.SpellType.DOLOHOV_CURSE, pathMotion(new float[][]{
                 {0.6F, 0.30F, 0.08F, -0.82F, 0.0F}, {1.1F, 0.10F, -0.02F, -0.84F, 1.0F},
@@ -1095,34 +1097,10 @@ final class FirstPersonWandRig {
 
     // ---------------------------------------------------------------- the off hand
 
-    /**
-     * Where the off hand goes for the great spells, written as for a right hand (it is drawn mirrored onto the
-     * other side): the open hand raised at the shield, both hands up for the Patronus, held out to steady
-     * Fiendfyre, reaching out under the Killing Curse. Null for the rest.
-     */
-    @javax.annotation.Nullable
-    static Key offhand(com.hogwartsmagic.spell.SpellType spell) {
-        return OFFHAND.get(spell);
-    }
-
     /** The off hand out of sight below the view. */
     static Key offhandRest() {
         return new Key(0.0F, new Vector3f(0.50F, -0.80F, -0.90F), new Vector3f(-0.1F, 1.0F, -0.1F).normalize(),
                 new Vector3f(0.0F, 1.0F, -0.3F).normalize());
-    }
-
-    private static final Map<com.hogwartsmagic.spell.SpellType, Key> OFFHAND =
-            new java.util.EnumMap<>(com.hogwartsmagic.spell.SpellType.class);
-
-    static {
-        OFFHAND.put(com.hogwartsmagic.spell.SpellType.PROTEGO_MAXIMA, new Key(0.0F, new Vector3f(0.46F, 0.04F, -1.0F),
-                new Vector3f(-0.12F, 1.0F, -0.12F).normalize(), new Vector3f(0.0F, 1.0F, -0.3F).normalize()));
-        OFFHAND.put(com.hogwartsmagic.spell.SpellType.EXPECTO_PATRONUM, new Key(0.0F, new Vector3f(0.44F, 0.14F, -1.0F),
-                new Vector3f(-0.08F, 1.0F, -0.1F).normalize(), new Vector3f(0.0F, 1.0F, -0.3F).normalize()));
-        OFFHAND.put(com.hogwartsmagic.spell.SpellType.FIENDFYRE, new Key(0.0F, new Vector3f(0.48F, -0.10F, -1.0F),
-                new Vector3f(-0.2F, 1.0F, -0.15F).normalize(), new Vector3f(0.0F, 1.0F, -0.3F).normalize()));
-        OFFHAND.put(com.hogwartsmagic.spell.SpellType.AVADA_KEDAVRA, new Key(0.0F, new Vector3f(0.50F, -0.06F, -1.0F),
-                new Vector3f(-0.15F, 1.0F, -0.15F).normalize(), new Vector3f(0.0F, 1.0F, -0.3F).normalize()));
     }
 
     private FirstPersonWandRig() {

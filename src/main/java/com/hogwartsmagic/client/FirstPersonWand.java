@@ -300,28 +300,22 @@ public final class FirstPersonWand {
         }
         pose.popPose();
 
-        // The off hand for the great spells: up for the shield and the Patronus, out to steady Fiendfyre and
-        // reaching for the Killing Curse.
-        SpellType castSpell = cast != null ? cast.spell() : null;
-        float off = 0.0F;
-        FirstPersonWandRig.Key offKey = null;
-        if (casting && castSpell != null && FirstPersonWandRig.offhand(castSpell) != null) {
-            offKey = FirstPersonWandRig.offhand(castSpell);
-            off = smooth(time / 2.0F) * (1.0F - smooth((time - (motion.length() - 5.0F)) / 4.0F));
-        }
+        // Fiendfyre held: the off hand grips the wand ahead of the wand hand, both hands steadying it against
+        // the fire. No off hand for any other spell.
         SpellType heldSpell = FirstPersonCast.heldSpell();
-        if (hold > 0.0F && heldSpell != null && FirstPersonWandRig.offhand(heldSpell) != null) {
-            offKey = FirstPersonWandRig.offhand(heldSpell);
-            off = Math.max(off, hold);
-        }
-        if (charge != null && !casting) {
-            offKey = FirstPersonWandRig.offhand(SpellType.AVADA_KEDAVRA);
-            off = Math.max(off, smooth(charge.charge(AvadaChargeClientState.now(partialTick))));
-        }
-        if (offKey != null && off > 0.01F) {
-            FirstPersonWandRig.Key offPose = FirstPersonWandRig.mix(FirstPersonWandRig.offhandRest(), offKey, smooth(off));
-            float breathe = player.tickCount + partialTick;
-            offPose.hand().add(0.004F * Mth.sin(breathe * 0.21F), 0.006F * Mth.sin(breathe * 0.17F + 1.0F), 0.0F);
+        if (hold > 0.01F && heldSpell == SpellType.FIENDFYRE) {
+            float grip = smooth(hold);
+            Vector3f along = new Vector3f(now.wand()).mul(side, 1.0F, 1.0F).normalize();
+            // Wrapped round the wand hand from the off side, a little lower: both fists on the handle.
+            Vector3f onShaft = new Vector3f(along).mul(-0.05F).add(fist).add(-side * 0.115F, -0.04F, 0.01F);
+            // The forearm comes up from below and to the off side of the view.
+            Vector3f elbow = new Vector3f(-side * 0.12F, -0.75F, -0.30F);
+            Vector3f armDir = new Vector3f(onShaft).sub(elbow).normalize();
+            Vector3f handEnd = new Vector3f(armDir).mul(0.0875F).add(onShaft);
+            FirstPersonWandRig.Key gripPose = new FirstPersonWandRig.Key(0.0F,
+                    new Vector3f(-side * handEnd.x, handEnd.y, handEnd.z),
+                    new Vector3f(-side * armDir.x, armDir.y, armDir.z), new Vector3f(0.0F, 1.0F, -0.3F));
+            FirstPersonWandRig.Key offPose = FirstPersonWandRig.mix(FirstPersonWandRig.offhandRest(), gripPose, grip);
             pose.pushPose();
             FirstPersonWandRig.placeArm(pose, offPose, -side);
             if (right) {

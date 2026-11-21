@@ -33,25 +33,33 @@ final class FirstPersonWandRig {
 
     /** A gesture as the first-person arm plays it: its keys, the tick the spell leaves, and its length. */
     record Motion(Key[] keys, float release, float length, Builder builder, boolean anchorFlash, float trailUntil,
-                  float trailLife, Roll roll, boolean holdLast, float tremor) {
+                  float trailLife, Roll roll, boolean holdLast, float tremor, float turn) {
         Motion(Key[] keys, float release, float length) {
-            this(keys, release, length, null, false, release + 2.0F, 1.8F, null, false, 0.0F);
+            this(keys, release, length, null, false, release + 2.0F, 1.8F, null, false, 0.0F, 0.0F);
+        }
+
+        /** The same gesture, turned on the screen by up to {@code amount} times the cast's tilt each cast. */
+        Motion turning(float amount) {
+            return new Motion(keys, release, length, builder, anchorFlash, trailUntil, trailLife, roll, holdLast,
+                    tremor, amount);
         }
 
         /** The same gesture, its flash left where the spell left the wand (the arm moves on across the view). */
         Motion anchored() {
-            return new Motion(keys, release, length, builder, true, trailUntil, trailLife, roll, holdLast, tremor);
+            return new Motion(keys, release, length, builder, true, trailUntil, trailLife, roll, holdLast, tremor,
+                    turn);
         }
 
         /** The same gesture, its last key held while the spell is kept up (not the one at the release). */
         Motion holdingLast() {
-            return new Motion(keys, release, length, builder, anchorFlash, trailUntil, trailLife, roll, true, tremor);
+            return new Motion(keys, release, length, builder, anchorFlash, trailUntil, trailLife, roll, true, tremor,
+                    turn);
         }
 
         /** The same gesture, the hand shaking from the release on and while the spell is kept up. */
         Motion trembling(float amount) {
             return new Motion(keys, release, length, builder, anchorFlash, trailUntil, trailLife, roll, holdLast,
-                    amount);
+                    amount, turn);
         }
 
         /** How far the fist is rolled about the forearm at gesture time {@code time} (radians), 0 for most. */
@@ -221,8 +229,11 @@ final class FirstPersonWandRig {
                 new Vector3f(REST_AIM).sub(REST_HAND).normalize());
         float release = motion.release();
         Key from = fromOf(cast, rest);
-        Key before = pose(motion, cast.variant(), rest, Math.max(0.0F, release - 0.8F), from);
-        Key at = pose(motion, cast.variant(), rest, release, from);
+        // A built gesture: the way the tip is travelling as it passes the release (it may only start moving at
+        // it, as a circle or a cut does); the others: the stroke into it.
+        float after = motion.point() ? 0.5F : 0.0F;
+        Key before = pose(motion, cast.variant(), rest, Math.max(0.0F, release - (motion.point() ? 0.5F : 0.8F)), from);
+        Key at = pose(motion, cast.variant(), rest, release + after, from);
         // The tip, as seen from the eye: the hand plus a stretch of the wand, divided by depth.
         Vector3f a = new Vector3f(before.wand()).mul(0.35F).add(before.hand());
         Vector3f b = new Vector3f(at.wand()).mul(0.35F).add(at.hand());
@@ -300,6 +311,13 @@ final class FirstPersonWandRig {
     private static final float SWEEP_DRIFT = 10.5F;
     static final float SWEEP_LENGTH = 17.0F;
 
+    /**
+     * How far each cast turns its whole gesture on the screen, times its tilt (up to 0.8 rad either way): the
+     * sweep a little (up to about 14 degrees, so a cut runs a little uphill or downhill), the others more.
+     */
+    private static final float SWEEP_TURN = 0.3F;
+    private static final float BUILT_TURN = 0.4F;
+
     /** The bottom of the U: the fist low in the middle, the forearm upright, the wand on the target. */
     private static Key sweepMiddle() {
         Vector3f arm = new Vector3f(0.0F, 1.0F, -0.15F).normalize();
@@ -310,7 +328,8 @@ final class FirstPersonWandRig {
 
     /** The middle of the sweep for the channelled bolt spells' hold pose. */
     private static final Motion POINT = new Motion(new Key[]{sweepMiddle()}, SWEEP_MID, SWEEP_LENGTH,
-            (from, variant) -> sweepKeys(from, variant.place()), true, SWEEP_MID + 2.0F, 1.8F, null, false, 0.0F);
+            (from, variant) -> sweepKeys(from, variant.place()), true, SWEEP_MID + 2.0F, 1.8F, null, false, 0.0F,
+            SWEEP_TURN);
 
     /**
      * Where a sweep ends, by {@code place}: its sign the side of the view (-1 left, 1 right), its size how low
@@ -387,7 +406,7 @@ final class FirstPersonWandRig {
     private static Motion built(Builder builder, float release, float length, float trailUntil, float trailLife,
                                 Roll roll) {
         return new Motion(builder.build(baseRest(), FirstPersonCast.Variant.NONE), release, length, builder, false,
-                trailUntil, trailLife, roll, false, 0.0F);
+                trailUntil, trailLife, roll, false, 0.0F, BUILT_TURN);
     }
 
     /**
@@ -479,11 +498,13 @@ final class FirstPersonWandRig {
         Vector3f reachArm = new Vector3f(reachHand).sub(0.30F, -0.50F, -0.25F);
         Vector3f reachWand = new Vector3f(reachArm).normalize().add(0.0F, 0.12F, 0.0F);
         Vector3f backArm = v(0.1F, 1.0F, 0.25F);
+        // Yanked back high to the shoulder or low to the hip.
+        float yank = variant.pitchOffset() / 11.0F * 0.08F;
         return new Key[]{
                 key(YANK_RELEASE, reachHand, reachArm, reachWand),
                 key(2.4F, v(0.06F, -0.10F, -0.95F), reachArm, reachWand),
-                key(3.5F, v(0.42F, -0.30F, -0.52F), backArm, v(-0.12F, 1.0F, -0.2F)),
-                key(4.2F, v(0.44F, -0.26F, -0.56F), backArm, v(-0.15F, 1.0F, -0.3F)),
+                key(3.5F, v(0.42F, -0.30F + yank, -0.52F), backArm, v(-0.12F, 1.0F, -0.2F)),
+                key(4.2F, v(0.44F, -0.26F + yank, -0.56F), backArm, v(-0.15F, 1.0F, -0.3F)),
         };
     }
 
@@ -586,6 +607,16 @@ final class FirstPersonWandRig {
         return t0 + 14.8F;
     }
 
+    /** Keys mirrored across the middle of the view (they are fresh, so changed in place). */
+    private static Key[] mirrored(Key[] keys) {
+        for (Key key : keys) {
+            key.hand().x = -key.hand().x;
+            key.arm().x = -key.arm().x;
+            key.wand().x = -key.wand().x;
+        }
+        return keys;
+    }
+
     private static Key[] join(Key[] a, Key... b) {
         Key[] out = java.util.Arrays.copyOf(a, a.length + b.length);
         System.arraycopy(b, 0, out, a.length, b.length);
@@ -613,13 +644,15 @@ final class FirstPersonWandRig {
         Vector3f chopArm = from(chop, 0.40F, -0.55F, -0.25F);
         Vector3f aim = v(-0.06F, 0.40F, -1.0F);
         Vector3f frozen = v(0.12F, -0.145F, -0.82F);
-        return new Key[]{
+        Key[] keys = {
                 key(0.9F, v(0.24F, 0.12F, -0.78F), upArm, v(0.05F, 1.0F, -0.25F)),
                 key(PETRIFICUS_RELEASE, chop, chopArm, aim),
                 key(1.8F, frozen, chopArm, aim),
                 key(5.8F, frozen, chopArm, aim),
                 key(7.8F, v(0.16F, -0.19F, -0.80F), chopArm, v(-0.04F, 0.45F, -1.0F)),
         };
+        // Half the casts chop in from the left instead.
+        return variant.pitchOffset() < 0.0F ? mirrored(keys) : keys;
     }
 
     private static final float PETRIFICUS_RELEASE = 1.6F;
@@ -627,13 +660,18 @@ final class FirstPersonWandRig {
     /** Diffindo: one flat, very fast cut straight across at the target's height, the wand lying along it. */
     static Key[] diffindoKeys(Key from, FirstPersonCast.Variant variant) {
         float s = variant.place() < 0.0F ? -1.0F : 1.0F;
-        Vector3f endArm = v(s * 0.8F, 0.55F, -0.25F);
-        Key end = key(1.6F, v(s * 0.36F, -0.16F, -0.84F), endArm, v(s * 0.9F, 0.05F, -0.45F));
+        // Each cut at its own height, running a little uphill or downhill.
+        float height = variant.pitchOffset() / 11.0F * 0.05F;
+        float slope = variant.shiftY() * 0.45F;
+        Vector3f endArm = v(s * 0.8F, 0.55F + slope, -0.25F);
+        Key end = key(1.6F, v(s * 0.36F, -0.16F + height + slope, -0.84F), endArm,
+                v(s * 0.9F, 0.05F + slope, -0.45F));
         Key middle;
         if (sideOf(from) == (int) s) {
             middle = mix(from, end, 0.5F).copy(0.9F);
         } else {
-            middle = key(0.9F, v(0.02F, -0.08F, -0.80F), v(s * 0.35F, 0.9F, -0.35F), v(s * 0.9F, 0.15F, -0.45F));
+            middle = key(0.9F, v(0.02F, -0.08F + height, -0.80F), v(s * 0.35F, 0.9F, -0.35F),
+                    v(s * 0.9F, 0.15F + slope, -0.45F));
         }
         return join(new Key[]{middle, end}, sideTail(end, s, 1.6F));
     }
@@ -652,11 +690,13 @@ final class FirstPersonWandRig {
     /** Bombarda, Depulso: the arm drawn back to the shoulder, then a heavy punch out at the target. */
     static Key[] punchKeys(Key from, FirstPersonCast.Variant variant) {
         Vector3f backArm = v(0.1F, 1.0F, 0.15F);
-        Vector3f punch = v(0.08F, -0.10F, -0.95F);
+        float dx = variant.shiftY() * 0.25F;
+        float dy = variant.pitchOffset() / 11.0F * 0.04F;
+        Vector3f punch = v(0.08F + dx, -0.10F + dy, -0.95F);
         Vector3f punchArm = from(punch, 0.28F, -0.5F, -0.3F);
         Vector3f wand = inLine(punchArm).add(0.0F, 0.1F, 0.0F);
         return new Key[]{
-                key(0.9F, v(0.40F, -0.24F, -0.56F), backArm, v(-0.05F, 1.0F, -0.25F)),
+                key(0.9F, v(0.40F, -0.24F - dy * 2.0F, -0.56F), backArm, v(-0.05F, 1.0F, -0.25F)),
                 key(PUNCH_RELEASE, punch, punchArm, wand),
                 key(2.2F, v(0.08F, -0.10F, -0.99F), punchArm, wand),
                 key(3.2F, v(0.12F, -0.13F, -0.86F), punchArm, wand),
@@ -736,7 +776,7 @@ final class FirstPersonWandRig {
         Key[] keys = new Key[steps + 4];
         keys[0] = key(1.2F, hand, arm, aim);
         for (int i = 0; i <= steps; i++) {
-            float phi = Mth.HALF_PI + Mth.TWO_PI * 2.0F * i / steps;
+            float phi = Mth.HALF_PI + (variant.pitchOffset() < 0.0F ? -1.0F : 1.0F) * Mth.TWO_PI * 2.0F * i / steps;
             float c = Mth.cos(phi);
             float sn = Mth.sin(phi);
             Vector3f wand = new Vector3f(aim).add(new Vector3f(across).mul(c * 0.22F))
@@ -755,17 +795,22 @@ final class FirstPersonWandRig {
      * wiping it out, fast through the middle and easing off to the left.
      */
     static Key[] obliviateKeys(Key from, FirstPersonCast.Variant variant) {
-        Vector3f startArm = v(0.45F, 0.9F, -0.3F);
+        // Right to left; from the left when the arm is already over there (it never jumps across to start).
+        float s = sideOf(from) < 0 ? -1.0F : 1.0F;
+        Vector3f startArm = v(s * 0.45F, 0.9F, -0.3F);
         Vector3f midArm = v(0.0F, 1.0F, -0.35F);
-        Vector3f farArm = v(-0.35F, 0.95F, -0.3F);
-        Vector3f endArm = v(-0.5F, 0.85F, -0.3F);
-        Key end = key(OBLIVIATE_END, v(-0.38F, -0.14F, -0.88F), endArm,
+        Vector3f farArm = v(-s * 0.35F, 0.95F, -0.3F);
+        Vector3f endArm = v(-s * 0.5F, 0.85F, -0.3F);
+        // Level, or (half the casts) a long diagonal from high on one side to low on the other.
+        float fall = variant.pitchOffset() < 0.0F ? 0.13F : 0.0F;
+        Key end = key(OBLIVIATE_END, v(-s * 0.38F, -0.14F - fall, -0.88F), endArm,
                 sideWand(new Vector3f(endArm).normalize()));
         return join(new Key[]{
-                key(0.6F, v(0.40F, -0.06F, -0.82F), startArm, sideWand(new Vector3f(startArm).normalize())),
+                key(0.6F, v(s * 0.40F, -0.06F + fall, -0.82F), startArm, sideWand(new Vector3f(startArm).normalize())),
                 key(1.3F, v(0.04F, -0.10F, -0.84F), midArm, inLine(midArm)),
-                key(3.2F, v(-0.24F, -0.11F, -0.86F), farArm, sideWand(new Vector3f(farArm).normalize())),
-                end}, sideTail(end, -1.0F, OBLIVIATE_END));
+                key(3.2F, v(-s * 0.24F, -0.11F - fall * 0.6F, -0.86F), farArm,
+                        sideWand(new Vector3f(farArm).normalize())),
+                end}, sideTail(end, -s, OBLIVIATE_END));
     }
 
     private static final float OBLIVIATE_END = 5.0F;
@@ -777,9 +822,11 @@ final class FirstPersonWandRig {
         float[] at = {0.6F, 1.3F, 2.1F, 2.9F, 3.7F, 4.5F};
         Key[] keys = new Key[wave.length + 1];
         for (int i = 0; i < wave.length; i++) {
-            Vector3f hand = v(wave[i][0], wave[i][1], -0.84F);
+            // Half the casts swing the S the other way.
+            float x = variant.scale() < 1.0F ? 0.29F - wave[i][0] : wave[i][0];
+            Vector3f hand = v(x, wave[i][1], -0.84F);
             Vector3f arm = from(hand, 0.40F, -0.6F, -0.3F);
-            float lean = wave[i][0] < 0.13F ? -0.3F : 0.3F;
+            float lean = x < 0.145F ? -0.3F : 0.3F;
             keys[i] = key(at[i], hand, arm, new Vector3f(arm).mul(0.4F).add(lean, 0.15F, -1.0F));
         }
         Vector3f lastArm = from(v(0.14F, -0.24F, -0.84F), 0.40F, -0.6F, -0.3F);
@@ -1022,7 +1069,7 @@ final class FirstPersonWandRig {
      * the cast started), so a new cast moves on from there instead of jumping back to rest first.
      */
     static Key pose(Motion motion, FirstPersonCast.Variant variant, Key rest, float since, Key from) {
-        Key[] keys = motion.point() ? motion.builder().build(from, variant) : motion.keys();
+        Key[] keys = motion.point() ? turned(motion.builder().build(from, variant), motion, variant) : motion.keys();
         int n = keys.length;
         Key[] points = new Key[n + 2];
         points[0] = from.copy(0.0F);
@@ -1048,6 +1095,42 @@ final class FirstPersonWandRig {
                 hermite(points, seg, u, span, Key::hand),
                 hermite(points, seg, u, span, Key::arm),
                 hermite(points, seg, u, span, Key::wand));
+    }
+
+    /**
+     * A built gesture's keys turned on the screen by the cast's share of its tilt, about where the hand is as the
+     * spell leaves: the whole stroke comes in a little steeper or flatter, from above or below, every cast. The
+     * hand is kept from rising out of the top of the view.
+     */
+    private static Key[] turned(Key[] keys, Motion motion, FirstPersonCast.Variant variant) {
+        float angle = variant.tilt() * motion.turn();
+        if (angle == 0.0F || keys.length == 0) {
+            return keys;
+        }
+        Key pivot = keys[0];
+        for (Key key : keys) {
+            if (Math.abs(key.at() - motion.release()) < Math.abs(pivot.at() - motion.release())) {
+                pivot = key;
+            }
+        }
+        float px = pivot.hand().x;
+        float py = pivot.hand().y;
+        float cos = Mth.cos(angle);
+        float sin = Mth.sin(angle);
+        Key[] out = new Key[keys.length];
+        for (int i = 0; i < keys.length; i++) {
+            Key key = keys[i];
+            float dx = key.hand().x - px;
+            float dy = key.hand().y - py;
+            Vector3f hand = new Vector3f(px + dx * cos - dy * sin, Math.min(0.16F, py + dx * sin + dy * cos),
+                    key.hand().z);
+            out[i] = new Key(key.at(), hand, turn2d(key.arm(), cos, sin), turn2d(key.wand(), cos, sin));
+        }
+        return out;
+    }
+
+    private static Vector3f turn2d(Vector3f v, float cos, float sin) {
+        return new Vector3f(v.x * cos - v.y * sin, v.x * sin + v.y * cos, v.z);
     }
 
     /** Catmull-Rom style tangents over uneven key times; zero speed at the rest ends. */

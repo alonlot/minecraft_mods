@@ -62,3 +62,6 @@ hogwarts_magic_mod/
 
 # user-supplied Quidditch pitch world (licence unknown, private use; ~80 MB of regions)
 build_scripts/pensieve_scenes/source/quidditch_pitch_v2/
+
+# Runtime logs written by local Gradle test and server runs
+logs/

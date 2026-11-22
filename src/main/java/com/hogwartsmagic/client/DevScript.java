@@ -28,6 +28,7 @@ import java.util.Deque;
  *   wait 40              ticks to wait
  *   cmd tombcurse room   a command, run on the integrated server as the player with op rights
  *   interact hogwartsmagic:niffler   right-click (empty hand) the nearest entity of that type, as the player
+ *   chat Sherbet Lemon   say it in chat, as the player typing it would
  *   look 90 30           the player's yaw and pitch
  *   gui off              hide the HUD (gui on: show it)
  *   camera back          third person from behind (front, first)
@@ -135,6 +136,7 @@ public final class DevScript {
                         });
                     }
                 }
+                case "chat" -> mc.player.connection.sendChat(arg.trim());
                 case "look" -> {
                     String[] a = arg.split("\\s+");
                     mc.player.setYRot(Float.parseFloat(a[0]));

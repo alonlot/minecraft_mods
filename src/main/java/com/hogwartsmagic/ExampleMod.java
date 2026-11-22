@@ -1407,6 +1407,7 @@ public class ExampleMod
         com.hogwartsmagic.command.UndercroftDumpCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.BuildUndercroftCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpawnMiniHogwartsCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.HogwartsMechanismsCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SummonHorntailCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpellMasteryCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.DarkMagicCommand.register(event.getDispatcher());

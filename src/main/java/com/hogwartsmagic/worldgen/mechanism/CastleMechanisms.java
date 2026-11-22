@@ -369,6 +369,52 @@ public final class CastleMechanisms {
 
     // ── for GameTests and commands ───────────────────────────────────────────────────────
 
+    /**
+     * Views for /hogwartsmechanisms goto: name to {x, y, z, yaw, pitch}, local to the castle's anchor (feet position).
+     * The gargoyle from the gallery; the moving flight from the top landing; the office from its door side; the
+     * book gallery from its east stair's head.
+     */
+    public static final Map<String, float[]> VIEWS = Map.of(
+            "gargoyle", new float[]{56.5F, 59.0F, 151.5F, 166.0F, -12.0F},
+            "flight", new float[]{62.5F, 45.0F, 153.5F, 169.0F, -40.0F},
+            "office", new float[]{61.5F, 64.0F, 153.5F, 180.0F, 4.0F},
+            "book_gallery", new float[]{65.5F, 69.0F, 150.5F, 135.0F, 28.0F});
+
+    /** /hogwartsmechanisms raise | lower | swing on the castle at {@code anchor}; returns what happened. */
+    public static String command(ServerLevel level, BlockPos anchor, String what) {
+        Map<BlockPos, Castle> live = CASTLES.get(level.dimension());
+        Castle c = live == null ? null : live.get(anchor);
+        if (c == null) {
+            return "That castle's moving parts are not awake (come within " + (int) WAKE_RANGE
+                    + " blocks), or they do not match the castle plan (an older castle).";
+        }
+        switch (what) {
+            case "raise" -> {
+                return c.stair == null ? "This castle has no gargoyle stair." : c.stair.raise() ? "The stair rises."
+                        : "The stair is not down.";
+            }
+            case "lower" -> {
+                if (c.stair == null || c.stair.phase != HeadmasterStair.Phase.OPEN) {
+                    return "The stair is not up.";
+                }
+                c.stair.openSince = level.getGameTime() - HeadmasterStair.OPEN_TICKS - 1;
+                return "The stair sinks as soon as nobody stands on it.";
+            }
+            case "swing" -> {
+                for (MovingStair f : c.flights) {
+                    if (!f.busy()) {
+                        f.start((f.config + 1) % f.spec.configs().size());
+                        return "The flight swings.";
+                    }
+                }
+                return "No moving flight is free to swing.";
+            }
+            default -> {
+                return "Unknown: " + what;
+            }
+        }
+    }
+
     /** Drop the castle's runtime (its moving parts settled where they were going) and never wake it again. */
     static void forget(ServerLevel level, BlockPos anchor) {
         Map<BlockPos, Castle> live = CASTLES.get(level.dimension());

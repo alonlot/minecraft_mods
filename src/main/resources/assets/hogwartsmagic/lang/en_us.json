@@ -2065,5 +2065,11 @@
   "block.hogwartsmagic.slytherin_points_hourglass": "Slytherin House Points Hourglass",
   "block.hogwartsmagic.slytherin_crest_plaque": "Slytherin Crest Plaque",
   "container.hogwartsmagic.school_trunk": "School Trunk",
-  "entity.hogwartsmagic.seat": "Seat"
+  "entity.hogwartsmagic.seat": "Seat",
+  "message.hogwartsmagic.headmaster_stair.open": "The stone gargoyle springs aside. The stair rises.",
+  "message.hogwartsmagic.headmaster_stair.already": "The stair is already up.",
+  "message.hogwartsmagic.headmaster_stair.wrong": "The gargoyle does not move.",
+  "message.hogwartsmagic.headmaster_stair.leaving": "The stair rises to take you down.",
+  "message.hogwartsmagic.headmaster_stair.hint": "A stone gargoyle guards the Headmaster's office. Say the password in chat.",
+  "message.hogwartsmagic.headmaster_stair.hint_sweets": "A stone gargoyle guards the Headmaster's office. Say the password in chat. (The Headmaster is fond of a Sherbet Lemon.)"
 }

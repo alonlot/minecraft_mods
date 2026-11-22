@@ -314,7 +314,7 @@ public final class MiniHogwartsManager {
 
     /** What one furnishing is; int constants rather than an enum, so the plan stays a flat list of records. */
     private static final int CHEST = 0, BLOCK = 1, PENSIEVE = 2, STOCK = 3, FAT_LADY = 4, STUDENT = 5, ELF = 6,
-            PAINTING = 7, BANNER = 8, STATUE = 9, HAT = 10, SIR_CADOGAN = 11;
+            PAINTING = 7, BANNER = 8, STATUE = 9, HAT = 10, SIR_CADOGAN = 11, SWORD = 12;
     /** The furnishing kinds that are living portraits, in the order they are planned. */
     private static final int[] PORTRAITS = {FAT_LADY, SIR_CADOGAN};
 
@@ -381,6 +381,8 @@ public final class MiniHogwartsManager {
                 spawnStatue(level, pos, yaw);
             } else if (kind == HAT) {
                 placeSortingHat(level, pos);
+            } else if (kind == SWORD) {
+                placeSwordOfGryffindor(level, pos);
             } else if (kind == STUDENT) {
                 spawnResident(level, pos, random, com.hogwartsmagic.entity.ModEntities.STUDENT.get().create(level.getLevel()));
             } else if (kind == ELF) {
@@ -596,6 +598,38 @@ public final class MiniHogwartsManager {
         level.addFreshEntity(display);
     }
 
+    /**
+     * The Sword of Gryffindor in its glass case: an item display of a gleaming sword, point down, standing in the two
+     * glass blocks from {@code caseBottom} up. Skipped if the case is not glass in the world.
+     */
+    private static void placeSwordOfGryffindor(WorldGenLevel level, BlockPos caseBottom) {
+        if (!level.getBlockState(caseBottom).is(Blocks.GLASS)) {
+            return;
+        }
+        net.minecraft.world.entity.Entity display = net.minecraft.world.entity.EntityType.ITEM_DISPLAY.create(level.getLevel());
+        if (display == null) {
+            return;
+        }
+        ItemStack sword = new ItemStack(Items.IRON_SWORD);
+        sword.set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+        sword.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME,
+                net.minecraft.network.chat.Component.literal("Sword of Godric Gryffindor"));
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        tag.put("item", sword.save(level.registryAccess()));
+        tag.putString("item_display", "fixed");
+        net.minecraft.nbt.CompoundTag transform = new net.minecraft.nbt.CompoundTag();
+        transform.put("translation", floats(0.0F, 0.0F, 0.0F));
+        // the sprite's point is at its top right: turned 135 degrees about the view axis it points straight down
+        float half = (float) Math.toRadians(-135.0D) / 2.0F;
+        transform.put("left_rotation", floats(0.0F, 0.0F, (float) Math.sin(half), (float) Math.cos(half)));
+        transform.put("right_rotation", floats(0.0F, 0.0F, 0.0F, 1.0F));
+        transform.put("scale", floats(1.15F, 1.15F, 1.15F));
+        tag.put("transformation", transform);
+        display.load(tag);
+        display.setPos(caseBottom.getX() + 0.5D, caseBottom.getY() + 1.0D, caseBottom.getZ() + 0.5D);
+        level.addFreshEntity(display);
+    }
+
     private static net.minecraft.nbt.ListTag floats(float... values) {
         net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
         for (float v : values) {
@@ -749,13 +783,35 @@ public final class MiniHogwartsManager {
                     planned++;
                 }
             }
-            BlockPos stool = anchors.stool();
-            if (stool != null) {
+            for (BlockPos stool : new BlockPos[]{anchors.stool(), anchors.officeHat()}) {
+                if (stool == null) {
+                    continue;
+                }
                 if (at(stool.getX(), stool.getY(), stool.getZ()).getBlock() instanceof SlabBlock) {
                     furnishings.add(new Furnishing(HAT, stool.getX(), stool.getY(), stool.getZ(), null, null, null));
                     planned++;
                 } else {
-                    problems.add("the stool at " + stool.toShortString() + " is not a slab");
+                    problems.add("the hat's seat at " + stool.toShortString() + " is not a slab");
+                }
+            }
+            BlockPos officePensieve = anchors.officePensieve();
+            if (officePensieve != null) {
+                if (standable(officePensieve, 1)) {
+                    put(officePensieve, ExampleMod.PENSIEVE.get().defaultBlockState());
+                    furnishings.add(new Furnishing(PENSIEVE, officePensieve.getX(), officePensieve.getY(),
+                            officePensieve.getZ(), null, null, null));
+                    planned++;
+                } else {
+                    problems.add("the office Pensieve at " + officePensieve.toShortString() + " is not on free floor");
+                }
+            }
+            BlockPos sword = anchors.officeSword();
+            if (sword != null) {
+                if (at(sword.getX(), sword.getY(), sword.getZ()).is(Blocks.GLASS)) {
+                    furnishings.add(new Furnishing(SWORD, sword.getX(), sword.getY(), sword.getZ(), null, null, null));
+                    planned++;
+                } else {
+                    problems.add("the sword's case at " + sword.toShortString() + " is not glass");
                 }
             }
             return planned;

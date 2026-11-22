@@ -167,4 +167,40 @@ class MiniHogwartsAnchorsTest {
         assertTrue(a.statues().size() >= 18, "statues " + a.statues().size());
         assertTrue(a.candles().size() >= 4, "candles " + a.candles().size());
     }
+
+    /**
+     * The moving parts' anchors agree with how the Java draws them: a block display turned by yaw 90 per quarter turn
+     * about the pivot (the renderer's clockwise turn, seen from above) lands every moving block on the cell its swung
+     * config gives the same block, and the gargoyle stair's parts cover the same cells in both states.
+     */
+    @Test
+    void shippedMechanismsAgreeWithTheirAnimation() throws Exception {
+        MiniHogwartsAnchors a = shipped();
+        MiniHogwartsAnchors.HeadmasterStair stair = a.headmasterStair();
+        assertNotNull(stair, "the Headmaster's stair");
+        assertTrue(stair.treads().size() >= 3, "treads " + stair.treads().size());
+        for (MiniHogwartsAnchors.Part p : stair.treads()) {
+            for (int i = 0; i < p.open().size(); i++) {
+                assertEquals(p.open().get(i).at(), p.closed().get(i).at(), "a tread's states cover the same cells");
+                assertEquals("minecraft:cave_air", p.closed().get(i).state(), "a closed tread is sunk");
+            }
+        }
+        assertEquals(1, Math.abs(stair.slide().getX()) + Math.abs(stair.slide().getZ()), "the gargoyle leaps one cell");
+
+        assertEquals(1, a.movingStairs().size(), "one moving flight");
+        MiniHogwartsAnchors.MovingStair m = a.movingStairs().get(0);
+        java.util.Map<BlockPos, String> swung = new java.util.HashMap<>();
+        for (MiniHogwartsAnchors.Placed p : m.configs().get(1)) {
+            swung.put(p.at(), p.state());
+        }
+        assertEquals(m.configs().get(0).size(), m.configs().get(1).size(), "both configs cover the same cells");
+        for (MiniHogwartsAnchors.Placed p : m.moving()) {
+            double cx = p.at().getX() + 0.5D - m.pivotX();
+            double cz = p.at().getZ() + 0.5D - m.pivotZ();
+            BlockPos to = BlockPos.containing(m.pivotX() - cz, p.at().getY(), m.pivotZ() + cx);
+            String there = swung.get(to);
+            assertNotNull(there, "a moving block swings to a cell config 1 does not name: " + p);
+            assertEquals(p.state().split("\\[")[0], there.split("\\[")[0], "the block that swings to " + to);
+        }
+    }
 }

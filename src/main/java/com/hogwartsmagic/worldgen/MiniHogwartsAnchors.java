@@ -89,6 +89,35 @@ public final class MiniHogwartsAnchors {
     public record Door(Vec3 hinge, boolean mirrored, float yawClosed) {
     }
 
+    /** One cell of a moving part and the block-state string it holds in one state ({@code minecraft:cave_air} when empty). */
+    public record Placed(BlockPos at, String state) {
+    }
+
+    /** A part of the gargoyle stair in its two states; both lists cover the same cells. */
+    public record Part(List<Placed> open, List<Placed> closed) {
+    }
+
+    /**
+     * The Headmaster's stair: {@code listen} is the gargoyle's cell (the password is heard near it), {@code officeCall}
+     * the office cell where a player leaving makes the stair rise, {@code slide} how far the gargoyle moves from closed
+     * to open, {@code treads} each tread's column in climbing order, {@code cover} the planks over the office's opening,
+     * {@code riders} the feet cells on the stair (it never sinks under someone).
+     */
+    public record HeadmasterStair(BlockPos listen, BlockPos officeCall, Part gargoyle, BlockPos slide, List<Part> treads,
+                                  Part cover, List<BlockPos> riders) {
+    }
+
+    /**
+     * A moving flight: it swings about the vertical axis through {@code (pivotX, pivotZ)} (block corners) between its
+     * configs, config {@code k} being {@code turns[k]} clockwise quarter turns from config 0 (the docked one the
+     * schematic has). {@code configs[k]} gives the state of every cell either config uses; {@code moving} the blocks
+     * that swing, in config 0's places; {@code gates[k]} the cells of config k that stay put (fences closing an edge);
+     * {@code riders} the feet cells of both configs (it never swings with anyone on it); {@code near} its middle.
+     */
+    public record MovingStair(String name, double pivotX, double pivotZ, List<Integer> turns, List<List<Placed>> configs,
+                              List<Placed> moving, List<List<BlockPos>> gates, List<BlockPos> riders, BlockPos near) {
+    }
+
     private final List<Chest> chests;
     private final List<BlockPos> studentSpots;
     private final List<BlockPos> elfSpots;
@@ -111,6 +140,15 @@ public final class MiniHogwartsAnchors {
     private final BlockPos titlePoint;
     @Nullable
     private final BlockPos stool;
+    @Nullable
+    private final BlockPos officePensieve;
+    @Nullable
+    private final BlockPos officeHat;
+    @Nullable
+    private final BlockPos officeSword;
+    @Nullable
+    private final HeadmasterStair headmasterStair;
+    private final List<MovingStair> movingStairs;
 
     private MiniHogwartsAnchors(JsonObject json) {
         this.chests = list(json, "chests", MiniHogwartsAnchors::chest);
@@ -130,6 +168,11 @@ public final class MiniHogwartsAnchors {
         this.mainEntrance = cell(require(json, "main_entrance"));
         this.titlePoint = json.has("title_point") ? cell(json.get("title_point")) : null;
         this.stool = json.has("stool") ? cell(json.get("stool")) : null;
+        this.officePensieve = json.has("office_pensieve") ? cell(json.get("office_pensieve")) : null;
+        this.officeHat = json.has("office_hat") ? cell(json.get("office_hat")) : null;
+        this.officeSword = json.has("office_sword") ? cell(json.get("office_sword")) : null;
+        this.headmasterStair = json.has("headmaster_stair") ? headmasterStair(json.get("headmaster_stair")) : null;
+        this.movingStairs = list(json, "moving_stairs", MiniHogwartsAnchors::movingStair);
     }
 
     /**
@@ -267,6 +310,35 @@ public final class MiniHogwartsAnchors {
         return stool;
     }
 
+    /** The Pensieve in the Headmaster's office (public, like the library's), or null. */
+    @Nullable
+    public BlockPos officePensieve() {
+        return officePensieve;
+    }
+
+    /** The slab on the shelf behind the Headmaster's chair where the Sorting Hat rests between sortings, or null. */
+    @Nullable
+    public BlockPos officeHat() {
+        return officeHat;
+    }
+
+    /** The lower of the two glass blocks of the Sword of Gryffindor's case in the Headmaster's office, or null. */
+    @Nullable
+    public BlockPos officeSword() {
+        return officeSword;
+    }
+
+    /** The gargoyle stair up to the Headmaster's office, or null when the castle has none. */
+    @Nullable
+    public HeadmasterStair headmasterStair() {
+        return headmasterStair;
+    }
+
+    /** The Grand Staircase's moving flights (empty when the castle has none). */
+    public List<MovingStair> movingStairs() {
+        return movingStairs;
+    }
+
     // ── reading ──────────────────────────────────────────────────────────────────────────
 
     private static JsonElement require(JsonObject json, String key) {
@@ -368,5 +440,70 @@ public final class MiniHogwartsAnchors {
         double[] min = numbers(o.get("min"), 3);
         double[] max = numbers(o.get("max"), 3);
         return new AABB(min[0], min[1], min[2], max[0] + 1, max[1] + 1, max[2] + 1);
+    }
+
+    private static List<Placed> placedList(JsonElement e) {
+        List<Placed> out = new ArrayList<>();
+        for (JsonElement entry : e.getAsJsonArray()) {
+            JsonArray a = entry.getAsJsonArray();
+            if (a.size() != 4) {
+                throw new IllegalArgumentException("expected [x, y, z, state], got " + a);
+            }
+            out.add(new Placed(new BlockPos(a.get(0).getAsInt(), a.get(1).getAsInt(), a.get(2).getAsInt()),
+                    a.get(3).getAsString()));
+        }
+        return List.copyOf(out);
+    }
+
+    private static List<BlockPos> cells(JsonElement e) {
+        List<BlockPos> out = new ArrayList<>();
+        for (JsonElement entry : e.getAsJsonArray()) {
+            out.add(cell(entry));
+        }
+        return List.copyOf(out);
+    }
+
+    private static Part part(JsonElement e) {
+        JsonObject o = e.getAsJsonObject();
+        Part p = new Part(placedList(require(o, "open")), placedList(require(o, "closed")));
+        if (p.open().size() != p.closed().size()) {
+            throw new IllegalArgumentException("a stair part's open and closed states cover different cells");
+        }
+        return p;
+    }
+
+    private static HeadmasterStair headmasterStair(JsonElement e) {
+        JsonObject o = e.getAsJsonObject();
+        JsonObject gargoyle = require(o, "gargoyle").getAsJsonObject();
+        List<Part> treads = new ArrayList<>();
+        for (JsonElement t : require(o, "treads").getAsJsonArray()) {
+            treads.add(part(t));
+        }
+        return new HeadmasterStair(cell(require(o, "listen")), cell(require(o, "office_call")), part(gargoyle),
+                cell(require(gargoyle, "slide")), List.copyOf(treads), part(require(o, "cover")),
+                cells(require(o, "riders")));
+    }
+
+    private static MovingStair movingStair(JsonElement e) {
+        JsonObject o = e.getAsJsonObject();
+        double[] pivot = numbers(require(o, "pivot"), 2);
+        List<Integer> turns = new ArrayList<>();
+        for (JsonElement t : require(o, "turns").getAsJsonArray()) {
+            turns.add(t.getAsInt());
+        }
+        List<List<Placed>> configs = new ArrayList<>();
+        for (JsonElement c : require(o, "configs").getAsJsonArray()) {
+            configs.add(placedList(c));
+        }
+        List<List<BlockPos>> gates = new ArrayList<>();
+        for (JsonElement g : require(o, "gates").getAsJsonArray()) {
+            gates.add(cells(g));
+        }
+        if (configs.size() < 2 || configs.size() != turns.size() || configs.size() != gates.size()) {
+            throw new IllegalArgumentException("a moving stair needs matching configs, turns and gates");
+        }
+        return new MovingStair(require(o, "name").getAsString(), pivot[0], pivot[1], List.copyOf(turns),
+                List.copyOf(configs), placedList(require(o, "moving")), List.copyOf(gates), cells(require(o, "riders")),
+                cell(require(o, "near")));
     }
 }

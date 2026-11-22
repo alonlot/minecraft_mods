@@ -28,6 +28,13 @@ Each room is one function, called in order by ROOM_STEPS; each stamps its blocks
 adds its anchors. verify() asserts what the rooms promise (reachability, light, structure) and runs
 before anything is written, so a broken castle never reaches the resources.
 
+MOVING PARTS
+------------
+The rooms build the castle as a visitor walks it: the Grand Staircase's moving flight docked, the Headmaster's stair
+standing. verify() checks that castle; mechanisms.close() then checks the other states (the flight swung, the stair
+closed), writes both states of each part into the anchors (moving_stairs, headmaster_stair) for the Java side, and
+turns the grid into the state the schematic ships in (flight docked, stair closed), which is read back once more.
+
 INTERIOR AIR
 ------------
 The castle is placed as a worldgen structure, and the placer skips plain air ("leave the world alone"),
@@ -61,7 +68,7 @@ VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 
 from mini_hogwarts import (checks, hall, rooms_below, rooms_classrooms, rooms_library, rooms_staircase,  # noqa: E402
                            rooms_towers)
-from mini_hogwarts import rooms_corridors  # noqa: E402
+from mini_hogwarts import mechanisms, rooms_corridors  # noqa: E402
 from mini_hogwarts.grid import (Grid, air_at, enclosed_air, is_air, load_schem, seal_interiors as _seal,  # noqa: E402
                                 write_schem)
 import schem_to_nbt  # noqa: E402  (decode_schem: check 62 reads the written stream back as the Java does)
@@ -152,6 +159,7 @@ def room_towers(grid):
     a.setdefault('banners', []).extend(found['banners'])
     a.setdefault('student_spots', []).extend(found['student_spots'])
     a.setdefault('paintings', []).extend(found['paintings'])
+    a.update(found['extras'])                     # the office's Sorting Hat shelf, sword case and Pensieve
 
 
 def room_classrooms(grid):
@@ -1127,6 +1135,8 @@ def build():
 def main():
     grid = build()
     walk = verify(grid)
+    grid.anchors.update(mechanisms.close(grid, tuple(grid.anchors['main_entrance']), walk))
+    verify_schematic(grid)
     write_outputs(grid)
     b = grid.bounds()
     print('mini_hogwarts.schem: %d x %d x %d, %d blocks, %d bytes' % (
@@ -1142,6 +1152,7 @@ def main():
     print('corridors: %s' % getattr(rooms_corridors.place_corridors, 'stats', {}))
     print('castle: %s' % getattr(verify_castle, 'census', {}))
     print('schematic read back: %s' % getattr(verify_schematic, 'stats', {}))
+    print('mechanisms: swing passes %d blocks: %s' % (len(mechanisms.check.clash), mechanisms.check.clash))
     print('sealed: %d cave_air cells (%d room boxes); %d cells of rock pockets filled with stone' % (
         getattr(seal_interiors, 'count', 0), len(ROOMS), getattr(seal_interiors, 'filled', 0)))
     print('census:')

@@ -30,22 +30,36 @@ THE CENTRAL TOWER'S TOP (the Astronomy gallery and the Headmaster's office)
 The tallest tower is the Grand Staircase's. Its silhouette may not change (R26), so both rooms go inside its top,
 above the well: the corbelled band (walls y 59..63, 17 wide inside) and the cone above it.
 
-    feet y 46..58   a helical stair from the top landing, up the west wall and along the north wall (two treads wide,
-                    a dark-oak rail on the void side, a stepped underside like Task 4's flights). It rises past the
-                    west and north portrait niches on level runs, so no tread or underside ever stands in front of a
-                    portrait's recess rows (48..49, 54..55).
+    feet y 46..51   a helical stair from the top landing up the west wall (two treads wide, a dark-oak rail on the
+                    void side, a stepped underside like Task 4's flights), its level run passing the west portrait
+                    niche, to the north landing (feet 51) in the well's north-west corner.
+    feet y 52..58   the moving flight (FLIGHT): docked, it climbs east along the north wall from the north landing to
+                    the gallery's stairwell. It is built docked; mechanisms.py records its swung config (a quarter
+                    turn clockwise about FLIGHT_PIVOT, docked in the middle of the well at a dead end under the
+                    oculus's south rail) and the gates (fences) that close whichever edges it leaves. The well's
+                    lantern chain now ends at y 58, so the flight swings clear of it.
     feet y 59       the Astronomy gallery: a floor over the band round a 7 x 7 oculus above the well (railed; the
                     stair candles float up through it), the band's four cardinal windows opened into arches three
                     wide and three tall with a fence rail on the sill (the "open" platform: nothing of the outline
                     changes), a telescope at each (a lightning-rod tube on a fence stand, pointing out), a star-chart
                     table and a lectern, lanterns on the rail corners. In the north-west a stone spiral stair climbs
-                    into the office, with a three-block gargoyle carving beside its foot (the "stair door").
-    feet y 64       the Headmaster's office under the cone: a round room 17 wide with a glass floor over the oculus
-                    (the whole well is seen through it), the desk on the north side overlooking it with the
-                    headmaster's chair, candles and an instrument, the phoenix perch (gold block, post, gold plate),
-                    spindly instrument tables, bookcases round the wall between the cone's windows, four portraits
-                    (paintings anchors), the TOWER chest, and a chandelier on the chain from the cone's cap (the
-                    staircase's lantern chain now hangs from the glass floor).
+                    into the office behind the stone gargoyle (the Headmaster's stair). It is built standing, the
+                    gargoyle beside its door; mechanisms.py records it closed (the gargoyle in the door, the treads
+                    sunk into the gallery floor, planks over the office's opening), which is how the schematic ships,
+                    and the Java side raises it on the password.
+    feet y 64       the Headmaster's office under the cone, as in the films: a round room 17 wide with a glass floor
+                    over the oculus (the whole well is seen through it); the desk on a dais at the north with the
+                    headmaster's high-backed chair, candles, scrolls and books; behind the chair the Sorting Hat's
+                    shelf (a slab; the hat is an item display, office_hat); the Sword of Gryffindor's glass case beside
+                    the desk (office_sword); the phoenix perch (gold block, post, gold plate); spindly instrument tables
+                    with a Sneakoscope; a brass telescope at the east window; the Pensieve (office_pensieve) before
+                    two rows of memory shelves on the south wall; bookcases round the wall between the cone's windows,
+                    four portraits (paintings anchors), the TOWER chest, and a chandelier on the chain from the cone's
+                    cap (the staircase's lantern chain now hangs from the glass floor).
+    feet y 69       the book gallery under the cone: two cells deep round a railed opening over the glass floor, shelves
+                    against the wall where they leave its walkway in one piece, books on the cone's steps above it,
+                    four more portraits, lanterns on four rail posts and floating candles over the opening; two dark-oak
+                    stairs climb outwards to it from the glass floor along the middle row.
 
 Every walkable cell is lit (visible sources plus hall.light_dark_floors' light blocks). The anchors: the TOWER chest
 (office), Gryffindor banners and student spots (common room), and the office's portraits.
@@ -120,8 +134,12 @@ OCULUS_RAIL = ([(x, 144) for x in range(57, 66)] + [(x, 152) for x in range(57, 
                + [(57, z) for z in range(145, 152)] + [(65, z) for z in range(145, 152)])
 
 # The helical stair: (cells, feet) in climbing order. Each tread is a stone-brick stair facing the next step when the
-# next is one higher, otherwise a landing block. The level runs at feet 48 (z 147..149) and 54 (x 60..62) pass the
-# west and north portrait niches, whose recess rows are 48..49 and 54..55.
+# next is one higher, otherwise a landing block. The level run at feet 48 (z 147..149) passes the west portrait niche,
+# whose recess rows are 48..49. It ends on the north landing (feet 51); from there the moving flight (FLIGHT) climbs on
+# to the gallery when it is docked, which is how the schematic has it.
+NORTH_LANDING = ((57, 142), (58, 142), (59, 142), (56, 143), (57, 143), (58, 143), (59, 143),
+                 (55, 144), (56, 144), (57, 144), (58, 144), (59, 144))
+NORTH_LANDING_FEET = 51
 HELIX = (
     (((55, 151), (56, 151)), 46),
     (((55, 150), (56, 150)), 47),
@@ -130,19 +148,39 @@ HELIX = (
     (((55, 147), (56, 147)), 48),
     (((55, 146), (56, 146)), 49),
     (((55, 145), (56, 145)), 50),
-    (((55, 144), (56, 144), (56, 143), (57, 143), (57, 142)), 51),        # the north-west corner landing
-    (((58, 142), (58, 143)), 52),
-    (((59, 142), (59, 143)), 53),
-    (((60, 142), (60, 143)), 54),
-    (((61, 142), (61, 143)), 54),
-    (((62, 142), (62, 143)), 54),
-    (((63, 142), (63, 143)), 55),
-    (((64, 142), (64, 143)), 56),
-    (((65, 142), (65, 143)), 57),
-    (((66, 143),), 58),                # turns south onto the gallery at (66, 144)
+    (NORTH_LANDING, NORTH_LANDING_FEET),
 )
 HELIX_ARRIVAL = (66, GALLERY_FEET, 144)
-HELIX_RAILS = ([(57, z) for z in range(145, 152)] + [(57, 144)] + [(x, 144) for x in range(58, 66)])
+HELIX_RAILS = [(57, z) for z in range(145, 152)]
+LANDING_POST = (60, NORTH_LANDING_FEET, 144)      # a fixed post on the landing's corner
+
+# THE MOVING FLIGHT (the Grand Staircase's own moving staircase). Docked (config 0, as built) it climbs east along the
+# north wall from the north landing to the gallery: two treads wide (z 142..143), seven treads from feet 52 to 58, the
+# last one a single tread at (66, 143) under the gallery's stairwell, and a rail on the void side (z 144). Every so
+# often it swings a quarter turn clockwise about FLIGHT_PIVOT (seen from above) and docks in the middle of the well
+# instead (config 1): climbing south from the landing's south edge to a dead end under the oculus's south rail, railed
+# on both sides (FLIGHT_WALL_RAIL is the rail on its wall side, which only exists once it has swung away from the wall).
+# Gates (fences) close whichever edge of the landing and of the gallery's stairwell the flight has left.
+FLIGHT = tuple((tuple((60 + i, z) for z in (142, 143)), 52 + i) for i in range(6)) + ((((66, 143),), 58),)
+FLIGHT_RAIL = [(60 + i, 52 + i, 144) for i in range(6)]         # T0's stands on the landing's corner post
+FLIGHT_LANTERN = (63, 56, 144)                                  # on the rail post of tread 3, swings with the flight
+FLIGHT_WALL_RAIL = [(60 + i, 52 + i, 141) for i in range(6)]
+FLIGHT_PIVOT = (58.5, 143.5)                                    # the vertical axis it swings about (block corners)
+FLIGHT_GATES = ([(58, NORTH_LANDING_FEET, 145), (59, NORTH_LANDING_FEET, 145)],           # docked: the landing's south
+                [(60, NORTH_LANDING_FEET, 142), (60, NORTH_LANDING_FEET, 143),            # swung: the landing's east
+                 (66, GALLERY_FEET, 143),                                                 #   and the stairwell's top,
+                 (59, 58, 151)])                                                          #   and its far end's east side
+
+
+def flight_turn(x, z, turns=1):
+    """Where cell (x, z) of the docked flight goes after `turns` clockwise quarter turns about FLIGHT_PIVOT."""
+    px, pz = FLIGHT_PIVOT
+    cx, cz = x + 0.5 - px, z + 0.5 - pz
+    for _ in range(turns % 4):
+        cx, cz = -cz, cx
+    return int(math.floor(px + cx)), int(math.floor(pz + cz))
+
+
 STAIRWELL = [(64, 142), (64, 143), (65, 142), (65, 143), (66, 143)]       # the gallery floor's opening over it
 STAIRWELL_RAILS = [(63, 142), (63, 143), (64, 141), (65, 141)]
 
@@ -166,7 +204,28 @@ GARGOYLE = (54, 147)
 DESK = [(x, 143) for x in range(59, 64)]
 CHAIR = (61, 142)
 PERCH = (65, 144)
-INSTRUMENT_TABLES = (((57, 151), 'brewing_stand'), ((65, 151), 'end_rod'))
+INSTRUMENT_TABLES = (((57, 151), 'brewing_stand'), ((65, 151), 'end_rod'), ((58, 153), 'sneakoscope'),
+                     ((64, 153), 'brewing_stand'))
+# the films' office: the desk on a dais (one step up, x 58..64 z 142..144, its step along z 145) under the book gallery,
+# the Sorting Hat on a shelf behind the chair, the Sword of Gryffindor in a glass case beside the desk, the Pensieve
+# before a wall of memory shelves on the south side, a brass telescope at the east window
+DAIS = [(x, z) for x in range(58, 65) for z in range(141, 145) if (x, z) != (61, 141)]
+DAIS_STEP = [(x, 145) for x in range(58, 65)]
+DAIS_FEET = OFFICE_FEET + 1
+HAT_SHELF = (61, 141)                  # bookshelves at y 64..65, the slab the hat sits on at y 66
+SWORD_CASE = (64, 142)                 # two glass blocks on the dais (y 65..66), the sword's display inside
+OFFICE_PENSIEVE = (61, OFFICE_FEET, 154)
+MEMORY_SHELVES = [(x, 156) for x in (60, 61, 62)]
+TELESCOPE = ((68, 148), 'east')
+# the book gallery under the cone: floor y 68, walked at y 69, two cells deep round a railed opening over the glass
+# floor; shelves against the cone's wall, two stairs up the east and west sides from the office floor
+GALLERY_FLOOR = 68
+GALLERY_UP_FEET = GALLERY_FLOOR + 1
+UP_STAIRS = ([((63, 148), 65), ((64, 148), 66), ((65, 148), 67), ((66, 148), 68)],
+             [((59, 148), 65), ((58, 148), 66), ((57, 148), 67), ((56, 148), 68)])
+UP_ARRIVALS = ((67, 148), (55, 148))
+UP_BYPASS = ((67, 147), (67, 149), (55, 147), (55, 149))      # rim cells kept clear so the gallery's ring goes round
+GALLERY_PORTRAIT_ANGLES = (-130, -60, 60, 125)
 OFFICE_CHEST = (67, OFFICE_FEET, 147)
 CHANDELIER_Y = 68                      # the office's lantern; the chain runs from it to the cone's cap
 PORTRAIT_ANGLES = (172, 8, 98, -50)    # where the office's portraits go (degrees round the axis, east 0, south 90)
@@ -177,10 +236,16 @@ TOWER_CELLS = {
     'common room': (61, CR_FEET, 172),
     'common room hearth': (61, CR_FEET, 177),
     'dormitory': (61, DORM_FEET, 174),
+    'north landing': (58, NORTH_LANDING_FEET, 143),
     'helical stair top': (66, 58, 143),
     'astronomy gallery': (61, GALLERY_FEET, 154),
     'astronomy gallery west': (55, GALLERY_FEET, 149),
     'office': (61, OFFICE_FEET, 147),
+    'office dais': (61, OFFICE_FEET + 1, 144),
+    'office book gallery': (66, 69, 147),
+    'office book gallery west': (56, 69, 147),
+    'office book gallery south': (61, 69, 153),
+    'office book gallery north': (61, 69, 143),
 }
 
 # ---------------------------------------------------------------- small helpers
@@ -607,11 +672,13 @@ def in_oculus(x, z):
     return OCULUS_X[0] <= x <= OCULUS_X[1] and OCULUS_Z[0] <= z <= OCULUS_Z[1]
 
 
-def build_helix(grid):
-    """The helical stair from the top landing to the gallery, its rails, and lanterns on two of its posts."""
-    for i, (cells, feet) in enumerate(HELIX):
-        nxt = HELIX[i + 1] if i + 1 < len(HELIX) else (((HELIX_ARRIVAL[0], HELIX_ARRIVAL[2]),), HELIX_ARRIVAL[1])
-        climbing = nxt[1] == feet + 1 and len(cells) <= 2       # a corner landing stays level blocks
+def _build_treads(grid, steps, arrival, stair='stone_brick_stairs', landing=None):
+    """Treads in climbing order, [(cells, feet)], then `arrival` ((cells, feet) of the step after the last): each is a
+    stone-brick stair facing the next step when that is one higher (with an upside-down stair under it where it floats),
+    else a landing block."""
+    for i, (cells, feet) in enumerate(steps):
+        nxt = steps[i + 1] if i + 1 < len(steps) else arrival
+        climbing = nxt is not None and nxt[1] == feet + 1 and len(cells) <= 2
         for x, z in cells:
             if climbing:
                 nx, nz = min(nxt[0], key=lambda c: abs(c[0] - x) + abs(c[1] - z))
@@ -621,12 +688,18 @@ def build_helix(grid):
                     facing = 'east' if nx > x else 'west'
                 else:
                     facing = 'south' if nz > z else 'north'
-                grid.set(x, feet - 1, z, _stairs('stone_brick_stairs', facing))
+                grid.set(x, feet - 1, z, _stairs(stair, facing))
                 below = (x, feet - 2, z)
                 if grid.is_air(*below):
-                    grid.set(*below, _stairs('stone_brick_stairs', _BACK[facing], 'top'))
+                    grid.set(*below, _stairs(stair, _BACK[facing], 'top'))
             else:
-                grid.set(x, feet - 1, z, S.FLOOR)
+                grid.set(x, feet - 1, z, landing or S.FLOOR)
+
+
+def build_helix(grid):
+    """The helical stair from the top landing up the west wall to the north landing, its rails and a lantern on its
+    first post."""
+    _build_treads(grid, HELIX, None)
     feet_at = {}
     for cells, feet in HELIX:
         for c in cells:
@@ -641,10 +714,47 @@ def build_helix(grid):
     # next post re-joins
     grid.clear(55, S.TOP_FEET + 1, 151)
     rails.append((57, S.TOP_FEET, 151))
+    grid.set(*LANDING_POST, 'minecraft:dark_oak_fence')
+    rails.append(LANDING_POST)
     S.connect_fences(grid, rails)
-    for x, z in ((57, 151), (57, 144)):
-        f = max(feet_at.get((x + dx, z + dz), 0) for dx, dz in _STEP.values())
-        grid.set(x, f + 1, z, _lantern(False))
+    grid.set(57, feet_at[(56, 151)] + 1, 151, _lantern(False))
+
+
+def flight_cells():
+    """Every cell the docked flight's blocks fill: treads, the stair under each, the rail posts and the lantern."""
+    out = set()
+    for cells, feet in FLIGHT:
+        for x, z in cells:
+            out.add((x, feet - 1, z))
+            out.add((x, feet - 2, z))
+    out.update(FLIGHT_RAIL)
+    out.add(FLIGHT_LANTERN)
+    return out
+
+
+def build_flight(grid, gates=True):
+    """The moving flight, docked: its treads from the north landing to the gallery's stairwell, the rail posts on its
+    void side with a lantern on one, and (with `gates`) the fences closing the landing's south edge, which it leaves
+    open when docked."""
+    _build_treads(grid, FLIGHT, (((HELIX_ARRIVAL[0], HELIX_ARRIVAL[2]),), HELIX_ARRIVAL[1]))
+    for p in FLIGHT_RAIL:
+        grid.set(*p, 'minecraft:dark_oak_fence')
+    S.connect_fences(grid, FLIGHT_RAIL)
+    grid.set(*FLIGHT_LANTERN, _lantern(False))
+    if gates:
+        for p in FLIGHT_GATES[0]:
+            grid.set(*p, 'minecraft:dark_oak_fence')
+        S.connect_fences(grid, FLIGHT_GATES[0])
+
+
+def shorten_chain(grid):
+    """The well's lantern chain now ends just under the gallery (its lantern at y 58 in the oculus), so the moving
+    flight swings clear of it."""
+    ax, az = S.AXIS
+    for y in range(S.WELL_FLOOR_Y + 1, GALLERY_FLOOR_Y):
+        if checks.block_id(grid.get(ax, y, az)) in ('chain', 'lantern'):
+            grid.clear(ax, y, az)
+    grid.set(ax, GALLERY_FLOOR_Y, az, _lantern(True))
 
 
 def build_gallery(grid):
@@ -692,9 +802,112 @@ def build_office_stair(grid):
     grid.set(gx, GALLERY_FEET + 2, gz, _stairs('stone_brick_stairs', 'north', 'top'))
 
 
+def _depths(plan):
+    """{cell: depth} for a course's plan: 1 on its rim, counting inwards."""
+    from collections import deque
+    depth = {}
+    queue = deque()
+    for x, z in plan:
+        if any(n not in plan for n in ((x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1))):
+            depth[(x, z)] = 1
+            queue.append((x, z))
+    while queue:
+        c = queue.popleft()
+        for n in ((c[0] + 1, c[1]), (c[0] - 1, c[1]), (c[0], c[1] + 1), (c[0], c[1] - 1)):
+            if n in plan and n not in depth:
+                depth[n] = depth[c] + 1
+                queue.append(n)
+    return depth
+
+
+def book_gallery_plan(cells):
+    """(depths at the walked course, floor cells at y GALLERY_FLOOR): the gallery is the walked course's rim two deep,
+    railed on depth 3, open from depth 4 in; its floor fills the course below except the opening and the stairs' holes."""
+    walked = set(S._flood(cells, GALLERY_UP_FEET))
+    depth = _depths(walked)
+    below = set(S._flood(cells, GALLERY_FLOOR))
+    holes = {c for st in UP_STAIRS for c, feet in st if feet >= GALLERY_FLOOR - 2}
+    floor = {c for c in below if depth.get(c, 0) < 4 and c not in holes}
+    return depth, floor
+
+
+def build_book_gallery(grid):
+    """The book gallery under the cone: its floor, the rail round the opening (a lantern on four posts), shelves along
+    the wall wherever the wall is planks and no window or stair is beside them, the two stairs up from the office floor
+    with their rails, and floating candles in the opening. Returns (shelf cells, the gallery's walked depths)."""
+    depth, floor = book_gallery_plan(grid.cells)
+    for x, z in floor:
+        grid.set(x, GALLERY_FLOOR, z, DARK_PLANKS)
+    y = GALLERY_UP_FEET
+    stair_plan = {c for st in UP_STAIRS for c, _ in st}
+    rails = sorted((x, y, z) for (x, z), d in depth.items() if d == 3 and (x, z) not in stair_plan)
+    for p in rails:
+        grid.set(*p, 'minecraft:dark_oak_fence')
+    S.connect_fences(grid, rails)
+    ax, az = S.AXIS
+    diag = {}                                            # a lantern on the four posts furthest out on the diagonals
+    for x, yy, z in rails:
+        k = (x > ax, z > az)
+        if x == ax or z == az:
+            continue
+        r = abs(x - ax) + abs(z - az)
+        if k not in diag or r > diag[k][0] or (r == diag[k][0] and abs(x - ax) == abs(z - az)):
+            diag[k] = (r, (x, yy + 1, z))
+    for _, p in diag.values():
+        grid.set(*p, _lantern(False))
+    # the stairs up, each a tread a step from the office floor to the gallery, railed on both sides below the gallery
+    stair_cells = set()
+    for st in UP_STAIRS:
+        steps = [((c,), feet) for c, feet in st]
+        arrival = UP_ARRIVALS[UP_STAIRS.index(st)]
+        _build_treads(grid, steps, (((arrival,)), GALLERY_UP_FEET), stair='dark_oak_stairs')
+        (x0, z0), (x1, z1) = st[0][0], st[1][0]
+        across = (0, 1) if x1 != x0 else (1, 0)          # the rails stand beside the climb
+        for (x, z), feet in st:
+            stair_cells.add((x, z))
+            if feet <= GALLERY_FLOOR - 1:
+                for side in (-1, 1):
+                    p = (x + side * across[0], feet, z + side * across[1])
+                    if grid.is_air(*p):
+                        grid.set(*p, 'minecraft:dark_oak_fence')
+                        S.connect_fences(grid, [p])
+    # shelves on the rim, two high where the course above is open there too, never by glass, a stair or an arrival
+    keep = stair_cells | set(UP_ARRIVALS) | set(UP_BYPASS)
+    shelves = []
+    for (x, z), d in sorted(depth.items()):
+        if d != 1 or (x, z) in keep:
+            continue
+        near = [(x + dx, z + dz) for dx, dz in _STEP.values() if (x + dx, z + dz) not in depth]
+        if any('glass' in checks.block_id(grid.get(n[0], y, n[1])) for n in near):
+            continue
+        if not any(checks.block_id(grid.get(n[0], y, n[1])).endswith('_planks') for n in near if n not in depth):
+            continue
+        shelves.append((x, z))
+    # the floating candles over the opening, above head height
+    spots = sorted(c for c, d in depth.items() if d >= 5 and c != (ax, az))
+    for i, (x, z) in enumerate(spots[::max(1, len(spots) // 6)][:6]):
+        grid.set(x, y + 3 + (i % 3), z, 'hogwartsmagic:floating_candle')
+    return shelves, depth
+
+
+def _tables(grid):
+    for (x, z), what in INSTRUMENT_TABLES:
+        grid.set(x, OFFICE_FEET, z, G.state('dark_oak_fence', east=False, north=False, south=False, west=False,
+                                            waterlogged=False))
+        if what == 'end_rod':
+            grid.set(x, OFFICE_FEET + 1, z, G.state('end_rod', facing='up'))
+        elif what == 'sneakoscope':
+            grid.set(x, OFFICE_FEET + 1, z, 'hogwartsmagic:sneakoscope[power=0]')
+        else:
+            grid.set(x, OFFICE_FEET + 1, z, G.state('brewing_stand', has_bottle_0=True, has_bottle_1=False,
+                                                    has_bottle_2=True))
+
+
 def build_office(grid, rnd_angles=PORTRAIT_ANGLES):
-    """The office floor (dark oak, glass over the oculus), the chandelier, the desk and chair, the perch, the
-    instrument tables, the chest's place, the portraits' walls and the bookcases. Returns (portraits, chest)."""
+    """The office floor (dark oak, glass over the oculus), the chandelier, the dais with the desk and the headmaster's
+    chair, the hat's shelf, the sword's case, the perch, the instrument tables, the Pensieve and its memory shelves, the
+    book gallery with its stairs, the chest's place, the portraits' walls and the bookcases. Returns (portraits, chest,
+    shelves, extras) where extras holds the hat's slab, the sword's case and the Pensieve's cell."""
     y = OFFICE_FLOOR_Y
     hole = set(OFFICE_HOLE)
     for x, z in band_cells() | office_cells():
@@ -714,34 +927,49 @@ def build_office(grid, rnd_angles=PORTRAIT_ANGLES):
         grid.set(*p, 'minecraft:dark_oak_fence')
     S.connect_fences(grid, rails)
     grid.set(55, OFFICE_FEET + 1, 145, _lantern(False))
-    # the desk overlooking the glass floor, the chair behind it
+    # the dais, its step, the desk on it overlooking the glass floor, the headmaster's chair behind
+    for x, z in DAIS:
+        grid.set(x, OFFICE_FEET, z, DARK_PLANKS)
+    for x, z in DAIS_STEP:
+        grid.set(x, OFFICE_FEET, z, _stairs('dark_oak_stairs', 'north'))
     for x, z in DESK:
-        grid.set(x, OFFICE_FEET, z, _stairs('dark_oak_stairs', 'south', 'top'))
-    grid.set(DESK[0][0], OFFICE_FEET + 1, DESK[0][1], _candle())
-    grid.set(DESK[-1][0], OFFICE_FEET + 1, DESK[-1][1], _candle())
-    grid.set(DESK[3][0], OFFICE_FEET + 1, DESK[3][1], G.state('brewing_stand', has_bottle_0=False,
-                                                            has_bottle_1=False, has_bottle_2=False))
-    grid.set(CHAIR[0], OFFICE_FEET, CHAIR[1], _stairs('dark_oak_stairs', 'north'))
+        grid.set(x, DAIS_FEET, z, _stairs('dark_oak_stairs', 'south', 'top'))
+    top = DAIS_FEET + 1
+    grid.set(DESK[0][0], top, DESK[0][1], 'hogwartsmagic:candle_cluster')
+    grid.set(DESK[1][0], top, DESK[1][1], 'hogwartsmagic:scroll_stack[facing=south]')
+    grid.set(DESK[3][0], top, DESK[3][1], 'hogwartsmagic:enchanted_book_pile')
+    grid.set(DESK[4][0], top, DESK[4][1], _candle())
+    grid.set(CHAIR[0], DAIS_FEET, CHAIR[1], 'hogwartsmagic:wizard_chair[facing=south]')
+    # the Sorting Hat's shelf behind the chair: two bookshelves and the slab it sits on
+    hx, hz = HAT_SHELF
+    grid.set(hx, OFFICE_FEET, hz, 'minecraft:bookshelf')
+    grid.set(hx, OFFICE_FEET + 1, hz, 'minecraft:bookshelf')
+    grid.set(hx, OFFICE_FEET + 2, hz, G.state('dark_oak_slab', type='bottom', waterlogged=False))
+    # the sword's glass case on the dais
+    sx, sz = SWORD_CASE
+    grid.set(sx, DAIS_FEET, sz, 'minecraft:glass')
+    grid.set(sx, DAIS_FEET + 1, sz, 'minecraft:glass')
     # the phoenix perch
     px, pz = PERCH
     grid.set(px, OFFICE_FEET, pz, 'minecraft:gold_block')
     grid.set(px, OFFICE_FEET + 1, pz, G.state('dark_oak_fence', east=False, north=False, south=False, west=False,
                                               waterlogged=False))
     grid.set(px, OFFICE_FEET + 2, pz, G.state('light_weighted_pressure_plate', power=0))
-    # the instrument tables
-    for (x, z), what in INSTRUMENT_TABLES:
-        grid.set(x, OFFICE_FEET, z, G.state('dark_oak_fence', east=False, north=False, south=False, west=False,
-                                            waterlogged=False))
-        if what == 'end_rod':
-            grid.set(x, OFFICE_FEET + 1, z, G.state('end_rod', facing='up'))
-        else:
-            grid.set(x, OFFICE_FEET + 1, z, G.state('brewing_stand', has_bottle_0=True, has_bottle_1=False,
-                                                    has_bottle_2=True))
+    _tables(grid)
+    (tx, tz), facing = TELESCOPE
+    grid.set(tx, OFFICE_FEET, tz, 'hogwartsmagic:brass_telescope[facing=%s]' % facing)
+    # the memory shelves behind the Pensieve, two high against the south wall
+    for x, z in MEMORY_SHELVES:
+        for yy in (OFFICE_FEET, OFFICE_FEET + 1):
+            grid.set(x, yy, z, 'hogwartsmagic:potion_shelf[facing=north]')
+    gallery_shelves, depth = build_book_gallery(grid)
     # the portraits first (each on a plank course of the cone with its two front cells free), then bookcases along
     # the rest of the wall wherever the wall is planks (never in front of a window) and nothing else stands
     keep = {(CHAIR[0], CHAIR[1]), PERCH, (OFFICE_CHEST[0], OFFICE_CHEST[2]), SPIRAL_NEWEL,
-            (SPIRAL_ARRIVAL[0], SPIRAL_ARRIVAL[2]), (56, 144), (56, 145)} | set(DESK) | hole
+            (SPIRAL_ARRIVAL[0], SPIRAL_ARRIVAL[2]), (56, 144), (56, 145), HAT_SHELF, SWORD_CASE,
+            (OFFICE_PENSIEVE[0], OFFICE_PENSIEVE[2]), TELESCOPE[0]} | set(DESK) | hole | set(DAIS) | set(MEMORY_SHELVES)
     keep |= {c for c, _ in INSTRUMENT_TABLES}
+    keep |= {c for st in UP_STAIRS for c, _ in st}
     inside = office_cells()
     edge = []                                            # (inside cell, wall cell, facing into the room)
     for x, z in sorted(inside):
@@ -756,23 +984,29 @@ def build_office(grid, rnd_angles=PORTRAIT_ANGLES):
     def angle(c):
         return math.degrees(math.atan2(c[1] - az, c[0] - ax))
 
-    portraits = []
+    def hang(targets, cells_edge, feet, used, tall):
+        out = []
+        for target in targets:
+            best = None
+            for c, w, facing in cells_edge:
+                if c in used or not plank(w, feet) or (tall and not plank(w, feet + 1)):
+                    continue
+                if not (grid.is_air(c[0], feet, c[1]) and (not tall or grid.is_air(c[0], feet + 1, c[1]))):
+                    continue
+                diff = abs((angle(c) - target + 180) % 360 - 180)
+                if best is None or diff < best[0]:
+                    best = (diff, c, w, facing)
+            if best is None:
+                continue
+            _, c, w, facing = best
+            out.append({'at': [w[0], feet, w[1]], 'facing': facing})
+            for dx in (-1, 0, 1):                        # leave the portrait room either side (2-wide variants)
+                for dz in (-1, 0, 1):
+                    used.add((c[0] + dx, c[1] + dz))
+        return out
+
     used = set(keep)
-    for target in rnd_angles:
-        best = None
-        for c, w, facing in edge:
-            if c in used or not (plank(w, OFFICE_FEET) and plank(w, OFFICE_FEET + 1)):
-                continue
-            if not (grid.is_air(c[0], OFFICE_FEET, c[1]) and grid.is_air(c[0], OFFICE_FEET + 1, c[1])):
-                continue
-            diff = abs((angle(c) - target + 180) % 360 - 180)
-            if best is None or diff < best[0]:
-                best = (diff, c, w, facing)
-        _, c, w, facing = best
-        portraits.append({'at': [w[0], OFFICE_FEET, w[1]], 'facing': facing})
-        for dx in (-1, 0, 1):                            # leave the portrait room either side (2-wide variants)
-            for dz in (-1, 0, 1):
-                used.add((c[0] + dx, c[1] + dz))
+    portraits = hang(rnd_angles, edge, OFFICE_FEET, used, True)
     shelves = 0
     for c, w, facing in edge:
         if c in used or in_oculus(*c):
@@ -785,8 +1019,63 @@ def build_office(grid, rnd_angles=PORTRAIT_ANGLES):
         grid.set(c[0], OFFICE_FEET + 1, c[1], 'minecraft:bookshelf')
         used.add(c)
         shelves += 1
+    # the book gallery: its own portraits of past headmasters between the shelves, then the shelves
+    up = GALLERY_UP_FEET
+    gedge = []
+    for (x, z), d in sorted(depth.items()):
+        if d != 1:
+            continue
+        for side, (dx, dz) in _STEP.items():
+            w = (x + dx, z + dz)
+            if w not in depth:
+                gedge.append(((x, z), w, _BACK[side]))
+    gused = {c for st in UP_STAIRS for c, _ in st} | set(UP_ARRIVALS) | set(UP_BYPASS)
+    portraits += hang(GALLERY_PORTRAIT_ANGLES, gedge, up, gused, False)
+    # a shelf only where the walkway stays in one piece without that cell (the ring steps diagonally, and its rim cells
+    # at the steps are what joins it)
+    holes = {c for st in UP_STAIRS for c, _ in st}
+    walkable = {c for c, d in depth.items() if d <= 2 and c not in holes}
+
+    def joined(cells):
+        if not cells:
+            return True
+        start = next(iter(cells))
+        seen = {start}
+        todo = [start]
+        while todo:
+            x, z = todo.pop()
+            for n in ((x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1)):
+                if n in cells and n not in seen:
+                    seen.add(n)
+                    todo.append(n)
+        return len(seen) == len(cells)
+
+    for x, z in gallery_shelves:
+        if (x, z) in gused or not joined(walkable - {(x, z)}):
+            continue
+        walkable.discard((x, z))
+        grid.set(x, up, z, 'minecraft:bookshelf')
+        beside = [(x + dx, z + dz) for dx, dz in _STEP.values()]
+        if grid.is_air(x, up + 1, z) and not any('glass' in checks.block_id(grid.get(n[0], up + 1, n[1]))
+                                                 for n in beside):
+            grid.set(x, up + 1, z, 'minecraft:bookshelf')
+        shelves += 1
+    # and books on the cone's steps over the walkway: the courses above it reach out past its rim, so their outer cells
+    # stand on the wall below; shelve them where no window is beside them
+    for yy in (up + 1, up + 2):
+        course = set(S._flood(grid.cells, yy) or ())
+        for x, z in sorted(course):
+            if (x, z) in depth or not checks.block_id(grid.get(x, yy - 1, z)).endswith(('_planks', 'bookshelf')):
+                continue
+            beside = [(x + dx, z + dz) for dx, dz in _STEP.values()]
+            if any('glass' in checks.block_id(grid.get(n[0], yy, n[1])) for n in beside):
+                continue
+            if grid.is_air(x, yy, z):
+                grid.set(x, yy, z, 'minecraft:bookshelf')
     chest = {'at': list(OFFICE_CHEST), 'facing': 'west', 'theme': 'TOWER'}
-    return portraits, chest, shelves
+    extras = {'office_hat': [hx + 0.5, OFFICE_FEET + 2.5, hz + 0.5], 'office_sword': [sx, DAIS_FEET, sz],
+              'office_pensieve': list(OFFICE_PENSIEVE)}
+    return portraits, chest, shelves, extras
 
 
 def gallery_box():
@@ -828,6 +1117,7 @@ def tower_light_boxes():
     boxes = [(61, CR_FEET, 156, 61, CR_FEET, 168), common_room_box(), dorm_box()]
     boxes += _row_boxes(BAND_ROWS, GALLERY_FEET, OFFICE_FLOOR_Y)
     boxes += _row_boxes(OFFICE_ROWS, OFFICE_FEET, OFFICE_FEET + 1)
+    boxes += _row_boxes(OFFICE_ROWS, GALLERY_UP_FEET, GALLERY_UP_FEET)
     return boxes
 
 
@@ -885,9 +1175,11 @@ def place_towers(grid):
     n_beds = build_dormitory(grid)
     light_bridge(grid)
     build_helix(grid)
+    build_flight(grid)
+    shorten_chain(grid)
     build_gallery(grid)
     build_office_stair(grid)
-    portraits, chest, shelves = build_office(grid)
+    portraits, chest, shelves, extras = build_office(grid)
     lights = hall.light_dark_floors(grid, tower_light_boxes() + S.light_boxes(grid.cells))
     place_towers.stats = {'corbel_cells': corbel, 'roof_tip_y': roof, 'beds': n_beds, 'office_shelves': shelves,
                           'lights': lights}
@@ -896,4 +1188,5 @@ def place_towers(grid):
         'banners': [{'at': list(at), 'facing': facing, 'house': 'gryffindor'} for at, facing in BANNERS],
         'student_spots': [list(s) for s in STUDENT_SPOTS],
         'paintings': portraits,
+        'extras': extras,
     }

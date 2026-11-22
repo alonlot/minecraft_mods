@@ -252,6 +252,14 @@ public final class Config {
             .comment("Pensieve: the largest a captured memory may be on disk, in kilobytes. Bigger ones lose particles, then their farthest creatures.")
             .defineInRange("pensieveCaptureMaxKb", 4096, 256, 16384);
 
+    public static final ForgeConfigSpec.ConfigValue<String> HEADMASTER_PASSWORD = BUILDER
+            .comment("Mini Hogwarts: the password the stone gargoyle wants before the Headmaster's stair rises. Say it in chat near the gargoyle. Case and punctuation do not matter.")
+            .define("headmasterPassword", "Sherbet Lemon");
+
+    public static final ForgeConfigSpec.BooleanValue MOVING_STAIRCASES = BUILDER
+            .comment("Mini Hogwarts: if true, the Grand Staircase's moving flight swings away from the gallery every so often, as the staircases do.")
+            .define("movingStaircases", true);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;

@@ -1674,7 +1674,8 @@ A small, furnished castle that is already standing when you find it, like a wood
 
 - The entrance hall has an imperial staircase, and the Great Hall's portal in front of it.
 - Behind it the central tower is one open well, full height, with stone flights that switch back between landings. It has framed portraits, hanging lanterns, a column of floating candles and a compass star on the floor.
-- Ten Living Statues stand along the flights. A helical stair at the top climbs on to the Astronomy gallery.
+- Ten Living Statues stand along the flights. Above the top landing, a stair climbs the west wall to the north landing.
+- **The moving staircase.** From the north landing, a flight climbs along the north wall to the Astronomy gallery. Like the staircases in the films, it does not stay there. Every 35 to 70 seconds, while a player is within 48 blocks and nobody stands on it, it grinds round a quarter turn and docks in the middle of the well, where it climbs to a dead end under the gallery. After 10 to 16 seconds it swings back. While it is away, wait on the landing. Fences close every edge it leaves, so nobody falls. To keep it in place, set `movingStaircases = false` in the mod's common config.
 - Two living portraits keep the climb. Sir Cadogan hangs on the entrance hall's imperial landing, beside the door into the well. The Fat Lady hangs beside the door on the top landing, where a bridge leads to Gryffindor tower. There is no password.
 
 **Library and Restricted Section.**
@@ -1691,7 +1692,9 @@ A small, furnished castle that is already standing when you find it, like a wood
 **Headmaster's office and Astronomy gallery.** Both are in the top of the central tower.
 
 - The Astronomy gallery is open to the sky through four wide arches, with a telescope at each, a star-chart table and a lectern. A rail runs round an opening over the Grand Staircase.
-- A stone spiral beside a gargoyle carving leads up into the round office. Its floor is glass over the well. It has a desk and chair, a phoenix perch, instrument tables, bookcases, four portraits and a chandelier. The tower chest is here.
+- **The gargoyle and the password.** A stone gargoyle stands in the gallery's north-west corner. There is no stair behind it. Stand near the gargoyle and say the password in chat: **Sherbet Lemon** (case and punctuation do not matter). The gargoyle spins and leaps aside, and a spiral stair rises out of the floor, one step at a time, up to the office. The stair stays up while somebody is on it. About 25 seconds after the last person leaves it, it sinks back into the floor and the gargoyle returns. To leave the office, walk to the top of the stair: it rises again without a password. A server can change the password with `headmasterPassword` in the mod's common config.
+- **The office.** A round room under the cone, with a glass floor over the well. At the back, the desk stands on a dais with the Headmaster's high-backed chair, candles, scrolls and books. Behind the chair, the Sorting Hat rests on a shelf. Beside the desk, the Sword of Gryffindor stands in a glass case. A golden phoenix perch, spindly tables with silver instruments and a Sneakoscope, and a brass telescope at the east window. On the south side is a Pensieve in front of a wall of memory shelves. Anyone can pour into it. Two wooden stairs climb from the glass floor to a book gallery that runs round the room under the cone, with portraits of past Headmasters and floating candles over the opening. There are more portraits and bookcases below, and a chandelier. The tower chest is here.
+- In a castle generated before this update, the gargoyle stair also works (the first time it sinks, about 25 seconds after a player comes near). The office keeps its old furniture there, and the moving staircase stays a fixed stair. Only newly generated castles get the new office and the moving staircase.
 
 **Classrooms.**
 

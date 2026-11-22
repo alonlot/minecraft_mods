@@ -1227,4 +1227,175 @@ public final class MiniHogwartsGameTests {
         LOGGER.info("MINIHOGWARTS-GAMETEST PASS registerReplacesStaleEffects");
         helper.succeed();
     }
+
+    // ---- the castle's moving parts (the gargoyle stair, the moving flight), on small stand-ins in the test's own box
+
+    private static final String AIR = "minecraft:cave_air";
+
+    private static com.hogwartsmagic.worldgen.MiniHogwartsAnchors.Placed at(int x, int y, int z, String state) {
+        return new com.hogwartsmagic.worldgen.MiniHogwartsAnchors.Placed(new BlockPos(x, y, z), state);
+    }
+
+    private static com.hogwartsmagic.worldgen.MiniHogwartsAnchors.HeadmasterStair stairSpec() {
+        com.hogwartsmagic.worldgen.MiniHogwartsAnchors.Part gargoyle = new com.hogwartsmagic.worldgen.MiniHogwartsAnchors.Part(
+                List.of(at(1, 1, 2, "minecraft:chiseled_stone_bricks"), at(1, 2, 2, "minecraft:stone_bricks"),
+                        at(2, 1, 2, AIR), at(2, 2, 2, AIR)),
+                List.of(at(1, 1, 2, AIR), at(1, 2, 2, AIR),
+                        at(2, 1, 2, "minecraft:chiseled_stone_bricks"), at(2, 2, 2, "minecraft:stone_bricks")));
+        com.hogwartsmagic.worldgen.MiniHogwartsAnchors.Part low = new com.hogwartsmagic.worldgen.MiniHogwartsAnchors.Part(List.of(at(3, 1, 2, "minecraft:stone_brick_stairs[facing=south]")),
+                List.of(at(3, 1, 2, AIR)));
+        com.hogwartsmagic.worldgen.MiniHogwartsAnchors.Part high = new com.hogwartsmagic.worldgen.MiniHogwartsAnchors.Part(List.of(at(3, 1, 3, "minecraft:stone_bricks"),
+                at(3, 2, 3, "minecraft:stone_brick_stairs[facing=south]")),
+                List.of(at(3, 1, 3, AIR), at(3, 2, 3, AIR)));
+        com.hogwartsmagic.worldgen.MiniHogwartsAnchors.Part cover = new com.hogwartsmagic.worldgen.MiniHogwartsAnchors.Part(List.of(at(3, 4, 4, AIR)), List.of(at(3, 4, 4, "minecraft:oak_planks")));
+        return new com.hogwartsmagic.worldgen.MiniHogwartsAnchors.HeadmasterStair(new BlockPos(2, 1, 2), new BlockPos(3, 5, 6), gargoyle,
+                new BlockPos(-1, 0, 0), List.of(low, high), cover, List.of(new BlockPos(3, 2, 2)));
+    }
+
+    @GameTest(template = ROOMY, batch = "castle_mechanisms", timeoutTicks = 100)
+    public static void gargoyleStairRisesAndSinks(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(BlockPos.ZERO);
+        var stair = com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.stair(level, anchor, stairSpec());
+        stair.settle(false);
+        helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.CHISELED_STONE_BRICKS, new BlockPos(2, 1, 2));
+        helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.OAK_PLANKS, new BlockPos(3, 4, 4));
+        helper.assertTrue(level.getBlockState(helper.absolutePos(new BlockPos(3, 1, 2))).isAir(), "treads sunk");
+        int before = com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.liveDisplays();
+
+        helper.assertTrue(stair.raise(), "a closed stair rises");
+        for (int i = 0; i < 200 && !stair.phase().equals("OPEN"); i++) {
+            stair.tick(List.of());
+        }
+        helper.assertTrue(stair.phase().equals("OPEN"), "the stair is up, got " + stair.phase());
+        helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.CHISELED_STONE_BRICKS, new BlockPos(1, 1, 2));
+        helper.assertTrue(level.getBlockState(helper.absolutePos(new BlockPos(2, 1, 2))).isAir(), "the door is open");
+        net.minecraft.world.level.block.state.BlockState tread = level.getBlockState(helper.absolutePos(new BlockPos(3, 2, 3)));
+        helper.assertTrue(tread.is(net.minecraft.world.level.block.Blocks.STONE_BRICK_STAIRS) && tread.getValue(net.minecraft.world.level.block.StairBlock.FACING) == net.minecraft.core.Direction.SOUTH,
+                "the top tread rose, got " + tread);
+        helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.STONE_BRICKS, new BlockPos(3, 1, 3));
+        helper.assertTrue(level.getBlockState(helper.absolutePos(new BlockPos(3, 4, 4))).isAir(), "the cover opened");
+        helper.assertTrue(com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.liveDisplays() == before, "no display left after rising");
+
+        stair.lower();
+        for (int i = 0; i < 300 && !stair.phase().equals("CLOSED"); i++) {
+            stair.tick(List.of());
+        }
+        helper.assertTrue(stair.phase().equals("CLOSED"), "the stair sank, got " + stair.phase());
+        helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.CHISELED_STONE_BRICKS, new BlockPos(2, 1, 2));
+        helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.OAK_PLANKS, new BlockPos(3, 4, 4));
+        helper.assertTrue(level.getBlockState(helper.absolutePos(new BlockPos(3, 2, 3))).isAir(), "the treads sank");
+        helper.assertTrue(level.getBlockState(helper.absolutePos(new BlockPos(1, 1, 2))).isAir(), "the gargoyle left the side");
+        helper.assertTrue(com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.liveDisplays() == before, "no display left after sinking");
+        helper.succeed();
+    }
+
+    @GameTest(template = ROOMY, batch = "castle_mechanisms", timeoutTicks = 100)
+    public static void movingFlightSwingsAQuarterTurn(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(BlockPos.ZERO);
+        // a one-tread flight at (5, 1, 4) facing east, swinging clockwise about the corner point (4.5, 4.5) to (4, 1, 5),
+        // with a gate that stands at (5, 2, 4) once it has gone
+        String east = "minecraft:stone_brick_stairs[facing=east,half=bottom,shape=straight,waterlogged=false]";
+        String south = "minecraft:stone_brick_stairs[facing=south,half=bottom,shape=straight,waterlogged=false]";
+        String fence = "minecraft:oak_fence";
+        var spec = new com.hogwartsmagic.worldgen.MiniHogwartsAnchors.MovingStair("test", 4.5D, 4.5D, List.of(0, 1),
+                List.of(List.of(at(5, 1, 4, east), at(4, 1, 5, AIR), at(5, 2, 4, AIR)),
+                        List.of(at(5, 1, 4, AIR), at(4, 1, 5, south), at(5, 2, 4, fence))),
+                List.of(at(5, 1, 4, east)), List.of(List.of(), List.of(new BlockPos(5, 2, 4))), List.of(),
+                new BlockPos(4, 1, 4));
+        var flight = com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.flight(level, anchor, spec);
+        flight.settle(0);
+        int before = com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.liveDisplays();
+        flight.start(1);
+        helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.OAK_FENCE, new BlockPos(5, 2, 4));
+        helper.assertTrue(level.getBlockState(helper.absolutePos(new BlockPos(5, 1, 4))).isAir(), "the flight lifted");
+        helper.assertTrue(com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.liveDisplays() == before + 1, "one display swings");
+        for (int i = 0; i < 200 && flight.busy(); i++) {
+            flight.tick(List.of());
+        }
+        helper.assertTrue(!flight.busy() && flight.config() == 1, "the flight docked in config 1");
+        net.minecraft.world.level.block.state.BlockState s = level.getBlockState(helper.absolutePos(new BlockPos(4, 1, 5)));
+        helper.assertTrue(s.is(net.minecraft.world.level.block.Blocks.STONE_BRICK_STAIRS) && s.getValue(net.minecraft.world.level.block.StairBlock.FACING) == net.minecraft.core.Direction.SOUTH,
+                "the tread is turned a quarter clockwise, got " + s);
+        helper.assertTrue(com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.liveDisplays() == before, "no display left after the swing");
+        helper.succeed();
+    }
+
+    @GameTest(template = "hogwartsmagic:gametest/empty3", batch = "castle_mechanisms", timeoutTicks = 20)
+    public static void passwordIgnoresCaseAndPunctuation(GameTestHelper helper) {
+        helper.assertTrue(com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.isPassword("Sherbet Lemon"), "the password");
+        helper.assertTrue(com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.isPassword("  sherbet   LEMON! "), "case, spaces and punctuation");
+        helper.assertTrue(!com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.isPassword("sherbet"), "half the password");
+        helper.assertTrue(!com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.isPassword("lemon sherbet"), "the words the wrong way round");
+        helper.succeed();
+    }
+
+    /**
+     * The whole path in a running server: a castle on the tracker with a gargoyle stair in its anchors wakes when a
+     * player stands near it (its closed blocks already in the world), a wrong word does nothing, the password said
+     * within earshot raises it through the chat handler, and it ends up open with its blocks in place.
+     */
+    @GameTest(template = ROOMY, batch = "castle_mechanisms_live", timeoutTicks = 300)
+    public static void passwordRaisesTheStairOfAnAwakeCastle(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(BlockPos.ZERO);
+        String json = """
+                {
+                  "hall_ceiling": {"min": [0.0, 0.0], "max": [1.0, 1.0], "y": 9},
+                  "hall_box": {"min": [0, 0, 0], "max": [1, 1, 1]},
+                  "main_entrance": [0, 1, 0],
+                  "headmaster_stair": {
+                    "listen": [2, 1, 2],
+                    "office_call": [3, 9, 8],
+                    "gargoyle": {"open": [[1, 1, 2, "minecraft:chiseled_stone_bricks"], [2, 1, 2, "minecraft:cave_air"]],
+                                 "closed": [[1, 1, 2, "minecraft:cave_air"], [2, 1, 2, "minecraft:chiseled_stone_bricks"]],
+                                 "slide": [-1, 0, 0]},
+                    "treads": [{"open": [[3, 1, 2, "minecraft:stone_brick_stairs[facing=south]"]],
+                                "closed": [[3, 1, 2, "minecraft:cave_air"]]}],
+                    "cover": {"open": [[3, 4, 4, "minecraft:cave_air"]], "closed": [[3, 4, 4, "minecraft:oak_planks"]]},
+                    "riders": [[3, 2, 2]]
+                  }
+                }
+                """;
+        var anchors = com.hogwartsmagic.worldgen.MiniHogwartsAnchors.parse(
+                com.google.gson.JsonParser.parseString(json).getAsJsonObject());
+        helper.setBlock(new BlockPos(2, 1, 2), net.minecraft.world.level.block.Blocks.CHISELED_STONE_BRICKS);
+        helper.setBlock(new BlockPos(3, 4, 4), net.minecraft.world.level.block.Blocks.OAK_PLANKS);
+        com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(anchors);
+        com.hogwartsmagic.worldgen.MiniHogwartsTracker.get(level).add(anchor.offset(4, 0, 4), anchor);
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.moveTo(anchor.getX() + 2.5D, anchor.getY() + 1.0D, anchor.getZ() + 3.5D);
+        Runnable cleanup = () -> {
+            com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.forget(level, anchor);
+            com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(null);
+            level.getServer().getPlayerList().remove(player);
+        };
+        final boolean[] said = {false};
+        helper.onEachTick(() -> {
+            if (helper.getTick() >= 290) {                // about to time out: never leave the override set
+                cleanup.run();
+                return;
+            }
+            String phase = com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.stairPhase(level, anchor);
+            if (phase == null || said[0]) {
+                return;
+            }
+            said[0] = true;
+            com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.heard(player, "lemon drop");
+            if (!"CLOSED".equals(com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.stairPhase(level, anchor))) {
+                cleanup.run();
+                helper.fail("a wrong word moved the gargoyle");
+            }
+            com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.heard(player, "Sherbet lemon!");
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue("OPEN".equals(com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.stairPhase(level, anchor)),
+                    "the stair is not up yet");
+            helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.CHISELED_STONE_BRICKS, new BlockPos(1, 1, 2));
+            helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.STONE_BRICK_STAIRS, new BlockPos(3, 1, 2));
+            helper.assertBlockNotPresent(net.minecraft.world.level.block.Blocks.OAK_PLANKS, new BlockPos(3, 4, 4));
+            cleanup.run();
+        });
+    }
 }

@@ -662,7 +662,8 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Nearly blind: it finds you by noise (sprinting, breaking blocks, opening a chest, dropping hard off a ledge) or when you come within 8 blocks, 5 if you crouch. Walking past it, crouched and wall-side, works.
 - When it has no target it sniffs: head low, sweeping slowly. At the end of its chain it strains and its shackled leg drags back.
 - Held within 11 blocks of its anchor; past the chain it stops following and breathes fire instead.
-- Clankers cow it for 5 seconds: it drops flat, turns its head away and curls its tail. Break every anchor stub in the floor around it and it climbs out of the cavern and is gone.
+- Clankers cow it for 5 seconds: it drops flat, turns its head away and curls its tail.
+- Break every anchor stub in the floor around it and it is loose. It does not leave: it turns on the player who freed it, charges instead of lumbering, smells you from 16 blocks (about 10 crouched), keeps after you up to 40 blocks, and prowls the undercroft between fights. It can follow you up the cart line. Clankers still cow it.
 - Drops Blaze Powder, bone, Arcane Dust and, when a player kills it, sometimes a Dragon Heartstring Core.
 
 ### Gringotts Goblin
@@ -1624,7 +1625,7 @@ goblin does not.
   deepest vault, half-blind and hunting by hearing rather than by sight, so you can walk past it if
   you walk. **Clankers** cow it for five
   seconds, and the same noise brings every goblin guard within thirty-two blocks. Break the last
-  anchor stub and it leaves.
+  anchor stub and it is loose, and it comes for you.
 - **Gemino and Flagrante** - the deepest hoard is cursed. Standing on it multiplies it, carrying it
   sets you alight and multiplies it in your pockets, and Fire Resistance does not help because it is
   a curse rather than a fire. Drop it, get in water, or ride back through the Downfall.

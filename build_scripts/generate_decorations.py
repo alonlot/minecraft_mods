@@ -75,9 +75,6 @@ def make_textures():
     save_png(T.owl_face(), "block/decor/owl_face")
     save_png(T.trunk_front(), "block/decor/school_trunk_front")
     save_png(T.trunk_top(), "block/decor/school_trunk_top")
-    save_png(T.stone("pale"), "block/decor/pale_stone")
-    save_png(T.pensieve_side(), "block/decor/pensieve_side")
-    save_png(T.pensieve_top(), "block/decor/pensieve_top")
     save_png(T.open_book(), "block/decor/open_book")
     for h in HOUSES:
         top, bottom = T.banner_halves(h)
@@ -368,17 +365,6 @@ def potion_shelf():
     item_from_block("potion_shelf")
 
 
-def pensieve():
-    els = [
-        el((3, 0, 3), (13, 2, 13), "stone"),
-        el((5, 2, 5), (11, 9, 11), "stone"),
-        el((1, 9, 1), (15, 14, 15), "side", tex_for={"up": "top", "down": "stone"}),
-    ]
-    model("pensieve", {"stone": D("pale_stone"), "side": D("pensieve_side"), "top": D("pensieve_top"),
-                       "particle": D("pale_stone")}, els)
-    blockstate_facing("pensieve")
-    item_from_block("pensieve")
-
 
 def brass_telescope():
     tube = ("x", -22.5, (8, 11.25, 8))  # negative raises the lens end (north)
@@ -610,7 +596,6 @@ NAMES = {
     "owl_cage": "Owl Cage",
     "wizard_chess_board": "Wizard Chess Board",
     "potion_shelf": "Potion Shelf",
-    "pensieve": "Pensieve",
     "brass_telescope": "Brass Telescope",
     "scroll_stack": "Scrolls and Quill",
     "quidditch_hoop_pole": "Quidditch Hoop Pole",
@@ -630,7 +615,7 @@ for _h in HOUSES:
 
 AXE = ["school_trunk", "wizard_chess_board", "potion_shelf", "broom_rack", "wizard_table", "wizard_chair",
        "great_hall_bench", "common_room_armchair", "writing_desk"] + [f"{h}_crest_plaque" for h in HOUSES]
-PICKAXE = ["owl_cage", "pensieve", "brass_telescope", "quidditch_hoop_pole", "quidditch_hoop", "quidditch_cup"]
+PICKAXE = ["owl_cage", "brass_telescope", "quidditch_hoop_pole", "quidditch_hoop", "quidditch_cup"]
 
 
 def data():
@@ -653,8 +638,6 @@ def data():
     shaped("wizard_chess_board", ["QBQ", "PPP"],
            {"Q": "minecraft:quartz", "B": "minecraft:blackstone", "P": DO})
     shaped("potion_shelf", ["BBB", "SSS"], {"B": "minecraft:glass_bottle", "S": DS})
-    shaped("pensieve", ["SDS", "SWS", " S "],
-           {"S": "minecraft:stone_bricks", "D": f"{MOD}:arcane_dust", "W": "minecraft:water_bucket"})
     shaped("brass_telescope", [" Y ", " C ", "S S"],
            {"Y": "minecraft:spyglass", "C": "minecraft:copper_ingot", "S": "minecraft:stick"})
     shapeless("scroll_stack", ["minecraft:paper"] * 3 + ["minecraft:feather", "minecraft:ink_sac"])
@@ -708,8 +691,6 @@ def save_animated(img, rel, frametime=2, meta=None):
 def remake_textures():
     save_animated(T.flame_frames(ORANGE_FLAME, "hearth"), "block/decor/hearth_flame")
     save_animated(T.flame_frames(GREEN_FLAME, "floo"), "block/decor/floo_flame")
-    save_animated(T.bubbling_potion(), "block/decor/cauldron_potion", frametime=4)
-    save_png(T.cast_iron(), "block/decor/cast_iron")
     for c in ("red", "blue", "green"):
         save_png(T.book_cover(c), f"block/decor/book_cover_{c}")
         save_png(T.book_pages(c), f"block/decor/book_pages_{c}")
@@ -778,29 +759,6 @@ def remake_book_pile():
     blockstate_single("enchanted_book_pile")
     item_from_block("enchanted_book_pile")
 
-
-def remake_cauldron():
-    els = []
-    for (x, z) in ((2, 2), (12, 2), (2, 12), (12, 12)):
-        els.append(el((x, 0, z), (x + 2, 2.5, z + 2), "iron"))
-    els += [
-        el((3, 2, 3), (13, 3, 13), "iron"),
-        el((2, 3, 2), (14, 5, 14), "iron"),
-        el((1.5, 5, 1.5), (14.5, 9, 14.5), "iron"),
-        el((2, 9, 2), (14, 11, 14), "iron"),
-        # Rim walls round the potion.
-        el((1, 11, 1), (15, 13, 2.5), "iron"),
-        el((1, 11, 13.5), (15, 13, 15), "iron"),
-        el((1, 11, 2.5), (2.5, 13, 13.5), "iron"),
-        el((13.5, 11, 2.5), (15, 13, 13.5), "iron"),
-        el((2.5, 11.5, 2.5), (13.5, 11.5, 13.5), "potion", faces=("up",), shade=False),
-        # Handles.
-        el((0, 10, 7), (1.5, 11, 9), "iron"),
-        el((14.5, 10, 7), (16, 11, 9), "iron"),
-    ]
-    model("wizard_cauldron", {"iron": D("cast_iron"), "potion": D("cauldron_potion"), "particle": D("cast_iron")}, els)
-    blockstate_single("wizard_cauldron")
-    item_from_block("wizard_cauldron")
 
 
 def remake_owl_perch():
@@ -872,11 +830,15 @@ def remake_floo_fireplace():
     item_from_block("floo_fireplace", display=small_gui(0.42))
 
 
+# The Pensieve and the Wizard Cauldron are working blocks on the main line (memories, brewing with
+# fill levels), with their own models. This script used to make a decorative Pensieve and a cauldron
+# remake; both were dropped in the merge so they cannot overwrite the real ones.
+
+
 def remakes():
     remake_textures()
     remake_candle_cluster()
     remake_book_pile()
-    remake_cauldron()
     remake_owl_perch()
     remake_floo_fireplace()
 
@@ -996,7 +958,6 @@ def main():
     chess_board()
     crest_plaques()
     potion_shelf()
-    pensieve()
     brass_telescope()
     scroll_stack()
     quidditch()

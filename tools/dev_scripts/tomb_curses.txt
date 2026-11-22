@@ -1,0 +1,66 @@
+# Tomb curse effects review
+wait 40
+cmd time set midnight
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd tombcurse room
+wait 40
+gui off
+camera back
+look 180 35
+wait 10
+shot curse_00_room
+# Revelio: the wave runs out, the tiles show their sigils
+cmd tombcurse reveal
+wait 5
+shot curse_01_wave
+wait 12
+shot curse_02_revealed
+wait 30
+look 120 30
+shot curse_03_revealed_side
+# Lifting
+cmd tombcurse lift risen
+wait 6
+shot curse_04_lift_rising
+wait 5
+shot curse_05_lift_burst
+wait 30
+# Withering
+look 180 35
+cmd tombcurse trigger withering
+wait 4
+shot curse_06_withering_wake
+wait 10
+shot curse_07_withering_coil
+wait 12
+shot curse_08_withering_eye
+wait 30
+gui on
+wait 4
+shot curse_09_withering_lingers
+gui off
+wait 200
+# Risen
+cmd tombcurse trigger risen
+wait 6
+shot curse_10_risen_wake
+wait 16
+shot curse_11_risen_whirl
+wait 10
+shot curse_12_risen_burst
+wait 40
+cmd kill @e[type=!player]
+wait 20
+# Collapse
+cmd tombcurse trigger collapse
+wait 6
+shot curse_13_collapse_wake
+wait 18
+shot curse_14_collapse_dust
+wait 10
+shot curse_15_collapse_falls
+wait 20
+shot curse_16_collapse_after
+wait 20
+quit

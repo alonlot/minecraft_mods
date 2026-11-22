@@ -307,7 +307,8 @@ public final class TombCurses {
                     double a = (t * 0.55 + k * 2.094 + i) % (Math.PI * 2.0);
                     double h = level.random.nextDouble() * (0.6 + 1.6 * grow);
                     double r = 0.25 + 0.45 * (1.0 - h / 2.4);
-                    level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.SMOKE, 0xD8C08A, 0.35F, 18),
+                    level.sendParticles(new SpellVfxOptions(k == 0 ? SpellVfxOptions.Kind.SMOKE : SpellVfxOptions.Kind.MOTE,
+                                    k == 0 ? 0xD8C08A : 0xF0D488, k == 0 ? 0.35F : 0.1F, 18),
                             s.getX() + 0.5 + Math.cos(a) * r, s.getY() + h, s.getZ() + 0.5 + Math.sin(a) * r,
                             1, 0.0, 0.0, 0.0, 0.0);
                 }

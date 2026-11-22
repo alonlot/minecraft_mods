@@ -304,7 +304,7 @@ public final class CurseFx {
         switch (e.type) {
             case TRIGGER -> {
                 float open = ease(Math.min(1.0f, age / 8.0f));
-                float alpha = 0.55f * fadeInOut(age, 3.0f, e.life, 12.0f) * (0.85f + 0.15f * Mth.sin(age * 0.6f));
+                float alpha = 0.3f * fadeInOut(age, 3.0f, e.life, 12.0f) * (0.85f + 0.15f * Mth.sin(age * 0.6f));
                 flat(vc, m, e.pos, cam, 2.0f * open, age * 0.02f, r, g, b, alpha, 0.0f, 0.0f, 1.0f, 1.0f, 0.03f);
             }
             case LAND -> {
@@ -383,11 +383,11 @@ public final class CurseFx {
                     Vec3 at = e.pos.add(Math.cos(ang) * cr, 0.0, Math.sin(ang) * cr);
                     float flick = 0.75f + 0.25f * Mth.sin(age * 0.9f + i * 1.7f);
                     int s = (e.sigil + i) % 8;
-                    flat(vc, m, at, cam, 0.32f * open, (float) ang + Mth.HALF_PI, r, g, b, alpha * flick,
+                    sigilFlat(vc, m, at, cam, 0.32f * open, (float) ang + Mth.HALF_PI, r, g, b, alpha * flick,
                             u0(s), v0(s), u0(s) + 0.25f, v0(s) + 0.5f, 0.045f);
                 }
                 // The curse's own sigil, large, in the middle.
-                flat(vc, m, e.pos, cam, 0.7f * open, -spin * 0.5f, r, g, b, alpha,
+                sigilFlat(vc, m, e.pos, cam, 0.7f * open, -spin * 0.5f, r, g, b, alpha,
                         u0(e.sigil), v0(e.sigil), u0(e.sigil) + 0.25f, v0(e.sigil) + 0.5f, 0.05f);
                 // Sigils spiralling up round the victim while the curse gathers.
                 if (age < e.a + 6.0f) {
@@ -402,7 +402,7 @@ public final class CurseFx {
                         double cr = 1.1 - rise * 0.15;
                         float fade = alpha * (1.0f - rise / 2.7f) * Math.min(1.0f, rise * 3.0f);
                         int s = (e.sigil + i * 3) % 8;
-                        billboard(vc, m, centre.add(Math.cos(ang) * cr, rise, Math.sin(ang) * cr), cam, left, up,
+                        sigilBillboard(vc, m, centre.add(Math.cos(ang) * cr, rise, Math.sin(ang) * cr), cam, left, up,
                                 0.28f, r, g, b, fade, u0(s), v0(s), u0(s) + 0.25f, v0(s) + 0.5f);
                     }
                 }
@@ -417,18 +417,18 @@ public final class CurseFx {
                     float size = Mth.lerp(ease(in), 1.4f, 0.55f);
                     float alpha = in * Math.min(1.0f, (e.life - age) / 12.0f) * (0.85f + 0.15f * Mth.sin(age * 0.8f));
                     int s = TombCurse.WITHERING.sigil();
-                    billboard(vc, m, at, cam, left, up, size, r, g, b, alpha, u0(s), v0(s), u0(s) + 0.25f, v0(s) + 0.5f);
+                    sigilBillboard(vc, m, at, cam, left, up, size, r, g, b, alpha, u0(s), v0(s), u0(s) + 0.25f, v0(s) + 0.5f);
                 } else if (e.rgb == TombCurse.RISEN.rgb()) {
                     float t = age / e.life;
                     int s = TombCurse.RISEN.sigil();
-                    billboard(vc, m, e.pos.add(0.0, 1.0 + 1.6 * t, 0.0), cam, left, up, 0.45f, r, g, b, 1.0f - t,
+                    sigilBillboard(vc, m, e.pos.add(0.0, 1.0 + 1.6 * t, 0.0), cam, left, up, 0.45f, r, g, b, 1.0f - t,
                             u0(s), v0(s), u0(s) + 0.25f, v0(s) + 0.5f);
                 }
             }
             case REVEAL -> {
                 float t = age / e.life;
                 float alpha = Math.min(1.0f, age / 4.0f) * (1.0f - t * t);
-                billboard(vc, m, e.pos.add(0.0, 0.25 + 1.2 * ease(t), 0.0), cam, left, up, 0.3f + 0.25f * t, r, g, b,
+                sigilBillboard(vc, m, e.pos.add(0.0, 0.25 + 1.2 * ease(t), 0.0), cam, left, up, 0.3f + 0.25f * t, r, g, b,
                         alpha, u0(e.sigil), v0(e.sigil), u0(e.sigil) + 0.25f, v0(e.sigil) + 0.5f);
             }
             case LIFT -> {
@@ -436,7 +436,7 @@ public final class CurseFx {
                     // Torn up out of the tile, swelling as it comes, shaking with the strain.
                     float t = age / 10.0f;
                     float shake = 0.04f * Mth.sin(age * 3.1f);
-                    billboard(vc, m, e.pos.add(shake, 0.2 + 1.3 * ease(t), 0.0), cam, left, up, 0.35f + 0.55f * t,
+                    sigilBillboard(vc, m, e.pos.add(shake, 0.2 + 1.3 * ease(t), 0.0), cam, left, up, 0.35f + 0.55f * t,
                             r, g, b, 1.0f, u0(e.sigil), v0(e.sigil), u0(e.sigil) + 0.25f, v0(e.sigil) + 0.5f);
                 }
             }
@@ -508,6 +508,20 @@ public final class CurseFx {
 
     private static float v0(int sigil) {
         return (sigil / 4) * 0.5f;
+    }
+
+    /**
+     * The sigils are drawn with the additive glow type, which ignores alpha: a fade has to darken the colour
+     * itself. These scale the colour by the alpha and pass it on.
+     */
+    private static void sigilFlat(VertexConsumer vc, Matrix4f m, Vec3 at, Vec3 cam, float half, float rot,
+                                  float r, float g, float b, float a, float u0, float v0, float u1, float v1, float lift) {
+        flat(vc, m, at, cam, half, rot, r * a, g * a, b * a, a, u0, v0, u1, v1, lift);
+    }
+
+    private static void sigilBillboard(VertexConsumer vc, Matrix4f m, Vec3 at, Vec3 cam, Vector3f left, Vector3f up,
+                                       float size, float r, float g, float b, float a, float u0, float v0, float u1, float v1) {
+        billboard(vc, m, at, cam, left, up, size, r * a, g * a, b * a, a, u0, v0, u1, v1);
     }
 
     /** A quad lying flat over (x, y + lift, z), {@code half} blocks to each side, turned by {@code rot}. */

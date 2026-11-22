@@ -2,7 +2,7 @@
 
     python build_scripts/generate_curse_sigils.py
 
-White on transparent, so the renderer tints each one the colour of its curse, and drawn with a soft
+White on black (premultiplied, alpha too), so the renderer tints each one the colour of its curse, and drawn with a soft
 glow round every line, so under the additive blend (and the mod's bloom pass) a sigil reads as light,
 not as a sticker. Each glyph is drawn at 8x with real strokes, then reduced: at 32 px a hand-placed
 pixel glyph looks like a font, and these should look like fire written in the air.
@@ -110,8 +110,9 @@ def main():
     atlas = Image.new('RGBA', (CELL * 4, CELL * 2), (0, 0, 0, 0))
     for i, fn in enumerate(GLYPHS):
         a = cell(fn)
-        # White light: the alpha is the shape and its glow, the renderer supplies the colour.
-        rgb = Image.merge('RGB', [Image.eval(a, lambda v: 255)] * 3)
+        # White light, premultiplied: the shape is in the colour as well as the alpha. The glow render type
+        # adds colour and ignores alpha, so a texture white everywhere drew every sigil as a solid square.
+        rgb = Image.merge('RGB', [a] * 3)
         tile = Image.merge('RGBA', (*rgb.split(), a))
         atlas.paste(tile, ((i % 4) * CELL, (i // 4) * CELL))
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

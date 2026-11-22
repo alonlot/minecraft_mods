@@ -63,10 +63,12 @@ public class CurseGlyphRenderer implements BlockEntityRenderer<TombMarkerBlockEn
         int i = curse.sigil();
         float u0 = (i % 4) * 0.25f, v0 = (i / 4) * 0.5f, u1 = u0 + 0.25f, v1 = v0 + 0.5f;
         float half = 0.27f;
-        SpellFx.vertex(sig, s, -half, half, 0, u0, v0, r, g, b, flicker);
-        SpellFx.vertex(sig, s, half, half, 0, u1, v0, r, g, b, flicker);
-        SpellFx.vertex(sig, s, half, -half, 0, u1, v1, r, g, b, flicker);
-        SpellFx.vertex(sig, s, -half, -half, 0, u0, v1, r, g, b, flicker);
+        // Additive: the flicker darkens the colour itself (alpha is ignored by this render type).
+        float pr = r * flicker, pg = g * flicker, pb = b * flicker;
+        SpellFx.vertex(sig, s, -half, half, 0, u0, v0, pr, pg, pb, 1.0f);
+        SpellFx.vertex(sig, s, half, half, 0, u1, v0, pr, pg, pb, 1.0f);
+        SpellFx.vertex(sig, s, half, -half, 0, u1, v1, pr, pg, pb, 1.0f);
+        SpellFx.vertex(sig, s, -half, -half, 0, u0, v1, pr, pg, pb, 1.0f);
         pose.popPose();
     }
 }

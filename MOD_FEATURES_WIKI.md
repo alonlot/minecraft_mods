@@ -516,6 +516,9 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Wandmaker's Bench
 
+- Ollivanders-style desk in fine wood with a wall of wand boxes along the back, more boxes on the
+  lower shelf, a phoenix-feather jar and a candle. Turns to face the player who places it.
+- Loaded ingredients float above the desk top.
 - Custom wandcraft workstation.
 - Opens a dedicated GUI.
 - Uses persistent block entity data.
@@ -523,7 +526,9 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Broom Workbench
 
-- Custom broomcraft workstation.
+- Custom broomcraft workstation: a spruce trestle bench with a broom hung on the back board, a
+  spool of binding cord, a bundle of twigs and a vise. Turns to face the player who places it.
+- Loaded ingredients float above the bench top.
 - Opens a dedicated GUI.
 - Stores ingredients persistently.
 - Does not finish crafting by itself.

@@ -785,3 +785,63 @@ def house_banner_block(house):
         pal = {"X": h["acc"], "o": hx("5a5048")}
     sprite(img, EMBLEMS[house], pal, 4, 3)
     return img
+
+
+# ---- workbenches ----------------------------------------------------------------------------------
+
+WAND_BOX_COLORS = ["3a2418", "5a1a22", "1e2a4a", "4a4440", "2a3a2a", "6a4a2a", "222226"]
+
+
+def wand_box_wall():
+    """Ollivanders-style wall of wand-box ends: 4 x 3 px boxes with a pale label, dark gaps."""
+    img = new(16, 16, hx("1a120c"))
+    rng = random.Random("boxwall")
+    for row in range(4):
+        y0 = row * 4
+        off = 2 if row % 2 else 0
+        for col in range(-1, 4):
+            x0 = col * 5 + off
+            c = hx(rng.choice(WAND_BOX_COLORS))
+            for y in range(y0, y0 + 3):
+                for x in range(x0, x0 + 4):
+                    if 0 <= x < 16:
+                        img.putpixel((x, y), shade(c, 1.15 if y == y0 else 1.0))
+            lx = x0 + 1
+            if 0 <= lx < 16:
+                img.putpixel((lx, y0 + 1), hx("d8ccb0"))
+            if 0 <= lx + 1 < 16:
+                img.putpixel((lx + 1, y0 + 1), hx("c8b898"))
+    return img
+
+
+def wand_box(color, seed):
+    """Long side of a slim wand box: dark card with a gold band near one end."""
+    img = new()
+    rng = random.Random(seed)
+    c = hx(color)
+    for y in range(16):
+        for x in range(16):
+            img.putpixel((x, y), shade(c, 1 + rng.uniform(-0.05, 0.05)))
+    for y in range(16):
+        img.putpixel((3, y), hx("c8963c"))
+        img.putpixel((12, y), hx("c8963c"))
+    return img
+
+
+def phoenix_feather():
+    img = new()
+    for y in range(16):
+        for x in range(16):
+            t = y / 15
+            img.putpixel((x, y), mix(hx("ffd040"), hx("c8201a"), t))
+    for y in range(16):
+        img.putpixel((7, y), hx("ffe8a0"))
+    return img
+
+
+def twine_spool():
+    img = new()
+    for y in range(16):
+        for x in range(16):
+            img.putpixel((x, y), hx("c8a870") if (x + y // 2) % 3 else hx("9a7a48"))
+    return img

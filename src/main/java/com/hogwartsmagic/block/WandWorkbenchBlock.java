@@ -4,6 +4,15 @@ import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.entity.WandWorkbenchBlockEntity;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
+import java.util.Map;
+import com.hogwartsmagic.block.decor.DecorShapes;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
@@ -26,11 +35,42 @@ import org.jetbrains.annotations.Nullable;
 public class WandWorkbenchBlock extends BaseEntityBlock {
     public static final MapCodec<WandWorkbenchBlock> CODEC = simpleCodec(WandWorkbenchBlock::new);
 
-    /** Same footprint as enchanting table: full 1×1, 12 px tall. */
-    private static final VoxelShape SHAPE = Block.box(0.0, 0.0, 0.0, 16.0, 12.0, 16.0);
+    /** Desk 13 px high with a shelf of wand boxes along the back, written for FACING north. */
+    private static final Map<Direction, VoxelShape> SHAPES = DecorShapes.allHorizontal(DecorShapes.boxes(
+            new double[]{0, 0, 0, 16, 13, 16},
+            new double[]{0, 13, 13, 16, 20, 16}));
 
     public WandWorkbenchBlock(Properties properties) {
-        super(properties);
+        super(properties.noOcclusion());
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+    }
+
+    public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FACING);
+    }
+
+    /** The front of the bench faces the player who places it. */
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return SHAPES.get(state.getValue(FACING));
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     @Override
@@ -41,11 +81,6 @@ public class WandWorkbenchBlock extends BaseEntityBlock {
     @Override
     protected RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
-    }
-
-    @Override
-    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return SHAPE;
     }
 
     @Override

@@ -31,7 +31,8 @@ public class BroomWorkbenchRenderer implements BlockEntityRenderer<BroomWorkbenc
         float angle = (gameTime + partialTick) * spinSpeed;
 
         pose.pushPose();
-        pose.translate(0.5, 0.74, 0.5);
+        // Just above the 12 px bench top; the bench used to be a full cube that hid the items.
+        pose.translate(0.5, 0.98, 0.5);
 
         ItemStack result = be.getInventory().getStackInSlot(BroomWorkbenchBlockEntity.SLOT_RESULT);
         if (!result.isEmpty()) {

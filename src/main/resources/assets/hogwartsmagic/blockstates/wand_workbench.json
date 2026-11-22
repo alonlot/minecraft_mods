@@ -1,7 +1,19 @@
 {
   "variants": {
-    "": {
+    "facing=north": {
       "model": "hogwartsmagic:block/wand_workbench"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/wand_workbench",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/wand_workbench",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/wand_workbench",
+      "y": 270
     }
   }
 }

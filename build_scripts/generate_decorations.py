@@ -881,6 +881,111 @@ def remakes():
     remake_floo_fireplace()
 
 
+# ---- workbenches ---------------------------------------------------------------------------------
+
+FINE_PLANKS = f"{MOD}:block/planks_fine"
+FINE_LOG = f"{MOD}:block/log_fine"
+
+
+def workbench_textures():
+    save_png(T.wand_box_wall(), "block/decor/wand_box_wall")
+    save_png(T.wand_box("3a2418", "box_a"), "block/decor/wand_box_brown")
+    save_png(T.wand_box("5a1a22", "box_b"), "block/decor/wand_box_red")
+    save_png(T.wand_box("1e2a4a", "box_c"), "block/decor/wand_box_blue")
+    save_png(T.phoenix_feather(), "block/decor/phoenix_feather")
+    save_png(T.twine_spool(), "block/decor/twine")
+
+
+def wand_workbench():
+    """Ollivanders-style desk. Front faces NORTH; the box shelf runs along the back (south). The middle
+    of the top stays clear: WandWorkbenchRenderer floats the ingredients there."""
+    els = []
+    for (x, z) in ((0.5, 0.5), (13, 0.5), (0.5, 13), (13, 13)):
+        els.append(el((x, 0, z), (x + 2.5, 11, z + 2.5), "leg"))
+    els += [
+        el((0, 11, 0), (16, 13, 16), "top"),
+        el((-0.5, 12.5, -0.5), (16.5, 13, 16.5), "top"),
+        el((1, 3, 1), (15, 4, 15), "top"),
+        # Slim wand boxes stacked on the low shelf.
+        el((2, 4, 2.5), (14, 5.5, 5), "box_b", tex_for={"east": "end", "west": "end"}),
+        el((2.5, 4, 5.5), (13.5, 5.5, 8), "box_r", tex_for={"east": "end", "west": "end"}),
+        el((2, 5.5, 3.5), (14, 7, 6), "box_u", tex_for={"east": "end", "west": "end"}),
+        el((3, 4, 10), (15, 5.5, 12.5), "box_r", tex_for={"east": "end", "west": "end"}),
+        # Shelf of wand boxes along the back.
+        el((0, 13, 13), (16, 20, 16), "top", tex_for={"north": "wall"}),
+        el((-0.5, 20, 12.5), (16.5, 21, 16), "top"),
+        # Corner pieces: a jar with a phoenix feather, a candle, a single open box with a wand.
+        el((1, 13, 1), (4.5, 17, 4.5), "glass", faces=("north", "south", "east", "west", "up")),
+        el((1.5, 17, 1.5), (4, 17.5, 4), "leg"),
+        el((2.5, 13, 2.75), (3, 18.5, 2.75), "feather", faces=("north", "south"), shade=False),
+        el((2.75, 13, 2.5), (2.75, 18.5, 3), "feather", faces=("east", "west"), shade=False),
+        el((11, 13, 1.5), (15, 14, 3.5), "box_b", tex_for={"up": "box_r"}),
+        el((11.5, 14, 2.25), (14.5, 14.5, 2.75), "leg"),
+    ]
+    els += candle(13.25, 13, 9, 1.5, 4)
+    model("wand_workbench", {"leg": FINE_LOG, "top": FINE_PLANKS, "wall": D("wand_box_wall"),
+                             "box_b": D("wand_box_brown"), "box_r": D("wand_box_red"), "box_u": D("wand_box_blue"),
+                             "end": D("wand_box_wall"), "glass": D("hourglass_glass"),
+                             "feather": D("phoenix_feather"), "wax": D("candle_wax"), "particle": FINE_PLANKS},
+          els, render_type="translucent")
+    blockstate_facing("wand_workbench")
+    item_from_block("wand_workbench", display=small_gui(0.55))
+
+
+def broom_workbench():
+    """Broommaker's trestle bench. Front faces NORTH; the tool board runs along the back. The middle
+    of the top stays clear: BroomWorkbenchRenderer floats the ingredients there."""
+    els = []
+    for x in (1, 13):
+        els += [
+            el((x, 0, 2), (x + 2, 10, 4), "leg"),
+            el((x, 0, 12), (x + 2, 10, 14), "leg"),
+            el((x, 4, 4), (x + 2, 5.5, 12), "leg"),
+        ]
+    els += [
+        el((0, 10, 1), (16, 12, 15), "top"),
+        el((3, 2, 7), (13, 3.5, 9), "leg"),
+        # A bundle of birch twigs on the stretchers, tied with cord.
+        el((2, 5.5, 5), (14, 8, 9), "straw", tex_for={"east": "twig_end", "west": "twig_end"}),
+        el((7, 5.25, 4.75), (8, 8.25, 9.25), "twine"),
+        # A small vise on the front edge.
+        el((6.5, 9, 0), (9.5, 12, 1), "iron"),
+        el((5.5, 9.75, -0.5), (10.5, 10.25, 0), "iron"),
+        # Tool board along the back, with a twine spool and a broom head hanging from it.
+        el((0, 12, 13.5), (16, 21, 15), "top"),
+        el((-0.5, 21, 13), (16.5, 22, 15.5), "top"),
+        el((2, 12, 10), (5, 15, 13), "twine", tex_for={"up": "top", "down": "top"}),
+        el((3, 15, 11), (4, 16, 12), "top"),
+        # A finished broom hung across the board on two pegs.
+        el((3, 17.5, 12), (4, 18.5, 13.5), "leg"),
+        el((9, 17.5, 12), (10, 18.5, 13.5), "leg"),
+        el((0.5, 18.5, 12.25), (12, 19.5, 13.25), "handle"),
+        el((12, 17.5, 11.75), (13.5, 20.5, 13.5), "twine"),
+        el((13.5, 16.5, 11.25), (17.5, 21.5, 13.75), "straw", tex_for={"east": "twig_end"}),
+    ]
+    model("broom_workbench", {"leg": V("stripped_spruce_log"), "top": V("spruce_planks"),
+                              "straw": D("broom_straw"), "twig_end": V("birch_log_top"), "twine": D("twine"),
+                              "handle": V("stripped_oak_log"),
+                              "iron": D("iron"), "particle": V("spruce_planks")}, els)
+    blockstate_facing("broom_workbench")
+    # Keep the hand/ground transforms the item model already had; only the gui scale changes.
+    item_from_block("broom_workbench", display={
+        "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.375, 0.375, 0.375]},
+        "thirdperson_lefthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.375, 0.375, 0.375]},
+        "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, 0, 0], "scale": [0.4, 0.4, 0.4]},
+        "firstperson_lefthand": {"rotation": [0, 225, 0], "translation": [0, 0, 0], "scale": [0.4, 0.4, 0.4]},
+        "gui": {"rotation": [30, 225, 0], "translation": [0, -1, 0], "scale": [0.55, 0.55, 0.55]},
+        "ground": {"translation": [0, 3, 0], "scale": [0.25, 0.25, 0.25]},
+        "fixed": {"rotation": [0, 180, 0], "translation": [0, 0, 0], "scale": [0.5, 0.5, 0.5]},
+    })
+
+
+def workbenches():
+    workbench_textures()
+    wand_workbench()
+    broom_workbench()
+
+
 def main():
     make_textures()
     floating_candle()
@@ -898,6 +1003,7 @@ def main():
     furniture()
     moving_portrait_fix()
     remakes()
+    workbenches()
     data()
     print(f"wrote {len(written)} files")
 

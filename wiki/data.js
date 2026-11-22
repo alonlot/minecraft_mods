@@ -207,8 +207,8 @@ const WIKI_DATA = {
     { id: "horcrux-soul", name: "Horcrux Soul", icon: "HX", role: "Ritual Entity", threat: "ritual", habitat: "Horcrux death and rebirth sequences", summary: "Soul apparition used during Horcrux rebirth sequences.", features: ["Travels toward a ritual target", "Carries display gear state", "Triggers ritual arrival logic"], detail: "A pure ritual delivery entity that exists to sell the Horcrux fantasy." }
   ],
   blocks: [
-    { name: "Wandmaker's Bench", kind: "Workbench", summary: "Custom station for advanced wand crafting.", features: ["Dedicated GUI", "Persistent block entity", "Crafts real core-based wands"] },
-    { name: "Broom Workbench", kind: "Workbench", summary: "Persistent broomcraft station completed by Alatus.", features: ["Stores ingredients persistently", "Requires Alatus to finish crafting", "Supports multiple broom tiers"] },
+    { name: "Wandmaker's Bench", kind: "Workbench", summary: "Ollivanders-style fine-wood desk with a wall of wand boxes, for advanced wand crafting.", features: ["Dedicated GUI", "Persistent block entity", "Crafts real core-based wands"] },
+    { name: "Broom Workbench", kind: "Workbench", summary: "Broommaker's trestle bench with a broom on the back board; crafting is completed by Alatus.", features: ["Stores ingredients persistently", "Requires Alatus to finish crafting", "Supports multiple broom tiers"] },
     { name: "Ward", kind: "Magic Block", summary: "Anchor block for Cave Inimicum illusions and Protego Maxima barriers.", features: ["Configurable size", "Outline preview", "Can activate prepared modes", "Barrier visuals when shielded"] },
     { name: "Horcrux", kind: "Ritual Block", summary: "Forbidden altar for dark soul-binding rituals.", features: ["Primed and active states", "Status messages", "Can punish hostile destruction by spawning a Dementor"] },
     { name: "Floo Fireplace", kind: "Travel Block", summary: "Stone fireplace used for Floo travel: orange fire at rest, green fire while travelling.", features: ["Stores links and names", "Activates from dropped Floo Powder", "Opens travel selection UI"] },

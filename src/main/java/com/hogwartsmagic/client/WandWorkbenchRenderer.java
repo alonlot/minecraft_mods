@@ -33,7 +33,8 @@ public class WandWorkbenchRenderer implements BlockEntityRenderer<WandWorkbenchB
         float windWobbleZ = crafting ? Mth.cos((gameTime + partialTick) * 0.21f) * 0.03f : 0f;
 
         pose.pushPose();
-        pose.translate(0.5 + windWobble, 0.78, 0.5 + windWobbleZ);
+        // Just above the 13 px desk top, so the floating ingredients are not half inside the desk.
+        pose.translate(0.5 + windWobble, 1.06, 0.5 + windWobbleZ);
 
         ItemStack result = be.getInventory().getStackInSlot(WandWorkbenchBlockEntity.SLOT_RESULT);
         if (!result.isEmpty()) {

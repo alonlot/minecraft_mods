@@ -198,9 +198,11 @@ public final class MiniHogwartsGameTests {
         for (int cx = -radius; cx <= radius; cx++) {
             for (int cz = -radius; cz <= radius; cz++) {
                 var c = new net.minecraft.world.level.ChunkPos(centre.x + cx, centre.z + cz);
-                level.setChunkForced(c.x, c.z, true);
+                if (!level.getForcedChunks().contains(c.toLong())) {   // release only what this test forced
+                    level.setChunkForced(c.x, c.z, true);
+                    forced.add(c);
+                }
                 level.getChunk(c.x, c.z); // a test, not a tick path: load it now so the placement sees it
-                forced.add(c);
             }
         }
         return forced;

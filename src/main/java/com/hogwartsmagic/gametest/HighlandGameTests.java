@@ -122,12 +122,19 @@ public final class HighlandGameTests {
         helper.assertTrue(size.getX() > 40 && size.getZ() > 40,
                 "the encampment template should load at full size, got " + size);
         net.minecraft.core.BlockPos origin = helper.absolutePos(net.minecraft.core.BlockPos.ZERO).atY(160);
+        // Only the chunks this test forces itself are released at the end: forcing is a flag, not a count, and
+        // the template reaches over the chunks of the tests beside it, which the framework has forced for them.
+        // Releasing those stopped their block entities ticking (a neighbour's cauldron never simmered).
+        java.util.List<net.minecraft.world.level.ChunkPos> ours = new java.util.ArrayList<>();
         for (int cx = origin.getX() >> 4; cx <= (origin.getX() + size.getX()) >> 4; cx++) {
             for (int cz = origin.getZ() >> 4; cz <= (origin.getZ() + size.getZ()) >> 4; cz++) {
                 // Forced, not just loaded: a loaded chunk with no player near it does not tick its
                 // entities, and giants that never tick never pick a target, so the test would pass
                 // with any targeting at all.
-                level.setChunkForced(cx, cz, true);
+                if (!level.getForcedChunks().contains(net.minecraft.world.level.ChunkPos.asLong(cx, cz))) {
+                    level.setChunkForced(cx, cz, true);
+                    ours.add(new net.minecraft.world.level.ChunkPos(cx, cz));
+                }
             }
         }
         // Placed a few ticks after the force: a forced chunk becomes entity-visible a tick or two later,
@@ -153,10 +160,8 @@ public final class HighlandGameTests {
                         e -> !(e instanceof net.minecraft.world.entity.player.Player)).forEach(e -> e.discard());
                 net.minecraft.core.BlockPos.betweenClosed(origin, origin.offset(size).offset(-1, -1, -1))
                         .forEach(p -> level.setBlock(p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2 | 16));
-                for (int cx = origin.getX() >> 4; cx <= (origin.getX() + size.getX()) >> 4; cx++) {
-                    for (int cz = origin.getZ() >> 4; cz <= (origin.getZ() + size.getZ()) >> 4; cz++) {
-                        level.setChunkForced(cx, cz, false);
-                    }
+                for (net.minecraft.world.level.ChunkPos c : ours) {
+                    level.setChunkForced(c.x, c.z, false);
                 }
                 helper.assertTrue(ticked, "the giants did not tick, so this test proves nothing");
                 helper.assertFalse(hunting, "a giant is hunting a troll");

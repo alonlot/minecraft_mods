@@ -712,8 +712,10 @@ public final class PensieveGameTests {
             for (int cz = -1; cz <= 1; cz++) {
                 net.minecraft.world.level.ChunkPos c = new net.minecraft.world.level.ChunkPos(
                         (slotOrigin.getX() >> 4) + cx, (slotOrigin.getZ() >> 4) + cz);
-                helper.getLevel().setChunkForced(c.x, c.z, true);
-                forced.add(c);
+                if (!helper.getLevel().getForcedChunks().contains(c.toLong())) {   // release only what we forced
+                    helper.getLevel().setChunkForced(c.x, c.z, true);
+                    forced.add(c);
+                }
             }
         }
         java.util.concurrent.atomic.AtomicReference<BlockPos> origin = new java.util.concurrent.atomic.AtomicReference<>();

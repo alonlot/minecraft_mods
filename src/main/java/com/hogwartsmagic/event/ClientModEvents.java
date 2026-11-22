@@ -1248,6 +1248,7 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.CAVE_BOAT.get(),
                 com.hogwartsmagic.client.renderer.CaveBoatRenderer::new);
         event.registerEntityRenderer(ModEntities.BROOM.get(), BroomRenderer::new);
+        event.registerEntityRenderer(ModEntities.SEAT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
         event.registerEntityRenderer(ModEntities.WIZARD.get(), WizardRenderer::new);
         event.registerEntityRenderer(ModEntities.VOLDEMORT.get(), com.hogwartsmagic.client.VoldemortRenderer::new);
         event.registerEntityRenderer(ModEntities.STUDENT.get(), StudentRenderer::new);

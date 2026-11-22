@@ -854,6 +854,9 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Wandmaker's Bench
 
+- Ollivanders-style desk in fine wood with a wall of wand boxes along the back, more boxes on the
+  lower shelf, a phoenix-feather jar and a candle. Turns to face the player who places it.
+- Loaded ingredients float above the desk top.
 - Custom wandcraft workstation.
 - Opens a dedicated GUI.
 - Uses persistent block entity data.
@@ -861,7 +864,9 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Broom Workbench
 
-- Custom broomcraft workstation.
+- Custom broomcraft workstation: a spruce trestle bench with a broom hung on the back board, a
+  spool of binding cord, a bundle of twigs and a vise. Turns to face the player who places it.
+- Loaded ingredients float above the bench top.
 - Opens a dedicated GUI.
 - Stores ingredients persistently.
 - Does not finish crafting by itself.
@@ -888,7 +893,8 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Floo Fireplace
 
-- Magical fireplace block.
+- Stone fireplace with a mantel, a pot of Floo powder and two candles. About two blocks tall.
+- Orange fire when idle, green fire while a journey is active, cold logs when unlit.
 - Always kept lit server-side.
 - Stores a name.
 - Stores linked destination fireplaces.
@@ -898,7 +904,7 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Owl Perch
 
-- Named owl-mail station.
+- Named owl-mail station: a T-shaped perch on a stand.
 - Stores one item.
 - Links to another perch.
 - Automatically dispatches a valid tamed owl if one is nearby and available.
@@ -907,17 +913,18 @@ Each spell below lists the implemented gameplay behavior currently present in th
 ### Moving Portrait
 
 - Decorative portrait block.
-- Directional placement.
+- Thin frame that hangs on the wall you click (clicking a floor turns it toward you).
+- Animated painting: the wizard blinks, glances aside and waves now and then.
 - Uses magical ambient particles for a living-painting feel.
 
 ### Candle Cluster
 
-- Decorative candle block.
+- Five candles of different heights on a brass dish, each with a flame.
 - Emits ambient magical flame particles.
 
 ### Enchanted Book Pile
 
-- Decorative magical book-stack block.
+- Leaning stack of leather books with an open book on top.
 - Emits ambient particles.
 
 ### Wizard Cauldron
@@ -1018,7 +1025,61 @@ Uses:
 - Hufflepuff Banner.
 - Slytherin Banner.
 
-These are decorative house-themed blocks.
+These are decorative house-themed wool building blocks. They carry the same emblems as the
+hanging banners and crest plaques.
+
+### Hogwarts Decorations
+
+All decorations are in the mod creative tab and have crafting recipes. Most of them turn to face the
+player who places them. Wall pieces hang on the wall you click and need a solid wall face behind
+them; they drop when the wall goes.
+
+Great Hall:
+
+- Floating Candles: three lit candles that hover in mid-air. No support, no collision, light 14.
+- Hanging House Banners (Gryffindor, Ravenclaw, Hufflepuff, Slytherin): two blocks high, hang on a
+  wall, need a free block above where you click. Breaking either half drops one banner.
+- House Points Hourglasses (one per house): rubies, sapphires, yellow diamonds and emeralds. Light 5.
+
+Common room:
+
+- School Trunk: holds 27 stacks like a chest, drops its contents when broken, gives a comparator signal.
+- Owl Cage: brass cage with a snowy owl.
+- Wizard Chess Board: a game in progress.
+- House Crest Plaques (one per house): wall shields with the house animal.
+
+Classroom and library:
+
+- Potion Shelf (wall): four potion bottles on a dark wood shelf.
+- Brass Telescope: on a tripod, aimed up at the sky.
+- Scrolls and Quill: rolled scrolls, an open page, an inkwell and a quill.
+
+Quidditch:
+
+- Quidditch Hoop Pole and Quidditch Hoop: stack poles as high as you like and put a hoop on top. The
+  ring is wider than one block and has no collision outside the centre block.
+- Broom Rack (wall): two brooms on pegs.
+- Quidditch Cup: gold trophy on a dark wood base.
+
+Furniture:
+
+- Wizard Table: tables next to each other join into one long top. Legs show only at the open corners.
+- Wizard Chair, Great Hall Bench, Common Room Armchair: right click to sit (sneak and right click to
+  place a block against them instead). Sneak to stand up.
+- Writing Desk: desk with an open book, inkwell, quill and parchment.
+
+Where they appear in the world:
+
+- Diagon Alley: broom racks, a Quidditch hoop and the Cup in the broom shops, potion shelves in the
+  apothecaries, cauldrons at Potage's, owl cages at Eeylops and the Magical Menagerie, desks and scrolls
+  at Flourish and Blotts and Scribbulus, telescopes and trunks at Wiseacres, cafe tables at Fortescue's,
+  chess boards at the joke shops, and a customer chair at Ollivanders. `generate_diagon_alley.py` puts
+  them in as its last step (`furnish_diagon_alley.py`, which finds each shop from its keeper).
+- Mini Hogwarts has its own furnished Great Hall (house tables, benches, banners, floating candles); none
+  of these decorations are placed there yet.
+
+Assets come from `build_scripts/generate_decorations.py` (textures in `build_scripts/decor_textures.py`).
+Change the script and run it again rather than editing the generated JSON or PNG files.
 
 ### Patronus Light Block
 

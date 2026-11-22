@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "hogwartsmagic:block/school_trunk"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/school_trunk",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/school_trunk",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/school_trunk",
+      "y": 270
+    }
+  }
+}

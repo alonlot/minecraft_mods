@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "hogwartsmagic:block/scroll_stack"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/scroll_stack",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/scroll_stack",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/scroll_stack",
+      "y": 270
+    }
+  }
+}

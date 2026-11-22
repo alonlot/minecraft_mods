@@ -1,0 +1,96 @@
+{
+  "parent": "block/block",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "wood": "minecraft:block/dark_oak_planks",
+    "shield": "hogwartsmagic:block/decor/gryffindor_crest",
+    "particle": "hogwartsmagic:block/decor/gryffindor_crest"
+  },
+  "elements": [
+    {
+      "from": [
+        1,
+        0,
+        15
+      ],
+      "to": [
+        15,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood"
+        },
+        "south": {
+          "texture": "#wood"
+        },
+        "east": {
+          "texture": "#wood"
+        },
+        "west": {
+          "texture": "#wood"
+        },
+        "up": {
+          "texture": "#wood"
+        },
+        "down": {
+          "texture": "#wood"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        1,
+        14
+      ],
+      "to": [
+        14,
+        15,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#shield"
+        },
+        "east": {
+          "texture": "#shield",
+          "uv": [
+            2,
+            2,
+            3,
+            8
+          ]
+        },
+        "west": {
+          "texture": "#shield",
+          "uv": [
+            2,
+            2,
+            3,
+            8
+          ]
+        },
+        "up": {
+          "texture": "#shield",
+          "uv": [
+            3,
+            1,
+            13,
+            2
+          ]
+        },
+        "down": {
+          "texture": "#shield",
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ]
+        }
+      }
+    }
+  ]
+}

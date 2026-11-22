@@ -10,6 +10,11 @@
     "hogwartsmagic:gringotts_gate",
     "hogwartsmagic:hieroglyph_sandstone",
     "hogwartsmagic:cursed_glyph",
-    "hogwartsmagic:concealed_sandstone"
+    "hogwartsmagic:concealed_sandstone",
+    "hogwartsmagic:owl_cage",
+    "hogwartsmagic:brass_telescope",
+    "hogwartsmagic:quidditch_hoop_pole",
+    "hogwartsmagic:quidditch_hoop",
+    "hogwartsmagic:quidditch_cup"
   ]
 }

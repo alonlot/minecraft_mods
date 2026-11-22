@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    {
+      "item": "minecraft:candle"
+    },
+    {
+      "item": "minecraft:candle"
+    },
+    {
+      "item": "minecraft:candle"
+    },
+    {
+      "item": "hogwartsmagic:arcane_dust"
+    }
+  ],
+  "result": {
+    "id": "hogwartsmagic:floating_candle",
+    "count": 1
+  }
+}

@@ -1,31 +1,192 @@
 {
   "parent": "block/block",
   "textures": {
-    "particle": "hogwartsmagic:block/enchanted_book_pile",
-    "texture": "hogwartsmagic:block/enchanted_book_pile"
+    "open": "hogwartsmagic:block/decor/open_book",
+    "pages": "hogwartsmagic:block/decor/book_pages_green",
+    "particle": "hogwartsmagic:block/decor/book_cover_red",
+    "c_red": "hogwartsmagic:block/decor/book_cover_red",
+    "p_red": "hogwartsmagic:block/decor/book_pages_red",
+    "s_red": "hogwartsmagic:block/decor/book_spine_red",
+    "c_blue": "hogwartsmagic:block/decor/book_cover_blue",
+    "p_blue": "hogwartsmagic:block/decor/book_pages_blue",
+    "s_blue": "hogwartsmagic:block/decor/book_spine_blue",
+    "c_green": "hogwartsmagic:block/decor/book_cover_green",
+    "p_green": "hogwartsmagic:block/decor/book_pages_green",
+    "s_green": "hogwartsmagic:block/decor/book_spine_green"
   },
   "elements": [
     {
-      "from": [2, 0, 3],
-      "to": [14, 4, 13],
+      "from": [
+        2,
+        0,
+        3
+      ],
+      "to": [
+        14,
+        4,
+        13
+      ],
       "faces": {
-        "north": { "uv": [2, 12, 14, 16], "texture": "#texture" },
-        "south": { "uv": [2, 12, 14, 16], "texture": "#texture" },
-        "west": { "uv": [3, 12, 13, 16], "texture": "#texture" },
-        "east": { "uv": [3, 12, 13, 16], "texture": "#texture" },
-        "up": { "uv": [2, 3, 14, 13], "texture": "#texture" },
-        "down": { "uv": [2, 3, 14, 13], "texture": "#texture" }
+        "north": {
+          "texture": "#p_red",
+          "uv": [
+            0,
+            6,
+            12,
+            10
+          ]
+        },
+        "south": {
+          "texture": "#p_red",
+          "uv": [
+            0,
+            6,
+            12,
+            10
+          ]
+        },
+        "east": {
+          "texture": "#p_red",
+          "uv": [
+            0,
+            6,
+            10,
+            10
+          ]
+        },
+        "west": {
+          "texture": "#s_red"
+        },
+        "up": {
+          "texture": "#c_red"
+        },
+        "down": {
+          "texture": "#c_red"
+        }
       }
     },
     {
-      "from": [4, 4, 4],
-      "to": [12, 8, 12],
+      "from": [
+        3,
+        4,
+        3.5
+      ],
+      "to": [
+        13,
+        8,
+        12.5
+      ],
       "faces": {
-        "north": { "uv": [4, 8, 12, 12], "texture": "#texture" },
-        "south": { "uv": [4, 8, 12, 12], "texture": "#texture" },
-        "west": { "uv": [4, 8, 12, 12], "texture": "#texture" },
-        "east": { "uv": [4, 8, 12, 12], "texture": "#texture" },
-        "up": { "uv": [4, 4, 12, 12], "texture": "#texture" }
+        "north": {
+          "texture": "#p_blue",
+          "uv": [
+            0,
+            6,
+            10,
+            10
+          ]
+        },
+        "south": {
+          "texture": "#p_blue",
+          "uv": [
+            0,
+            6,
+            10,
+            10
+          ]
+        },
+        "east": {
+          "texture": "#p_blue",
+          "uv": [
+            0,
+            6,
+            9.0,
+            10
+          ]
+        },
+        "west": {
+          "texture": "#s_blue"
+        },
+        "up": {
+          "texture": "#c_blue"
+        },
+        "down": {
+          "texture": "#c_blue"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          4,
+          8
+        ],
+        "axis": "y",
+        "angle": 22.5
+      }
+    },
+    {
+      "from": [
+        3,
+        8,
+        4.5
+      ],
+      "to": [
+        13,
+        9,
+        11.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#pages",
+          "uv": [
+            0,
+            6,
+            10,
+            7
+          ]
+        },
+        "south": {
+          "texture": "#pages",
+          "uv": [
+            0,
+            6,
+            10,
+            7
+          ]
+        },
+        "east": {
+          "texture": "#pages",
+          "uv": [
+            0,
+            6,
+            7,
+            7
+          ]
+        },
+        "west": {
+          "texture": "#pages",
+          "uv": [
+            0,
+            6,
+            7,
+            7
+          ]
+        },
+        "up": {
+          "texture": "#open"
+        },
+        "down": {
+          "texture": "#pages"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          8
+        ],
+        "axis": "y",
+        "angle": -22.5
       }
     }
   ]

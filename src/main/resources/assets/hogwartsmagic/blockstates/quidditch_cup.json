@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "hogwartsmagic:block/quidditch_cup"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/quidditch_cup",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/quidditch_cup",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/quidditch_cup",
+      "y": 270
+    }
+  }
+}

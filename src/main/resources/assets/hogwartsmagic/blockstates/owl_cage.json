@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "hogwartsmagic:block/owl_cage"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/owl_cage",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/owl_cage",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/owl_cage",
+      "y": 270
+    }
+  }
+}

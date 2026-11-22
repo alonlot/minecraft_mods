@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "hogwartsmagic:block/broom_rack"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/broom_rack",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/broom_rack",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/broom_rack",
+      "y": 270
+    }
+  }
+}

@@ -1,20 +1,76 @@
 {
-  "parent": "minecraft:block/block",
+  "parent": "block/block",
   "textures": {
-    "particle": "hogwartsmagic:block/moving_portrait",
-    "all": "hogwartsmagic:block/moving_portrait"
+    "art": "hogwartsmagic:block/moving_portrait",
+    "particle": "hogwartsmagic:block/moving_portrait"
   },
   "elements": [
     {
-      "from": [1, 1, 14],
-      "to": [15, 15, 16],
+      "from": [
+        1,
+        1,
+        14
+      ],
+      "to": [
+        15,
+        15,
+        16
+      ],
       "faces": {
-        "north": { "uv": [0, 0, 16, 16], "texture": "#all" },
-        "south": { "uv": [0, 0, 16, 16], "texture": "#all", "cullface": "south" },
-        "east": { "uv": [14, 0, 16, 16], "texture": "#all" },
-        "west": { "uv": [0, 0, 2, 16], "texture": "#all" },
-        "up": { "uv": [0, 0, 16, 2], "texture": "#all" },
-        "down": { "uv": [0, 14, 16, 16], "texture": "#all" }
+        "north": {
+          "texture": "#art",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#art",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#art",
+          "uv": [
+            0,
+            0,
+            1,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#art",
+          "uv": [
+            0,
+            0,
+            1,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#art",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ]
+        },
+        "down": {
+          "texture": "#art",
+          "uv": [
+            0,
+            15,
+            16,
+            16
+          ]
+        }
       }
     }
   ]

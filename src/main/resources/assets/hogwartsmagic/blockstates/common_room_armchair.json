@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "hogwartsmagic:block/common_room_armchair"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/common_room_armchair",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/common_room_armchair",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/common_room_armchair",
+      "y": 270
+    }
+  }
+}

@@ -1,34 +1,30 @@
 {
   "variants": {
-    "facing=north,lit=true,signal_fire=false,waterlogged=false": {
-      "model": "hogwartsmagic:block/floo_fireplace_active"
-    },
-    "facing=north,lit=true,signal_fire=false,waterlogged=true": {
+    "facing=north,lit=true,signal_fire=true,waterlogged=true": {
       "model": "hogwartsmagic:block/floo_fireplace_active"
     },
     "facing=north,lit=true,signal_fire=true,waterlogged=false": {
       "model": "hogwartsmagic:block/floo_fireplace_active"
     },
-    "facing=north,lit=true,signal_fire=true,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace_active"
-    },
-    "facing=north,lit=false,signal_fire=false,waterlogged=false": {
+    "facing=north,lit=true,signal_fire=false,waterlogged=true": {
       "model": "hogwartsmagic:block/floo_fireplace"
     },
-    "facing=north,lit=false,signal_fire=false,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace"
-    },
-    "facing=north,lit=false,signal_fire=true,waterlogged=false": {
+    "facing=north,lit=true,signal_fire=false,waterlogged=false": {
       "model": "hogwartsmagic:block/floo_fireplace"
     },
     "facing=north,lit=false,signal_fire=true,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace"
+      "model": "hogwartsmagic:block/floo_fireplace_unlit"
     },
-    "facing=east,lit=true,signal_fire=false,waterlogged=false": {
-      "model": "hogwartsmagic:block/floo_fireplace_active",
-      "y": 90
+    "facing=north,lit=false,signal_fire=true,waterlogged=false": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit"
     },
-    "facing=east,lit=true,signal_fire=false,waterlogged=true": {
+    "facing=north,lit=false,signal_fire=false,waterlogged=true": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit"
+    },
+    "facing=north,lit=false,signal_fire=false,waterlogged=false": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit"
+    },
+    "facing=east,lit=true,signal_fire=true,waterlogged=true": {
       "model": "hogwartsmagic:block/floo_fireplace_active",
       "y": 90
     },
@@ -36,31 +32,31 @@
       "model": "hogwartsmagic:block/floo_fireplace_active",
       "y": 90
     },
-    "facing=east,lit=true,signal_fire=true,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace_active",
-      "y": 90
-    },
-    "facing=east,lit=false,signal_fire=false,waterlogged=false": {
+    "facing=east,lit=true,signal_fire=false,waterlogged=true": {
       "model": "hogwartsmagic:block/floo_fireplace",
       "y": 90
     },
-    "facing=east,lit=false,signal_fire=false,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace",
-      "y": 90
-    },
-    "facing=east,lit=false,signal_fire=true,waterlogged=false": {
+    "facing=east,lit=true,signal_fire=false,waterlogged=false": {
       "model": "hogwartsmagic:block/floo_fireplace",
       "y": 90
     },
     "facing=east,lit=false,signal_fire=true,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace",
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
       "y": 90
     },
-    "facing=south,lit=true,signal_fire=false,waterlogged=false": {
-      "model": "hogwartsmagic:block/floo_fireplace_active",
-      "y": 180
+    "facing=east,lit=false,signal_fire=true,waterlogged=false": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
+      "y": 90
     },
-    "facing=south,lit=true,signal_fire=false,waterlogged=true": {
+    "facing=east,lit=false,signal_fire=false,waterlogged=true": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
+      "y": 90
+    },
+    "facing=east,lit=false,signal_fire=false,waterlogged=false": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
+      "y": 90
+    },
+    "facing=south,lit=true,signal_fire=true,waterlogged=true": {
       "model": "hogwartsmagic:block/floo_fireplace_active",
       "y": 180
     },
@@ -68,31 +64,31 @@
       "model": "hogwartsmagic:block/floo_fireplace_active",
       "y": 180
     },
-    "facing=south,lit=true,signal_fire=true,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace_active",
-      "y": 180
-    },
-    "facing=south,lit=false,signal_fire=false,waterlogged=false": {
+    "facing=south,lit=true,signal_fire=false,waterlogged=true": {
       "model": "hogwartsmagic:block/floo_fireplace",
       "y": 180
     },
-    "facing=south,lit=false,signal_fire=false,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace",
-      "y": 180
-    },
-    "facing=south,lit=false,signal_fire=true,waterlogged=false": {
+    "facing=south,lit=true,signal_fire=false,waterlogged=false": {
       "model": "hogwartsmagic:block/floo_fireplace",
       "y": 180
     },
     "facing=south,lit=false,signal_fire=true,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace",
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
       "y": 180
     },
-    "facing=west,lit=true,signal_fire=false,waterlogged=false": {
-      "model": "hogwartsmagic:block/floo_fireplace_active",
-      "y": 270
+    "facing=south,lit=false,signal_fire=true,waterlogged=false": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
+      "y": 180
     },
-    "facing=west,lit=true,signal_fire=false,waterlogged=true": {
+    "facing=south,lit=false,signal_fire=false,waterlogged=true": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
+      "y": 180
+    },
+    "facing=south,lit=false,signal_fire=false,waterlogged=false": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
+      "y": 180
+    },
+    "facing=west,lit=true,signal_fire=true,waterlogged=true": {
       "model": "hogwartsmagic:block/floo_fireplace_active",
       "y": 270
     },
@@ -100,24 +96,28 @@
       "model": "hogwartsmagic:block/floo_fireplace_active",
       "y": 270
     },
-    "facing=west,lit=true,signal_fire=true,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace_active",
-      "y": 270
-    },
-    "facing=west,lit=false,signal_fire=false,waterlogged=false": {
+    "facing=west,lit=true,signal_fire=false,waterlogged=true": {
       "model": "hogwartsmagic:block/floo_fireplace",
       "y": 270
     },
-    "facing=west,lit=false,signal_fire=false,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace",
-      "y": 270
-    },
-    "facing=west,lit=false,signal_fire=true,waterlogged=false": {
+    "facing=west,lit=true,signal_fire=false,waterlogged=false": {
       "model": "hogwartsmagic:block/floo_fireplace",
       "y": 270
     },
     "facing=west,lit=false,signal_fire=true,waterlogged=true": {
-      "model": "hogwartsmagic:block/floo_fireplace",
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
+      "y": 270
+    },
+    "facing=west,lit=false,signal_fire=true,waterlogged=false": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
+      "y": 270
+    },
+    "facing=west,lit=false,signal_fire=false,waterlogged=true": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
+      "y": 270
+    },
+    "facing=west,lit=false,signal_fire=false,waterlogged=false": {
+      "model": "hogwartsmagic:block/floo_fireplace_unlit",
       "y": 270
     }
   }

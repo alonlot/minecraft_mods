@@ -2,6 +2,9 @@
 
     python build_scripts/generate_diagon_alley.py
 
+The last step furnishes the shops with the mod's decorations (furnish_diagon_alley.py), so the
+template written here is the finished street.
+
 Why this is Python and not Java
 -------------------------------
 The old Diagon Alley was 1,600 lines of Java that wrote blocks straight into the world. It was
@@ -1615,6 +1618,10 @@ if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, 'diagon_alley.nbt')
     write_nbt(path, build_template(blocks, entities))
+    # Decorations go in last, into the written template: furnish_diagon_alley finds each shop from its
+    # keeper and fills only air, so the street above is unchanged by it.
+    import furnish_diagon_alley
+    furnish_diagon_alley.furnish_file(path, quiet=True)
 
     print('diagon_alley  %dx%dx%d  %d blocks  %d entities  %d bytes  (shift %s)'
           % (size[0], size[1], size[2], len(blocks), len(entities),

@@ -1,5 +1,7 @@
 {
   "variants": {
-    "": { "model": "hogwartsmagic:block/candle_cluster" }
+    "": {
+      "model": "hogwartsmagic:block/candle_cluster"
+    }
   }
 }

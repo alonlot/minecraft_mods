@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "hogwartsmagic:block/quidditch_hoop_pole"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/quidditch_hoop_pole",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/quidditch_hoop_pole",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/quidditch_hoop_pole",
+      "y": 270
+    }
+  }
+}

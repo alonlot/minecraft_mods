@@ -671,8 +671,8 @@ Furniture:
 
 Where they appear in the world:
 
-- Mini Hogwarts, Great Hall: the four house tables are Wizard Tables with Great Hall Benches on both
-  sides, Floating Candles hang over the hall, House Banners hang on the long walls and the four House
+- Mini Hogwarts, Great Hall: the four house tables are long joined Wizard Tables, Floating Candles
+  hang high under the roof, House Banners hang on the long walls and the four House
   Points Hourglasses stand on the staff dais. The library building has desks, scrolls, book piles,
   candles and trunks, and the top of the north tower has brass telescopes.
 - Diagon Alley: broom racks, a Quidditch hoop and the Cup in the broom shops, potion shelves in the

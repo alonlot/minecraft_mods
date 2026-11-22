@@ -11,9 +11,11 @@ The staff dais is the north-east end. Everything below is found from the castle'
 typed in as coordinates, so a mistake shows up as "found 0" rather than as a bench inside a wall.
 
 What goes in:
-  - the house tables become Wizard Tables (dark wood, legs), same cells as the planks;
-  - Great Hall Benches on both sides of every table, facing it;
-  - Floating Candles in a loose grid about seven blocks above the floor;
+  - the house tables become Wizard Tables: each diagonal line is filled out into a stepped band, so
+    the tables join into four long tables with legs only at the open corners;
+  - no benches by default (--layout benches adds them in the wider gaps; rendered, they blurred the
+    four tables into one dark mass, so they are left out);
+  - Floating Candles in a loose grid high under the roof, ten blocks above the floor;
   - Hanging House Banners on the long walls, only where a full cobblestone block is behind both
     halves (cobblestone walls and glass are not sturdy enough to hang on);
   - the four House Points Hourglasses on the dais, across the far end.
@@ -37,7 +39,11 @@ FLOOR_Y = 37            # the cell a person stands in (the hall floor block is y
 SEED = (56, 38, 44)     # an air cell in the middle of the hall, one above the floor
 TABLE_LINES = (94, 97, 101, 104)
 DAIS_FROM = 30          # x - z at or beyond this is the staff dais, short of it the hall floor
-CANDLE_Y = 44
+CANDLE_Y = 47          # the roof is at y = 50-51 over most of the hall
+# Which side of each table line its band grows on (+1: toward x + z + 1). The gaps between the lines
+# are 2, 3 and 2 cells; growing apart leaves 2, 1 and 2, so the middle gap is the aisle.
+BAND_SIDE = {94: -1, 97: +1, 101: -1, 104: +1}
+BENCH_ROWS = (92, 95, 96, 102, 103, 106)
 AIRS = ('minecraft:air', 'minecraft:cave_air', 'minecraft:void_air')
 
 
@@ -111,36 +117,50 @@ def hall_footprint(sc, y=SEED[1]):
     return seen
 
 
-def furnish(sc):
+def furnish(sc, layout='bare'):
     hall = hall_footprint(sc)
     report = {'hall cells': len(hall)}
     y = FLOOR_Y
 
     # --- house tables -----------------------------------------------------------------------------
-    tables = {(x, z) for (x, z) in hall
-              if sc.name(x, y, z) == 'minecraft:oak_planks' and (x + z) in TABLE_LINES and x - z < DAIS_FROM}
+    # The builder's tables are single planks on a 45-degree line, touching only at their corners, so
+    # as Wizard Tables each one stood alone on four legs and the hall read as a field of stools.
+    # Filling the inside corner of every step turns each line into one stepped band of joined table:
+    # one long top, legs only at the open corners. The band grows toward the wider gap beside it.
+    line = {(x, z) for (x, z) in hall
+            if sc.name(x, y, z) == 'minecraft:oak_planks' and (x + z) in TABLE_LINES and x - z < DAIS_FROM}
+    tables = set(line)
+    for (x, z) in line:
+        k = x + z
+        if (x + 1, z - 1) in line:
+            fill = (x + 1, z) if BAND_SIDE[k] > 0 else (x, z - 1)
+            if fill in hall and sc.air(fill[0], y, fill[1]) and not sc.air(fill[0], y - 1, fill[1]):
+                tables.add(fill)
     for (x, z) in tables:
         sc.put(x, y, z, 'wizard_table', replace=True,
                north=str((x, z - 1) in tables).lower(), south=str((x, z + 1) in tables).lower(),
                west=str((x - 1, z) in tables).lower(), east=str((x + 1, z) in tables).lower())
-    report['tables'] = len(tables)
+    report['table cells'] = len(tables)
 
-    # --- benches: one on each side of every table cell, facing it ------------------------------------
+    # --- benches: only where a gap is two cells wide, one row facing each table ------------------------
     benches = 0
-    for (x, z) in sorted(hall):
-        if (x, z) in tables or not sc.air(x, y, z) or sc.air(x, y - 1, z) or x - z >= DAIS_FROM:
-            continue
-        if (x, z - 1) in tables:          # table to the north
-            benches += sc.put(x, y, z, 'great_hall_bench', facing='north')
-        elif (x, z + 1) in tables:        # table to the south
-            benches += sc.put(x, y, z, 'great_hall_bench', facing='south')
+    if layout == 'benches':
+        for (x, z) in sorted(hall):
+            if (x + z) not in BENCH_ROWS or (x, z) in tables or x - z >= DAIS_FROM:
+                continue
+            if not sc.air(x, y, z) or sc.air(x, y - 1, z):
+                continue
+            for (dx, dz, facing) in ((0, -1, 'north'), (0, 1, 'south'), (-1, 0, 'west'), (1, 0, 'east')):
+                if (x + dx, z + dz) in tables:
+                    benches += sc.put(x, y, z, 'great_hall_bench', facing=facing)
+                    break
     report['benches'] = benches
 
-    # --- floating candles ----------------------------------------------------------------------------
+    # --- floating candles, high under the roof --------------------------------------------------------
     candles = 0
     for (x, z) in sorted(hall):
-        if (x + 2 * z) % 5 == 0 and (x - z) % 2 == 0:
-            if sc.air(x, CANDLE_Y, z) and sc.air(x, CANDLE_Y + 1, z) and sc.air(x, CANDLE_Y - 1, z):
+        if (x + 2 * z) % 7 == 0:
+            if all(sc.air(x, CANDLE_Y + d, z) for d in (-1, 0, 1, 2)):
                 candles += sc.put(x, CANDLE_Y, z, 'floating_candle')
     report['floating candles'] = candles
 
@@ -242,12 +262,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--dry-run', action='store_true', help='report what would be placed, write nothing')
     ap.add_argument('--out', default=SCHEM)
+    ap.add_argument('--src', default=SCHEM)
+    ap.add_argument('--layout', choices=('bare', 'benches'), default='bare',
+                    help='bare: joined tables only (chosen: benches on the diagonal rows blur the tables into one mass)')
     args = ap.parse_args()
 
-    sc = Schematic(SCHEM)
+    sc = Schematic(args.src)
     if any(k.startswith(M + 'floating_candle') for k in sc.palette):
         sys.exit('mini_hogwarts.schem is already furnished (floating candles in its palette)')
-    report = furnish(sc)
+    report = furnish(sc, args.layout)
     for k, v in report.items():
         print('  %-20s %d' % (k, v))
     for k, v in sorted(sc.changes.items()):

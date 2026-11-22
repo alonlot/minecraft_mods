@@ -62,6 +62,7 @@ VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 from mini_hogwarts import (checks, hall, rooms_below, rooms_classrooms, rooms_library, rooms_staircase,  # noqa: E402
                            rooms_towers)
 from mini_hogwarts import rooms_corridors  # noqa: E402
+from mini_hogwarts import rooms_decor  # noqa: E402
 from mini_hogwarts.grid import (Grid, air_at, enclosed_air, is_air, load_schem, seal_interiors as _seal,  # noqa: E402
                                 write_schem)
 import schem_to_nbt  # noqa: E402  (decode_schem: check 62 reads the written stream back as the Java does)
@@ -186,6 +187,13 @@ def room_corridors(grid):
     a['title_point'] = found['title_point']        # inside the central tower on purpose (R44: see title_point)
 
 
+def room_decor(grid):
+    """The mod's decorations in the finished rooms (rooms_decor): hourglasses and banners in the entrance hall, trunks
+    at the dormitory beds, telescopes in the Astronomy gallery, desks, scrolls and books in the Library and the
+    classrooms. Only into free floor beside a wall, clear of every anchor and door; the checks below hold it."""
+    rooms_decor.place_decor(grid)
+
+
 def collect_rooms(grid):
     """Fill ROOMS from the room modules: the Great Hall, entrance hall and west gallery; the Grand Staircase's well,
     its entry door and every closed course of its top (its own light boxes); the Library's rooms and tunnel; the tower
@@ -230,7 +238,7 @@ def wing_tops():
 
 
 ROOM_STEPS = (room_great_hall, room_grand_staircase, room_library, room_towers, room_classrooms, room_below,
-              room_corridors)
+              room_corridors, room_decor)
 
 
 # ---------------------------------------------------------------- checks
@@ -1140,6 +1148,7 @@ def main():
     print('classrooms: %s' % getattr(rooms_classrooms.place_classrooms, 'stats', {}))
     print('below: %s' % getattr(rooms_below.place_below, 'stats', {}))
     print('corridors: %s' % getattr(rooms_corridors.place_corridors, 'stats', {}))
+    print('decor: %s' % getattr(rooms_decor.place_decor, 'stats', {}))
     print('castle: %s' % getattr(verify_castle, 'census', {}))
     print('schematic read back: %s' % getattr(verify_schematic, 'stats', {}))
     print('sealed: %d cave_air cells (%d room boxes); %d cells of rock pockets filled with stone' % (

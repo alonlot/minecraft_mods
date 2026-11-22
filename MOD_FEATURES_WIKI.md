@@ -1075,8 +1075,12 @@ Where they appear in the world:
   at Flourish and Blotts and Scribbulus, telescopes and trunks at Wiseacres, cafe tables at Fortescue's,
   chess boards at the joke shops, and a customer chair at Ollivanders. `generate_diagon_alley.py` puts
   them in as its last step (`furnish_diagon_alley.py`, which finds each shop from its keeper).
-- Mini Hogwarts has its own furnished Great Hall (house tables, benches, banners, floating candles); none
-  of these decorations are placed there yet.
+- Mini Hogwarts (`build_scripts/mini_hogwarts/rooms_decor.py`, the castle build's last room step): the
+  four House Points Hourglasses and the house banners in the entrance hall; armchairs, the crest plaque and
+  banner, a chess board and an owl cage in the Gryffindor common room; a school trunk at every dormitory bed;
+  crest plaques, banners, a chess board and a desk in the Slytherin common room; desks, scrolls, books,
+  candles and floating candles in the Library; telescopes in the Astronomy gallery; a desk, scrolls and books
+  in the Headmaster's office and the classrooms. The Great Hall keeps its own furnishing.
 
 Assets come from `build_scripts/generate_decorations.py` (textures in `build_scripts/decor_textures.py`).
 Change the script and run it again rather than editing the generated JSON or PNG files.

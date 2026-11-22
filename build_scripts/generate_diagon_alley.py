@@ -1,6 +1,11 @@
 """Diagon Alley, compiled to a structure template.
 
     python build_scripts/generate_diagon_alley.py
+    python build_scripts/furnish_diagon_alley.py     # then put the decorations back in the shops
+
+Note: a rebuild does NOT reproduce the committed template. The shop jitter and awnings use hash(),
+which Python randomises per run, so every rebuild moves the shops. Set PYTHONHASHSEED for a
+repeatable build, and run furnish_diagon_alley.py afterwards.
 
 Why this is Python and not Java
 -------------------------------

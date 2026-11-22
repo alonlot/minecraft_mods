@@ -669,6 +669,19 @@ Furniture:
   place a block against them instead). Sneak to stand up.
 - Writing Desk: desk with an open book, inkwell, quill and parchment.
 
+Where they appear in the world:
+
+- Mini Hogwarts, Great Hall: the four house tables are Wizard Tables with Great Hall Benches on both
+  sides, Floating Candles hang over the hall, House Banners hang on the long walls and the four House
+  Points Hourglasses stand on the staff dais. The library building has desks, scrolls, book piles,
+  candles and trunks, and the top of the north tower has brass telescopes.
+- Diagon Alley: broom racks, a Quidditch hoop and the Cup in the broom shops, potion shelves in the
+  apothecaries, cauldrons at Potage's, owl cages at Eeylops and the Magical Menagerie, desks and scrolls
+  at Flourish and Blotts and Scribbulus, telescopes and trunks at Wiseacres, cafe tables at Fortescue's,
+  chess boards at the joke shops, and a customer chair at Ollivanders.
+- Both are written into the structure files by `build_scripts/furnish_mini_hogwarts.py` and
+  `build_scripts/furnish_diagon_alley.py`.
+
 Assets come from `build_scripts/generate_decorations.py` (textures in `build_scripts/decor_textures.py`).
 Change the script and run it again rather than editing the generated JSON or PNG files.
 

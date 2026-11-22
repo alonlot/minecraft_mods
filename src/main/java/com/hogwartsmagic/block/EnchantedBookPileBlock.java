@@ -15,7 +15,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class EnchantedBookPileBlock extends Block {
     public static final MapCodec<EnchantedBookPileBlock> CODEC = simpleCodec(EnchantedBookPileBlock::new);
-    private static final VoxelShape SHAPE = Block.box(1.0, 0.0, 1.0, 15.0, 8.0, 15.0);
+    private static final VoxelShape SHAPE = Block.box(1.0, 0.0, 1.0, 15.0, 9.0, 15.0);
 
     public EnchantedBookPileBlock(BlockBehaviour.Properties properties) {
         super(properties.noOcclusion());

@@ -550,7 +550,8 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Floo Fireplace
 
-- Magical fireplace block.
+- Stone fireplace with a mantel, a pot of Floo powder and two candles. About two blocks tall.
+- Orange fire when idle, green fire while a journey is active, cold logs when unlit.
 - Always kept lit server-side.
 - Stores a name.
 - Stores linked destination fireplaces.
@@ -560,7 +561,7 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Owl Perch
 
-- Named owl-mail station.
+- Named owl-mail station: a T-shaped perch on a stand.
 - Stores one item.
 - Links to another perch.
 - Automatically dispatches a valid tamed owl if one is nearby and available.
@@ -570,21 +571,22 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 - Decorative portrait block.
 - Thin frame that hangs on the wall you click (clicking a floor turns it toward you).
+- Animated painting: the wizard blinks, glances aside and waves now and then.
 - Uses magical ambient particles for a living-painting feel.
 
 ### Candle Cluster
 
-- Decorative candle block.
+- Five candles of different heights on a brass dish, each with a flame.
 - Emits ambient magical flame particles.
 
 ### Enchanted Book Pile
 
-- Decorative magical book-stack block.
+- Leaning stack of leather books with an open book on top.
 - Emits ambient particles.
 
 ### Wizard Cauldron
 
-- Decorative and atmospheric cauldron block.
+- Cast-iron cauldron on four legs with a bubbling green potion.
 - Supports magical potion-class ambience.
 
 ### Gillyweed Plant
@@ -618,7 +620,8 @@ Uses:
 - Hufflepuff Banner.
 - Slytherin Banner.
 
-These are decorative house-themed blocks.
+These are decorative house-themed wool building blocks. They carry the same emblems as the
+hanging banners and crest plaques.
 
 ### Hogwarts Decorations
 

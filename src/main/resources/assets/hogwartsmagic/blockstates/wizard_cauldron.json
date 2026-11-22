@@ -1,5 +1,7 @@
 {
   "variants": {
-    "": { "model": "hogwartsmagic:block/wizard_cauldron" }
+    "": {
+      "model": "hogwartsmagic:block/wizard_cauldron"
+    }
   }
 }

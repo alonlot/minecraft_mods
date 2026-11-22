@@ -693,6 +693,194 @@ def data():
     written.append(os.path.relpath(lang_path, ROOT))
 
 
+# ---- remakes of the older decorations ------------------------------------------------------------
+
+ORANGE_FLAME = ["fff6c0", "ffd040", "ff9a1a", "e05a10", "a02a08"]
+GREEN_FLAME = ["f0fff0", "a0ff90", "40e050", "18a838", "0a6a20"]
+
+
+def save_animated(img, rel, frametime=2, meta=None):
+    save_png(img, rel)
+    path = os.path.join(ASSETS, "textures", rel + ".png.mcmeta")
+    write_json(path, meta or {"animation": {"frametime": frametime}})
+
+
+def remake_textures():
+    save_animated(T.flame_frames(ORANGE_FLAME, "hearth"), "block/decor/hearth_flame")
+    save_animated(T.flame_frames(GREEN_FLAME, "floo"), "block/decor/floo_flame")
+    save_animated(T.bubbling_potion(), "block/decor/cauldron_potion", frametime=4)
+    save_png(T.cast_iron(), "block/decor/cast_iron")
+    for c in ("red", "blue", "green"):
+        save_png(T.book_cover(c), f"block/decor/book_cover_{c}")
+        save_png(T.book_pages(c), f"block/decor/book_pages_{c}")
+        save_png(T.book_spine(c), f"block/decor/book_spine_{c}")
+    save_png(T.leather_wrap(), "block/decor/leather_wrap")
+    save_png(T.fireplace_stone(), "block/decor/fireplace_stone")
+    save_png(T.fireplace_soot(), "block/decor/fireplace_soot")
+    save_png(T.floo_pot(), "block/decor/floo_pot")
+    save_animated(T.moving_portrait(), "block/moving_portrait", meta=T.PORTRAIT_ANIMATION)
+    for h in HOUSES:
+        save_png(T.house_banner_block(h), f"block/{h}_banner_block")
+
+
+def candle(x, y, z, w, h):
+    """A candle with a wick and a two-plane flame. Returns the elements."""
+    wick = {f: [14, 0, 15, 1] for f in FACES}
+    flame = {f: [12, 0, 14, 3] for f in FACES}
+    cx, cz = x + w / 2, z + w / 2
+    top = y + h
+    return [
+        el((x, y, z), (x + w, top, z + w), "wax"),
+        el((cx - 0.25, top, cz - 0.25), (cx + 0.25, top + 1, cz + 0.25), "wax", uv=wick),
+        el((cx - 0.5, top + 1, cz), (cx + 0.5, top + 2.5, cz), "wax", faces=("north", "south"), uv=flame, shade=False),
+        el((cx, top + 1, cz - 0.5), (cx, top + 2.5, cz + 0.5), "wax", faces=("east", "west"), uv=flame, shade=False),
+    ]
+
+
+# Candle cluster wicks: (x, z, width, height) on a dish 1 px high. CandleClusterBlock.WICKS matches.
+CLUSTER_CANDLES = [(4, 5, 2.5, 9), (8, 3.5, 2, 7), (10, 7, 2.5, 10), (5.5, 9.5, 2, 6), (9, 10.5, 2, 4.5)]
+
+
+def remake_candle_cluster():
+    els = [el((2.5, 0, 2.5), (13.5, 1, 13.5), "brass")]
+    for (x, z, w, h) in CLUSTER_CANDLES:
+        els += candle(x, 1, z, w, h)
+    model("candle_cluster", {"wax": D("candle_wax"), "brass": D("brass"), "particle": D("candle_wax")},
+          els, render_type="cutout", ao=False)
+    blockstate_single("candle_cluster")
+    item_from_block("candle_cluster")
+
+
+def remake_book_pile():
+    def book(frm, to, color, rot=None):
+        length_x = to[0] - frm[0]
+        length_z = to[2] - frm[2]
+        return el(frm, to, "c_" + color, rot=rot,
+                  tex_for={"north": "p_" + color, "south": "p_" + color, "east": "p_" + color,
+                           "west": "s_" + color},
+                  uv={"north": [0, 6, length_x, 10], "south": [0, 6, length_x, 10],
+                      "east": [0, 6, length_z, 10]})
+
+    els = [
+        book((2, 0, 3), (14, 4, 13), "red"),
+        book((3, 4, 3.5), (13, 8, 12.5), "blue", rot=("y", 22.5, (8, 4, 8))),
+        # The open book on top: an open spread on a thin page block.
+        el((3, 8, 4.5), (13, 9, 11.5), "pages", tex_for={"up": "open"},
+           uv={"north": [0, 6, 10, 7], "south": [0, 6, 10, 7], "east": [0, 6, 7, 7], "west": [0, 6, 7, 7]},
+           rot=("y", -22.5, (8, 8, 8))),
+    ]
+    tex = {"open": D("open_book"), "pages": D("book_pages_green"), "particle": D("book_cover_red")}
+    for c in ("red", "blue", "green"):
+        tex["c_" + c] = D(f"book_cover_{c}")
+        tex["p_" + c] = D(f"book_pages_{c}")
+        tex["s_" + c] = D(f"book_spine_{c}")
+    model("enchanted_book_pile", tex, els)
+    blockstate_single("enchanted_book_pile")
+    item_from_block("enchanted_book_pile")
+
+
+def remake_cauldron():
+    els = []
+    for (x, z) in ((2, 2), (12, 2), (2, 12), (12, 12)):
+        els.append(el((x, 0, z), (x + 2, 2.5, z + 2), "iron"))
+    els += [
+        el((3, 2, 3), (13, 3, 13), "iron"),
+        el((2, 3, 2), (14, 5, 14), "iron"),
+        el((1.5, 5, 1.5), (14.5, 9, 14.5), "iron"),
+        el((2, 9, 2), (14, 11, 14), "iron"),
+        # Rim walls round the potion.
+        el((1, 11, 1), (15, 13, 2.5), "iron"),
+        el((1, 11, 13.5), (15, 13, 15), "iron"),
+        el((1, 11, 2.5), (2.5, 13, 13.5), "iron"),
+        el((13.5, 11, 2.5), (15, 13, 13.5), "iron"),
+        el((2.5, 11.5, 2.5), (13.5, 11.5, 13.5), "potion", faces=("up",), shade=False),
+        # Handles.
+        el((0, 10, 7), (1.5, 11, 9), "iron"),
+        el((14.5, 10, 7), (16, 11, 9), "iron"),
+    ]
+    model("wizard_cauldron", {"iron": D("cast_iron"), "potion": D("cauldron_potion"), "particle": D("cast_iron")}, els)
+    blockstate_single("wizard_cauldron")
+    item_from_block("wizard_cauldron")
+
+
+def remake_owl_perch():
+    els = [
+        el((2, 0, 7), (14, 1.5, 9), "log"),
+        el((7, 0, 2), (9, 1.5, 14), "log"),
+        el((6, 0, 6), (10, 2.5, 10), "log"),
+        el((7, 2.5, 7), (9, 13, 9), "log"),
+        el((6.5, 12, 6.5), (9.5, 13, 9.5), "brass"),
+        # The perch bar ends the post: a T, not a cross.
+        el((1.5, 13, 7), (14.5, 15, 9), "wrap"),
+        el((0.5, 12.75, 6.75), (1.5, 15.25, 9.25), "brass"),
+        el((14.5, 12.75, 6.75), (15.5, 15.25, 9.25), "brass"),
+    ]
+    model("owl_perch", {"log": DARK_LOG, "wrap": D("leather_wrap"), "brass": D("brass"), "particle": DARK_LOG}, els)
+    blockstate_single("owl_perch")
+    item_from_block("owl_perch")
+
+
+def remake_floo_fireplace():
+    """A stone fireplace with a mantel. The back wall is NORTH in model space: FlooFireplaceBlock is a
+    campfire, whose FACING is the way the placing player looked, so the opening faces the player."""
+    shell = [
+        el((0, 0, 0), (16, 2, 16), "stone"),
+        el((0, 2, 0), (16, 30, 3), "stone", tex_for={"south": "soot"}),
+        el((0, 2, 3), (2.5, 22, 14), "stone", tex_for={"east": "soot"}),
+        el((13.5, 2, 3), (16, 22, 14), "stone", tex_for={"west": "soot"}),
+        el((2.5, 18, 3), (13.5, 22, 14), "stone", tex_for={"down": "soot"}),
+        el((-1, 22, 0), (17, 24, 15.5), "wood"),
+        el((1, 24, 0), (15, 30, 4), "stone"),
+        el((3, 2, 7.5), (13, 3, 8.5), "iron"),
+        el((3.5, 2, 4.5), (12.5, 4, 6.5), "log", tex_for={"east": "log_end", "west": "log_end"}),
+        el((5, 3, 6.5), (11, 5, 8.5), "log", tex_for={"east": "log_end", "west": "log_end"}),
+        # On the mantel: a pot of Floo powder between two candles.
+        el((6.5, 24, 6), (9.5, 27, 9), "pot"),
+    ]
+    shell += candle(1.5, 24, 7, 1.5, 3)
+    shell += candle(13, 24, 7, 1.5, 3)
+
+    def flames(top, width):
+        half = width / 2
+        return [
+            el((8 - half, 2, 7), (8 + half, top, 7), "flame", faces=("north", "south"),
+               uv={"north": [0, 0, 16, 16], "south": [0, 0, 16, 16]}, rot=("y", 22.5, (8, 2, 7)), shade=False),
+            el((8 - half, 2, 7), (8 + half, top, 7), "flame", faces=("north", "south"),
+               uv={"north": [0, 0, 16, 16], "south": [0, 0, 16, 16]}, rot=("y", -22.5, (8, 2, 7)), shade=False),
+            el((8 - half, 2, 9.5), (8 + half, top - 2, 9.5), "flame", faces=("north", "south"),
+               uv={"north": [0, 0, 16, 16], "south": [0, 0, 16, 16]}, shade=False),
+        ]
+
+    tex = {"stone": D("fireplace_stone"), "soot": D("fireplace_soot"), "wood": DARK_WOOD, "iron": D("iron"),
+           "log": V("dark_oak_log"), "log_end": V("dark_oak_log_top"), "pot": D("floo_pot"),
+           "wax": D("candle_wax"), "particle": D("fireplace_stone")}
+    model("floo_fireplace_unlit", tex, shell, render_type="cutout")
+    model("floo_fireplace", dict(tex, flame=D("hearth_flame")), shell + flames(15, 10), render_type="cutout")
+    model("floo_fireplace_active", dict(tex, flame=D("floo_flame")), shell + flames(18, 11), render_type="cutout")
+    variants = {}
+    for f, y in ROT.items():
+        for lit in ("true", "false"):
+            for sig in ("true", "false"):
+                for wl in ("true", "false"):
+                    name = "floo_fireplace_unlit" if lit == "false" else (
+                        "floo_fireplace_active" if sig == "true" else "floo_fireplace")
+                    v = {"model": f"{MOD}:block/{name}"}
+                    if y:
+                        v["y"] = y
+                    variants[f"facing={f},lit={lit},signal_fire={sig},waterlogged={wl}"] = v
+    write_json(os.path.join(ASSETS, "blockstates", "floo_fireplace.json"), {"variants": variants})
+    item_from_block("floo_fireplace", display=small_gui(0.42))
+
+
+def remakes():
+    remake_textures()
+    remake_candle_cluster()
+    remake_book_pile()
+    remake_cauldron()
+    remake_owl_perch()
+    remake_floo_fireplace()
+
+
 def main():
     make_textures()
     floating_candle()
@@ -709,6 +897,7 @@ def main():
     quidditch()
     furniture()
     moving_portrait_fix()
+    remakes()
     data()
     print(f"wrote {len(written)} files")
 

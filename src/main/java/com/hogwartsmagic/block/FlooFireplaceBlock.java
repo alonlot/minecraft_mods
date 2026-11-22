@@ -4,6 +4,9 @@ import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
@@ -38,6 +41,22 @@ public class FlooFireplaceBlock extends CampfireBlock {
     @SuppressWarnings("unchecked")
     public MapCodec<CampfireBlock> codec() {
         return (MapCodec<CampfireBlock>) (MapCodec<?>) CODEC;
+    }
+
+    /**
+     * Hearth, back wall and side pillars, matching the fireplace model. Written for FACING north (the
+     * placing player looked north, so the back wall is on the north side and the opening faces them).
+     */
+    private static final java.util.Map<net.minecraft.core.Direction, VoxelShape> SHAPES =
+            com.hogwartsmagic.block.decor.DecorShapes.allHorizontal(com.hogwartsmagic.block.decor.DecorShapes.boxes(
+                    new double[]{0, 0, 0, 16, 2, 16},
+                    new double[]{0, 2, 0, 16, 16, 3},
+                    new double[]{0, 2, 3, 2.5, 16, 14},
+                    new double[]{13.5, 2, 3, 16, 16, 14}));
+
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return SHAPES.get(state.getValue(FACING));
     }
 
     @Nullable

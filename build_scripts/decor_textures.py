@@ -541,5 +541,247 @@ def open_book():
             img.putpixel((x, y), hx("efe4c8") if x != 7 and x != 8 else hx("c8b890"))
     for y in range(3, 13, 2):
         for x in list(range(2, 6)) + list(range(10, 14)):
-            img.putpixel((x, y), hx("5a4a3a"))
+            img.putpixel((x, y), hx("9a8a70"))
+    return img
+
+
+# ---- remakes of the older decorations ------------------------------------------------------------
+
+import math
+
+
+def flame_frames(colors, seed, frames=16):
+    """Looping animated flames, one 16 x 16 frame under the other. colors run hot core -> cool tip."""
+    rng = random.Random(seed)
+    pal = [hx(c) for c in colors]
+    phase = [rng.uniform(0, 2 * math.pi) for _ in range(16)]
+    speed = [rng.choice((1, 2, 3)) for _ in range(16)]
+    img = new(16, 16 * frames)
+    for f in range(frames):
+        t = 2 * math.pi * f / frames
+        for x in range(16):
+            # Taller in the middle, flickering per column, looping cleanly over the frames.
+            profile = 1 - abs(x - 7.5) / 9.0
+            h = 15 * profile * (0.72 + 0.28 * math.sin(t * speed[x] + phase[x]))
+            for y in range(16):
+                above = 15 - y  # height above the bottom row
+                if above > h:
+                    continue
+                r = above / max(h, 1)  # 0 at the base, 1 at the tip
+                core = abs(x - 7.5) / 8.0
+                k = min(len(pal) - 1, int((r * 0.75 + core * 0.45) * len(pal)))
+                img.putpixel((x, f * 16 + y), pal[k])
+        # A spark or two drifting up.
+        for s in range(2):
+            sx = (3 + s * 7 + f) % 14 + 1
+            sy = 15 - ((f * 2 + s * 9) % 16)
+            if img.getpixel((sx, f * 16 + sy))[3] == 0:
+                img.putpixel((sx, f * 16 + sy), pal[1])
+    return img
+
+
+def bubbling_potion(frames=8):
+    """Green potion surface: a swirl that turns and bubbles that rise and pop."""
+    img = new(16, 16 * frames)
+    base, light, dark = hx("2fae48"), hx("7ef08a"), hx("1a7030")
+    bubbles = [(3, 4, 0), (10, 3, 2), (6, 11, 4), (12, 10, 6), (8, 7, 3)]
+    for f in range(frames):
+        for y in range(16):
+            for x in range(16):
+                a = math.atan2(y - 7.5, x - 7.5) + 2 * math.pi * f / frames
+                r = math.hypot(x - 7.5, y - 7.5)
+                s = math.sin(a * 2 + r * 0.8)
+                img.putpixel((x, f * 16 + y), mix(dark, base, (s + 1) / 2) if s < 0.6 else mix(base, light, s - 0.6))
+        for (bx, by, start) in bubbles:
+            age = (f - start) % frames
+            if age < 3:
+                size = age  # 0, 1, 2: grow then pop
+                for dx in range(-size, size + 1):
+                    for dy in range(-size, size + 1):
+                        if abs(dx) + abs(dy) == size:
+                            img.putpixel(((bx + dx) % 16, f * 16 + (by + dy) % 16), light)
+            elif age == 3:
+                img.putpixel((bx, f * 16 + by), hx("d8ffd8"))
+    return img
+
+
+def cast_iron():
+    img = new()
+    rng = random.Random("castiron")
+    for y in range(16):
+        for x in range(16):
+            img.putpixel((x, y), shade(hx("34343a"), 1 + rng.uniform(-0.12, 0.08)))
+    return img
+
+
+BOOK_COLORS = {"red": "7a1a1e", "blue": "1e3a78", "green": "1e5a32", "brown": "5a3a20"}
+
+
+def book_cover(color):
+    c = hx(BOOK_COLORS[color])
+    img = new()
+    rng = random.Random("cover" + color)
+    for y in range(16):
+        for x in range(16):
+            img.putpixel((x, y), shade(c, 1 + rng.uniform(-0.06, 0.06)))
+    gold = hx("d8a838")
+    for i in range(3):  # gold corner pieces
+        for (x, y) in ((i, 0), (0, i), (15 - i, 0), (15, i), (i, 15), (0, 15 - i), (15 - i, 15), (15, 15 - i)):
+            img.putpixel((x, y), gold)
+    for (x, y) in ((7, 6), (8, 6), (6, 7), (9, 7), (6, 8), (9, 8), (7, 9), (8, 9)):  # a small gold seal
+        img.putpixel((x, y), gold)
+    return img
+
+
+def book_pages(color):
+    """Rows 6 and 9 are the covers seen edge-on, rows 7 and 8 the page block. Models use UV rows 6..10."""
+    img = new()
+    c = hx(BOOK_COLORS[color])
+    for y in range(16):
+        for x in range(16):
+            img.putpixel((x, y), hx("ece0c0") if y % 2 else hx("d8caa4"))
+    for x in range(16):
+        img.putpixel((x, 6), c)
+        img.putpixel((x, 9), shade(c, 0.8))
+    return img
+
+
+def book_spine(color):
+    c = hx(BOOK_COLORS[color])
+    img = new()
+    for y in range(16):
+        for x in range(16):
+            img.putpixel((x, y), shade(c, 0.9 + 0.1 * (x % 3 == 0)))
+    for x in (3, 4, 11, 12):  # gold bands across the spine
+        for y in range(16):
+            img.putpixel((x, y), hx("d8a838"))
+    return img
+
+
+def leather_wrap():
+    img = new()
+    for y in range(16):
+        for x in range(16):
+            img.putpixel((x, y), hx("6a4226") if (x + y) % 4 < 2 else hx("8a5a34"))
+    return img
+
+
+def fireplace_stone():
+    """Warm grey cut stone in 8 x 4 courses."""
+    img = new()
+    rng = random.Random("hearth")
+    for y in range(16):
+        for x in range(16):
+            row = y // 4
+            off = 4 if row % 2 else 0
+            mortar = y % 4 == 3 or (x + off) % 8 == 7
+            if mortar:
+                img.putpixel((x, y), hx("5e5850"))
+            else:
+                img.putpixel((x, y), shade(hx("9a9286"), 1 + rng.uniform(-0.08, 0.06) - (0.06 if y % 4 == 2 else 0)))
+    return img
+
+
+def fireplace_soot():
+    img = fireplace_stone()
+    for y in range(16):
+        for x in range(16):
+            img.putpixel((x, y), shade(img.getpixel((x, y)), 0.35 + 0.02 * y))
+    return img
+
+
+def floo_pot():
+    img = new()
+    for y in range(16):
+        for x in range(16):
+            img.putpixel((x, y), hx("c8b8a0") if y % 5 else hx("2e8a48"))
+    return img
+
+
+# ---- Moving Portrait: five frames, a wizard who blinks, glances and waves --------------------------
+
+PORTRAIT_IDLE = [
+    "bbbbbPbbbbbb",
+    "bbbbPPpbbbbb",
+    "bbbPPsPpbbbb",
+    "bbPPPPPPpbbb",
+    "bPPPPPPPPpbo",
+    "bbbFFFFFbbbc",
+    "bbbFkFkFbbbc",
+    "bbbFFfFFbbbc",
+    "bbWWWWWWWbbc",
+    "bRWWWWWWWRbt",
+    "RRRWWWWWRRRb",
+    "RRRRWWWRRRRR",
+]
+
+
+def _portrait_frame(rows, flame):
+    img = new()
+    gold, dark, hi = hx("e0b040"), hx("8a6420"), hx("f8dc70")
+    for y in range(16):
+        for x in range(16):
+            edge = min(x, y, 15 - x, 15 - y)
+            if edge == 0:
+                img.putpixel((x, y), dark)
+            elif edge == 1:
+                img.putpixel((x, y), hi if (x + y) % 5 == 0 else gold)
+    pal = {"b": hx("1e3a34"), "P": hx("5a2a7a"), "p": hx("3e1a5a"), "s": hx("f0d040"),
+           "F": hx("e8c49a"), "f": hx("c89a70"), "k": hx("202020"), "W": hx("eeeeee"),
+           "R": hx("7a1a2a"), "o": hx(flame), "c": hx("efe4c8"), "t": hx("8a6420")}
+    sprite(img, rows, pal, 2, 2)
+    # Soft background texture.
+    for (x, y) in ((3, 3), (11, 9), (2, 8), (12, 3)):
+        if img.getpixel((x, y)) == pal["b"]:
+            img.putpixel((x, y), hx("16302a"))
+    return img
+
+
+def moving_portrait():
+    def edit(changes):
+        rows = [list(r) for r in PORTRAIT_IDLE]
+        for (x, y, ch) in changes:
+            rows[y][x] = ch
+        return ["".join(r) for r in rows]
+
+    blink = edit([(4, 6, "f"), (6, 6, "f")])
+    glance = edit([(4, 6, "F"), (3, 6, "k"), (6, 6, "F"), (5, 6, "k")])
+    wave_a = edit([(9, 3, "F"), (10, 3, "F"), (9, 4, "F"), (9, 5, "R"), (9, 6, "R"), (9, 7, "R")])
+    wave_b = edit([(10, 2, "F"), (9, 3, "F"), (10, 3, "F"), (9, 4, "R"), (9, 5, "R"), (9, 6, "R"), (9, 7, "R")])
+    frames = [_portrait_frame(PORTRAIT_IDLE, "ffb020"), _portrait_frame(blink, "ffd040"),
+              _portrait_frame(glance, "ffb020"), _portrait_frame(wave_a, "ffd040"),
+              _portrait_frame(wave_b, "ffb020")]
+    img = new(16, 16 * len(frames))
+    for i, fr in enumerate(frames):
+        img.alpha_composite(fr, (0, 16 * i))
+    return img
+
+
+PORTRAIT_ANIMATION = {"animation": {"frametime": 4, "frames": [
+    {"index": 0, "time": 60}, {"index": 1, "time": 3}, {"index": 0, "time": 40},
+    {"index": 2, "time": 30}, {"index": 0, "time": 25}, {"index": 1, "time": 3},
+    {"index": 0, "time": 50}, {"index": 3, "time": 6}, {"index": 4, "time": 6},
+    {"index": 3, "time": 6}, {"index": 4, "time": 6}, {"index": 3, "time": 6}, {"index": 0, "time": 40}]}}
+
+
+def house_banner_block(house):
+    """Full-block house cloth for the wool building blocks, with the same emblem as the banners."""
+    h = HOUSES[house]
+    img = new()
+    for y in range(16):
+        for x in range(16):
+            edge = min(x, y, 15 - x, 15 - y)
+            if edge == 0:
+                c = h["acc_dark"]
+            elif edge == 1:
+                c = h["acc"]
+            elif (x + y) % 7 == 0:
+                c = h["light"]
+            else:
+                c = h["main"]
+            img.putpixel((x, y), c)
+    pal = {"X": h["acc"], "o": h["acc_dark"]}
+    if house == "hufflepuff":
+        pal = {"X": h["acc"], "o": hx("5a5048")}
+    sprite(img, EMBLEMS[house], pal, 4, 3)
     return img

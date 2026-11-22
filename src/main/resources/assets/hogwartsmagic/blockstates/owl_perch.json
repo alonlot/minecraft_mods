@@ -1,5 +1,7 @@
 {
   "variants": {
-    "": { "model": "hogwartsmagic:block/owl_perch" }
+    "": {
+      "model": "hogwartsmagic:block/owl_perch"
+    }
   }
 }

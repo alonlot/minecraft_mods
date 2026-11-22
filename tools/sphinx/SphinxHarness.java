@@ -17,7 +17,7 @@ import java.util.Locale;
  *   e.g. lying=1,0,0,0,0  standing=0,0,0,0,0  walk=0,0,1.2,1,0  swipe=0,1,0,0,0.5
  */
 public class SphinxHarness {
-    static final float SCALE = 1.2F;
+    static final float SCALE = com.hogwartsmagic.client.renderer.SphinxRenderer.SCALE;
 
     public static void main(String[] args) throws Exception {
         Locale.setDefault(Locale.ROOT);

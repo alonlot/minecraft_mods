@@ -18,7 +18,7 @@ GROUND = 3
 SHADE = True
 import os
 DIST = float(os.environ.get("WW_DIST", "7.5"))
-TARGET = (0, 1.2, 0)
+TARGET = tuple(float(v) for v in os.environ.get("WW_TARGET", "0,1.2,0").split(","))
 
 
 def look(az, el, dist, target):

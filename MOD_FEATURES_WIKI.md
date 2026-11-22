@@ -790,6 +790,27 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - No answer: nothing happens. A riddle lapses after a minute, and you must stand within 8 blocks to answer.
 - She never wanders from her place. Spawn egg in the creative tab.
 
+### Niffler
+
+- A small black burrower in velvet fur, with a flat bill for a nose, big pale digging claws and a pouch under its belly that holds 27 stacks. It lives in the Cursebreaker's Desert (more of them round the Gringotts dig sites), the Goblin Undercity and the badlands.
+- It wants anything shiny: gold in any form, diamonds, emeralds, Galleons, cursed Galleons, the Golden Snitch (the `hogwartsmagic:niffler_shinies` item tag).
+- Wild, it never attacks. It is a thief:
+  - It picks up shiny items lying on the ground.
+  - It takes one shiny stack out of a chest or barrel nearby. A chest whose loot has not been rolled yet (an unopened tomb or dungeon chest) is left alone.
+  - It runs to a survival player within 10 blocks who carries shinies and takes part of one stack (one to half of it, 16 at most). Then it runs. When it is 14 blocks clear, it burrows into the ground and is gone.
+  - A wild Niffler that sits on a pouch of loot for a minute with nobody near also burrows.
+- Nothing it takes is lost. When it burrows, it buries its pouch where it went down, one stack to a block, as suspicious sand (under sand) or suspicious gravel (under anything else). Use a brush to get it back. A stack with nowhere to go is dropped.
+- Each hit shakes one or two stacks out of its pouch. Killing it drops all of it. 8 health.
+- Tame it with gold nuggets (one chance in four). Gold nuggets also heal it and breed two tame Nifflers.
+- Tame, it follows you and works for you:
+  - It still picks up shinies it finds, but not the ones you threw.
+  - Every five seconds it smells for treasure within 8 blocks: gold ore, gold and raw gold blocks, gilded blackstone, unopened loot chests, suspicious sand and gravel, and the concealed walls of tombs and caves. It runs toward the find and digs at the ground, a trail of gold sparks points at it, and you get a message ("Your Niffler smells treasure 2 blocks down").
+  - Every two to four minutes on earth or sand, it digs up a small treasure into its pouch: gold nuggets, raw gold, Galleons, rarely a diamond. In the Cursebreaker's Desert it digs up tomb treasure: lapis, pottery sherds, sometimes a cursed Galleon.
+  - Right-click it with an empty hand and it rolls on its back to be tickled, and everything in its pouch falls out toward you. Sneak and right-click to make it sit or stand.
+- The pouch on the model swells as it fills.
+- Advancements: "Anything Shiny" (be robbed by one) and "A Pocketful of Trouble" (tame one).
+- Spawn egg in the creative tab. The model and texture come from `tools/niffler/build_niffler.py`.
+
 ### Boggart
 
 - A shape-shifter with no shape of its own. It spawns in dark covered places in the Forbidden Forest and the Dementor Fen, at most one per 64 blocks.

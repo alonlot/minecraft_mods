@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/root",
+  "display": {
+    "icon": {
+      "id": "minecraft:gold_nugget",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.niffler_robbed.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.niffler_robbed.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "robbed": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

@@ -469,6 +469,14 @@ public class ModEntities {
                             .fireImmune()
                             .build("cave_boat"));
 
+    // A Niffler is rabbit-sized. The box covers the barrel and the head; the bill reaches past it.
+    public static final RegistryObject<EntityType<NifflerEntity>> NIFFLER =
+            ENTITY_TYPES.register("niffler",
+                    () -> EntityType.Builder.<NifflerEntity>of(NifflerEntity::new, MobCategory.CREATURE)
+                            .sized(0.45F, 0.4F)
+                            .clientTrackingRange(10)
+                            .build("niffler"));
+
     /** The helpless body a Pensieve viewer leaves at the basin. Never saved; see PensieveBodyEntity. */
     public static final RegistryObject<EntityType<com.hogwartsmagic.pensieve.PensieveBodyEntity>> PENSIEVE_BODY =
             ENTITY_TYPES.register("pensieve_body",

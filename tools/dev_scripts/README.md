@@ -14,3 +14,7 @@ The world is created flat (creative, commands on) the first time. On a new `run/
 `onboardAccessibility:false` and `mipmapLevels:0` in `run/options.txt`: the first speeds past the
 first-launch screen, the second saves minutes of texture work on software OpenGL. Start-up takes
 about fifteen minutes that way; the script itself runs in game time.
+
+`niffler.txt` reviews the Niffler (model, full pouch, sitting, the tickle, a theft, a treasure find).
+Run it in its own flat world, for example `HOGWARTSMAGIC_DEV_WORLD=niffler_demo`: its coordinates
+expect the flat world's surface at y -60.

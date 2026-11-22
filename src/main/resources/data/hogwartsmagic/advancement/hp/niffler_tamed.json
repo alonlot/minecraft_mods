@@ -1,0 +1,29 @@
+{
+  "parent": "hogwartsmagic:hp/niffler_robbed",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:niffler_spawn_egg",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.niffler_tamed.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.niffler_tamed.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "tamed_niffler": {
+      "trigger": "minecraft:tame_animal",
+      "conditions": {
+        "entity": {
+          "type": "hogwartsmagic:niffler"
+        }
+      }
+    }
+  }
+}

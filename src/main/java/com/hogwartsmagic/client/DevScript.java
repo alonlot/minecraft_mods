@@ -27,6 +27,7 @@ import java.util.Deque;
  * <pre>
  *   wait 40              ticks to wait
  *   cmd tombcurse room   a command, run on the integrated server as the player with op rights
+ *   interact hogwartsmagic:niffler   right-click (empty hand) the nearest entity of that type, as the player
  *   look 90 30           the player's yaw and pitch
  *   gui off              hide the HUD (gui on: show it)
  *   camera back          third person from behind (front, first)
@@ -116,6 +117,21 @@ public final class DevScript {
                                 server.getCommands().performPrefixedCommand(
                                         player.createCommandSourceStack().withPermission(4), arg);
                             }
+                        });
+                    }
+                }
+                case "interact" -> {
+                    MinecraftServer server = mc.getSingleplayerServer();
+                    var type = net.minecraft.world.entity.EntityType.byString(arg.trim());
+                    if (server != null && type.isPresent()) {
+                        server.execute(() -> {
+                            var player = server.getPlayerList().getPlayer(mc.player.getUUID());
+                            if (player == null) {
+                                return;
+                            }
+                            player.serverLevel().getEntities(type.get(), player.getBoundingBox().inflate(16.0D), e -> e.isAlive())
+                                    .stream().min(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(player)))
+                                    .ifPresent(e -> player.interactOn(e, net.minecraft.world.InteractionHand.MAIN_HAND));
                         });
                     }
                 }

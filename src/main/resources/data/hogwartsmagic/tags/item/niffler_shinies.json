@@ -1,0 +1,14 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:piglin_loved",
+    "minecraft:gold_nugget",
+    "minecraft:diamond",
+    "minecraft:emerald",
+    "minecraft:raw_gold",
+    "minecraft:golden_carrot",
+    "hogwartsmagic:galleon",
+    "hogwartsmagic:cursed_galleon",
+    "hogwartsmagic:golden_snitch"
+  ]
+}

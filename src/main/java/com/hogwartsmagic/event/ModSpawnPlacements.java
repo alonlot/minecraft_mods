@@ -53,6 +53,12 @@ public class ModSpawnPlacements {
                 LycanthropeVillagerEntity::checkSpawn,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
         event.register(
+                ModEntities.NIFFLER.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                com.hogwartsmagic.entity.NifflerEntity::canSpawn,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
+        event.register(
                 ModEntities.OWL.get(),
                 SpawnPlacementTypes.ON_GROUND,
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,

@@ -1,0 +1,79 @@
+# Niffler review: the model, a full pouch, sitting, the tickle, a theft, and a treasure find.
+# Run it in a new flat world (HOGWARTSMAGIC_DEV_WORLD=niffler_demo): the surface is y -60.
+wait 40
+cmd time set 6000
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd weather clear
+cmd gamerule sendCommandFeedback false
+cmd gamerule announceAdvancements false
+cmd clear @s
+cmd kill @e[type=!player]
+cmd tp @s 0.5 -60 0.5 -90 30
+gui off
+camera first
+wait 20
+# Portraits: one facing the camera, one side on, one from behind.
+cmd summon hogwartsmagic:niffler 2.3 -60 -0.6 {NoAI:1b,Rotation:[90f,0f]}
+cmd summon hogwartsmagic:niffler 2.6 -60 1.1 {NoAI:1b,Rotation:[0f,0f]}
+cmd summon hogwartsmagic:niffler 3.6 -60 -1.8 {NoAI:1b,Rotation:[-120f,0f]}
+wait 30
+look -90 32
+shot niffler_01_portraits
+# A full pouch, and one told to sit.
+cmd tp @e[type=hogwartsmagic:niffler] 0 -300 0
+cmd kill @e[type=item]
+wait 40
+cmd summon hogwartsmagic:niffler 2.3 -60 -0.5 {NoAI:1b,Rotation:[0f,0f],Pouch:[{id:"minecraft:gold_ingot",count:64},{id:"minecraft:gold_nugget",count:64},{id:"minecraft:diamond",count:9},{id:"minecraft:emerald",count:20},{id:"minecraft:raw_gold",count:30},{id:"minecraft:clock",count:1},{id:"minecraft:golden_apple",count:3},{id:"minecraft:gold_block",count:5},{id:"hogwartsmagic:galleon",count:40}]}
+cmd summon hogwartsmagic:niffler 2.3 -60 1.2 {NoAI:1b,Rotation:[90f,0f],Sitting:1b}
+wait 30
+shot niffler_02_full_and_sitting
+# The tickle: tame it to the player, then an empty hand.
+cmd tp @e[type=hogwartsmagic:niffler] 0 -300 0
+cmd kill @e[type=item]
+wait 40
+cmd summon hogwartsmagic:niffler 2.3 -60 0.5 {NoAI:1b,Rotation:[90f,0f],Pouch:[{id:"minecraft:gold_ingot",count:12},{id:"minecraft:diamond",count:3},{id:"minecraft:emerald",count:5},{id:"hogwartsmagic:galleon",count:16},{id:"minecraft:gold_nugget",count:30}]}
+cmd data modify entity @e[type=hogwartsmagic:niffler,limit=1,sort=nearest] Owner set from entity @s UUID
+cmd clear @s
+wait 20
+interact hogwartsmagic:niffler
+wait 12
+shot niffler_03_tickle_a
+wait 12
+shot niffler_04_tickle_b
+wait 12
+shot niffler_05_tickle_c
+wait 30
+shot niffler_06_tickle_done
+# A theft: a survival player with gold, a wild Niffler with its AI on.
+cmd tp @e[type=hogwartsmagic:niffler] 0 -300 0
+cmd kill @e[type=item]
+wait 40
+cmd kill @e[type=item]
+cmd gamemode survival
+cmd give @s gold_ingot 32
+gui on
+cmd summon hogwartsmagic:niffler 6.5 -60 0.5 {Rotation:[90f,0f]}
+look -90 25
+wait 20
+shot niffler_07_steal_a
+wait 20
+shot niffler_08_steal_b
+wait 20
+shot niffler_09_steal_c
+cmd gamemode creative
+# Treasure: gold ore two blocks down, a tame Niffler with its AI on.
+cmd tp @e[type=hogwartsmagic:niffler] 0 -300 0
+cmd kill @e[type=item]
+wait 40
+cmd tp @s 0.5 -60 0.5 -90 30
+cmd setblock 4 -62 0 minecraft:gold_ore
+cmd summon hogwartsmagic:niffler 1.8 -60 1.5 {Rotation:[90f,0f]}
+cmd data modify entity @e[type=hogwartsmagic:niffler,limit=1,sort=nearest] Owner set from entity @s UUID
+wait 130
+shot niffler_10_treasure_a
+wait 20
+shot niffler_11_treasure_b
+wait 20
+shot niffler_12_treasure_c
+quit

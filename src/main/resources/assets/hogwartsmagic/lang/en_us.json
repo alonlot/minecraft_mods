@@ -2020,5 +2020,14 @@
   "sphinx.hogwartsmagic.solved": "\"You have answered me already. Go in.\"",
   "sphinx.hogwartsmagic.no_riddle": "The Sphinx has not asked you anything. Stand close and speak to her (right-click).",
   "advancement.hogwartsmagic.sphinx_riddle.title": "A Riddle Answered",
-  "advancement.hogwartsmagic.sphinx_riddle.description": "Answer the Sphinx's riddle correctly"
+  "advancement.hogwartsmagic.sphinx_riddle.description": "Answer the Sphinx's riddle correctly",
+  "entity.hogwartsmagic.niffler": "Niffler",
+  "item.hogwartsmagic.niffler_spawn_egg": "Niffler Spawn Egg",
+  "message.hogwartsmagic.niffler.stole": "A Niffler stole %s %s!",
+  "message.hogwartsmagic.niffler.found": "Your Niffler smells treasure here.",
+  "message.hogwartsmagic.niffler.found_below": "Your Niffler smells treasure %s blocks down.",
+  "advancement.hogwartsmagic.niffler_robbed.title": "Anything Shiny",
+  "advancement.hogwartsmagic.niffler_robbed.description": "Be robbed by a Niffler. Whatever it takes, it buries: bring a brush.",
+  "advancement.hogwartsmagic.niffler_tamed.title": "A Pocketful of Trouble",
+  "advancement.hogwartsmagic.niffler_tamed.description": "Win a Niffler over with a gold nugget. Tickle it to see what it has been hoarding."
 }

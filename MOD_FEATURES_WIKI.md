@@ -1519,10 +1519,15 @@ A hot, dry desert of sand and bare sandstone, where Gringotts sends its curse-br
 
 **Curses.** Cursed Glyph tiles hide among the plain Hieroglyph Sandstone in the floors and on the sarcophagus lid. They look exactly the same.
 
-- Step on one, or mine it, and the curse goes off once: **Collapse** (two layers of sand fall round you from the ceiling), **Risen** (two husks and an Inferius climb out of the floor, already hunting you) or **Withering** (Wither, Mining Fatigue and Hunger).
-- Revelio cast within 8 blocks shows every cursed tile in reach: it glows red and gives light for a minute. A shown tile is safe to walk on, and mining it lifts the curse for experience and the Curse-Breaker advancement.
+- Step on one, or mine it, and the curse wakes. A circle of burning hieroglyphs opens on the floor in the curse's colour and turns, sigils spiral up round you, the room takes the colour and your view flashes. Then it gathers for about a second and a half, and lands:
+  - **Collapse** (amber): the ceiling groans and dust trickles from it over the spot where you stood, then two layers of sand come down there in a burst of dust. Step out from under the dust in time and it misses you.
+  - **Risen** (green): sand whirls up in green soul fire at three spots round you, then two husks and an Inferius break out of the floor there, already hunting you.
+  - **Withering** (violet): arms of curse-smoke coil in on you, then the Eye of Horus burns over your head and you take Wither, Mining Fatigue and Hunger. While the Wither lasts, a violet dark pulses at the edges of your view and dark motes rise off you.
+- Revelio cast within 8 blocks sends a red wave of light out across the floor. Each cursed tile it reaches shows itself as the wave arrives: its sigil rises out of it, and then floats over the tile, turning and burning in the curse's colour (amber, green or violet), lighting the room for a minute. So you can read which curse a tile holds before you touch it. A shown tile is safe to walk on.
+- Mine a shown tile to lift the curse: its sigil is torn up out of the stone, swells and breaks into gold sparks. You get experience and the Curse-Breaker advancement.
 - The reach is short on purpose. One cast shows one room, so the tomb is cleared as you go.
 - Creative and spectator players never set a curse off.
+- `/tombcurse room` (op) builds a small dark tomb room round you with one tile of each curse; `/tombcurse reveal`, `/tombcurse trigger <collapse|risen|withering>` and `/tombcurse lift <curse>` play each effect.
 
 **Curse-breaker dig sites.** A Gringotts excavation: a pit dug down to the top of a buried doorway, with suspicious sand to brush in its floor, a work tent, a sleeping tent, a fire and a goblin watching the gold. The chest always holds the **Field Notes**, a six-page book that explains the tombs. It is the only place in the game that does.
 

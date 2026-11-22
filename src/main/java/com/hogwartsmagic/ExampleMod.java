@@ -1401,6 +1401,7 @@ public class ExampleMod
         com.hogwartsmagic.command.LockInfoCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.ColloportusCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SphinxCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.TombCurseCommand.register(event.getDispatcher());
         com.hogwartsmagic.pensieve.PensieveCommand.register(event.getDispatcher());
     }
 

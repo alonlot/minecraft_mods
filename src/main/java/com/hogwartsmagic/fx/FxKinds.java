@@ -44,4 +44,20 @@ public final class FxKinds {
      * client.fx.creature.SlamFx.
      */
     public static final String SLAM = "slam";
+
+    // --- Tomb curses (Cursebreaker's Desert). Handled by client.fx.CurseFx. The curse id is TombCurse.ordinal(). ---
+
+    /**
+     * A cursed tile goes off at (x, y, z), the top centre of the tile: a rotating circle of glowing hieroglyphs opens
+     * on the floor and sigils spiral up. params: curse id, wind-up (ticks until the curse lands).
+     */
+    public static final String CURSE_TRIGGER = "curse_trigger";
+    /** The curse lands on entityId at (x, y, z). params: curse id, how long it lasts (ticks; Withering's overlay). */
+    public static final String CURSE_LAND = "curse_land";
+    /** Revelio's wave runs out across the floor from (x, y, z). params: radius (blocks), speed (blocks a tick). */
+    public static final String CURSE_WAVE = "curse_wave";
+    /** The wave reaches a hidden tile at (x, y, z) and shows it: a sigil rises. params: curse id, or -1 for a wall. */
+    public static final String CURSE_REVEAL = "curse_reveal";
+    /** A shown curse is lifted out of its tile at (x, y, z) and breaks into gold. params: curse id. */
+    public static final String CURSE_LIFT = "curse_lift";
 }

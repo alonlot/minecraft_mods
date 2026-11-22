@@ -106,7 +106,7 @@ public final class DesertGameTests {
      * Revelio's tomb reach is short on purpose: a glyph five blocks off shows, one twelve blocks off
      * does not, and the concealed wall opens (loses its collision) when it is in reach.
      */
-    @GameTest(template = ROOM, timeoutTicks = 20)
+    @GameTest(template = ROOM, timeoutTicks = 60)
     public static void revelioShowsOnlyNearbyCurses(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         net.minecraft.core.BlockPos near = helper.absolutePos(new net.minecraft.core.BlockPos(6, 1, 1));
@@ -116,20 +116,25 @@ public final class DesertGameTests {
         level.setBlock(far, glyph(com.hogwartsmagic.tomb.TombCurse.RISEN), 3);
         level.setBlock(wall, ExampleMod.CONCEALED_SANDSTONE.get().defaultBlockState(), 3);
         net.minecraft.world.phys.Vec3 cast = helper.absoluteVec(new net.minecraft.world.phys.Vec3(1.5, 2.0, 1.5));
-        int shown = com.hogwartsmagic.tomb.TombCurses.reveal(level, cast);
-        boolean nearShown = level.getBlockState(near).getValue(com.hogwartsmagic.block.CursedGlyphBlock.REVEALED);
-        boolean farShown = level.getBlockState(far).getValue(com.hogwartsmagic.block.CursedGlyphBlock.REVEALED);
-        boolean wallOpen = level.getBlockState(wall).getCollisionShape(level, wall).isEmpty();
-        level.setBlock(far, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
-        helper.assertTrue(nearShown, "a cursed glyph 5 blocks from the cast should show");
-        helper.assertFalse(farShown, "a cursed glyph 12 blocks from the cast should stay hidden");
-        helper.assertTrue(wallOpen, "concealed sandstone in reach should open");
-        helper.assertTrue(shown == 2, "two blocks should be revealed, got " + shown);
-        helper.succeed();
+        int found = com.hogwartsmagic.tomb.TombCurses.reveal(level, cast);
+        boolean shownAtOnce = level.getBlockState(near).getValue(com.hogwartsmagic.block.CursedGlyphBlock.REVEALED);
+        // The wave runs out at 0.7 blocks a tick, so a tile five blocks off shows a few ticks later.
+        helper.runAfterDelay(15, () -> {
+            boolean nearShown = level.getBlockState(near).getValue(com.hogwartsmagic.block.CursedGlyphBlock.REVEALED);
+            boolean farShown = level.getBlockState(far).getValue(com.hogwartsmagic.block.CursedGlyphBlock.REVEALED);
+            boolean wallOpen = level.getBlockState(wall).getCollisionShape(level, wall).isEmpty();
+            level.setBlock(far, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            helper.assertFalse(shownAtOnce, "a tile five blocks off should wait for the wave to reach it");
+            helper.assertTrue(nearShown, "a cursed glyph 5 blocks from the cast should show");
+            helper.assertFalse(farShown, "a cursed glyph 12 blocks from the cast should stay hidden");
+            helper.assertTrue(wallOpen, "concealed sandstone in reach should open");
+            helper.assertTrue(found == 2, "two blocks should be found, got " + found);
+            helper.succeed();
+        });
     }
 
     /** The collapse drops two layers of sand over the three by three round the player. */
-    @GameTest(template = ROOM, timeoutTicks = 20)
+    @GameTest(template = ROOM, timeoutTicks = 80)
     public static void collapseCurseDropsSandAndIsSpent(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         for (int x = 2; x <= 6; x++) {
@@ -142,13 +147,18 @@ public final class DesertGameTests {
         level.setBlock(tile, glyph(com.hogwartsmagic.tomb.TombCurse.COLLAPSE), 3);
         net.minecraft.server.level.ServerPlayer p = player(helper, 4, 2, 4);
         com.hogwartsmagic.tomb.TombCurses.trigger(level, tile, com.hogwartsmagic.tomb.TombCurse.COLLAPSE, p);
-        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(tile).inflate(3, 8, 3);
-        int falling = level.getEntitiesOfClass(net.minecraft.world.entity.item.FallingBlockEntity.class, box).size();
         boolean spent = level.getBlockState(tile).is(ExampleMod.HIEROGLYPH_SANDSTONE.get());
-        level.getEntitiesOfClass(net.minecraft.world.entity.item.FallingBlockEntity.class, box).forEach(e -> e.discard());
-        helper.assertTrue(falling == 18, "18 sand blocks should fall (2 layers over 3x3), got " + falling);
-        helper.assertTrue(spent, "a curse that went off should leave plain hieroglyph sandstone");
-        helper.succeed();
+        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(tile).inflate(3, 8, 3);
+        int early = level.getEntitiesOfClass(net.minecraft.world.entity.item.FallingBlockEntity.class, box).size();
+        // The ceiling holds through the wind-up, then comes down.
+        helper.runAfterDelay(com.hogwartsmagic.tomb.TombCurses.COLLAPSE_WINDUP + 1, () -> {
+            int falling = level.getEntitiesOfClass(net.minecraft.world.entity.item.FallingBlockEntity.class, box).size();
+            level.getEntitiesOfClass(net.minecraft.world.entity.item.FallingBlockEntity.class, box).forEach(e -> e.discard());
+            helper.assertTrue(spent, "a curse that went off should leave plain hieroglyph sandstone");
+            helper.assertTrue(early == 0, "no sand should fall before the wind-up ends, got " + early);
+            helper.assertTrue(falling == 18, "18 sand blocks should fall (2 layers over 3x3), got " + falling);
+            helper.succeed();
+        });
     }
 
     /** Two husks and an Inferius get up round the player, already after them. */

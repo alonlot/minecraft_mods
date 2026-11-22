@@ -466,33 +466,39 @@ public final class CurseFx {
         }
     }
 
-    /** A soft frame closing in from the edges: deep colour at the very edge, the bright colour just inside it. */
+    /**
+     * A soft frame closing in from the edges: one pixel-wide band per step, so the gradient is smooth (wide strips
+     * drew as visible stripes, and full-length side and top strips crossed into a grid at the corners). Each band
+     * is a rectangle outline, so the corners blend instead of doubling. {@code deep} tints the outer third.
+     */
     private static void edges(GuiGraphics graphics, int deep, int bright, float strength) {
         if (strength <= 0.01f) {
             return;
         }
         int w = graphics.guiWidth();
         int h = graphics.guiHeight();
-        int strips = 20;
-        int side = (int) (w * 0.22f);
-        int top = (int) (h * 0.2f);
-        for (int i = 0; i < strips; i++) {
-            float t = 1.0f - i / (float) strips;
-            int alpha = (int) (220 * strength * t * t);
-            if (alpha < 3) {
-                continue;
+        int depth = Math.max(8, (int) (Math.min(w, h) * 0.28f));
+        for (int i = 0; i < depth; i++) {
+            float t = 1.0f - i / (float) depth;
+            int alpha = (int) (200 * strength * t * t * t);
+            if (alpha < 2) {
+                break;
             }
-            int rgb = i < strips / 3 ? deep : bright;
-            int colour = (alpha << 24) | (rgb & 0xFFFFFF);
-            int sx = i * side / strips;
-            int sw = Math.max(1, side / strips);
-            graphics.fill(sx, 0, sx + sw, h, colour);
-            graphics.fill(w - sx - sw, 0, w - sx, h, colour);
-            int sy = i * top / strips;
-            int sh = Math.max(1, top / strips);
-            graphics.fill(0, sy, w, sy + sh, colour);
-            graphics.fill(0, h - sy - sh, w, h - sy, colour);
+            int rgb = lerpRgb(bright, deep, Math.max(0.0f, (t - 0.66f) * 3.0f));
+            int colour = (alpha << 24) | rgb;
+            graphics.fill(i, i, w - i, i + 1, colour);                 // top
+            graphics.fill(i, h - i - 1, w - i, h - i, colour);         // bottom
+            graphics.fill(i, i + 1, i + 1, h - i - 1, colour);         // left
+            graphics.fill(w - i - 1, i + 1, w - i, h - i - 1, colour); // right
         }
+    }
+
+    private static int lerpRgb(int a, int b, float t) {
+        t = Mth.clamp(t, 0.0f, 1.0f);
+        int r = (int) Mth.lerp(t, (a >> 16) & 0xFF, (b >> 16) & 0xFF);
+        int g = (int) Mth.lerp(t, (a >> 8) & 0xFF, (b >> 8) & 0xFF);
+        int bl = (int) Mth.lerp(t, a & 0xFF, b & 0xFF);
+        return (r << 16) | (g << 8) | bl;
     }
 
     // ------------------------------------------------------------------------------------------------ helpers

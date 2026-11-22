@@ -28,8 +28,9 @@ import net.minecraft.world.phys.Vec3;
  * chasm segments are open ledges and trestles because the void is the reason to be there.
  *
  * <p>Which side is open is derived, not chosen. The chasm is centred on the axis the track spirals
- * around, so the void is on the <em>inside</em> of the turn and the rock is outside - and the sign
- * of the bank already knows which way the line is turning.
+ * around, so the void is on the <em>inside</em> of the turn and the rock is outside, and
+ * {@link CartTrack#voidSideAt} reads which side that is off the spiral's own centre. It used to be
+ * read off the sign of the bank, which had the wrong sign: every ledge opened onto rock.
  */
 public final class CorridorCarver {
 
@@ -75,8 +76,13 @@ public final class CorridorCarver {
     private static final BlockState SLEEPER = Blocks.DEEPSLATE_TILES.defaultBlockState();
 
     /** Where the Downfall hangs, as a fraction of the line, and how thick the curtain is. */
-    private static final double DOWNFALL_AT = 0.605D;
-    private static final double DOWNFALL_THICK = 2.5D;
+    static final double DOWNFALL_AT = 0.605D;
+    static final double DOWNFALL_THICK = 2.5D;
+
+    /** How often along the line an open edge gets something holding it up. */
+    private static final double PROP_EVERY = 9.0D;
+    private static final BlockState PROP_POST = Blocks.DEEPSLATE_BRICK_WALL.defaultBlockState();
+    private static final BlockState PROP_CHAIN = Blocks.CHAIN.defaultBlockState();
 
     /** Which profiles each segment is allowed to use, in the order the line meets them. */
     private static final int[][] SEGMENT_PROFILES = {
@@ -138,7 +144,7 @@ public final class CorridorCarver {
         Vec3 forward = this.track.tangentAt(s);
 
         int profile = profileAt(s);
-        int openSide = this.track.bankAt(s) < 0.0F ? -1 : 1;
+        int openSide = this.track.voidSideAt(s);
         double halfW = halfWidth(profile) + 0.5D;
         double ceiling = ceilingHeight(profile) + 0.5D;
 
@@ -205,6 +211,9 @@ public final class CorridorCarver {
                     }
                 }
             }
+        }
+        if (pass == PASS_FURNISH) {
+            props(sink, profile, centre, up, right, openSide, s);
         }
     }
 
@@ -276,16 +285,63 @@ public final class CorridorCarver {
         return true;
     }
 
-    /** The dressed running surface: two stringers, sleepers across them, ballast between. */
-    private static BlockState deck(double u, double s) {
+    /**
+     * The dressed running surface: two stringers, sleepers across them, ballast between.
+     *
+     * <p>Old and under-maintained, which the reference asks for and a uniform pattern can never
+     * be: one sleeper in seven is gone, and here and there the ballast has washed out from under
+     * a few metres of rail and the rail runs over bare rock.
+     */
+    private BlockState deck(double u, double s, int x, int y, int z) {
         double au = Math.abs(u);
         if (au >= 0.5D && au <= 1.5D) {
             return RAIL;
         }
-        if (Math.floorMod((int) Math.floor(s), 3) == 0 && au <= 2.5D) {
+        int tie = (int) Math.floor(s);
+        if (Math.floorMod(tie, 3) == 0 && au <= 2.5D
+                && UndercroftPalette.hash(tie, 0, 0, 37) >= 0.14D) {
             return SLEEPER;
         }
+        if (UndercroftPalette.hash((int) Math.floor(s / 5.0D), 0, 0, 38) < 0.10D) {
+            return this.palette.rock(x, y, z);
+        }
         return UndercroftPalette.DECK;
+    }
+
+    /**
+     * What holds an open edge up: posts under a trestle's both edges, and broken chains hanging
+     * under a ledge's lip where some earlier support has given way. Written only into open air,
+     * so a prop can never be driven into the rock - or into the deck of a lap below.
+     */
+    private void props(CarveSink sink, int profile, Vec3 centre, Vec3 up, Vec3 right,
+                       int openSide, double s) {
+        if (profile != LEDGE && profile != TRESTLE) {
+            return;
+        }
+        if ((int) (s / PROP_EVERY) == (int) ((s - STEP) / PROP_EVERY)) {
+            return;
+        }
+        int halfW = halfWidth(profile);
+        int index = (int) (s / PROP_EVERY);
+        for (int side = -1; side <= 1; side += 2) {
+            if (profile == LEDGE && side != openSide) {
+                continue;
+            }
+            int length = profile == TRESTLE
+                    ? 4 + (int) (UndercroftPalette.hash(index, side, 0, 39) * 5.0D)
+                    : 1 + (int) (UndercroftPalette.hash(index, side, 0, 39) * 4.0D);
+            for (int d = 0; d < length; d++) {
+                Vec3 p = centre.add(right.scale(side * halfW))
+                        .add(up.scale(FLOOR - SUBGRADE - 1 - d));
+                int bx = (int) Math.floor(p.x);
+                int by = (int) Math.floor(p.y);
+                int bz = (int) Math.floor(p.z);
+                if (!sink.isAir(bx, by, bz)) {
+                    break;
+                }
+                sink.set(bx, by, bz, profile == TRESTLE ? PROP_POST : PROP_CHAIN);
+            }
+        }
     }
 
     /** Deck and parapet, or null for "leave it as air". Runs after everything else. */
@@ -293,7 +349,7 @@ public final class CorridorCarver {
                                int x, int y, int z, double s) {
         if (v <= FLOOR + 0.5D && v >= FLOOR - SUBGRADE - 0.5D) {
             // Only the running surface is dressed; the subgrade under it stays plain ballast.
-            return Math.abs(v - FLOOR) <= 0.5D ? deck(u, s) : UndercroftPalette.DECK;
+            return Math.abs(v - FLOOR) <= 0.5D ? deck(u, s, x, y, z) : UndercroftPalette.DECK;
         }
         // The Thief's Downfall hangs right across the bore, so there is no way past it but through.
         // Above the deck only, or it would be laid into the trackbed.

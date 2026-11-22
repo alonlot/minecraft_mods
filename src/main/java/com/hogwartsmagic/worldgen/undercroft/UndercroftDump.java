@@ -27,6 +27,10 @@ import java.util.Map;
  * descent would be from inside it, in game, after a full client launch. The project's own history
  * says that is how you ship a blizzard of cobwebs.
  *
+ * <p>Beside the template it writes {@code <name>.line.json}: the line, the vaults and the dragon
+ * hall in the same coordinates, which {@code build_scripts/audit_undercroft_dump.py} reads to check
+ * the carve against the line it was carved along.
+ *
  * <p>The output goes under {@code run/undercroft_dumps/}. Copy it next to the viewer's other
  * templates to look at it:
  * <pre>
@@ -71,18 +75,81 @@ public final class UndercroftDump {
             }
         }
 
-        VaultCarver vaults = new VaultCarver(track, palette);
+        CavernCarver cavern = new CavernCarver(track, palette);
+        for (int step = 0; step < cavern.stepCount(); step++) {
+            cavern.carveStep(sink, step);
+        }
+
+        VaultCarver vaults = new VaultCarver(track, palette, cavern);
         for (int step = 0; step < vaults.stepCount(); step++) {
             vaults.carveStep(sink, step);
         }
 
-        LightCarver light = new LightCarver(track, palette, station.getY());
+        LightCarver light = new LightCarver(track, palette, station.getY(), cavern);
         for (int step = 0; step < light.stepCount(); step++) {
             light.carveStep(sink, carver, step);
         }
 
         List<String> problems = audit(sink, track, carver);
-        return write(outDir, name, sink.blocks(), problems);
+        Result result = write(outDir, name, sink.blocks(), problems);
+        writeLine(outDir, name, sink.blocks(), track, carver, vaults, cavern);
+        return result;
+    }
+
+    /**
+     * Writes the line beside the template: where the template's corner sits in carve coordinates,
+     * and a sample of the track every block - position, frame, bank and profile.
+     *
+     * <p>The template alone cannot answer the questions that matter about a carve, because it does
+     * not know where the line is. Which side of the cart the void is on, whether a vault opens onto
+     * rock or onto thin air, how far the far wall is: all of them are questions about the block grid
+     * relative to the line, so an offline check needs both.
+     */
+    private static void writeLine(Path outDir, String name, Map<BlockPos, BlockState> blocks,
+                                  CartTrack track, CorridorCarver carver, VaultCarver vaults,
+                                  CavernCarver cavern) throws IOException {
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        for (BlockPos pos : blocks.keySet()) {
+            minX = Math.min(minX, pos.getX());
+            minY = Math.min(minY, pos.getY());
+            minZ = Math.min(minZ, pos.getZ());
+        }
+        StringBuilder out = new StringBuilder();
+        out.append("{\"min\":[").append(minX).append(',').append(minY).append(',').append(minZ)
+                .append("],\"origin\":[").append(track.origin().getX()).append(',')
+                .append(track.origin().getY()).append(',').append(track.origin().getZ())
+                .append("],\"length\":").append(String.format(java.util.Locale.ROOT, "%.2f", track.length()))
+                .append(",\"samples\":[");
+        boolean first = true;
+        for (double s = 0.0D; s <= track.length(); s += 1.0D) {
+            Vec3 p = track.positionAt(s);
+            Vec3 u = track.upAt(s);
+            Vec3 r = track.rightAt(s);
+            out.append(first ? "" : ",").append(String.format(java.util.Locale.ROOT,
+                    "[%.1f,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%d]",
+                    s, p.x, p.y, p.z, u.x, u.y, u.z, r.x, r.y, r.z, track.bankAt(s),
+                    carver.profileAt(s)));
+            first = false;
+        }
+        out.append("],\"vaults\":[");
+        for (int i = 0; i < vaults.vaultCount(); i++) {
+            Vec3 d = vaults.doorPosition(i);
+            Vec3 o = vaults.outward(i);
+            Vec3 c = vaults.chamberCentre(i);
+            out.append(i == 0 ? "" : ",").append(String.format(java.util.Locale.ROOT,
+                    "{\"number\":%d,\"door\":[%.5f,%.5f,%.5f],\"out\":[%.6f,%.6f],\"chamber\":[%.5f,%.5f,%.5f]}",
+                    vaults.number(i), d.x, d.y, d.z, o.x, o.z, c.x, c.y, c.z));
+        }
+        Vec3 a = cavern.anchor();
+        out.append(String.format(java.util.Locale.ROOT, "],\"anchor\":[%.2f,%.2f,%.2f],\"stubs\":[", a.x, a.y, a.z));
+        for (int i = 0; i < cavern.stubs().size(); i++) {
+            BlockPos b = cavern.stubs().get(i);
+            out.append(i == 0 ? "" : ",").append('[').append(b.getX()).append(',').append(b.getY())
+                    .append(',').append(b.getZ()).append(']');
+        }
+        out.append("]}");
+        Files.createDirectories(outDir);
+        Files.writeString(outDir.resolve(name + ".line.json"), out.toString());
     }
 
     /**

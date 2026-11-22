@@ -33,15 +33,30 @@ public final class ChasmCarver {
     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
     private static final BlockState WATER = Blocks.WATER.defaultBlockState();
 
-    /** Rock left between the chasm wall and the track running along it. */
-    private static final double WALL = 6.0D;
+    /**
+     * How far inside the line the chasm wall stands: the corridor's own half-width.
+     *
+     * <p>This was six, which left two blocks of untouched rock between the corridor wall and the
+     * void, so a ledge "open on the void side" opened onto a rock face and the only place the drop
+     * could be seen at all was a trestle. At the corridor's half-width the void begins exactly at the
+     * edge of the deck, which is what a ledge is.
+     */
+    private static final double WALL = 3.0D;
 
     /** The chasm opens this far down the descent; above it the line is still a tunnel. */
     private static final double OPENS_AT = 0.34D;
 
-    /** The second lobe, offset so the far side is never fully in view. */
-    private static final double LOBE_OFFSET = 14.0D;
-    private static final double LOBE_SCALE = 0.62D;
+    /**
+     * A buttress of rock left standing out from the chasm wall, so the far side is never fully in
+     * view, turning slowly about the axis as it descends.
+     *
+     * <p>This used to be a second lobe of void added to the first, and a lobe that pokes out of the
+     * main circle pokes out of it straight through the line: it reached past the rim by up to six
+     * blocks, cutting the rock the vaults are dug into from below. Leaving rock IN the void does the
+     * same job for the eye - a spur across the far wall - without ever reaching the track.
+     */
+    private static final double SPUR_INSET = 7.0D;
+    private static final double SPUR_R = 4.5D;
 
     /** How many falls come down the wall. Three reads as weather; a dozen reads as plumbing. */
     private static final int FALLS = 3;
@@ -68,10 +83,19 @@ public final class ChasmCarver {
     private final UndercroftPalette palette;
     private final int topY;
     private final int floorY;
-    private final double axisX;
-    private final double axisZ;
-    /** Radius the falls sit at: inside the narrowest point, so every one of them is in open air. */
-    private final double fallRadius;
+    /**
+     * The chasm's centre and radius at each height, indexed by {@code topY - y}.
+     *
+     * <p>Per height because the spiral's centre drifts as it descends, and the chasm has to drift
+     * with it or the line wanders on and off its rim. Worked out once: every slice needs its own
+     * and the search over the line is the expensive part.
+     */
+    private final double[] centreX;
+    private final double[] centreZ;
+    private final double[] radius;
+    /** Where the falls come down, fixed in world space, or NaN where no column stays clear. */
+    private final double[] fallX = new double[FALLS];
+    private final double[] fallZ = new double[FALLS];
 
     public ChasmCarver(CartTrack track, UndercroftPalette palette) {
         this.track = track;
@@ -80,23 +104,65 @@ public final class ChasmCarver {
         Vec3 deep = track.positionAt(track.length());
         this.topY = (int) Math.floor(Mthlerp(start.y, deep.y, OPENS_AT));
         this.floorY = (int) Math.floor(deep.y) - 3;
-        // The spiral turns about its origin; drift is small enough that one axis serves.
-        Vec3 mid = track.positionAt(track.length() * 0.7D);
-        Vec3 mid2 = track.positionAt(track.length() * 0.7D + halfTurn());
-        this.axisX = (mid.x + mid2.x) * 0.5D;
-        this.axisZ = (mid.z + mid2.z) * 0.5D;
 
-        double narrowest = Double.MAX_VALUE;
-        for (int y = this.topY; y >= this.floorY; y--) {
-            narrowest = Math.min(narrowest, radiusAt(y));
+        int levels = Math.max(1, this.topY - this.floorY + 1);
+        this.centreX = new double[levels];
+        this.centreZ = new double[levels];
+        this.radius = new double[levels];
+        double stride = Math.max(0.5D, track.length() / 1200.0D);
+        for (int i = 0; i < levels; i++) {
+            int y = this.topY - i;
+            double bestS = 0.0D;
+            double bestGap = Double.MAX_VALUE;
+            for (double s = 0.0D; s <= track.length(); s += stride) {
+                double gap = Math.abs(track.positionAt(s).y - y);
+                if (gap < bestGap) {
+                    bestGap = gap;
+                    bestS = s;
+                }
+            }
+            Vec3 on = track.positionAt(bestS);
+            Vec3 axis = track.axisAt(bestS);
+            this.centreX[i] = axis.x;
+            this.centreZ[i] = axis.z;
+            this.radius[i] = Math.hypot(on.x - axis.x, on.z - axis.z) - WALL;
         }
-        this.fallRadius = Math.max(3.0D, narrowest - 2.0D);
+
+        // Each fall is one fixed column of world XZ, so it has to be clear of the wall at EVERY
+        // height it passes. Search outward from the middle of the descent for the widest radius
+        // at which that holds, so the falls stand as near the rim - and the riders - as they can.
+        int mid = levels / 2;
+        for (int f = 0; f < FALLS; f++) {
+            double a = f * (2.0D * Math.PI / FALLS) + 0.4D;
+            this.fallX[f] = Double.NaN;
+            this.fallZ[f] = Double.NaN;
+            for (double rho = 16.0D; rho >= 2.0D; rho -= 0.5D) {
+                double fx = this.centreX[mid] + rho * Math.cos(a);
+                double fz = this.centreZ[mid] + rho * Math.sin(a);
+                boolean clear = true;
+                for (int i = 6; i < levels - 3 && clear; i++) {
+                    clear = Math.hypot(fx - this.centreX[i], fz - this.centreZ[i])
+                            < this.radius[i] - 2.5D;
+                }
+                if (clear) {
+                    this.fallX[f] = fx;
+                    this.fallZ[f] = fz;
+                    break;
+                }
+            }
+        }
     }
 
-    private double halfTurn() {
-        // Half a lap, near enough: the line is one spiral, so two points half a turn apart
-        // straddle the axis and their midpoint is on it.
-        return this.track.length() / 10.0D;
+    private double radiusAt(int y) {
+        return this.radius[Math.max(0, Math.min(this.radius.length - 1, this.topY - y))];
+    }
+
+    private double centreXAt(int y) {
+        return this.centreX[Math.max(0, Math.min(this.centreX.length - 1, this.topY - y))];
+    }
+
+    private double centreZAt(int y) {
+        return this.centreZ[Math.max(0, Math.min(this.centreZ.length - 1, this.topY - y))];
     }
 
     private static double Mthlerp(double a, double b, double f) {
@@ -126,20 +192,23 @@ public final class ChasmCarver {
         if (radius < 4.0D) {
             return;
         }
-        double lobeR = radius * LOBE_SCALE;
-        double lobeX = this.axisX + LOBE_OFFSET * Math.cos(y * 0.06D);
-        double lobeZ = this.axisZ + LOBE_OFFSET * Math.sin(y * 0.06D);
+        double axisX = centreXAt(y);
+        double axisZ = centreZAt(y);
+        // Only once the void is wide enough to have a spur and still be a void around it.
+        boolean spur = radius > SPUR_INSET + SPUR_R + 4.0D;
+        double spurX = axisX + (radius - SPUR_INSET) * Math.cos(y * 0.045D + 1.3D);
+        double spurZ = axisZ + (radius - SPUR_INSET) * Math.sin(y * 0.045D + 1.3D);
 
-        int reach = (int) Math.ceil(Math.max(radius, LOBE_OFFSET + lobeR)) + 1;
+        int reach = (int) Math.ceil(radius) + 2;
         for (int dx = -reach; dx <= reach; dx++) {
             for (int dz = -reach; dz <= reach; dz++) {
-                double wx = this.axisX + dx;
-                double wz = this.axisZ + dz;
+                double wx = axisX + dx;
+                double wz = axisZ + dz;
                 double main = Math.hypot(dx, dz);
-                double lobe = Math.hypot(wx - lobeX, wz - lobeZ);
                 // A ragged edge, so the wall is rock rather than a lathe-turned cylinder.
                 double ragged = 1.6D * (UndercroftPalette.hash((int) wx, y, (int) wz, 5) - 0.5D);
-                boolean inside = main < radius + ragged || lobe < lobeR + ragged;
+                boolean inside = main < radius + ragged
+                        && !(spur && Math.hypot(wx - spurX, wz - spurZ) < SPUR_R + ragged);
                 if (!inside) {
                     continue;
                 }
@@ -166,14 +235,16 @@ public final class ChasmCarver {
         // dark, so every level in the band gets its block.
         if (y < this.topY - 6 && y > this.floorY + 3) {
             for (int i = 0; i < FALLS; i++) {
-                double a = i * (2.0D * Math.PI / FALLS) + 0.4D;
                 // Fixed in WORLD space, not at a fixed angle from a radius that breathes. Tying a
                 // fall to the wall makes it wander in and out with the wall, and what you get is
                 // three blue lines zigzagging across the ledges rather than water falling. Held at
-                // one XZ inside the narrowest point of the chasm, each fall is a vertical column
+                // one XZ that is clear of the wall at every height, each fall is a vertical column
                 // in open air the whole way down, which is the thing worth looking at.
-                double fx = this.axisX + this.fallRadius * Math.cos(a);
-                double fz = this.axisZ + this.fallRadius * Math.sin(a);
+                double fx = this.fallX[i];
+                double fz = this.fallZ[i];
+                if (Double.isNaN(fx)) {
+                    continue;
+                }
                 // Two by two, not one. A single column seventy blocks long reads as a blue wire at
                 // any distance worth looking from, and distance is the entire job these are doing.
                 for (int ox = 0; ox <= 1; ox++) {
@@ -192,8 +263,8 @@ public final class ChasmCarver {
             // Jitter the radius as well as the angle: equal radii at equal angles is a ring of
             // fence posts, which is the other half of the same failure.
             double r = radius * (0.25D + 0.65D * UndercroftPalette.hash(c, 1, 0, 202));
-            double cx = this.axisX + r * Math.cos(a);
-            double cz = this.axisZ + r * Math.sin(a);
+            double cx = centreXAt(roofY) + r * Math.cos(a);
+            double cz = centreZAt(roofY) + r * Math.sin(a);
 
             int spikes = CLUSTER_MIN + (int) (UndercroftPalette.hash(c, 2, 0, 203)
                     * (CLUSTER_MAX - CLUSTER_MIN + 1));
@@ -225,23 +296,4 @@ public final class ChasmCarver {
         }
     }
 
-    /**
-     * The chasm's radius at a height: whatever the track is doing there, pulled in by the wall
-     * thickness. Found by walking the line for the sample nearest that height - the descent is
-     * monotonic, so there is exactly one.
-     */
-    private double radiusAt(int y) {
-        double bestS = 0.0D;
-        double bestGap = Double.MAX_VALUE;
-        double stride = Math.max(1.0D, this.track.length() / 400.0D);
-        for (double s = 0.0D; s <= this.track.length(); s += stride) {
-            double gap = Math.abs(this.track.positionAt(s).y - y);
-            if (gap < bestGap) {
-                bestGap = gap;
-                bestS = s;
-            }
-        }
-        Vec3 on = this.track.positionAt(bestS);
-        return Math.hypot(on.x - this.axisX, on.z - this.axisZ) - WALL;
-    }
 }

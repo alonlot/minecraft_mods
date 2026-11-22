@@ -46,9 +46,15 @@ import java.util.List;
  * <h2>The chains are a radius, not entities</h2>
  *
  * <p>Kept within reach of its anchor by pulling it back rather than by any physical tether, and the
- * anchor stubs in the floor are the only breakable blocks in the room. Break the last one and it
- * leaves - a scripted climb to the ceiling shaft rather than real flight AI, because real flight AI
- * in a cavern this shape is how a dragon ends up screaming inside a wall forever.
+ * anchor stubs in the floor are the only breakable blocks in the room.
+ *
+ * <h2>Freed, it does not leave</h2>
+ *
+ * <p>Break the last stub and it is loose, and it knows who did it. It used to "leave" by switching
+ * its collision off and rising through solid rock until it was deleted, which read as exactly what
+ * it was. Now it stays on its feet, stops going back to its anchor, and hunts: the one who freed it
+ * first, then anyone it smells or hears, over a wider range than when it was chained. It can follow
+ * you up the line. Clankers still cow it.
  */
 public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
 
@@ -56,9 +62,12 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
             SynchedEntityData.defineId(UkrainianIronbellyEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_CHAINED =
             SynchedEntityData.defineId(UkrainianIronbellyEntity.class, EntityDataSerializers.BOOLEAN);
+    /** The anchor, so the client can draw the chains to the stubs round it and pose the strain. */
+    private static final EntityDataAccessor<java.util.Optional<BlockPos>> DATA_ANCHOR =
+            SynchedEntityData.defineId(UkrainianIronbellyEntity.class, EntityDataSerializers.OPTIONAL_BLOCK_POS);
 
     /** How far it can get from its anchor before the chains take up. */
-    private static final double CHAIN_RADIUS = 11.0D;
+    public static final double CHAIN_RADIUS = 11.0D;
     /** How long a ringing of Clankers keeps it cowed. */
     public static final int COWER_TICKS = 100;
     /** How far a noise carries to it. Deliberately further than it can see. */
@@ -71,9 +80,15 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
      * the track: hug the wall and you get by, walk down the middle and it has you.
      */
     private static final double SMELL = 8.0D;
+    /** Crouched, you are nearer still before it knows. The way past is to slow down AND get low. */
+    private static final double SMELL_CROUCHED = 5.0D;
     private static final int HEARD_MEMORY = 60;
-    /** Ticks of the departure once it is freed. */
-    private static final int LEAVING_TICKS = 200;
+    /** How close it smells you once it is loose. Still half-blind, but angry and moving. */
+    private static final double SMELL_FREE = 16.0D;
+    /** How far it keeps after a target once it is loose. */
+    private static final double FOLLOW_FREE = 40.0D;
+    /** How far it wanders between targets once it is loose. */
+    private static final int ROAM = 14;
 
     @Nullable
     private BlockPos anchor;
@@ -81,7 +96,11 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
     private int lastHeardTick = -1000;
     @Nullable
     private Vec3 lastHeardAt;
-    private int leavingTicks = -1;
+
+    // Client-side pose blends, eased so nothing snaps: 0..1 each, with last tick's value.
+    private float cowerAnim, cowerAnimO;
+    private float strainAnim, strainAnimO;
+    private float sniffAnim, sniffAnimO;
 
     public UkrainianIronbellyEntity(EntityType<? extends HungarianHorntailEntity> type, Level level) {
         super(type, level);
@@ -101,6 +120,7 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         super.defineSynchedData(builder);
         builder.define(DATA_COWERING, Boolean.FALSE);
         builder.define(DATA_CHAINED, Boolean.TRUE);
+        builder.define(DATA_ANCHOR, java.util.Optional.empty());
     }
 
     @Override
@@ -121,7 +141,10 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
                 10, false, false, living -> living instanceof Player player
                         && !player.isCreative() && !player.isSpectator()
                         && !isCowering()
-                        && (distanceToSqr(player) < SMELL * SMELL || recentlyHeard())));
+                        && (distanceToSqr(player) < smellFor(player) * smellFor(player)
+                                || recentlyHeard())));
+        // Loose, it roams between targets instead of standing over an anchor it no longer has.
+        this.goalSelector.addGoal(6, new RoamWhenFreeGoal(this));
     }
 
     public boolean isCowering() {
@@ -134,6 +157,50 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
 
     public void setAnchor(BlockPos pos) {
         this.anchor = pos.immutable();
+        this.entityData.set(DATA_ANCHOR, java.util.Optional.of(this.anchor));
+    }
+
+    /** The anchor as the client knows it, for the chains and the strain pose. */
+    @Nullable
+    public BlockPos syncedAnchor() {
+        return this.entityData.get(DATA_ANCHOR).orElse(null);
+    }
+
+    private double smellFor(Player player) {
+        if (!isChained()) {
+            return player.isCrouching() ? SMELL_FREE * 0.6D : SMELL_FREE;
+        }
+        return player.isCrouching() ? SMELL_CROUCHED : SMELL;
+    }
+
+    public float cowerAmount(float partial) {
+        return net.minecraft.util.Mth.lerp(partial, this.cowerAnimO, this.cowerAnim);
+    }
+
+    public float strainAmount(float partial) {
+        return net.minecraft.util.Mth.lerp(partial, this.strainAnimO, this.strainAnim);
+    }
+
+    public float sniffAmount(float partial) {
+        return net.minecraft.util.Mth.lerp(partial, this.sniffAnimO, this.sniffAnim);
+    }
+
+    /** Eases the three pose blends toward what the synced state says, on the client. */
+    private void tickPoseBlends() {
+        this.cowerAnimO = this.cowerAnim;
+        this.strainAnimO = this.strainAnim;
+        this.sniffAnimO = this.sniffAnim;
+        float cower = isCowering() ? 1.0F : 0.0F;
+        BlockPos at = syncedAnchor();
+        float strain = 0.0F;
+        if (at != null && isChained()) {
+            double d = Math.hypot(getX() - (at.getX() + 0.5D), getZ() - (at.getZ() + 0.5D));
+            strain = (float) net.minecraft.util.Mth.clamp((d - (CHAIN_RADIUS - 2.0D)) / 2.0D, 0.0D, 1.0D);
+        }
+        float sniff = isAggressive() || isCowering() ? 0.0F : 1.0F;
+        this.cowerAnim += (cower - this.cowerAnim) * 0.18F;
+        this.strainAnim += (strain - this.strainAnim) * 0.15F;
+        this.sniffAnim += (sniff - this.sniffAnim) * 0.06F;
     }
 
     @Nullable
@@ -179,23 +246,25 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
                 UkrainianIronbellyEntity.class, new AABB(where, where).inflate(radius));
         int cowered = 0;
         for (UkrainianIronbellyEntity dragon : dragons) {
-            if (dragon.leavingTicks > 0) {
-                continue;      // already freed and on its way out
-            }
             dragon.cower();
             cowered++;
         }
         return cowered;
     }
 
-    /** The last anchor stub has been broken. It goes. */
+    /** The last anchor stub has been broken. It is loose, and it turns on whoever did it. */
     public void free(@Nullable Player by) {
         if (!isChained()) {
             return;
         }
         this.entityData.set(DATA_CHAINED, Boolean.FALSE);
-        this.leavingTicks = LEAVING_TICKS;
-        this.setTarget(null);
+        applyFreedom();
+        this.cowerTicks = 0;
+        this.entityData.set(DATA_COWERING, Boolean.FALSE);
+        if (by != null && !by.isCreative() && !by.isSpectator()) {
+            this.setTarget(by);
+            heard(by.position());
+        }
         if (by instanceof net.minecraft.server.level.ServerPlayer freer) {
             com.hogwartsmagic.util.ModAdvancements.award(freer, "ironbelly_cowed");
         }
@@ -226,16 +295,12 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
     public void tick() {
         super.tick();
         if (this.level().isClientSide) {
+            tickPoseBlends();
             return;
         }
 
         if (this.cowerTicks > 0 && --this.cowerTicks == 0) {
             this.entityData.set(DATA_COWERING, Boolean.FALSE);
-        }
-
-        if (this.leavingTicks >= 0) {
-            leave();
-            return;
         }
 
         if (isChained() && this.anchor != null) {
@@ -253,19 +318,16 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         }
     }
 
-    /** A scripted departure, not flight AI: up the shaft and gone. */
-    private void leave() {
-        this.leavingTicks--;
-        setNoGravity(true);
-        this.noPhysics = true;
-        setDeltaMovement(0.0D, 0.6D, 0.0D);
-        if (this.level() instanceof ServerLevel server && this.tickCount % 4 == 0) {
-            server.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), getX(), getY(), getZ(),
-                    8, 1.5D, 1.0D, 1.5D, 0.02D);
+    /** Loose: it keeps after a target much further than a chained animal with nowhere to go. */
+    private void applyFreedom() {
+        net.minecraft.world.entity.ai.attributes.AttributeInstance follow =
+                getAttribute(Attributes.FOLLOW_RANGE);
+        if (follow != null) {
+            follow.setBaseValue(FOLLOW_FREE);
         }
-        if (this.leavingTicks <= 0 || getY() > this.level().getMaxBuildHeight() - 8) {
-            discard();
-        }
+        // A dragon from an older save that was half way through "leaving" has its physics back.
+        this.noPhysics = false;
+        setNoGravity(false);
     }
 
     @Override
@@ -290,12 +352,11 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         if (tag.contains("Anchor")) {
-            this.anchor = BlockPos.of(tag.getLong("Anchor"));
+            setAnchor(BlockPos.of(tag.getLong("Anchor")));
         }
         this.entityData.set(DATA_CHAINED, !tag.contains("Chained") || tag.getBoolean("Chained"));
-        // The departure is not saved: a freed dragon reloaded mid-climb resumes leaving instead of staying loose.
         if (!isChained()) {
-            this.leavingTicks = LEAVING_TICKS;
+            applyFreedom();
         }
         this.cowerTicks = tag.getInt("Cower");
         this.entityData.set(DATA_COWERING, this.cowerTicks > 0);
@@ -345,8 +406,15 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         }
 
         @Override
+        public void start() {
+            // Synced to the client, which drops the sniffing head the moment it has somebody.
+            this.dragon.setAggressive(true);
+        }
+
+        @Override
         public void stop() {
             this.dragon.getNavigation().stop();
+            this.dragon.setAggressive(false);
             this.cooldown = 0;
         }
 
@@ -413,12 +481,13 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
                     this.cooldown = this.dragon.isRaging() ? 24 : 40;
                     return;
                 }
-                // Half-starved and chained, so it lumbers rather than charges.
-                this.dragon.getNavigation().moveTo(target, this.dragon.isRaging() ? 0.95D : 0.75D);
+                // Half-starved and chained, so it lumbers rather than charges. Loose, it charges.
+                double pace = this.dragon.isChained() ? 0.75D : 1.0D;
+                this.dragon.getNavigation().moveTo(target, this.dragon.isRaging() ? pace + 0.2D : pace);
                 return;
             }
 
-            this.dragon.getNavigation().moveTo(target, 0.85D);
+            this.dragon.getNavigation().moveTo(target, this.dragon.isChained() ? 0.85D : 1.1D);
         }
     }
 
@@ -437,14 +506,25 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
 
         @Override
         public boolean canUse() {
-            // Always on: tick() handles the cowering retreat to the anchor as well as the guarding.
-            return true;
+            // Always on while chained: tick() handles the cowering retreat to the anchor as well as
+            // the guarding. Loose, only while there is a noise to chase or a cower to hold - it
+            // holds the MOVE flag, so running all the time would keep the roam goal from starting.
+            return this.dragon.isChained() || this.dragon.isCowering() || this.dragon.recentlyHeard();
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return canUse();
         }
 
         @Override
         public void tick() {
             if (this.dragon.isCowering()) {
-                // Backs toward its anchor and will not raise its head.
+                // Backs toward its anchor and will not raise its head. Loose, it just stops.
+                if (!this.dragon.isChained()) {
+                    this.dragon.getNavigation().stop();
+                    return;
+                }
                 if (this.dragon.anchor() != null) {
                     this.dragon.getNavigation().moveTo(this.dragon.anchor().getX(),
                             this.dragon.anchor().getY(), this.dragon.anchor().getZ(), 0.6D);
@@ -468,12 +548,49 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
                 return;
             }
 
-            if (this.dragon.anchor() != null
+            if (this.dragon.isChained() && this.dragon.anchor() != null
                     && this.dragon.position().distanceTo(
                             Vec3.atCenterOf(this.dragon.anchor())) > CHAIN_RADIUS * 0.7D) {
                 this.dragon.getNavigation().moveTo(this.dragon.anchor().getX(),
                         this.dragon.anchor().getY(), this.dragon.anchor().getZ(), 0.5D);
             }
+        }
+    }
+
+    /**
+     * Once it is loose and has nobody to fight: a slow prowl to somewhere nearby, a pause, another.
+     * Only when freed - chained, its guard goal keeps it by the anchor.
+     */
+    private static final class RoamWhenFreeGoal extends net.minecraft.world.entity.ai.goal.Goal {
+
+        private final UkrainianIronbellyEntity dragon;
+        @Nullable
+        private Vec3 to;
+
+        RoamWhenFreeGoal(UkrainianIronbellyEntity dragon) {
+            this.dragon = dragon;
+            setFlags(java.util.EnumSet.of(Flag.MOVE));
+        }
+
+        @Override
+        public boolean canUse() {
+            if (this.dragon.isChained() || this.dragon.getTarget() != null || this.dragon.isCowering()
+                    || this.dragon.recentlyHeard() || this.dragon.getRandom().nextInt(60) != 0) {
+                return false;
+            }
+            this.to = net.minecraft.world.entity.ai.util.DefaultRandomPos.getPos(this.dragon, ROAM, 4);
+            return this.to != null;
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return !this.dragon.getNavigation().isDone() && this.dragon.getTarget() == null
+                    && !this.dragon.isCowering();
+        }
+
+        @Override
+        public void start() {
+            this.dragon.getNavigation().moveTo(this.to.x, this.to.y, this.to.z, 0.6D);
         }
     }
 }

@@ -99,6 +99,35 @@ public final class IronbellyEvents {
         return found;
     }
 
+    /** How far a chest lid carries. Looting is noisy; that is the price of the deep vault. */
+    private static final double CHEST_RANGE = 20.0D;
+    /** How far a hard landing carries. */
+    private static final double LANDING_RANGE = 16.0D;
+
+    /** Opening a container near it: the deep vault's chests are inside its hearing. */
+    @SubscribeEvent
+    public static void onContainerOpen(net.minecraftforge.event.entity.player.PlayerContainerEvent.Open event) {
+        if (event.getEntity() instanceof ServerPlayer player && !player.isCreative()) {
+            alert(player, CHEST_RANGE);
+        }
+    }
+
+    /** Dropping down off a ledge lands with a thump it can hear. Climbing down quietly does not. */
+    @SubscribeEvent
+    public static void onFall(net.minecraftforge.event.entity.living.LivingFallEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player && event.getDistance() > 4.0F
+                && !player.isCreative()) {
+            alert(player, LANDING_RANGE);
+        }
+    }
+
+    private static void alert(ServerPlayer player, double range) {
+        for (UkrainianIronbellyEntity dragon : player.serverLevel().getEntitiesOfClass(
+                UkrainianIronbellyEntity.class, player.getBoundingBox().inflate(range))) {
+            dragon.heard(player.position());
+        }
+    }
+
     /** Running is heard. Walking is not, which is the way past. */
     @SubscribeEvent
     public static void onPlayerTick(TickEvent.PlayerTickEvent event) {

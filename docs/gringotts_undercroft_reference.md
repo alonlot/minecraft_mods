@@ -100,7 +100,15 @@ Never evenly spaced. Objects at equal intervals read as fence posts.
 
 ## How to check
 
-Render textured with `cut=z` — the undercroft is sealed rock and shows nothing from outside. Then
+First run the block-level check, which knows where the line is and the template alone does not:
+`/undercroftdump <depth>` on a dev server, then
+`python build_scripts/audit_undercroft_dump.py run/undercroft_dumps/corridor_d<depth>`. It reports
+which side of the cart the void is actually on (the carver's open side should hold it nearly
+everywhere below the first third), floating blocks, every vault's mouth and walls, and the dragon
+hall's anchor, stubs and headroom. That check is how the inverted bank was found: the void sat on
+the walled side for 83% of the ride and every render had looked plausible.
+
+Then render textured with `cut=z` — the undercroft is sealed rock and shows nothing from outside. Then
 read down this list. The failures that survive a passing block audit are, in order of how expensive
 they have been historically:
 

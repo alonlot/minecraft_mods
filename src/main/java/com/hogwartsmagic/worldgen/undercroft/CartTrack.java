@@ -119,15 +119,19 @@ public final class CartTrack {
         return Math.max(TURNS_MIN, Math.min(TURNS_MAX, depth / DROP_PER_TURN));
     }
 
+    /** Where the spiral's centre has drifted to at t in [0, 1], relative to its own origin. */
+    private static double[] spiralCentre(double t) {
+        return new double[]{DRIFT * Math.sin(Math.PI * t), DRIFT * Math.cos(Math.PI * t) - DRIFT};
+    }
+
     /** Plan position at t in [0, 1] along the descent, relative to the spiral's own origin. */
     private static double[] spiralPoint(double t, double turns) {
         double theta = -2.0D * Math.PI * turns * t;
         double r = R_BASE
                 + R_AMP * Math.sin(2.0D * Math.PI * R_CYCLES * t + 0.6D)
                 + R_AMP * R_HARMONIC * Math.sin(2.0D * Math.PI * R_HARMONIC_CYCLES * t + 2.1D);
-        double cx = DRIFT * Math.sin(Math.PI * t);
-        double cz = DRIFT * Math.cos(Math.PI * t) - DRIFT;
-        return new double[]{cx + r * Math.cos(theta), cz + r * Math.sin(theta)};
+        double[] c = spiralCentre(t);
+        return new double[]{c[0] + r * Math.cos(theta), c[1] + r * Math.sin(theta)};
     }
 
     // --- the baked line ------------------------------------------------------------------
@@ -142,6 +146,7 @@ public final class CartTrack {
     private final float[] curvature;       // 1/r, unsigned
     private final float[] bank;            // degrees, signed, right side down positive
     private final float[] arc;             // cumulative arc length
+    private final float[] ax, az;          // the spiral's own centre at this point, origin-relative
     private final int[] segmentStart;      // first sample index of each segment
 
     private CartTrack(BlockPos origin, int depth, int count) {
@@ -159,6 +164,8 @@ public final class CartTrack {
         this.curvature = new float[count];
         this.bank = new float[count];
         this.arc = new float[count];
+        this.ax = new float[count];
+        this.az = new float[count];
         this.segmentStart = new int[BAND_END.length + 1];
     }
 
@@ -238,6 +245,37 @@ public final class CartTrack {
                 Mth.lerp(f[0], this.uz[i], this.uz[j]));
     }
 
+    /**
+     * The centre the line is spiralling about at {@code s}, in world space at the line's height.
+     *
+     * <p>Known exactly, because the layout is built from it. The chasm used to estimate it as the
+     * midpoint of two points it assumed were half a turn apart - but a tenth of the line is half a
+     * turn only on a five-turn spiral, and the turn count runs from four to seven and a half with
+     * depth. On a deep bank the guess sat twenty blocks off the real axis.
+     */
+    public Vec3 axisAt(double s) {
+        float[] f = new float[1];
+        int i = locate(s, f);
+        int j = Math.min(i + 1, this.arc.length - 1);
+        return new Vec3(
+                this.origin.getX() + 0.5D + Mth.lerp(f[0], this.ax[i], this.ax[j]),
+                this.origin.getY() + Mth.lerp(f[0], this.py[i], this.py[j]),
+                this.origin.getZ() + 0.5D + Mth.lerp(f[0], this.az[i], this.az[j]));
+    }
+
+    /**
+     * Which side of the line the inside of the spiral - and so the chasm - is on: +1 for the
+     * right, -1 for the left. Read off the real geometry rather than off the sign of the bank, so
+     * a straight with no bank to speak of still knows where the drop is.
+     */
+    public int voidSideAt(double s) {
+        Vec3 p = positionAt(s);
+        Vec3 c = axisAt(s);
+        Vec3 r = rightAt(s);
+        double dot = (c.x - p.x) * r.x + (c.z - p.z) * r.z;
+        return dot >= 0.0D ? 1 : -1;
+    }
+
     /** tangent x up: the track's own right-hand side, for laying the corridor out. */
     public Vec3 rightAt(double s) {
         return tangentAt(s).cross(upAt(s)).normalize();
@@ -305,15 +343,18 @@ public final class CartTrack {
         double turns = turnsFor(clamped);
         DoubleList knotX = new DoubleList();
         DoubleList knotZ = new DoubleList();
+        DoubleList knotT = new DoubleList();
         int[] knotSegmentEnd = new int[BAND_END.length];
 
         double[] entry = spiralPoint(0.0D, turns);
         knotX.add(entry[0] - APRON);
         knotZ.add(entry[1]);
+        knotT.add(0.0D);
         int apronSteps = Math.max(2, (int) Math.round(APRON / KNOT_SPACING));
         for (int i = 1; i <= apronSteps; i++) {
             knotX.add(entry[0] - APRON * (1.0D - (double) i / apronSteps));
             knotZ.add(entry[1]);
+            knotT.add(0.0D);
         }
         knotSegmentEnd[0] = knotX.size() - 1;
 
@@ -324,6 +365,7 @@ public final class CartTrack {
             double[] p = spiralPoint(t, turns);
             knotX.add(p[0]);
             knotZ.add(p[1]);
+            knotT.add(t);
             while (band < BAND_END.length && t >= BAND_END[band] - 1.0E-9D) {
                 knotSegmentEnd[band++] = knotX.size() - 1;
             }
@@ -337,6 +379,14 @@ public final class CartTrack {
         int count = (knots - 1) * SAMPLES_PER_KNOT + 1;
         CartTrack track = new CartTrack(origin, clamped, count);
         sampleSpline(knotX, knotZ, track);
+        for (int i = 0; i < count; i++) {
+            int k = Math.min(i / SAMPLES_PER_KNOT, knots - 1);
+            int k2 = Math.min(k + 1, knots - 1);
+            double f = (i % SAMPLES_PER_KNOT) / (double) SAMPLES_PER_KNOT;
+            double[] c = spiralCentre(Mth.lerp(f, knotT.get(k), knotT.get(k2)));
+            track.ax[i] = (float) c[0];
+            track.az[i] = (float) c[1];
+        }
 
         // 3. arc length, then the height profile over it, then re-measure arc length because the
         //    line just got longer in three dimensions than it was in two.
@@ -519,7 +569,13 @@ public final class CartTrack {
             double turn = ha.x * hb.z - ha.z * hb.x;
             double geometric = Math.toDegrees(Math.atan(
                     DESIGN_SPEED * DESIGN_SPEED * k / 20.0D));
-            this.bank[i] = Mth.clamp((float) (turn < 0 ? geometric : -geometric),
+            // A turn to the LEFT (turn < 0 in this x-east, z-south plane) puts the inside of the
+            // curve on the left, so the left rail goes down: a negative bank, "right side down"
+            // being positive. This was the other way round, and nothing in the track itself could
+            // tell - the cart leant out of every corner, and every carver that reads "which side is
+            // the void" off this sign put the void on the rock side. The chasm ended up walled off
+            // behind the corridor for 83% of the ride and the vaults were dug out into thin air.
+            this.bank[i] = Mth.clamp((float) (turn < 0 ? -geometric : geometric),
                     -MAX_BANK_DEG, MAX_BANK_DEG);
         }
 

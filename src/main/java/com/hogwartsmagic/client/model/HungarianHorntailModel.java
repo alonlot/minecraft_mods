@@ -37,25 +37,25 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
     /** Model-space Y of the ground plane (the renderer's scale pivots here, so it holds at any scale). */
     public static final float GROUND_Y = 24.0F;
     /** Body pivot height, chosen so the hind feet reach {@link #GROUND_Y} in the rest pose. */
-    private static final float BODY_Y = 9.0F;
+    protected static final float BODY_Y = 9.0F;
 
     // Rest ("knuckle-walking") wing angles — the wrist lands on the ground with the elbow held high.
-    private static final float STAND_HUMERUS_Z = 0.90F;
-    private static final float STAND_FOREARM_Z = 1.20F;
+    protected static final float STAND_HUMERUS_Z = 0.90F;
+    protected static final float STAND_FOREARM_Z = 1.20F;
     /** Folds the wing right back on itself so the sail stands over the flank instead of splaying out. */
-    private static final float STAND_FINGER_Z = -3.45F;
+    protected static final float STAND_FINGER_Z = -3.45F;
     /** Small outward yaw so the folded sail's trailing edge lifts clear of the ground. */
-    private static final float STAND_FINGER_Y = 0.35F;
+    protected static final float STAND_FINGER_Y = 0.35F;
 
     // Hind leg rest angles — digitigrade: femur forward, shank back, foot flat.
-    private static final float STAND_THIGH_X = -0.55F;
-    private static final float STAND_SHANK_X = 1.17F;
-    private static final float STAND_FOOT_X = -0.62F;
+    protected static final float STAND_THIGH_X = -0.55F;
+    protected static final float STAND_SHANK_X = 1.17F;
+    protected static final float STAND_FOOT_X = -0.62F;
 
     // Neck rest angles — a low, forward-carried, snaking neck.
-    private static final float STAND_NECK1_X = -0.50F;
-    private static final float STAND_NECK2_X = 0.55F;
-    private static final float STAND_HEAD_X = 0.30F;
+    protected static final float STAND_NECK1_X = -0.50F;
+    protected static final float STAND_NECK2_X = 0.55F;
+    protected static final float STAND_HEAD_X = 0.30F;
 
     private final ModelPart root;
     private final ModelPart body;

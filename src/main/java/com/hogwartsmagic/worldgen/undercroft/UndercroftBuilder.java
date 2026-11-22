@@ -41,8 +41,41 @@ public final class UndercroftBuilder {
     /** The deepest we aim for, and the lowest the chasm floor may sit. */
     private static final int TARGET_BOTTOM = -48;
 
-    /** Half-width of the horizontal box the undercroft is allowed to occupy. */
+    /**
+     * Least half-width of the horizontal box the undercroft occupies, centred on the station.
+     *
+     * <p>Only a floor now: the real box is {@link #extentFor}, measured off the line. The spiral is
+     * not centred on the station - the line leaves the shaft an apron's length outside its first
+     * lap - so a fixed 48 around the station missed the far side of every lap, and the carve wrote
+     * into chunks it had never checked were loaded, which loads them from the tick thread.
+     */
     public static final int FOOTPRINT_HALF = 48;
+
+    /** What the carve reaches past the line: the deepest vault, in the back wall of the hall. */
+    private static final int REACH_PAST_LINE = 34;
+
+    private static final java.util.Map<Long, Integer> EXTENTS = new java.util.HashMap<>();
+
+    /** Half-width of the box, centred on the station, that holds everything the carve writes. */
+    public static int extentFor(BlockPos stationTop, int depth) {
+        long key = stationTop.asLong() * 31L + depth;
+        Integer known = EXTENTS.get(key);
+        if (known != null) {
+            return known;
+        }
+        BlockPos origin = CartTrack.originForStart(
+                new BlockPos(stationTop.getX(), stationTop.getY() - SHAFT_DROP, stationTop.getZ()), depth);
+        CartTrack track = CartTrack.build(origin, depth);
+        double reach = 0.0D;
+        for (double s = 0.0D; s <= track.length(); s += 2.0D) {
+            Vec3 p = track.positionAt(s);
+            reach = Math.max(reach, Math.max(Math.abs(p.x - stationTop.getX() - 0.5D),
+                    Math.abs(p.z - stationTop.getZ() - 0.5D)));
+        }
+        int extent = Math.max(FOOTPRINT_HALF, (int) Math.ceil(reach) + REACH_PAST_LINE);
+        EXTENTS.put(key, extent);
+        return extent;
+    }
 
     // Order matters. The chasm is opened BEFORE the corridor, so that the corridor's shell pass
     // then lines the line where it crosses the void: a ledge ends up with rock behind it and
@@ -53,11 +86,14 @@ public final class UndercroftBuilder {
     private static final int WORK_CORRIDOR_SHELL = 2;
     private static final int WORK_CORRIDOR_VOID = 3;
     private static final int WORK_CORRIDOR_FURNISH = 4;
+    // The dragon's hall after the corridor, so it clears the corridor's walls where the two meet
+    // and leaves its deck alone; before the vaults, so the deepest one cuts into the hall's wall.
+    private static final int WORK_CAVERN = 5;
     // Vaults next, so they cut their mouths into a corridor wall that already exists.
-    private static final int WORK_VAULTS = 5;
+    private static final int WORK_VAULTS = 6;
     // Light last of all, so nothing can overwrite a lantern with the rock it was hung on.
-    private static final int WORK_LIGHT = 6;
-    private static final int WORK_DONE = 7;
+    private static final int WORK_LIGHT = 7;
+    private static final int WORK_DONE = 8;
 
     @Nullable
     private static Job activeJob;
@@ -123,7 +159,7 @@ public final class UndercroftBuilder {
             }
             return null;
         }
-        if (!footprintResident(level, stationTop)) {
+        if (!footprintResident(level, stationTop, extentFor(stationTop, depth))) {
             tracker.put(stationTop, depth, UndercroftTracker.PENDING);
             return null;
         }
@@ -142,11 +178,11 @@ public final class UndercroftBuilder {
     }
 
     /** Every column of the footprint must already be loaded before a single block is written. */
-    private static boolean footprintResident(ServerLevel level, BlockPos centre) {
-        for (int cx = (centre.getX() - FOOTPRINT_HALF) >> 4;
-             cx <= (centre.getX() + FOOTPRINT_HALF) >> 4; cx++) {
-            for (int cz = (centre.getZ() - FOOTPRINT_HALF) >> 4;
-                 cz <= (centre.getZ() + FOOTPRINT_HALF) >> 4; cz++) {
+    private static boolean footprintResident(ServerLevel level, BlockPos centre, int half) {
+        for (int cx = (centre.getX() - half) >> 4;
+             cx <= (centre.getX() + half) >> 4; cx++) {
+            for (int cz = (centre.getZ() - half) >> 4;
+                 cz <= (centre.getZ() + half) >> 4; cz++) {
                 if (!level.hasChunk(cx, cz)) {
                     return false;
                 }
@@ -162,7 +198,8 @@ public final class UndercroftBuilder {
         if (job == null) {
             return;
         }
-        if (!footprintResident(job.level, job.site.station)) {
+        if (!footprintResident(job.level, job.site.station,
+                extentFor(job.site.station, job.site.depth))) {
             // Everybody walked away and the chunks unloaded. Writing on would load them again
             // from the tick thread; pause instead, and maybeResume picks it up on the next visit.
             UndercroftTracker.get(job.level)
@@ -175,10 +212,10 @@ public final class UndercroftBuilder {
                 UndercroftTracker.get(job.level)
                         .progress(job.site, WORK_DONE, 0L, UndercroftTracker.COMPLETE);
                 spawnCart(job.level, job.trackOrigin, job.site.depth);
-                spawnDragon(job.level, job.vaults.deepestChamberCentre());
+                spawnDragon(job.level, job.cavern.anchor());
                 spawnSentries(job.level, job.site.station, job.vaults);
                 com.hogwartsmagic.gringotts.GringottsAlarm.get(job.level)
-                        .addRegion(job.site.station, FOOTPRINT_HALF);
+                        .addRegion(job.site.station, extentFor(job.site.station, job.site.depth));
                 announce(job.level, job.site.station);
                 LOGGER.info("Undercroft complete at {}: {} blocks written",
                         job.site.station, job.written);
@@ -208,8 +245,9 @@ public final class UndercroftBuilder {
             if (site.stage != UndercroftTracker.COMPLETE) {
                 continue;
             }
-            if (Math.abs(at.getX() - site.station.getX()) <= FOOTPRINT_HALF
-                    && Math.abs(at.getZ() - site.station.getZ()) <= FOOTPRINT_HALF
+            int half = extentFor(site.station, site.depth);
+            if (Math.abs(at.getX() - site.station.getX()) <= half
+                    && Math.abs(at.getZ() - site.station.getZ()) <= half
                     && at.getY() <= site.station.getY() + 3) {
                 near = site;
                 break;
@@ -236,7 +274,7 @@ public final class UndercroftBuilder {
         int bottom = now.getY() - SHAFT_DROP - near.depth;
         com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
                 new com.hogwartsmagic.network.SpellPackets.UndercroftFogPacket(
-                        now, FOOTPRINT_HALF, now.getY(), bottom),
+                        now, extentFor(now, near.depth), now.getY(), bottom),
                 net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
     }
 
@@ -282,7 +320,7 @@ public final class UndercroftBuilder {
                 trackOrigin, depth);
     }
 
-    /** Puts the Ironbelly in front of the deepest vault, chained to the spot it stands on. */
+    /** Puts the Ironbelly in its hall, in front of the deepest vault, chained where it stands. */
     private static void spawnDragon(ServerLevel level, Vec3 where) {
         com.hogwartsmagic.entity.UkrainianIronbellyEntity dragon =
                 com.hogwartsmagic.entity.ModEntities.UKRAINIAN_IRONBELLY.get().create(level);
@@ -293,7 +331,7 @@ public final class UndercroftBuilder {
         dragon.setAnchor(BlockPos.containing(where));
         dragon.setPersistenceRequired();
         level.addFreshEntity(dragon);
-        LOGGER.info("Ironbelly chained in front of the deepest vault at {}", where);
+        LOGGER.info("Ironbelly chained in its hall at {}", where);
     }
 
     /**
@@ -358,6 +396,7 @@ public final class UndercroftBuilder {
         private final StationCarver station;
         private final ChasmCarver chasm;
         private final CorridorCarver corridor;
+        private final CavernCarver cavern;
         private final VaultCarver vaults;
 
         private final LightCarver light;
@@ -383,8 +422,9 @@ public final class UndercroftBuilder {
             CartTrack track = CartTrack.build(origin, site.depth);
             this.chasm = new ChasmCarver(track, palette);
             this.corridor = new CorridorCarver(track, palette);
-            this.vaults = new VaultCarver(track, palette);
-            this.light = new LightCarver(track, palette, top.getY());
+            this.cavern = new CavernCarver(track, palette);
+            this.vaults = new VaultCarver(track, palette, this.cavern);
+            this.light = new LightCarver(track, palette, top.getY(), this.cavern);
 
             this.item = site.workItem;
             this.cursor = site.cursor;
@@ -419,6 +459,9 @@ public final class UndercroftBuilder {
             if (item == WORK_CHASM) {
                 return this.chasm.stepCount();
             }
+            if (item == WORK_CAVERN) {
+                return this.cavern.stepCount();
+            }
             if (item == WORK_VAULTS) {
                 return this.vaults.stepCount();
             }
@@ -433,6 +476,8 @@ public final class UndercroftBuilder {
                 this.station.carveStep(this.sink, step);
             } else if (item == WORK_CHASM) {
                 this.chasm.carveStep(this.sink, step);
+            } else if (item == WORK_CAVERN) {
+                this.cavern.carveStep(this.sink, step);
             } else if (item == WORK_VAULTS) {
                 this.vaults.carveStep(this.sink, step);
             } else if (item == WORK_LIGHT) {

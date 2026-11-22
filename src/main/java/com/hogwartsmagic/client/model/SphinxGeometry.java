@@ -32,7 +32,7 @@ public final class SphinxGeometry {
                 .texOffs(136, 0).addBox(-8.0F, -8.0F, 10.0F, 16.0F, 17.0F, 13.0F, none),
                 PartPose.offsetAndRotation(0.0F, -30.0F, 0.0F, 0.0F, 0.0F, 0.0F));
         PartDefinition belly_bevel = torso.addOrReplaceChild("belly_bevel", CubeListBuilder.create()
-                .texOffs(191, 93).addBox(-6.5F, -2.0F, -1.0F, 13.0F, 4.0F, 8.0F, none),
+                .texOffs(0, 110).addBox(-6.5F, -2.0F, -1.0F, 13.0F, 4.0F, 8.0F, none),
                 PartPose.offsetAndRotation(0.0F, 8.0F, -6.0F, 0.35F, 0.0F, 0.0F));
         PartDefinition shoulder_left = torso.addOrReplaceChild("shoulder_left", CubeListBuilder.create()
                 .texOffs(92, 39).addBox(-3.5F, -1.0F, -5.0F, 7.0F, 17.0F, 10.0F, none),
@@ -41,11 +41,11 @@ public final class SphinxGeometry {
                 .texOffs(86, 70).addBox(-3.0F, 0.0F, -3.0F, 6.0F, 13.0F, 6.0F, none),
                 PartPose.offsetAndRotation(0.0F, 16.0F, 0.5F, -0.2F, 0.0F, 0.0F));
         PartDefinition wrist_left = elbow_left.addOrReplaceChild("wrist_left", CubeListBuilder.create()
-                .texOffs(94, 93).addBox(-4.0F, 0.0F, -6.0F, 8.0F, 4.0F, 9.0F, none)
-                .texOffs(9, 123).addBox(-4.0F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none)
-                .texOffs(180, 110).addBox(-2.0F, 1.0F, -9.0F, 2.0F, 3.0F, 3.0F, none)
-                .texOffs(191, 110).addBox(0.0F, 1.0F, -9.0F, 2.0F, 3.0F, 3.0F, none)
-                .texOffs(18, 123).addBox(2.0F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none),
+                .texOffs(143, 93).addBox(-4.0F, 0.0F, -6.0F, 8.0F, 4.0F, 9.0F, none)
+                .texOffs(33, 123).addBox(-4.0F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none)
+                .texOffs(223, 110).addBox(-2.0F, 1.0F, -9.0F, 2.0F, 3.0F, 3.0F, none)
+                .texOffs(234, 110).addBox(0.0F, 1.0F, -9.0F, 2.0F, 3.0F, 3.0F, none)
+                .texOffs(42, 123).addBox(2.0F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none),
                 PartPose.offsetAndRotation(0.0F, 13.0F, 0.0F, 0.0F, 0.0F, 0.0F));
         PartDefinition hip_left = torso.addOrReplaceChild("hip_left", CubeListBuilder.create()
                 .texOffs(195, 0).addBox(-4.0F, -4.0F, -7.0F, 8.0F, 17.0F, 13.0F, none),
@@ -54,13 +54,13 @@ public final class SphinxGeometry {
                 .texOffs(197, 70).addBox(-3.0F, 0.0F, -3.0F, 6.0F, 11.0F, 6.0F, none),
                 PartPose.offsetAndRotation(0.0F, 12.0F, -3.0F, 0.95F, 0.0F, 0.0F));
         PartDefinition hock_left = stifle_left.addOrReplaceChild("hock_left", CubeListBuilder.create()
-                .texOffs(62, 110).addBox(-2.0F, 0.0F, -2.0F, 4.0F, 8.0F, 4.0F, none),
+                .texOffs(105, 110).addBox(-2.0F, 0.0F, -2.0F, 4.0F, 8.0F, 4.0F, none),
                 PartPose.offsetAndRotation(0.0F, 11.0F, 0.0F, -0.65F, 0.0F, 0.0F));
         PartDefinition hpaw_left = hock_left.addOrReplaceChild("hpaw_left", CubeListBuilder.create()
-                .texOffs(0, 110).addBox(-3.5F, 0.0F, -6.0F, 7.0F, 4.0F, 8.0F, none)
-                .texOffs(27, 123).addBox(-3.5F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none)
-                .texOffs(202, 110).addBox(-1.5F, 1.0F, -8.5F, 2.0F, 3.0F, 3.0F, none)
-                .texOffs(36, 123).addBox(0.5F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none),
+                .texOffs(43, 110).addBox(-3.5F, 0.0F, -6.0F, 7.0F, 4.0F, 8.0F, none)
+                .texOffs(51, 123).addBox(-3.5F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none)
+                .texOffs(245, 110).addBox(-1.5F, 1.0F, -8.5F, 2.0F, 3.0F, 3.0F, none)
+                .texOffs(60, 123).addBox(0.5F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none),
                 PartPose.offsetAndRotation(0.0F, 8.0F, 0.0F, 0.0F, 0.0F, 0.0F));
         PartDefinition shoulder_right = torso.addOrReplaceChild("shoulder_right", CubeListBuilder.create()
                 .texOffs(127, 39).addBox(-3.5F, -1.0F, -5.0F, 7.0F, 17.0F, 10.0F, none),
@@ -69,11 +69,11 @@ public final class SphinxGeometry {
                 .texOffs(111, 70).addBox(-3.0F, 0.0F, -3.0F, 6.0F, 13.0F, 6.0F, none),
                 PartPose.offsetAndRotation(0.0F, 16.0F, 0.5F, -0.2F, 0.0F, 0.0F));
         PartDefinition wrist_right = elbow_right.addOrReplaceChild("wrist_right", CubeListBuilder.create()
-                .texOffs(129, 93).addBox(-4.0F, 0.0F, -6.0F, 8.0F, 4.0F, 9.0F, none)
-                .texOffs(45, 123).addBox(-4.0F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none)
-                .texOffs(213, 110).addBox(-2.0F, 1.0F, -9.0F, 2.0F, 3.0F, 3.0F, none)
-                .texOffs(224, 110).addBox(0.0F, 1.0F, -9.0F, 2.0F, 3.0F, 3.0F, none)
-                .texOffs(54, 123).addBox(2.0F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none),
+                .texOffs(178, 93).addBox(-4.0F, 0.0F, -6.0F, 8.0F, 4.0F, 9.0F, none)
+                .texOffs(69, 123).addBox(-4.0F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none)
+                .texOffs(0, 123).addBox(-2.0F, 1.0F, -9.0F, 2.0F, 3.0F, 3.0F, none)
+                .texOffs(11, 123).addBox(0.0F, 1.0F, -9.0F, 2.0F, 3.0F, 3.0F, none)
+                .texOffs(78, 123).addBox(2.0F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none),
                 PartPose.offsetAndRotation(0.0F, 13.0F, 0.0F, 0.0F, 0.0F, 0.0F));
         PartDefinition hip_right = torso.addOrReplaceChild("hip_right", CubeListBuilder.create()
                 .texOffs(0, 39).addBox(-4.0F, -4.0F, -7.0F, 8.0F, 17.0F, 13.0F, none),
@@ -82,26 +82,26 @@ public final class SphinxGeometry {
                 .texOffs(222, 70).addBox(-3.0F, 0.0F, -3.0F, 6.0F, 11.0F, 6.0F, none),
                 PartPose.offsetAndRotation(0.0F, 12.0F, -3.0F, 0.95F, 0.0F, 0.0F));
         PartDefinition hock_right = stifle_right.addOrReplaceChild("hock_right", CubeListBuilder.create()
-                .texOffs(79, 110).addBox(-2.0F, 0.0F, -2.0F, 4.0F, 8.0F, 4.0F, none),
+                .texOffs(122, 110).addBox(-2.0F, 0.0F, -2.0F, 4.0F, 8.0F, 4.0F, none),
                 PartPose.offsetAndRotation(0.0F, 11.0F, 0.0F, -0.65F, 0.0F, 0.0F));
         PartDefinition hpaw_right = hock_right.addOrReplaceChild("hpaw_right", CubeListBuilder.create()
-                .texOffs(31, 110).addBox(-3.5F, 0.0F, -6.0F, 7.0F, 4.0F, 8.0F, none)
-                .texOffs(63, 123).addBox(-3.5F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none)
-                .texOffs(235, 110).addBox(-1.5F, 1.0F, -8.5F, 2.0F, 3.0F, 3.0F, none)
-                .texOffs(72, 123).addBox(0.5F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none),
+                .texOffs(74, 110).addBox(-3.5F, 0.0F, -6.0F, 7.0F, 4.0F, 8.0F, none)
+                .texOffs(87, 123).addBox(-3.5F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none)
+                .texOffs(22, 123).addBox(-1.5F, 1.0F, -8.5F, 2.0F, 3.0F, 3.0F, none)
+                .texOffs(96, 123).addBox(0.5F, 1.0F, -8.0F, 2.0F, 3.0F, 2.0F, none),
                 PartPose.offsetAndRotation(0.0F, 8.0F, 0.0F, 0.0F, 0.0F, 0.0F));
         PartDefinition neck = torso.addOrReplaceChild("neck", CubeListBuilder.create()
                 .texOffs(43, 39).addBox(-6.0F, -15.0F, -6.0F, 12.0F, 16.0F, 12.0F, none),
                 PartPose.offsetAndRotation(0.0F, -6.0F, -19.0F, 0.55F, 0.0F, 0.0F));
         PartDefinition head = neck.addOrReplaceChild("head", CubeListBuilder.create()
                 .texOffs(162, 39).addBox(-6.0F, -14.0F, -6.0F, 12.0F, 14.0F, 12.0F, none)
-                .texOffs(246, 110).addBox(-1.0F, -8.0F, -8.0F, 2.0F, 4.0F, 2.0F, none)
-                .texOffs(81, 123).addBox(-3.0F, -2.0F, -7.0F, 6.0F, 2.0F, 1.0F, none),
+                .texOffs(105, 123).addBox(-1.0F, -7.0F, -7.0F, 2.0F, 3.0F, 1.0F, none),
                 PartPose.offsetAndRotation(0.0F, -14.0F, -1.0F, -0.55F, 0.0F, 0.0F));
         PartDefinition nemes = head.addOrReplaceChild("nemes", CubeListBuilder.create()
                 .texOffs(29, 70).addBox(-7.0F, -16.0F, -7.0F, 14.0F, 6.0F, 14.0F, none)
+                .texOffs(94, 93).addBox(-6.0F, -17.0F, -6.0F, 12.0F, 1.0F, 12.0F, none)
                 .texOffs(75, 93).addBox(-3.0F, -9.0F, 6.0F, 6.0F, 12.0F, 3.0F, none)
-                .texOffs(0, 123).addBox(-1.0F, -20.0F, -9.0F, 2.0F, 4.0F, 2.0F, none),
+                .texOffs(112, 123).addBox(-1.0F, -14.0F, -8.0F, 2.0F, 3.0F, 1.0F, none),
                 PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F));
         PartDefinition nemes_panel_left = nemes.addOrReplaceChild("nemes_panel_left", CubeListBuilder.create()
                 .texOffs(211, 39).addBox(-4.0F, 0.0F, -4.0F, 4.0F, 12.0F, 10.0F, none),
@@ -116,19 +116,19 @@ public final class SphinxGeometry {
                 .texOffs(62, 93).addBox(-1.5F, 0.0F, -1.5F, 3.0F, 13.0F, 3.0F, none),
                 PartPose.offsetAndRotation(1.5F, 11.0F, -3.0F, 0.0F, 0.0F, 0.2F));
         PartDefinition tail1 = torso.addOrReplaceChild("tail1", CubeListBuilder.create()
-                .texOffs(164, 93).addBox(-2.0F, -2.0F, 0.0F, 4.0F, 4.0F, 9.0F, none),
+                .texOffs(213, 93).addBox(-2.0F, -2.0F, 0.0F, 4.0F, 4.0F, 9.0F, none),
                 PartPose.offsetAndRotation(0.0F, -6.0F, 23.0F, -1.0F, 0.0F, 0.0F));
         PartDefinition tail2 = tail1.addOrReplaceChild("tail2", CubeListBuilder.create()
-                .texOffs(96, 110).addBox(-1.5F, -1.5F, 0.0F, 3.0F, 3.0F, 8.0F, none),
+                .texOffs(139, 110).addBox(-1.5F, -1.5F, 0.0F, 3.0F, 3.0F, 8.0F, none),
                 PartPose.offsetAndRotation(0.0F, 0.0F, 8.5F, 0.25F, 0.0F, 0.0F));
         PartDefinition tail3 = tail2.addOrReplaceChild("tail3", CubeListBuilder.create()
-                .texOffs(142, 110).addBox(-1.5F, -1.5F, 0.0F, 3.0F, 3.0F, 7.0F, none),
+                .texOffs(185, 110).addBox(-1.5F, -1.5F, 0.0F, 3.0F, 3.0F, 7.0F, none),
                 PartPose.offsetAndRotation(0.0F, 0.0F, 7.5F, 0.3F, 0.0F, 0.0F));
         PartDefinition tail4 = tail3.addOrReplaceChild("tail4", CubeListBuilder.create()
-                .texOffs(163, 110).addBox(-1.0F, -1.0F, 0.0F, 2.0F, 2.0F, 6.0F, none),
+                .texOffs(206, 110).addBox(-1.0F, -1.0F, 0.0F, 2.0F, 2.0F, 6.0F, none),
                 PartPose.offsetAndRotation(0.0F, 0.0F, 6.5F, 0.35F, 0.0F, 0.0F));
         PartDefinition tuft = tail4.addOrReplaceChild("tuft", CubeListBuilder.create()
-                .texOffs(119, 110).addBox(-2.5F, -2.5F, 0.0F, 5.0F, 5.0F, 6.0F, none),
+                .texOffs(162, 110).addBox(-2.5F, -2.5F, 0.0F, 5.0F, 5.0F, 6.0F, none),
                 PartPose.offsetAndRotation(0.0F, 0.0F, 5.5F, 0.0F, 0.0F, 0.0F));
         return LayerDefinition.create(mesh, 256, 256);
     }

@@ -102,13 +102,15 @@ bone('neck', 'torso', (0.0, -6.0, -19.0), (0.55, 0.0, 0.0), [
 ])
 bone('head', 'neck', (0.0, -14.0, -1.0), (-0.55, 0.0, 0.0), [
     ('skin', (-6.0, -14.0, -6.0), (12, 14, 12)),     # skull and face; the face is the -z side
-    ('skin', (-1.0, -8.0, -8.0), (2, 4, 2)),         # nose
-    ('skin', (-3.0, -2.0, -7.0), (6, 2, 1)),         # chin
+    # The nose: small and set between the eyes and the lip. A first nose, two deep and four long,
+    # hung down to the mouth; a chin box under it stood out like a shelf and was removed.
+    ('skin', (-1.0, -7.0, -7.0), (2, 3, 1)),
 ])
 bone('nemes', 'head', (0.0, 0.0, 0.0), cubes=[
-    ('nemes', (-7.0, -16.0, -7.0), (14, 6, 14)),     # the crown, its brow band just proud of the face
+    ('nemes', (-7.0, -16.0, -7.0), (14, 6, 14)),     # the crown: a narrow gold band at its foot, stripes above
+    ('nemes', (-6.0, -17.0, -6.0), (12, 1, 12)),     # a rounded top, so it is cloth and not a box hat
     ('nemes', (-3.0, -9.0, 6.0), (6, 12, 3)),        # the queue down the back of the neck
-    ('gold', (-1.0, -20.0, -9.0), (2, 4, 2)),        # the uraeus, the cobra on the brow
+    ('gold', (-1.0, -14.0, -8.0), (2, 3, 1)),        # the uraeus, the cobra rising from the band
 ])
 for s, side in ((-1, 'left'), (1, 'right')):
     # The side panels flare outward toward the shoulders: the nemes' trapezoid outline.
@@ -213,9 +215,10 @@ TAWNY_DARK = hx('A9783F')
 PALE = hx('EAD6AE')
 TUFT = hx('3B2716')
 PAD = hx('5A4032')
-SKIN = hx('B97F53')
-SKIN_SHADE = hx('97623D')
-SKIN_LIGHT = hx('CC946A')
+SKIN = hx('C8946A')
+SKIN_SHADE = hx('A87650')
+SKIN_LIGHT = hx('D9A87E')
+BROW = hx('4A3020')
 KOHL = hx('17110F')
 IRIS = hx('3A2414')
 SCLERA = hx('D9C7A8')
@@ -274,32 +277,47 @@ def fur_colour(p, n, uvx, uvy, salt, torso):
 
 
 def face_texel(fx, fy, fw, fh):
-    """The face: 12 wide, 14 tall; the nemes covers the top four rows."""
-    c = SKIN
-    cx = fx - (fw - 1) / 2.0
-    # Cheeks turn away from the light; the middle of the face catches it.
-    c = lerp(c, SKIN_SHADE, max(0.0, (abs(cx) - 3.5) / 2.5) * 0.7)
-    c = lerp(c, SKIN_LIGHT, max(0.0, 1.0 - abs(cx) / 2.0) * 0.35 if 6 <= fy <= 9 else 0.0)
-    eyes_l, eyes_r = (1, 2, 3, 4), (7, 8, 9, 10)
-    if fy == 4 and fx in (2, 3, 4, 7, 8, 9):
-        c = lerp(c, KOHL, 0.55)                          # brows
-    if fy == 5 and (fx in eyes_l or fx in eyes_r):
-        c = KOHL                                         # upper lid, lined
-    if fy == 6:
-        row = {0: KOHL, 1: SCLERA, 2: IRIS, 3: KOHL, 4: SCLERA,
-               7: SCLERA, 8: KOHL, 9: IRIS, 10: SCLERA, 11: KOHL}
+    """The face, 12 wide and 14 tall. The crown covers rows 0-3; the face shows from row 4.
+
+    Laid out as a face is: eyes at the middle of the head, the nose cube over rows 7-9, the
+    mouth two rows under it. Shading is soft and round (lighter in the middle, darker toward the
+    jaw), never per column: column bands read as stripes painted on a box.
+    """
+    cx = (fx - (fw - 1) / 2.0) / ((fw - 1) / 2.0)          # -1 .. 1 across the face
+    c = mul(SKIN, 1.04 - 0.14 * cx * cx)
+    if fy == 4:
+        c = mul(c, 0.86)                                  # shadow under the brow band
+    if fy >= 12:
+        c = mul(c, 0.97 - 0.05 * abs(cx))                 # the chin turns under
+    eye_l, eye_r = (2, 3, 4), (7, 8, 9)
+    # Brows: thin, arched (the middle a little stronger), tapering at the ends.
+    if fy == 5:
+        strength = {2: 0.45, 3: 0.65, 4: 0.5, 7: 0.5, 8: 0.65, 9: 0.45, 1: 0.2, 10: 0.2}
+        if fx in strength:
+            c = lerp(c, BROW, strength[fx])
+    # Upper lid lined in kohl, one texel thick.
+    if fy == 6 and (fx in eye_l or fx in eye_r):
+        c = lerp(c, KOHL, 0.85)
+    # The open eye: white, the dark iris, white; the kohl wing drawn out past the outer corner.
+    if fy == 7:
+        row = {2: SCLERA, 3: IRIS, 4: SCLERA, 7: SCLERA, 8: IRIS, 9: SCLERA}
         if fx in row:
             c = row[fx]
-    if fy == 7 and (fx in (1, 2, 3, 4, 7, 8, 9, 10)):
-        c = lerp(c, SKIN_SHADE, 0.6)                     # the lower lid's shadow
-    if fy in (8, 9) and fx in (4, 7):
-        c = lerp(c, SKIN_SHADE, 0.7)                     # shadow beside the nose
-    if fy == 10 and 4 <= fx <= 7:
-        c = LIP_DARK if fx in (5, 6) else LIP            # upper lip and the mouth line
-    if fy == 11 and 4 <= fx <= 7:
-        c = LIP                                          # lower lip
-    if fy == 12 and 5 <= fx <= 6:
-        c = lerp(c, SKIN_SHADE, 0.4)                     # under the lip
+        if fx in (1, 10):
+            c = lerp(c, KOHL, 0.8)
+    if fy == 8 and (fx in eye_l or fx in eye_r):
+        c = lerp(c, SKIN_SHADE, 0.35)                     # the lower lid
+    if fy == 9 and fx in (4, 7):
+        c = lerp(c, SKIN_SHADE, 0.4)                      # beside the nose
+    if fy == 10 and fx in (5, 6):
+        c = lerp(c, SKIN_SHADE, 0.45)                     # under the nose
+    if fy == 11:
+        if fx in (5, 6):
+            c = LIP
+        elif fx in (4, 7):
+            c = lerp(c, LIP_DARK, 0.55)                   # the corners of the mouth
+    if fy == 12 and fx in (5, 6):
+        c = lerp(c, LIP, 0.55)                            # the lower lip, fuller in the middle
     return c
 
 
@@ -356,13 +374,13 @@ def paint():
                     elif mat == 'nemes':
                         c = nemes_colour(p, n, face)
                         # The brow band: plain gold, a dark edge at its foot.
-                        if name == 'nemes' and idx == 0 and face == 'north':
-                            c = GOLD_DARK if t == rh - 1 else (GOLD_LIGHT if t == 0 else GOLD)
+                        if name == 'nemes' and idx == 0 and face == 'north' and t >= rh - 2:
+                            c = GOLD_DARK if t == rh - 1 else GOLD_LIGHT
                     elif mat == 'skin':
                         if name == 'head' and idx == 0 and face == 'north':
                             c = face_texel(s, t, rw, rh)
                         elif name == 'head' and idx == 1:
-                            c = KOHL if (face == 'down') else (SKIN_LIGHT if face == 'north' else SKIN)
+                            c = mul(SKIN_SHADE, 0.7) if face == 'down' else (SKIN_LIGHT if face in ('north', 'up') else SKIN)
                         else:
                             c = SKIN_SHADE if face in ('east', 'west', 'south') else SKIN
                     else:

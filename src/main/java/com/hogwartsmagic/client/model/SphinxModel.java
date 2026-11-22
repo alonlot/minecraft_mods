@@ -40,6 +40,7 @@ public class SphinxModel extends EntityModel<SphinxEntity> {
     private final ModelPart body;
     private final ModelPart head;
     private final ModelPart tail;
+    private final ModelPart tailTip;
     private final ModelPart legFrontLeft;
     private final ModelPart legFrontRight;
     private final ModelPart legBackLeft;
@@ -50,6 +51,7 @@ public class SphinxModel extends EntityModel<SphinxEntity> {
         this.body = root.getChild("body");
         this.head = body.getChild("head");
         this.tail = body.getChild("tail");
+        this.tailTip = tail.getChild("tail_tip");
         this.legFrontLeft = root.getChild("leg_front_left");
         this.legFrontRight = root.getChild("leg_front_right");
         this.legBackLeft = root.getChild("leg_back_left");
@@ -68,11 +70,12 @@ public class SphinxModel extends EntityModel<SphinxEntity> {
 
         body.addOrReplaceChild("neck", CubeListBuilder.create()
                 .texOffs(0, 50).addBox(-3.0F, -5.0F, -3.0F, 6.0F, 5.0F, 6.0F, none),
-                PartPose.offset(0.0F, -8.0F, -12.0F));
+                // Leaning forward: a head set straight up over the chest read as a llama from the front.
+                PartPose.offsetAndRotation(0.0F, -8.0F, -12.0F, 0.5F, 0.0F, 0.0F));
 
         PartDefinition head = body.addOrReplaceChild("head", CubeListBuilder.create()
                 .texOffs(76, 0).addBox(-4.0F, -8.0F, -4.0F, 8.0F, 8.0F, 8.0F, none),
-                PartPose.offset(0.0F, -13.0F, -13.0F));
+                PartPose.offset(0.0F, -12.0F, -15.0F));
         head.addOrReplaceChild("nemes", CubeListBuilder.create()
                 .texOffs(76, 16).addBox(-5.0F, -9.0F, -4.5F, 10.0F, 4.0F, 10.0F, none)
                 .texOffs(116, 16).addBox(-2.0F, -5.0F, 4.0F, 4.0F, 5.0F, 2.0F, none),
@@ -87,12 +90,16 @@ public class SphinxModel extends EntityModel<SphinxEntity> {
                 .texOffs(108, 13).addBox(-0.5F, -11.0F, -5.0F, 1.0F, 2.0F, 1.0F, none),
                 PartPose.ZERO);
 
+        // Two segments, so the tail can curve: one straight stick read as a stick.
         PartDefinition tail = body.addOrReplaceChild("tail", CubeListBuilder.create()
-                .texOffs(80, 36).addBox(-1.0F, -1.0F, 0.0F, 2.0F, 2.0F, 14.0F, none),
+                .texOffs(80, 36).addBox(-1.0F, -1.0F, 0.0F, 2.0F, 2.0F, 8.0F, none),
                 PartPose.offsetAndRotation(0.0F, -6.0F, 13.0F, -1.1F, 0.0F, 0.0F));
-        tail.addOrReplaceChild("tuft", CubeListBuilder.create()
-                .texOffs(112, 36).addBox(-1.5F, -1.5F, 0.0F, 3.0F, 3.0F, 3.0F, none),
-                PartPose.offset(0.0F, 0.0F, 14.0F));
+        PartDefinition tailTip = tail.addOrReplaceChild("tail_tip", CubeListBuilder.create()
+                .texOffs(100, 36).addBox(-1.0F, -1.0F, 0.0F, 2.0F, 2.0F, 7.0F, none),
+                PartPose.offset(0.0F, 0.0F, 7.5F));
+        tailTip.addOrReplaceChild("tuft", CubeListBuilder.create()
+                .texOffs(100, 46).addBox(-1.5F, -1.5F, 0.0F, 3.0F, 3.0F, 3.0F, none),
+                PartPose.offset(0.0F, 0.0F, 6.5F));
 
         leg(root, "leg_front_left", 0, -3.5F, -9.5F);
         leg(root, "leg_front_right", 20, 3.5F, -9.5F);
@@ -157,6 +164,9 @@ public class SphinxModel extends EntityModel<SphinxEntity> {
         // Lying, the tail runs back along the ground and curls to one side; it must not dip under it.
         tail.xRot = Mth.lerp(l, -1.1F, -0.45F) + Mth.cos(ageInTicks * rate * 0.7F) * 0.08F;
         tail.yRot = Mth.lerp(l, 0.0F, 0.7F) + Mth.sin(ageInTicks * rate) * lash;
+        // The tip curls: up and out when she stands, round toward her flank when she lies.
+        tailTip.xRot = Mth.lerp(l, 0.75F, 0.15F) + Mth.cos(ageInTicks * rate * 0.9F) * 0.12F;
+        tailTip.yRot = Mth.lerp(l, 0.0F, 0.8F) + Mth.sin(ageInTicks * rate - 0.8F) * lash * 0.8F;
     }
 
     @Override

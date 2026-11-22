@@ -35,8 +35,9 @@ BOXES = {
     'leg_front_right': (20, 36, 5, 9, 5, 'leg'),
     'leg_back_left': (40, 36, 5, 9, 5, 'leg'),
     'leg_back_right': (60, 36, 5, 9, 5, 'leg'),
-    'tail': (80, 36, 2, 2, 14, 'fur'),
-    'tuft': (112, 36, 3, 3, 3, 'tuft'),
+    'tail': (80, 36, 2, 2, 8, 'fur'),
+    'tail_tip': (100, 36, 2, 2, 7, 'fur'),
+    'tuft': (100, 46, 3, 3, 3, 'tuft'),
     'neck': (0, 50, 6, 5, 6, 'fur'),
 }
 
@@ -46,9 +47,10 @@ BELLY = (234, 206, 150)
 SKIN = [(184, 124, 76), (176, 118, 72), (190, 132, 82)]
 SKIN_SHADE = (148, 96, 58)
 KOHL = (24, 18, 22)
-PUPIL = (58, 36, 22)
-EYE_WHITE = (232, 222, 200)
-LIPS = (150, 74, 62)
+LIPS = (150, 82, 66)
+LIPS_DARK = (124, 64, 52)
+IRIS = (52, 30, 18)
+KOHL_BROW = (60, 40, 30)
 GOLD = (226, 180, 66)
 GOLD_DARK = (178, 132, 40)
 LAPIS = (40, 74, 158)
@@ -117,16 +119,18 @@ def paint_face(im, u, v, w, h, d):
     fx, fy, fw, fh = f['front']
     # Rows 0-2 sit under the nemes band; the face shows from row 3.
     px = lambda x, y, c: im.putpixel((fx + x, fy + y), c)
+    # Egyptian eyes: dark, almond-shaped, lined in kohl with the line drawn out past the outer
+    # corner. No whites: at this size a white eye with a pupil in it reads as a cartoon.
     for x in (1, 2, 5, 6):
-        px(x, 3, SKIN_SHADE)                          # brows
-    for x, c in ((0, KOHL), (1, EYE_WHITE), (2, PUPIL), (5, PUPIL), (6, EYE_WHITE), (7, KOHL)):
-        px(x, 4, c)                                   # long kohl-lined eyes
-    px(1, 5, KOHL)
-    px(6, 5, KOHL)
+        px(x, 3, KOHL_BROW)                           # thin brows
+    for x, c in ((0, KOHL), (1, IRIS), (2, KOHL), (5, KOHL), (6, IRIS), (7, KOHL)):
+        px(x, 4, c)
+    px(0, 5, SKIN_SHADE)                              # the kohl's tail, fading down the temple
+    px(7, 5, SKIN_SHADE)
     px(3, 5, SKIN_SHADE)                              # the shade beside the nose
     px(4, 5, SKIN[2])
     px(3, 6, LIPS)
-    px(4, 6, LIPS)
+    px(4, 6, LIPS_DARK)
     for x in range(fw):
         px(x, 7, SKIN_SHADE if x in (0, 7) else SKIN[0])
     for side in ('side_a', 'side_b'):

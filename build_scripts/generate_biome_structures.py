@@ -5031,7 +5031,8 @@ TOMB_N = 32                      # pyramid base runs 0..TOMB_N on x and z
 TOMB_C = 16
 TOMB_FA = TOMB_G - 10            # antechamber floor block (stand at FA+1)
 TOMB_BF = TOMB_G - 21            # burial chamber floor block (stand at BF+1)
-TOMB_CASING = [('minecraft:sandstone_stairs', 7), ('minecraft:smooth_sandstone_stairs', 3)]
+TOMB_CASING = [('minecraft:sandstone_stairs', 9), ('minecraft:smooth_sandstone_stairs', 1)]
+TOMB_CAP_CASING = [('minecraft:smooth_sandstone_stairs', 1)]   # the polished casing near the top
 TOMB_CORE = [('minecraft:sandstone', 8), ('minecraft:smooth_sandstone', 2)]
 TOMB_WALL = [('minecraft:cut_sandstone', 6), ('minecraft:sandstone', 3), ('minecraft:smooth_sandstone', 2)]
 TOMB_FLOOR = [('minecraft:smooth_sandstone', 6), ('minecraft:cut_sandstone', 2)]
@@ -5112,11 +5113,15 @@ def pyramid(b):
                     stair(b, (x, y, z), 'minecraft:sandstone_stairs', facing, shape=shape)
                     continue
                 face = 'north' if z == lo else 'south' if z == hi else 'west' if x == lo else 'east'
-                # Weathered casing: some stones are gone and the step behind shows.
-                if noise(x, y, z, 2003) < 0.07 and k > 1:
+                # As on Khafre's pyramid, the polished casing survives only near the top. Lower
+                # down the stone is weathered and more of the casing has been robbed out, so the
+                # faces are not one flat sheet of the same block.
+                top = k >= 11
+                if noise(x, y, z, 2003) < (0.02 if top else 0.11 - 0.006 * k) and k > 1:
                     put(b, (x, y, z), tex(TOMB_CORE, x, y, z, 2004))
                     continue
-                stair(b, (x, y, z), tex(TOMB_CASING, x, y, z, 2005), OUTWARD[face])
+                stair(b, (x, y, z), tex(TOMB_CAP_CASING if top else TOMB_CASING, x, y, z, 2005),
+                      OUTWARD[face])
     # The gilded cap, the last thing still catching the sun.
     put(b, (TOMB_C, G + N // 2 + 1, TOMB_C), 'minecraft:gold_block')
 
@@ -5544,7 +5549,6 @@ def audit_cursed_tomb(blocks):
 DIG_W, DIG_D = 25, 21
 DIG_G = 4                      # first air level; the structure's start height is -DIG_G
 DIG_SAND = [('minecraft:sand', 9), ('minecraft:sandstone', 1)]
-CANVAS = [('minecraft:white_wool', 1)]   # grey patches read as a chessboard at this size
 
 
 def dig_footprint(x, z):
@@ -5552,16 +5556,20 @@ def dig_footprint(x, z):
 
 
 def awning(b, x0, z0, x1, z1, salt):
-    """Four posts and a canvas roof with a ridge: shade, not a house."""
+    """Four posts and a thin canvas roof with a shallow pitch: shade, not a house.
+
+    The roof is white quartz slabs stepped half a block at a time to a ridge, so it reads as cloth
+    pulled over a pole. The first version was two courses of white wool and read as a box.
+    """
     G = DIG_G
     for x, z in ((x0, z0), (x1, z0), (x0, z1), (x1, z1)):
         fill(b, x, G, z, x, G + 2, z, 'minecraft:birch_fence')
-    mid = (z0 + z1) // 2
     for x in range(x0, x1 + 1):
         for z in range(z0, z1 + 1):
-            put(b, (x, G + (4 if z == mid else 3), z), tex(CANVAS, x, 0, z, salt))
-    for x in range(x0, x1 + 1):
-        put(b, (x, G + 3, mid), 'minecraft:birch_planks')
+            step = min(abs(z - z0), abs(z - z1))      # 0 at the eaves, rising to the ridge
+            y = G + 3 + step // 2
+            kind = 'bottom' if step % 2 == 0 else 'top'
+            slab(b, (x, y, z), 'minecraft:smooth_quartz_slab', kind)
 
 
 def cursebreaker_dig():

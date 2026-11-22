@@ -58,7 +58,8 @@ public final class DevScript {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) {
             String world = System.getenv("HOGWARTSMAGIC_DEV_WORLD");
-            if (!opening && world != null && mc.screen instanceof TitleScreen) {
+            if (!opening && world != null && (mc.screen instanceof TitleScreen
+                    || mc.screen instanceof net.minecraft.client.gui.screens.AccessibilityOnboardingScreen)) {
                 opening = true;
                 if (mc.getLevelSource().levelExists(world)) {
                     LOGGER.info("Dev script: opening world {}", world);

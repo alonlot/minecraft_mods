@@ -23,3 +23,14 @@ expect the flat world's surface at y -60.
 the open with a held torch and with fire). Run it in its own flat world, for example
 `HOGWARTSMAGIC_DEV_WORLD=yeti_demo`. The player gets night vision and full resistance so the script
 survives the fight.
+
+`castle_mechanisms.txt` records the Mini Hogwarts moving parts as a video: it spawns a castle in a new flat
+world (`HOGWARTSMAGIC_DEV_WORLD=castle_video`), says the password to the gargoyle in chat (the `chat` line),
+then shows the stair rising, the office and its book gallery, the moving flight swinging away and back, and
+the stair sinking. It slows the game with `/tick rate 4` and saves one frame per game tick
+(`screenshots/vid_0001.png` and on), so frames joined at 20 fps play at real speed:
+
+    ffmpeg -framerate 20 -i run/screenshots/vid_%04d.png -c:v libx264 -pix_fmt yuv420p mini_hogwarts.mp4
+
+Add `tutorialStep:none` to `run/options.txt` to hide the "Move with W, A, S and D" box. There is no sound:
+Xvfb has no audio device.

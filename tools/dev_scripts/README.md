@@ -18,3 +18,8 @@ about fifteen minutes that way; the script itself runs in game time.
 `niffler.txt` reviews the Niffler (model, full pouch, sitting, the tickle, a theft, a treasure find).
 Run it in its own flat world, for example `HOGWARTSMAGIC_DEV_WORLD=niffler_demo`: its coordinates
 expect the flat world's surface at y -60.
+
+`yeti.txt` reviews the Yeti and its cave (the cave outside and in, the sleeping Yeti, then a fight in
+the open with a held torch and with fire). Run it in its own flat world, for example
+`HOGWARTSMAGIC_DEV_WORLD=yeti_demo`. The player gets night vision and full resistance so the script
+survives the fight.

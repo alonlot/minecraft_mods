@@ -1,0 +1,66 @@
+# Yeti review: the cave outside and in, the sleeping Yeti, the frozen explorers, then a fight in the
+# open (roar, boulder, swipe or slam), a held torch, and fire.
+# Run it in a new flat world (HOGWARTSMAGIC_DEV_WORLD=yeti_demo): the surface is y -60.
+wait 40
+cmd time set 6000
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd gamerule sendCommandFeedback false
+cmd gamerule announceAdvancements false
+cmd weather clear
+cmd kill @e[type=!player]
+cmd clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:resistance infinite 4 true
+cmd effect give @s minecraft:regeneration infinite 4 true
+# The cave, its outside ground at y -60.
+cmd place template hogwartsmagic:yeti_cave 0 -64 0
+gui off
+camera first
+cmd tp @s 18.5 -60 50.5 180 8
+wait 60
+shot yeti_01_cave_outside
+cmd tp @s 46.5 -46 54.5 135 22
+wait 30
+shot yeti_02_cave_from_above
+# Inside: down the tunnel, the den, the nest.
+cmd tp @s 18.5 -60 31.5 180 12
+wait 30
+shot yeti_03_tunnel
+cmd tp @s 18.5 -62 19.5 180 18
+wait 30
+shot yeti_04_den_nest
+cmd tp @s 18.5 -62 14.5 -90 5
+wait 20
+shot yeti_05_frozen_explorer
+cmd tp @s 18.5 -61 15.5 180 25
+wait 20
+shot yeti_06_sleeping_yeti
+# The fight, in the open well away from the cave. Survival, so it treats the player as a trespasser.
+cmd tp @s 80.5 -60 0.5 90 2
+cmd summon hogwartsmagic:yeti 68.5 -60 0.5 {Rotation:[-90f,0f],PersistenceRequired:1b}
+cmd gamemode survival
+wait 14
+shot yeti_07_roar
+wait 30
+shot yeti_08_fight_a
+wait 25
+shot yeti_09_fight_b
+wait 25
+shot yeti_10_fight_c
+wait 25
+shot yeti_11_fight_d
+# A torch in hand: it keeps off and throws.
+cmd item replace entity @s weapon.mainhand with minecraft:torch
+wait 60
+shot yeti_12_torch_a
+wait 30
+shot yeti_13_torch_b
+# Fire: it cowers.
+cmd execute as @e[type=hogwartsmagic:yeti,limit=1,sort=nearest] run data merge entity @s {Fire:80s}
+wait 6
+shot yeti_14_fire_cower
+wait 30
+shot yeti_15_fire_flee
+cmd gamemode creative
+quit

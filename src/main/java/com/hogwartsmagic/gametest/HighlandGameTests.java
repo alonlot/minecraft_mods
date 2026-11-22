@@ -112,7 +112,7 @@ public final class HighlandGameTests {
      * come out of it, and after five seconds of ticking side by side the trolls are still alive.
      * The trolls were the giants' first meal before giants learned to leave them alone.
      */
-    @GameTest(template = EMPTY, timeoutTicks = 200)
+    @GameTest(template = EMPTY, timeoutTicks = 220)
     public static void encampmentGiantsSpareTheirTrolls(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate template = level
@@ -130,34 +130,39 @@ public final class HighlandGameTests {
                 level.setChunkForced(cx, cz, true);
             }
         }
-        template.placeInWorld(level, origin, origin,
-                new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings(),
-                level.random, 2);
-        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(origin)
-                .expandTowards(size.getX(), size.getY(), size.getZ()).inflate(4);
-        java.util.List<GiantEntity> giants = level.getEntitiesOfClass(GiantEntity.class, box);
-        java.util.List<TrollEntity> trolls = level.getEntitiesOfClass(TrollEntity.class, box);
-        helper.assertTrue(giants.size() == 3, "the encampment should hold 3 giants, got " + giants.size());
-        helper.assertTrue(trolls.size() == 2, "the encampment should hold 2 trolls, got " + trolls.size());
-        helper.runAfterDelay(100, () -> {
-            boolean ticked = giants.stream().allMatch(g -> g.tickCount >= 80);
-            boolean hunting = giants.stream().anyMatch(g -> g.getTarget() instanceof TrollEntity);
-            int alive = (int) trolls.stream().filter(t -> t.isAlive() && t.getHealth() >= t.getMaxHealth()).count();
-            // Clean up before any assert can throw: left behind, the giants would wander into the
-            // other tests, and the forced chunks would stay loaded for the rest of the run.
-            level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, box,
-                    e -> !(e instanceof net.minecraft.world.entity.player.Player)).forEach(e -> e.discard());
-            net.minecraft.core.BlockPos.betweenClosed(origin, origin.offset(size).offset(-1, -1, -1))
-                    .forEach(p -> level.setBlock(p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2 | 16));
-            for (int cx = origin.getX() >> 4; cx <= (origin.getX() + size.getX()) >> 4; cx++) {
-                for (int cz = origin.getZ() >> 4; cz <= (origin.getZ() + size.getZ()) >> 4; cz++) {
-                    level.setChunkForced(cx, cz, false);
+        // Placed a few ticks after the force: a forced chunk becomes entity-visible a tick or two later,
+        // and entities added to it before that are stored but not found by getEntitiesOfClass. Whether
+        // the chunks were already loaded depended on which tests happened to sit next to this one.
+        helper.runAfterDelay(5, () -> {
+            template.placeInWorld(level, origin, origin,
+                    new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings(),
+                    level.random, 2);
+            net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(origin)
+                    .expandTowards(size.getX(), size.getY(), size.getZ()).inflate(4);
+            java.util.List<GiantEntity> giants = level.getEntitiesOfClass(GiantEntity.class, box);
+            java.util.List<TrollEntity> trolls = level.getEntitiesOfClass(TrollEntity.class, box);
+            helper.assertTrue(giants.size() == 3, "the encampment should hold 3 giants, got " + giants.size());
+            helper.assertTrue(trolls.size() == 2, "the encampment should hold 2 trolls, got " + trolls.size());
+            helper.runAfterDelay(100, () -> {
+                boolean ticked = giants.stream().allMatch(g -> g.tickCount >= 80);
+                boolean hunting = giants.stream().anyMatch(g -> g.getTarget() instanceof TrollEntity);
+                int alive = (int) trolls.stream().filter(t -> t.isAlive() && t.getHealth() >= t.getMaxHealth()).count();
+                // Clean up before any assert can throw: left behind, the giants would wander into the
+                // other tests, and the forced chunks would stay loaded for the rest of the run.
+                level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, box,
+                        e -> !(e instanceof net.minecraft.world.entity.player.Player)).forEach(e -> e.discard());
+                net.minecraft.core.BlockPos.betweenClosed(origin, origin.offset(size).offset(-1, -1, -1))
+                        .forEach(p -> level.setBlock(p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2 | 16));
+                for (int cx = origin.getX() >> 4; cx <= (origin.getX() + size.getX()) >> 4; cx++) {
+                    for (int cz = origin.getZ() >> 4; cz <= (origin.getZ() + size.getZ()) >> 4; cz++) {
+                        level.setChunkForced(cx, cz, false);
+                    }
                 }
-            }
-            helper.assertTrue(ticked, "the giants did not tick, so this test proves nothing");
-            helper.assertFalse(hunting, "a giant is hunting a troll");
-            helper.assertTrue(alive == 2, "both trolls should be alive and unhurt after 5 s with the giants, got " + alive);
-            helper.succeed();
+                helper.assertTrue(ticked, "the giants did not tick, so this test proves nothing");
+                helper.assertFalse(hunting, "a giant is hunting a troll");
+                helper.assertTrue(alive == 2, "both trolls should be alive and unhurt after 5 s with the giants, got " + alive);
+                helper.succeed();
+            });
         });
     }
 }

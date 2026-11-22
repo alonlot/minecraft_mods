@@ -477,6 +477,23 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("niffler"));
 
+    // Three blocks tall when it stands; the box is the stooped body, the arms reach a little past it.
+    public static final RegistryObject<EntityType<YetiEntity>> YETI =
+            ENTITY_TYPES.register("yeti",
+                    () -> EntityType.Builder.<YetiEntity>of(YetiEntity::new, MobCategory.MONSTER)
+                            .sized(1.7F, 2.9F)
+                            .immuneTo(net.minecraft.world.level.block.Blocks.POWDER_SNOW)
+                            .clientTrackingRange(12)
+                            .build("yeti"));
+
+    public static final RegistryObject<EntityType<YetiBoulderEntity>> YETI_BOULDER =
+            ENTITY_TYPES.register("yeti_boulder",
+                    () -> EntityType.Builder.<YetiBoulderEntity>of(YetiBoulderEntity::new, MobCategory.MISC)
+                            .sized(0.65F, 0.65F)
+                            .clientTrackingRange(8)
+                            .updateInterval(2)
+                            .build("yeti_boulder"));
+
     /** The helpless body a Pensieve viewer leaves at the basin. Never saved; see PensieveBodyEntity. */
     public static final RegistryObject<EntityType<com.hogwartsmagic.pensieve.PensieveBodyEntity>> PENSIEVE_BODY =
             ENTITY_TYPES.register("pensieve_body",

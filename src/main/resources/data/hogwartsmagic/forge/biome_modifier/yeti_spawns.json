@@ -1,0 +1,12 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": "#hogwartsmagic:has_yeti",
+  "spawners": [
+    {
+      "type": "hogwartsmagic:yeti",
+      "weight": 1,
+      "minCount": 1,
+      "maxCount": 1
+    }
+  ]
+}

@@ -902,6 +902,13 @@ public class ExampleMod
     public static final RegistryObject<Item> NIFFLER_SPAWN_EGG = ITEMS.register("niffler_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.NIFFLER, 0x24222A, 0xE2B447, new Item.Properties()));
 
+    public static final RegistryObject<Item> YETI_SPAWN_EGG = ITEMS.register("yeti_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.YETI, 0xE6ECF0, 0x6E8094, new Item.Properties()));
+
+    /** A hank of Yeti fur: white, thick and warm, from a Yeti's hide. A creature material. */
+    public static final RegistryObject<Item> YETI_FUR = ITEMS.register("yeti_fur",
+            () -> new Item(new Item.Properties()));
+
     public static final RegistryObject<Item> ACROMANTULA_SPAWN_EGG = ITEMS.register("acromantula_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.ACROMANTULA, 0x1A1A1A, 0x4D0000, new Item.Properties()));
 
@@ -1243,6 +1250,8 @@ public class ExampleMod
                 output.accept(UNICORN_SPAWN_EGG.get()); // Unicorn Spawn Egg
                 output.accept(SPHINX_SPAWN_EGG.get());
                 output.accept(NIFFLER_SPAWN_EGG.get());
+                output.accept(YETI_SPAWN_EGG.get());
+                output.accept(YETI_FUR.get());
                 output.accept(ACROMANTULA_SPAWN_EGG.get()); // Acromantula Spawn Egg
                 output.accept(DEMENTOR_SPAWN_EGG.get()); // Dementor Spawn Egg
                 output.accept(MINATOR_SPAWN_EGG.get()); // Minator Spawn Egg

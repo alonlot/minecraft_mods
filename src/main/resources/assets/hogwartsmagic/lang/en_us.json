@@ -2029,5 +2029,11 @@
   "advancement.hogwartsmagic.niffler_robbed.title": "Anything Shiny",
   "advancement.hogwartsmagic.niffler_robbed.description": "Be robbed by a Niffler. Whatever it takes, it buries: bring a brush.",
   "advancement.hogwartsmagic.niffler_tamed.title": "A Pocketful of Trouble",
-  "advancement.hogwartsmagic.niffler_tamed.description": "Win a Niffler over with a gold nugget. Tickle it to see what it has been hoarding."
+  "advancement.hogwartsmagic.niffler_tamed.description": "Win a Niffler over with a gold nugget. Tickle it to see what it has been hoarding.",
+  "entity.hogwartsmagic.yeti": "Yeti",
+  "entity.hogwartsmagic.yeti_boulder": "Yeti Boulder",
+  "item.hogwartsmagic.yeti_spawn_egg": "Yeti Spawn Egg",
+  "item.hogwartsmagic.yeti_fur": "Yeti Fur",
+  "advancement.hogwartsmagic.yeti_slain.title": "Abominable",
+  "advancement.hogwartsmagic.yeti_slain.description": "Defeat a Yeti. Fire helps."
 }

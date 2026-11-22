@@ -1146,6 +1146,8 @@ public class ClientModEvents {
         event.registerLayerDefinition(HippogriffModel.LAYER_LOCATION, HippogriffModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.UnicornModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.UnicornModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.YetiModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.YetiModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.NifflerModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.NifflerModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.SphinxModel.LAYER_LOCATION,
@@ -1233,6 +1235,8 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.UNICORN.get(), com.hogwartsmagic.client.renderer.UnicornRenderer::new);
         event.registerEntityRenderer(ModEntities.SPHINX.get(), com.hogwartsmagic.client.renderer.SphinxRenderer::new);
         event.registerEntityRenderer(ModEntities.NIFFLER.get(), com.hogwartsmagic.client.renderer.NifflerRenderer::new);
+        event.registerEntityRenderer(ModEntities.YETI.get(), com.hogwartsmagic.client.renderer.YetiRenderer::new);
+        event.registerEntityRenderer(ModEntities.YETI_BOULDER.get(), com.hogwartsmagic.client.renderer.YetiBoulderRenderer::new);
         event.registerEntityRenderer(ModEntities.FLYING_MOB.get(), FlyingMobRenderer::new);
         event.registerEntityRenderer(ModEntities.SPELL_BEAM.get(), SpellBeamRenderer::new);
         event.registerEntityRenderer(ModEntities.UKRAINIAN_IRONBELLY.get(),

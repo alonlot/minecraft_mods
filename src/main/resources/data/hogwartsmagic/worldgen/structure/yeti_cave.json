@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:jigsaw",
+  "biomes": "#hogwartsmagic:has_structure/yeti_cave",
+  "step": "surface_structures",
+  "spawn_overrides": {
+    "monster": {
+      "bounding_box": "piece",
+      "spawns": [
+        {
+          "type": "minecraft:stray",
+          "weight": 100,
+          "minCount": 1,
+          "maxCount": 2
+        }
+      ]
+    }
+  },
+  "terrain_adaptation": "beard_thin",
+  "start_pool": "hogwartsmagic:yeti_cave",
+  "size": 1,
+  "start_height": {
+    "absolute": -3
+  },
+  "project_start_to_heightmap": "WORLD_SURFACE_WG",
+  "max_distance_from_center": 80,
+  "use_expansion_hack": false
+}

@@ -5635,6 +5635,348 @@ def cursebreaker_dig():
     return b, [entity(10.5, float(G), 14.5, 'hogwartsmagic:goblin', dict(keep))]
 
 
+# --- Yeti cave -------------------------------------------------------------------------------------
+# A snowbound rock mound in the high snows with a Yeti's den inside it. Local frame 37x?x37: the
+# ground outside is walked at y=YETI_G (the top block at YETI_G-1), and the structure is started 3
+# blocks under the surface so its base rock is buried. The mouth faces south (+z).
+
+YETI_W = YETI_D = 37
+YETI_G = 4
+YETI_CX, YETI_CZ = 18, 16
+YETI_ROCK = [('minecraft:stone', 6), ('minecraft:andesite', 3)]
+YETI_ICE_WALL = [('minecraft:packed_ice', 7), ('minecraft:snow_block', 2), ('minecraft:blue_ice', 1)]
+YETI_FLOOR = [('minecraft:snow_block', 5), ('minecraft:packed_ice', 2), ('minecraft:gravel', 1),
+              ('minecraft:stone', 1)]
+# Mostly greys within a narrow luma band; ice only as an occasional vein, or the faces turn to a
+# blue-and-grey chessboard.
+YETI_CRAG = [('minecraft:stone', 6), ('minecraft:andesite', 4), ('minecraft:tuff', 1),
+             ('minecraft:snow_block', 2), ('minecraft:packed_ice', 1)]
+YETI_ROCK_NAMES = {n for n, _ in YETI_ROCK}
+YETI_SOLID = {n for n, _ in YETI_ROCK + YETI_ICE_WALL + YETI_FLOOR} | {'minecraft:snow_block'}
+YETI_LOOT = 'hogwartsmagic:chests/yeti_cave'
+
+
+def yeti_patch(x, y, z, salt):
+    """Smooth 0..1 noise over a sloping plane through (x, y, z): materials in coherent sheets and
+    drifts several blocks across, never a different block on every cell."""
+    return vnoise(x + 0.7 * y, z - 0.5 * y, 4.5, salt)
+
+
+def yeti_wall(x, y, z):
+    """Cave wall: rock with sheets of ice and drifts of snow, each a patch, not a speckle."""
+    t = yeti_patch(x, y, z, 71)
+    if t > 0.64:
+        return 'minecraft:blue_ice' if yeti_patch(x, y, z, 72) > 0.78 else 'minecraft:packed_ice'
+    if t < 0.3:
+        return 'minecraft:snow_block'
+    return 'minecraft:andesite' if yeti_patch(x, y, z, 73) > 0.6 else 'minecraft:stone'
+
+
+def yeti_floor(x, y, z):
+    """Den and tunnel floor: packed snow, with patches of gravel and of trodden ice."""
+    t = yeti_patch(x, y, z, 74)
+    if t > 0.7:
+        return 'minecraft:packed_ice'
+    if t < 0.24:
+        return 'minecraft:gravel'
+    return 'minecraft:snow_block'
+
+
+def yeti_crag(x, y, z):
+    """Bare outside faces: grey rock, the odd seam of ice."""
+    t = yeti_patch(x, y, z, 75)
+    if t > 0.74:
+        return 'minecraft:packed_ice'
+    return 'minecraft:andesite' if yeti_patch(x, y, z, 76) > 0.55 else 'minecraft:stone'
+
+
+def yeti_mound_height(x, z):
+    """Top solid y of the mound at (x, z), or None outside its footprint.
+
+    A broad, low outcrop and not a cone: a flattened dome, crags standing out of it where the
+    noise peaks, and a hump over the tunnel so the mouth opens in a rock face and not a trench."""
+    dx, dz = (x - YETI_CX) / 17.5, (z - YETI_CZ) / 16.0
+    ang = math.atan2(dz, dx)
+    r = math.hypot(dx, dz) * (1 + 0.10 * math.sin(3 * ang + 0.7) + 0.06 * math.sin(5 * ang + 2.1)
+                              + (vnoise(x, z, 5, 41) - 0.5) * 0.18)
+    if r >= 1.0:
+        return None
+    h = YETI_G - 1 + 13.0 * (1 - r) ** 0.55
+    h += (vnoise(x, z, 3, 42) - 0.5) * 3.0
+    crag = vnoise(x, z, 4, 60)
+    if crag > 0.68 and r < 0.85:
+        h += (crag - 0.68) * 18.0            # a crag standing out of the snow
+    # The hump the tunnel runs under: rock at least six over the tunnel floor.
+    dm = math.hypot((x - 18) / 6.5, (z - 25) / 6.0)
+    if dm < 1.0:
+        h = max(h, YETI_G + 6 + 3 * (1 - dm))
+    return int(round(max(h, YETI_G)))
+
+
+def yeti_den(x, y, z):
+    """The den: an ellipsoid, its floor cut flat at walk level YETI_G-2."""
+    return (((x - 18) / 9.5) ** 2 + ((y - (YETI_G - 1)) / 6.5) ** 2 + ((z - 12) / 8.0) ** 2 <= 1.0
+            and y >= YETI_G - 2)
+
+
+def yeti_tunnel_floor(z):
+    """Walk level along the tunnel: the outside ground, a step down, then the den floor."""
+    if z >= 29:
+        return YETI_G
+    if z >= 24:
+        return YETI_G - 1
+    return YETI_G - 2
+
+
+def yeti_tunnel(x, y, z):
+    if z < 17 or z > 36:
+        return False
+    half = 2 + (1 if noise(0, 0, z, 43) < 0.35 else 0) * (1 if x > 18 else 0)
+    if abs(x - 18) > half:
+        return False
+    walk = yeti_tunnel_floor(z)
+    top = walk + 4 + (1 if noise(x, 0, z, 44) < 0.4 else 0)
+    return walk <= y <= top
+
+
+def yeti_cave():
+    """Snowy mountains: a Yeti's den in a snowbound rock mound.
+
+    Read from outside it is a white hump with a dark mouth, a bone post with a skull on it by the
+    mouth to say what lives there. Inside, a tunnel steps down into an ice den: packed and blue ice,
+    icicles, two explorers frozen standing in ice, the remains of their camp, and at the back, the
+    nest, the bones, the hoard, and the Yeti asleep on it.
+    """
+    b = {}
+    G = YETI_G
+    height = {}
+    for x in range(YETI_W):
+        for z in range(YETI_D):
+            h = yeti_mound_height(x, z)
+            if h is not None:
+                height[(x, z)] = h
+
+    # --- the mound: rock, a snow cap, carved air ------------------------------------------------
+    def slope(x, z):
+        h = height[(x, z)]
+        return max(abs(h - height.get((x + dx, z + dz), YETI_G - 1))
+                   for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+
+    for (x, z), h in height.items():
+        steep = slope(x, z) >= 2
+        for y in range(0, h + 1):
+            if yeti_den(x, y, z) or yeti_tunnel(x, y, z):
+                put(b, (x, y, z), 'minecraft:air')
+            elif y >= h - 1 and not steep:
+                put(b, (x, y, z), 'minecraft:snow_block')
+            elif y >= h - 2 and steep:
+                # Bare faces: weathered rock, ice in the cracks.
+                put(b, (x, y, z), yeti_crag(x, y, z))
+            else:
+                put(b, (x, y, z), tex(YETI_ROCK, x, y, z, 45))
+        if not steep and h + 1 < 30 and not yeti_tunnel(x, h + 1, z) and noise(x, 1, z, 46) < 0.55:
+            put(b, (x, h + 1, z), 'minecraft:snow', {'layers': str(1 + int(noise(x, 2, z, 47) * 3))})
+
+    # The approach outside the mound: ground under the trench, so it is never a hole.
+    for z in range(17, YETI_D):
+        for x in range(13, 24):
+            if (x, z) in height:
+                continue
+            for y in range(0, G):
+                put(b, (x, y, z), 'minecraft:snow_block' if y == G - 1 else tex(YETI_ROCK, x, y, z, 48))
+            for y in range(G, G + 6):
+                if yeti_tunnel(x, y, z):
+                    put(b, (x, y, z), 'minecraft:air')
+
+    # --- inner skins: the walls are ice, the floor snow and ice ---------------------------------
+    air = {p for p, v in b.items() if v[0] == 'minecraft:air'}
+    for (x, y, z) in list(air):
+        for dx, dy, dz in ((1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, 1, 0), (0, -1, 0)):
+            q = (x + dx, y + dy, z + dz)
+            v = b.get(q)
+            if v is None or v[0] not in YETI_ROCK_NAMES:
+                continue
+            if dy == -1:
+                put(b, q, yeti_floor(*q))
+            else:
+                put(b, q, yeti_wall(*q))
+
+    # Snow drifted in at the mouth.
+    for z in range(29, YETI_D):
+        for x in range(15, 22):
+            if b.get((x, G, z), ('',))[0] == 'minecraft:air' and b.get((x, G - 1, z), ('',))[0] != 'minecraft:air' \
+                    and noise(x, 3, z, 52) < 0.6:
+                put(b, (x, G, z), 'minecraft:snow', {'layers': str(1 + int(noise(x, 4, z, 53) * 2))})
+
+    # --- icicles over the den, high enough to clear a Yeti's head ---------------------------------
+    for x in range(9, 28):
+        for z in range(5, 20):
+            if noise(x, 5, z, 54) > 0.16:
+                continue
+            col = [y for y in range(G - 2, G + 6) if yeti_den(x, y, z)]
+            if not col:
+                continue
+            top = max(col)
+            length = 1 + int(noise(x, 6, z, 55) * 2)
+            for y in range(top, top - length, -1):
+                if y >= G + 2 and b.get((x, y + 1, z), ('',))[0] != 'minecraft:air':
+                    put(b, (x, y, z), 'minecraft:packed_ice')
+
+    W = G - 2           # walk level in the den
+    # --- the nest at the back ----------------------------------------------------------------------
+    nx, nz = 18, 8
+    for x in range(nx - 3, nx + 4):
+        for z in range(nz - 2, nz + 3):
+            d = math.hypot((x - nx) / 3.2, (z - nz) / 2.4)
+            if not yeti_den(x, W, z):
+                continue
+            if d < 0.75:
+                put(b, (x, W, z), 'minecraft:white_carpet' if noise(x, 7, z, 56) < 0.6
+                    else 'minecraft:light_gray_carpet')
+            elif d < 1.15 and (x, z) not in ((nx, nz + 2), (nx - 1, nz + 2), (nx + 1, nz + 2)):
+                # A low heap of drifted snow and shed fur, not a ring of full blocks.
+                pick = noise(x, 8, z, 57)
+                if pick < 0.2:
+                    put(b, (x, W, z), 'minecraft:white_wool')
+                else:
+                    put(b, (x, W, z), 'minecraft:snow', {'layers': str(3 + int(noise(x, 11, z, 62) * 4))})
+    # Bones round the nest, a skull or two.
+    for x, z, kind in ((14, 11, 'bone'), (22, 11, 'bone'), (12, 11, 'skull'), (23, 7, 'skull'),
+                       (21, 14, 'bone'), (15, 14, 'skull')):
+        if b.get((x, W, z), ('',))[0] != 'minecraft:air' or b.get((x, W - 1, z), ('',))[0] == 'minecraft:air':
+            continue
+        if kind == 'bone':
+            # Half buried: set into the floor, so the ribbed side of the bone shows and not a box.
+            put(b, (x, W - 1, z), 'minecraft:bone_block', {'axis': 'x' if noise(x, 9, z, 58) < 0.5 else 'z'})
+            put(b, (x + 1, W - 1, z), 'minecraft:bone_block', {'axis': 'x'})
+        else:
+            put(b, (x, W, z), 'minecraft:skeleton_skull', {'rotation': str(int(noise(x, 10, z, 59) * 16)),
+                                                          'powered': 'false'})
+    # The hoard: what the Yeti took off the climbers it caught.
+    chest(b, (13, W, 9), 'east', YETI_LOOT)
+    chest(b, (23, W, 10), 'west', YETI_LOOT)
+    put(b, (22, W, 7), 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+
+    # --- the explorers' last camp, by the tunnel --------------------------------------------------
+    put(b, (16, W, 18), 'minecraft:campfire', {'facing': 'south', 'lit': 'false', 'signal_fire': 'false',
+                                               'waterlogged': 'false'})
+    put(b, (15, W, 19), 'minecraft:spruce_log', {'axis': 'z'})
+    put(b, (20, W, 18), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+    put(b, (21, W, 19), 'minecraft:white_carpet')
+
+    # --- the frozen explorers: ice columns with the dead standing inside --------------------------
+    ents = []
+    frozen = [((11, 14), -90.0, [('minecraft:leather_boots', 1), ('minecraft:leather_leggings', 1),
+                                 ('minecraft:leather_chestplate', 1), ('minecraft:skeleton_skull', 1)],
+               'minecraft:iron_pickaxe'),
+              ((25, 15), 90.0, [('minecraft:leather_boots', 1), None,
+                                ('minecraft:chainmail_chestplate', 1), ('minecraft:skeleton_skull', 1)],
+               'minecraft:lantern')]
+    for (x, z), yaw, armour, held in frozen:
+        for y in range(W, W + 3):
+            put(b, (x, y, z), 'minecraft:ice')
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            q = (x + dx, W - 1, z + dz)
+            if q in b and b[q][0] != 'minecraft:air':
+                put(b, q, 'minecraft:packed_ice')
+
+        def item(spec):
+            if spec is None:
+                return ('compound', {})
+            return ('compound', {'id': ('string', spec[0]), 'count': ('int', spec[1])})
+        ents.append(entity(x + 0.5, float(W), z + 0.5, 'minecraft:armor_stand', {
+            'ArmorItems': ('list', 'compound', [item(a) for a in armour]),
+            'HandItems': ('list', 'compound', [item((held, 1)), item(None)]),
+            'ShowArms': ('byte', 1), 'NoBasePlate': ('byte', 1), 'NoGravity': ('byte', 1),
+            'Rotation': ('list', 'float', [('float', yaw), ('float', 0.0)]),
+            'Pose': ('compound', {'RightArm': ('list', 'float', [('float', -70.0), ('float', 0.0),
+                                                                 ('float', 10.0)]),
+                                  'LeftArm': ('list', 'float', [('float', -20.0), ('float', 0.0),
+                                                                ('float', -10.0)]),
+                                  'Head': ('list', 'float', [('float', 15.0), ('float', 0.0),
+                                                             ('float', 0.0)])})}))
+
+    # --- the warning by the mouth: a bone post and a skull --------------------------------------------
+    for y in (G, G + 1):
+        put(b, (16, y, 34), 'minecraft:bone_block', {'axis': 'y'})
+    put(b, (16, G + 2, 34), 'minecraft:skeleton_skull', {'rotation': '0', 'powered': 'false'})
+
+    # --- the Yeti, asleep in its nest, facing its door ----------------------------------------------
+    ents.append(entity(nx + 0.5, float(W), nz + 0.5, 'hogwartsmagic:yeti', {
+        'PersistenceRequired': ('byte', 1), 'Den': ('byte', 1), 'Asleep': ('byte', 1),
+        'Rotation': ('list', 'float', [('float', 0.0), ('float', 0.0)])}))
+    return b, ents
+
+
+def yeti_walk(blocks, start):
+    """Every standing cell a player can reach from `start`: walking, a one-block step up, a drop of
+    up to three. Unset cells are rock below the outside ground and air above it."""
+    ground = YETI_G
+
+    def solid(p):
+        v = blocks.get(p)
+        if v is None:
+            return p[1] < ground
+        return not PASSABLE.search(v[0]) and v[0] != 'minecraft:snow'
+
+    def stands(p):
+        x, y, z = p
+        return not solid(p) and not solid((x, y + 1, z)) and solid((x, y - 1, z))
+
+    lo = [min(p[i] for p in blocks) for i in range(3)]
+    hi = [max(p[i] for p in blocks) for i in range(3)]
+    seen, queue = {start}, [start]
+    while queue:
+        x, y, z = queue.pop()
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            for dy in (1, 0, -1, -2, -3):
+                n = (x + dx, y + dy, z + dz)
+                if not all(lo[i] <= n[i] <= hi[i] for i in range(3)):
+                    continue
+                if n in seen or not stands(n):
+                    continue
+                if dy == 1 and solid((x, y + 2, z)):
+                    continue
+                seen.add(n)
+                queue.append(n)
+                break
+    return seen
+
+
+def audit_yeti_cave(blocks, entities):
+    """The den has to be reachable from the mouth, by a player and by the Yeti coming out of it, and
+    the frozen explorers must be inside their ice and nothing else must be."""
+    problems = []
+    G = YETI_G
+    reach = yeti_walk(blocks, (18, G, 36))
+    for target, what in (((18, G - 2, 12), 'the middle of the den'), ((14, G - 2, 9), 'the hoard chest'),
+                         ((22, G - 2, 10), 'the second chest')):
+        if target not in reach:
+            problems.append('%s at %s cannot be walked to from the mouth' % (what, target))
+    # The Yeti (1.7 wide, 2.9 tall) has to fit the whole way out: 3 wide, 3 high of clear cells.
+    for z in range(13, 36):
+        walk = yeti_tunnel_floor(z) if z >= 17 else G - 2
+        for x in (17, 18, 19):
+            for y in range(walk, walk + 3):
+                v = blocks.get((x, y, z), ('minecraft:air',))[0]
+                if not PASSABLE.search(v) and v != 'minecraft:snow':
+                    problems.append('the way out is blocked for the Yeti at %s by %s' % ((x, y, z), v))
+    for e in entities:
+        if e['nbt'][1]['id'][1] == 'minecraft:armor_stand':
+            x, y, z = [int(math.floor(v[1])) for v in e['pos'][2]]
+            if blocks.get((x, y, z), ('',))[0] != 'minecraft:ice' or blocks.get((x, y + 1, z), ('',))[0] != 'minecraft:ice':
+                problems.append('frozen explorer at %s is not inside its ice' % ((x, y, z),))
+    # Ice melts above block light 11: nothing that glows may stand within 5 blocks of plain ice.
+    lights = [p for p, v in blocks.items() if v[0] in LANTERNS or v[0] == 'minecraft:campfire'
+              and (v[1] or {}).get('lit') == 'true']
+    for p, v in blocks.items():
+        if v[0] in ('minecraft:ice', 'minecraft:snow'):
+            for q in lights:
+                if sum(abs(p[i] - q[i]) for i in range(3)) < 5:
+                    problems.append('%s at %s is within 4 of the light at %s and will melt' % (v[0], p, q))
+    return problems
+
+
 BUILDS = {
     'fen_gibbet': fen_gibbet,
     'fen_prison': fen_prison,
@@ -5656,6 +5998,7 @@ BUILDS = {
     'locket_cave': locket_cave,
     'cursed_tomb': cursed_tomb,
     'cursebreaker_dig': cursebreaker_dig,
+    'yeti_cave': yeti_cave,
 }
 
 # Builds whose empty space is water rather than air. Anything waterloggable inside one has to say so,
@@ -5761,6 +6104,8 @@ def audit_entities(blocks, entities, size):
             continue
         feet = blocks.get(bp, ('minecraft:air',))[0]
         head = blocks.get((bp[0], bp[1] + 1, bp[2]), ('minecraft:air',))[0]
+        if eid == 'minecraft:armor_stand' and feet == 'minecraft:ice':
+            continue        # frozen in the ice on purpose (the Yeti cave's dead explorers)
         if not PASSABLE.search(feet):
             problems.append('%s baked at %s is standing inside %s' % (eid, bp, feet))
         elif not PASSABLE.search(head):
@@ -5774,7 +6119,7 @@ def audit_entities(blocks, entities, size):
 ENTITY_BOX = {'hogwartsmagic:hungarian_horntail': (3.0, 3.2), 'hogwartsmagic:dementor': (1.0, 3.0),
               'hogwartsmagic:troll': (1.75, 3.25), 'hogwartsmagic:giant': (2.2, 5.5),
               'hogwartsmagic:acromantula': (1.6, 1.2), 'hogwartsmagic:sphinx': (1.4, 2.5),
-              'hogwartsmagic:inferius': (0.6, 1.95)}      # times its SpiderScale, if it has one
+              'hogwartsmagic:inferius': (0.6, 1.95), 'hogwartsmagic:yeti': (1.7, 2.9)}      # times its SpiderScale, if it has one
 
 
 def audit_entity_room(blocks, entities):
@@ -5968,6 +6313,8 @@ if __name__ == '__main__':
             problems += audit_locket_cave(blocks)
         if name == 'cursed_tomb':
             problems += audit_cursed_tomb(blocks)
+        if name == 'yeti_cave':
+            problems += audit_yeti_cave(blocks, entities)
         path = os.path.join(OUT, name + '.nbt')
         write_nbt(path, build_template(blocks, entities))
         kinds = len({v[0] for v in blocks.values()})

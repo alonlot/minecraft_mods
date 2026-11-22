@@ -225,7 +225,9 @@ public final class TombCurses {
                     BlockPos column = spot.offset(dx, 0, dz);
                     int ceiling = ceilingAbove(level, column);
                     if (ceiling > 0) {
-                        level.sendParticles(new BlockParticleOption(ParticleTypes.FALLING_DUST, Blocks.SAND.defaultBlockState()),
+                        // Glinting sand, not block dust: dust chips are lit by the room, and an unlit tomb drew
+                        // them as falling black specks.
+                        level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.SPARK, 0xF0C878, 0.05F, 26),
                                 column.getX() + level.random.nextDouble(), column.getY() + ceiling - 0.05,
                                 column.getZ() + level.random.nextDouble(), 1, 0.0, 0.0, 0.0, 0.0);
                     }
@@ -307,8 +309,8 @@ public final class TombCurses {
                     double a = (t * 0.55 + k * 2.094 + i) % (Math.PI * 2.0);
                     double h = level.random.nextDouble() * (0.6 + 1.6 * grow);
                     double r = 0.25 + 0.45 * (1.0 - h / 2.4);
-                    level.sendParticles(new SpellVfxOptions(k == 0 ? SpellVfxOptions.Kind.SMOKE : SpellVfxOptions.Kind.MOTE,
-                                    k == 0 ? 0xD8C08A : 0xF0D488, k == 0 ? 0.35F : 0.1F, 18),
+                    // Glowing motes only: small smoke puffs drew as black curls in the dark.
+                    level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.MOTE, 0xF0D488, 0.1F, 18),
                             s.getX() + 0.5 + Math.cos(a) * r, s.getY() + h, s.getZ() + 0.5 + Math.sin(a) * r,
                             1, 0.0, 0.0, 0.0, 0.0);
                 }
@@ -434,8 +436,8 @@ public final class TombCurses {
                     return false;
                 }
                 if (t % 4 == 0) {
-                    level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.SMOKE, 0x1E0E28, 0.3F, 22),
-                            player.getX(), player.getY() + 1.0, player.getZ(), 2, 0.3, 0.5, 0.3, 0.01);
+                    level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.SMOKE, 0x2A1238, 0.6F, 30),
+                            player.getX(), player.getY() + 1.0, player.getZ(), 1, 0.3, 0.5, 0.3, 0.01);
                     level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.MOTE, violet, 0.08F, 24),
                             player.getX(), player.getY() + 1.0, player.getZ(), 1, 0.35, 0.5, 0.35, 0.01);
                 }

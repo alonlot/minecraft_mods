@@ -343,7 +343,7 @@ public final class CurseFx {
             case TRIGGER -> {
                 float open = ease(Math.min(1.0f, age / 8.0f));
                 float alpha = fadeInOut(age, 2.0f, e.life, 12.0f);
-                flat(vc, m, e.pos, cam, 2.35f * open, -age * 0.015f, r, g, b, alpha, 0, 0, 1, 1, 0.035f);
+                flat(vc, m, e.pos, cam, 2.35f * open, -age * 0.015f, r, g, b, alpha * 0.8f, 0, 0, 1, 1, 0.035f);
                 flat(vc, m, e.pos, cam, 1.25f * open, age * 0.02f, r, g, b, alpha * 0.7f, 0, 0, 1, 1, 0.036f);
                 // A shock ring that leaves the circle as it opens.
                 float shock = age / 10.0f;

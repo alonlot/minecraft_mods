@@ -148,4 +148,18 @@ class IncantationMatcherTest {
             assertTrue(seen.add(words), "duplicate " + words);
         }
     }
+
+    /** The gargoyle's password said aloud: the recogniser's spellings and punctuation pass, other talk does not. */
+    @Test
+    void saysThePasswordAsTheRecogniserWritesIt() {
+        String password = "Sherbet Lemon";
+        for (String heard : new String[]{"Sherbet Lemon", "Sherbet lemon.", "sherbet lemon!", "Sherbert Lemon",
+                "Sherbet Lemmon", " Sherbet  Lemon. "}) {
+            assertTrue(IncantationMatcher.saysPhrase(heard, password), heard);
+        }
+        for (String heard : new String[]{"Lemon", "Sherbet", "Lemon sherbet please", "I love sherbet lemon so much",
+                "Expelliarmus", "", "uh"}) {
+            assertTrue(!IncantationMatcher.saysPhrase(heard, password), heard);
+        }
+    }
 }

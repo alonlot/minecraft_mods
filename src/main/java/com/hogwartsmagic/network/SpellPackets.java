@@ -44,7 +44,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(19)
+            .networkProtocolVersion(20)
             .simpleChannel();
 
     public static void register() {
@@ -832,6 +832,43 @@ public class SpellPackets {
                         buf.readDouble(), buf.readDouble(), buf.readDouble()))
                 .consumerMainThread(ReparoAssemblePacket::handle)
                 .add();
+        CHANNEL.messageBuilder(GargoyleListeningPacket.class)
+                .encoder((p, buf) -> buf.writeBoolean(p.on))
+                .decoder(buf -> new GargoyleListeningPacket(buf.readBoolean()))
+                .consumerMainThread(GargoyleListeningPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(VoiceSpokenPacket.class)
+                .encoder((p, buf) -> buf.writeUtf(p.text, VoiceSpokenPacket.MAX_LENGTH))
+                .decoder(buf -> new VoiceSpokenPacket(buf.readUtf(VoiceSpokenPacket.MAX_LENGTH)))
+                .consumerMainThread(VoiceSpokenPacket::handle)
+                .add();
+    }
+
+    /**
+     * Server to client: whether a Mini Hogwarts gargoyle is listening to this player (they stand by a closed one). Only
+     * while it is on does the voice client pass what it hears on (VoiceSpokenPacket); other talk stays on the machine.
+     */
+    public record GargoyleListeningPacket(boolean on) {
+        public static void handle(GargoyleListeningPacket p, CustomPayloadEvent.Context ctx) {
+            if (ctx.getSender() != null) {
+                ctx.setPacketHandled(true);           // server to client only
+                return;
+            }
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("gargoyleListening", p));
+        }
+    }
+
+    /** Client to server: a short phrase the voice recogniser heard while a gargoyle was listening (its password?). */
+    public record VoiceSpokenPacket(String text) {
+        public static final int MAX_LENGTH = 128;
+
+        public static void handle(VoiceSpokenPacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player == null) {
+                return;
+            }
+            com.hogwartsmagic.worldgen.mechanism.CastleMechanisms.heardSpoken(player, p.text);
+        }
     }
 
     /** Most debris entries one packet carries; a bigger blast just sends more packets over its ticks. */

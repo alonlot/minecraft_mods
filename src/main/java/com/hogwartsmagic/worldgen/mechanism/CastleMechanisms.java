@@ -68,6 +68,8 @@ public final class CastleMechanisms {
     /** Castles already judged unusable (their area loaded but not as the anchors describe), per level. */
     private static final Map<ResourceKey<Level>, java.util.Set<BlockPos>> REFUSED = new HashMap<>();
     private static final Map<UUID, Long> NEXT_HINT = new HashMap<>();
+    /** Players a closed gargoyle is listening to now (their voice client was told so). */
+    private static final java.util.Set<UUID> LISTENING = new java.util.HashSet<>();
 
     private CastleMechanisms() {
     }
@@ -124,6 +126,51 @@ public final class CastleMechanisms {
                 f.tick(near);
             }
         }
+        updateListening(level, live);
+    }
+
+    /**
+     * Tell each player of {@code level} whose state changed whether a closed gargoyle is listening to them (within
+     * {@link #PASSWORD_RANGE}). Only then does their wand's voice casting pass short heard phrases on to the server.
+     */
+    private static void updateListening(ServerLevel level, Map<BlockPos, Castle> live) {
+        for (ServerPlayer p : level.players()) {
+            boolean now = false;
+            for (Castle c : live.values()) {
+                if (c.stair != null && c.stair.phase == HeadmasterStair.Phase.CLOSED
+                        && p.position().add(0.0D, 1.0D, 0.0D).distanceTo(c.stair.listenPoint()) <= PASSWORD_RANGE) {
+                    now = true;
+                    break;
+                }
+            }
+            if (now != LISTENING.contains(p.getUUID())) {
+                setListening(p, now);
+            }
+        }
+    }
+
+    private static void setListening(ServerPlayer p, boolean on) {
+        if (on) {
+            LISTENING.add(p.getUUID());
+        } else {
+            LISTENING.remove(p.getUUID());
+        }
+        com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
+                new com.hogwartsmagic.network.SpellPackets.GargoyleListeningPacket(on),
+                net.minecraftforge.network.PacketDistributor.PLAYER.with(p));
+    }
+
+    @SubscribeEvent
+    public static void onChangedDimension(net.minecraftforge.event.entity.player.PlayerEvent.PlayerChangedDimensionEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p && LISTENING.contains(p.getUUID())) {
+            setListening(p, false);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLogout(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        LISTENING.remove(event.getEntity().getUUID());
+        NEXT_HINT.remove(event.getEntity().getUUID());
     }
 
     private static boolean busy(Castle c) {
@@ -288,8 +335,26 @@ public final class CastleMechanisms {
         player.server.execute(() -> heard(player, said));
     }
 
+    /**
+     * {@code player}'s wand heard {@code said} aloud (the voice client sends it only while a gargoyle listens, and only
+     * a short phrase). Ignored unless a gargoyle is listening to that player now.
+     */
+    public static void heardSpoken(ServerPlayer player, String said) {
+        if (LISTENING.contains(player.getUUID())) {
+            heard(player, said, true);
+        }
+    }
+
     /** {@code player} said {@code said} in chat: the nearest gargoyle in earshot answers. */
     static void heard(ServerPlayer player, String said) {
+        heard(player, said, false);
+    }
+
+    /**
+     * {@code said} near a gargoyle, in chat or ({@code spoken}) aloud through the wand. Spoken words are matched as the
+     * recogniser writes them ("Sherbert lemon."), typed ones must be the password (case and punctuation aside).
+     */
+    static void heard(ServerPlayer player, String said, boolean spoken) {
         ServerLevel level = player.serverLevel();
         Map<BlockPos, Castle> live = CASTLES.get(level.dimension());
         if (live == null) {
@@ -304,13 +369,17 @@ public final class CastleMechanisms {
             if (d > PASSWORD_RANGE) {
                 continue;
             }
-            if (isPassword(said)) {
+            boolean right = spoken
+                    ? com.hogwartsmagic.spell.voice.IncantationMatcher.saysPhrase(said, Config.HEADMASTER_PASSWORD.get())
+                    : isPassword(said);
+            if (right) {
                 if (stair.raise()) {
                     player.displayClientMessage(Component.translatable("message.hogwartsmagic.headmaster_stair.open"), true);
                 } else if (stair.isOpen()) {
                     player.displayClientMessage(Component.translatable("message.hogwartsmagic.headmaster_stair.already"), true);
                 }
-            } else if (stair.phase == HeadmasterStair.Phase.CLOSED && said.length() <= 40) {
+            } else if (stair.phase == HeadmasterStair.Phase.CLOSED && said.length() <= 40
+                    && (!spoken || said.strip().split("\\s+").length <= 4)) {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.headmaster_stair.wrong"), true);
             }
             return;
@@ -364,6 +433,7 @@ public final class CastleMechanisms {
         CASTLES.clear();
         REFUSED.clear();
         NEXT_HINT.clear();
+        LISTENING.clear();
         MechanismBlocks.LIVE.clear();
     }
 

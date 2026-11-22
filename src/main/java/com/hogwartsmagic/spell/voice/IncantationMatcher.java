@@ -99,6 +99,20 @@ public final class IncantationMatcher {
         return "Spells: " + String.join(", ", INCANTATIONS.values()) + ".";
     }
 
+    /**
+     * True when {@code heard}, said on its own, is {@code phrase} (a password, not a spell), forgiving the same slips
+     * as for spells: spelling to sound ("Sherbert Lemon"), close vowels and consonants, punctuation. Extra words cost
+     * as on the open mic, so the phrase inside a longer sentence does not count.
+     */
+    public static boolean saysPhrase(String heard, String phrase) {
+        List<String> words = collapseRepeats(words(heard));
+        List<String> target = words(phrase);
+        if (words.isEmpty() || target.isEmpty() || String.join("", words).length() < MIN_LETTERS) {
+            return false;
+        }
+        return strictDistanceToSpell(words, phrase, STRICT_EXTRA_WORD_PENALTY) <= MAX_DISTANCE;
+    }
+
     /** What the matcher decided, with the scores, so the caller can say what was heard. */
     public record Result(String spellId, double distance, double margin) {
         public boolean matched() {

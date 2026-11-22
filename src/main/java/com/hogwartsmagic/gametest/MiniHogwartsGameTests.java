@@ -1340,6 +1340,19 @@ public final class MiniHogwartsGameTests {
      */
     @GameTest(template = ROOMY, batch = "castle_mechanisms_live", timeoutTicks = 300)
     public static void passwordRaisesTheStairOfAnAwakeCastle(GameTestHelper helper) {
+        passwordRaisesTheStair(helper, false, "lemon drop", "Sherbet lemon!");
+    }
+
+    /**
+     * The same, the password said aloud with the wand: the voice client sends what it heard only while the gargoyle is
+     * listening, and the recogniser's spelling ("Sherbert lemon.") still opens it.
+     */
+    @GameTest(template = ROOMY, batch = "castle_mechanisms_spoken", timeoutTicks = 300)
+    public static void spokenPasswordRaisesTheStair(GameTestHelper helper) {
+        passwordRaisesTheStair(helper, true, "lemon drop", "Sherbert lemon.");
+    }
+
+    private static void passwordRaisesTheStair(GameTestHelper helper, boolean spoken, String wrong, String right) {
         var level = helper.getLevel();
         BlockPos anchor = helper.absolutePos(BlockPos.ZERO);
         String json = """
@@ -1384,12 +1397,19 @@ public final class MiniHogwartsGameTests {
                 return;
             }
             said[0] = true;
-            com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.heard(player, "lemon drop");
+            java.util.function.Consumer<String> say = text -> {
+                if (spoken) {
+                    com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.heardSpoken(player, text);
+                } else {
+                    com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.heard(player, text);
+                }
+            };
+            say.accept(wrong);
             if (!"CLOSED".equals(com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.stairPhase(level, anchor))) {
                 cleanup.run();
                 helper.fail("a wrong word moved the gargoyle");
             }
-            com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.heard(player, "Sherbet lemon!");
+            say.accept(right);
         });
         helper.succeedWhen(() -> {
             helper.assertTrue("OPEN".equals(com.hogwartsmagic.worldgen.mechanism.MechanismTestHooks.stairPhase(level, anchor)),

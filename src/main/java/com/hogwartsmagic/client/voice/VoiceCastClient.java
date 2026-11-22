@@ -25,6 +25,10 @@ import org.lwjgl.glfw.GLFW;
  * packets, checked the same way (learned, cooldown, mana, stun, silence). Hold spells (Fiendfyre, the Patronus
  * shield, Wingardium Leviosa, Crucio, Imperio at Master, Protego Maxima, a lock pick) then wait
  * {@code ClientModEvents.VOICE_HOLD_GRACE_TICKS} (1.5 s) for right-click to go down and keep them going.
+ *
+ * <p>Passwords: while the server says a Mini Hogwarts gargoyle is listening (the player stands by a closed one), a
+ * short phrase heard in either mode is also sent to the server, which checks it against the password. Nothing heard is
+ * sent at any other time.</p>
  */
 public final class VoiceCastClient {
     public static final KeyMapping KEY = new KeyMapping(
@@ -54,8 +58,33 @@ public final class VoiceCastClient {
     private static int openMicGrace;
     private static int openMicRetry;
     private static boolean noMicReported;
+    /** A gargoyle is listening to this player (server's word): pass short heard phrases on. */
+    private static boolean gargoyleListening;
+    /** Longest phrase passed to a gargoyle, in words: a password, not a conversation. */
+    private static final int PASSWORD_MAX_WORDS = 6;
 
     private VoiceCastClient() {
+    }
+
+    public static void setGargoyleListening(boolean on) {
+        gargoyleListening = on;
+    }
+
+    /**
+     * Hand a short heard phrase to a listening gargoyle; true when it was sent (the caller then shows no "heard nothing
+     * known" line, the gargoyle answers instead).
+     */
+    private static boolean tellGargoyle(String text) {
+        if (!gargoyleListening || text == null || text.isBlank()) {
+            return false;
+        }
+        String t = text.strip();
+        if (t.split("\\s+").length > PASSWORD_MAX_WORDS || t.length() > com.hogwartsmagic.network.SpellPackets.VoiceSpokenPacket.MAX_LENGTH) {
+            return false;
+        }
+        com.hogwartsmagic.network.SpellPackets.CHANNEL.send(new com.hogwartsmagic.network.SpellPackets.VoiceSpokenPacket(t),
+                net.minecraftforge.network.PacketDistributor.SERVER.noArg());
+        return true;
     }
 
     /** Called at the end of every client tick. */
@@ -140,6 +169,7 @@ public final class VoiceCastClient {
                 || VoiceCastConfig.MODE.get() != VoiceCastConfig.Mode.WAND_OPEN_MIC) {
             return; // an engine failure is reported by the tick
         }
+        tellGargoyle(text);
         // Strict: the open mic hears all talk, so only a spell said on its own casts. Nothing is shown for talk.
         IncantationMatcher.Result result = IncantationMatcher.match(text, true);
         SpellType spell = result.matched() ? byId(result.spellId()) : null;
@@ -199,9 +229,13 @@ public final class VoiceCastClient {
             clearActionBar(mc);
             return;
         }
+        boolean toldGargoyle = tellGargoyle(text);
         IncantationMatcher.Result result = IncantationMatcher.match(text);
         SpellType spell = result.matched() ? byId(result.spellId()) : null;
         if (spell == null) {
+            if (toldGargoyle) {
+                return;                                   // the gargoyle answers on the action bar
+            }
             if (VoiceCastConfig.SHOW_HEARD.get() && !text.isBlank()) {
                 player.displayClientMessage(Component.translatable("voice.hogwartsmagic.heard_nothing_known", text)
                         .withStyle(ChatFormatting.GRAY), true);
@@ -263,6 +297,7 @@ public final class VoiceCastClient {
     /** Logging out closes the microphone in both modes. */
     private static void abort() {
         com.hogwartsmagic.event.ClientModEvents.setVoiceOnly(false); // the next server sends its own value on login
+        gargoyleListening = false;
         if (OPEN_MIC.isRunning()) {
             OPEN_MIC.stop();
         }

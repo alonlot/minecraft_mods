@@ -86,6 +86,11 @@ public final class MechanismTestHooks {
         CastleMechanisms.heard(player, said);
     }
 
+    /** Hand {@code player}'s spoken phrase to the gargoyles, as the voice packet does. */
+    public static void heardSpoken(ServerPlayer player, String said) {
+        CastleMechanisms.heardSpoken(player, said);
+    }
+
     /** The phase of the awake stair of the castle at {@code anchor}, or null when that castle is not awake. */
     @javax.annotation.Nullable
     public static String stairPhase(ServerLevel level, BlockPos anchor) {

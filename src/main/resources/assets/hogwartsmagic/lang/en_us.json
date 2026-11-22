@@ -2070,6 +2070,6 @@
   "message.hogwartsmagic.headmaster_stair.already": "The stair is already up.",
   "message.hogwartsmagic.headmaster_stair.wrong": "The gargoyle does not move.",
   "message.hogwartsmagic.headmaster_stair.leaving": "The stair rises to take you down.",
-  "message.hogwartsmagic.headmaster_stair.hint": "A stone gargoyle guards the Headmaster's office. Say the password in chat.",
-  "message.hogwartsmagic.headmaster_stair.hint_sweets": "A stone gargoyle guards the Headmaster's office. Say the password in chat. (The Headmaster is fond of a Sherbet Lemon.)"
+  "message.hogwartsmagic.headmaster_stair.hint": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand.",
+  "message.hogwartsmagic.headmaster_stair.hint_sweets": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand. (The Headmaster is fond of a Sherbet Lemon.)"
 }

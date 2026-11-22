@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "hogwartsmagic:block/pensieve"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/pensieve",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/pensieve",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/pensieve",
+      "y": 270
+    }
+  }
+}

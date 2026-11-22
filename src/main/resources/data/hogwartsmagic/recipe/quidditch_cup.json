@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "GXG",
+    " G ",
+    "SSS"
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "X": {
+      "item": "hogwartsmagic:golden_snitch"
+    },
+    "S": {
+      "item": "minecraft:dark_oak_slab"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:quidditch_cup",
+    "count": 1
+  }
+}

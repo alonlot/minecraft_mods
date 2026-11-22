@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    " N ",
+    "PBP"
+  ],
+  "key": {
+    "N": {
+      "item": "minecraft:gold_nugget"
+    },
+    "P": {
+      "item": "minecraft:dark_oak_planks"
+    },
+    "B": {
+      "item": "hogwartsmagic:gryffindor_banner_block"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:gryffindor_crest_plaque",
+    "count": 2
+  }
+}

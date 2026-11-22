@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "NSN",
+    " B ",
+    " B "
+  ],
+  "key": {
+    "N": {
+      "item": "minecraft:gold_nugget"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    },
+    "B": {
+      "item": "hogwartsmagic:ravenclaw_banner_block"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:ravenclaw_hanging_banner",
+    "count": 1
+  }
+}

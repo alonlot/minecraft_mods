@@ -213,7 +213,7 @@ const WIKI_DATA = {
     { name: "Horcrux", kind: "Ritual Block", summary: "Forbidden altar for dark soul-binding rituals.", features: ["Primed and active states", "Status messages", "Can punish hostile destruction by spawning a Dementor"] },
     { name: "Floo Fireplace", kind: "Travel Block", summary: "Named magical hearth used for Floo travel.", features: ["Stores links and names", "Activates from dropped Floo Powder", "Opens travel selection UI"] },
     { name: "Owl Perch", kind: "Logistics Block", summary: "Single-item perch for owl post routing.", features: ["Named station", "Links to another perch", "Dispatches valid nearby tame owls"] },
-    { name: "Moving Portrait", kind: "Decor", summary: "Living magical portrait block.", features: ["Directional placement", "Ambient magical particles"] },
+    { name: "Moving Portrait", kind: "Decor", summary: "Living magical portrait block.", features: ["Thin frame that hangs on the wall you click", "Ambient magical particles"] },
     { name: "Candle Cluster", kind: "Decor", summary: "Magical candle decoration.", features: ["Ambient flame particles"] },
     { name: "Enchanted Book Pile", kind: "Decor", summary: "Stack of enchanted books with ambience.", features: ["Ambient magical particles"] },
     { name: "Wizard Cauldron", kind: "Decor", summary: "Atmospheric potion-class cauldron.", features: ["Magical bubbling ambience"] },
@@ -221,6 +221,14 @@ const WIKI_DATA = {
     { name: "Fine Wood Tree Set", kind: "Building Set", summary: "Custom magical wood set used for wandcraft and building.", features: ["Log, stripped log, leaves, sapling, and planks", "Main wandcraft wood source"] },
     { name: "Arcane Cluster", kind: "Resource Block", summary: "Glowing magical crystal cluster used in progression.", features: ["Light-emitting crystal block", "Feeds magical crafting progression"] },
     { name: "House Banner Blocks", kind: "Decor", summary: "Decorative house-aligned banner blocks.", features: ["Gryffindor, Ravenclaw, Hufflepuff, Slytherin variants"] },
+    { name: "Floating Candles", kind: "Great Hall Decor", summary: "Three lit candles that hover in mid-air.", features: ["No support needed", "No collision", "Full light and flame particles"] },
+    { name: "Hanging House Banners", kind: "Great Hall Decor", summary: "Two-block-high wall banners for the four houses.", features: ["Hangs on the wall you click", "Needs a free block above", "Drops one banner from either half"] },
+    { name: "House Points Hourglasses", kind: "Great Hall Decor", summary: "Hourglasses of rubies, sapphires, yellow diamonds and emeralds.", features: ["One per house", "Soft glow"] },
+    { name: "School Trunk", kind: "Common Room Decor", summary: "Leather trunk with brass straps that holds 27 stacks.", features: ["Opens like a chest", "Drops its contents when broken", "Comparator output"] },
+    { name: "Common Room Decor", kind: "Common Room Decor", summary: "Owl cage with a snowy owl, wizard chess board and house crest plaques.", features: ["Four crest plaques", "Wall pieces need a solid wall behind them"] },
+    { name: "Classroom Decor", kind: "Classroom Decor", summary: "Potion shelf, Pensieve, brass telescope and scrolls with a quill.", features: ["Pensieve glows and sheds silver memory wisps", "Telescope turns to face you"] },
+    { name: "Quidditch Decor", kind: "Quidditch Decor", summary: "Goal hoops on stackable poles, a broom rack and the Quidditch Cup.", features: ["Stack poles to any height", "Hoop ring is wider than one block"] },
+    { name: "Wizard Furniture", kind: "Furniture", summary: "Wizard table, chair, Great Hall bench, common room armchair and writing desk.", features: ["Tables join into long house tables", "Right click a chair, bench or armchair to sit"] },
     { name: "Patronus Light Block", kind: "Utility Block", summary: "Invisible internal light block used by Patronus effects.", features: ["No collision", "No standard loot", "Created and cleaned up by Patronus logic"] }
   ],
   items: [

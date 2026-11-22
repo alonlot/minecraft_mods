@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:slytherin_hanging_banner"
+        }
+      ],
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        },
+        {
+          "condition": "minecraft:block_state_property",
+          "block": "hogwartsmagic:slytherin_hanging_banner",
+          "properties": {
+            "half": "lower"
+          }
+        }
+      ]
+    }
+  ],
+  "random_sequence": "hogwartsmagic:blocks/slytherin_hanging_banner"
+}

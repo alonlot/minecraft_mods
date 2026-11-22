@@ -9,6 +9,19 @@
     "hogwartsmagic:wand_workbench",
     "hogwartsmagic:fine_wood_log",
     "hogwartsmagic:stripped_fine_wood_log",
-    "hogwartsmagic:fine_wood_planks"
+    "hogwartsmagic:fine_wood_planks",
+    "hogwartsmagic:school_trunk",
+    "hogwartsmagic:wizard_chess_board",
+    "hogwartsmagic:potion_shelf",
+    "hogwartsmagic:broom_rack",
+    "hogwartsmagic:wizard_table",
+    "hogwartsmagic:wizard_chair",
+    "hogwartsmagic:great_hall_bench",
+    "hogwartsmagic:common_room_armchair",
+    "hogwartsmagic:writing_desk",
+    "hogwartsmagic:gryffindor_crest_plaque",
+    "hogwartsmagic:ravenclaw_crest_plaque",
+    "hogwartsmagic:hufflepuff_crest_plaque",
+    "hogwartsmagic:slytherin_crest_plaque"
   ]
 }

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "hogwartsmagic:block/potion_shelf"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/potion_shelf",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/potion_shelf",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/potion_shelf",
+      "y": 270
+    }
+  }
+}

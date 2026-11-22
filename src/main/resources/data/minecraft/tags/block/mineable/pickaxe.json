@@ -6,6 +6,12 @@
     "hogwartsmagic:horcrux",
     "hogwartsmagic:arcane_cluster",
     "hogwartsmagic:statue_heart",
-    "hogwartsmagic:gringotts_gate"
+    "hogwartsmagic:gringotts_gate",
+    "hogwartsmagic:owl_cage",
+    "hogwartsmagic:pensieve",
+    "hogwartsmagic:brass_telescope",
+    "hogwartsmagic:quidditch_hoop_pole",
+    "hogwartsmagic:quidditch_hoop",
+    "hogwartsmagic:quidditch_cup"
   ]
 }

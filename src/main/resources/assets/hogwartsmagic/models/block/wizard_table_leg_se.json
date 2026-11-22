@@ -1,0 +1,41 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "leg": "minecraft:block/stripped_dark_oak_log",
+    "particle": "minecraft:block/stripped_dark_oak_log"
+  },
+  "elements": [
+    {
+      "from": [
+        12,
+        0,
+        12
+      ],
+      "to": [
+        15,
+        13,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#leg"
+        },
+        "south": {
+          "texture": "#leg"
+        },
+        "east": {
+          "texture": "#leg"
+        },
+        "west": {
+          "texture": "#leg"
+        },
+        "up": {
+          "texture": "#leg"
+        },
+        "down": {
+          "texture": "#leg"
+        }
+      }
+    }
+  ]
+}

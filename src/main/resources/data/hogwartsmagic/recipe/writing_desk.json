@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "FBI",
+    "PPP",
+    "P P"
+  ],
+  "key": {
+    "F": {
+      "item": "minecraft:feather"
+    },
+    "B": {
+      "item": "minecraft:book"
+    },
+    "I": {
+      "item": "minecraft:ink_sac"
+    },
+    "P": {
+      "item": "minecraft:dark_oak_planks"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:writing_desk",
+    "count": 1
+  }
+}

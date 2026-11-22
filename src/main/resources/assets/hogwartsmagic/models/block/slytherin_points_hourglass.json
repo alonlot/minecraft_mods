@@ -1,0 +1,385 @@
+{
+  "parent": "block/block",
+  "render_type": "minecraft:translucent",
+  "textures": {
+    "wood": "minecraft:block/dark_oak_planks",
+    "brass": "hogwartsmagic:block/decor/brass",
+    "gems": "hogwartsmagic:block/decor/slytherin_gems",
+    "glass": "hogwartsmagic:block/decor/hourglass_glass",
+    "particle": "hogwartsmagic:block/decor/slytherin_gems"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        2
+      ],
+      "to": [
+        14,
+        2,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood"
+        },
+        "south": {
+          "texture": "#wood"
+        },
+        "east": {
+          "texture": "#wood"
+        },
+        "west": {
+          "texture": "#wood"
+        },
+        "up": {
+          "texture": "#wood"
+        },
+        "down": {
+          "texture": "#wood"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        14,
+        2
+      ],
+      "to": [
+        14,
+        16,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood"
+        },
+        "south": {
+          "texture": "#wood"
+        },
+        "east": {
+          "texture": "#wood"
+        },
+        "west": {
+          "texture": "#wood"
+        },
+        "up": {
+          "texture": "#wood"
+        },
+        "down": {
+          "texture": "#wood"
+        }
+      }
+    },
+    {
+      "from": [
+        2.5,
+        2,
+        2.5
+      ],
+      "to": [
+        3.5,
+        14,
+        3.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#brass"
+        },
+        "south": {
+          "texture": "#brass"
+        },
+        "east": {
+          "texture": "#brass"
+        },
+        "west": {
+          "texture": "#brass"
+        },
+        "up": {
+          "texture": "#brass"
+        },
+        "down": {
+          "texture": "#brass"
+        }
+      }
+    },
+    {
+      "from": [
+        2.5,
+        2,
+        12.5
+      ],
+      "to": [
+        3.5,
+        14,
+        13.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#brass"
+        },
+        "south": {
+          "texture": "#brass"
+        },
+        "east": {
+          "texture": "#brass"
+        },
+        "west": {
+          "texture": "#brass"
+        },
+        "up": {
+          "texture": "#brass"
+        },
+        "down": {
+          "texture": "#brass"
+        }
+      }
+    },
+    {
+      "from": [
+        12.5,
+        2,
+        2.5
+      ],
+      "to": [
+        13.5,
+        14,
+        3.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#brass"
+        },
+        "south": {
+          "texture": "#brass"
+        },
+        "east": {
+          "texture": "#brass"
+        },
+        "west": {
+          "texture": "#brass"
+        },
+        "up": {
+          "texture": "#brass"
+        },
+        "down": {
+          "texture": "#brass"
+        }
+      }
+    },
+    {
+      "from": [
+        12.5,
+        2,
+        12.5
+      ],
+      "to": [
+        13.5,
+        14,
+        13.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#brass"
+        },
+        "south": {
+          "texture": "#brass"
+        },
+        "east": {
+          "texture": "#brass"
+        },
+        "west": {
+          "texture": "#brass"
+        },
+        "up": {
+          "texture": "#brass"
+        },
+        "down": {
+          "texture": "#brass"
+        }
+      }
+    },
+    {
+      "from": [
+        4.5,
+        2,
+        4.5
+      ],
+      "to": [
+        11.5,
+        5.5,
+        11.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#gems"
+        },
+        "south": {
+          "texture": "#gems"
+        },
+        "east": {
+          "texture": "#gems"
+        },
+        "west": {
+          "texture": "#gems"
+        },
+        "up": {
+          "texture": "#gems"
+        },
+        "down": {
+          "texture": "#gems"
+        }
+      }
+    },
+    {
+      "from": [
+        5.5,
+        12.5,
+        5.5
+      ],
+      "to": [
+        10.5,
+        14,
+        10.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#gems"
+        },
+        "south": {
+          "texture": "#gems"
+        },
+        "east": {
+          "texture": "#gems"
+        },
+        "west": {
+          "texture": "#gems"
+        },
+        "up": {
+          "texture": "#gems"
+        },
+        "down": {
+          "texture": "#gems"
+        }
+      }
+    },
+    {
+      "from": [
+        7.5,
+        5.5,
+        7.5
+      ],
+      "to": [
+        8.5,
+        12.5,
+        8.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#gems"
+        },
+        "south": {
+          "texture": "#gems"
+        },
+        "east": {
+          "texture": "#gems"
+        },
+        "west": {
+          "texture": "#gems"
+        },
+        "up": {
+          "texture": "#gems"
+        },
+        "down": {
+          "texture": "#gems"
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        2,
+        4
+      ],
+      "to": [
+        12,
+        7.5,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#glass"
+        },
+        "south": {
+          "texture": "#glass"
+        },
+        "east": {
+          "texture": "#glass"
+        },
+        "west": {
+          "texture": "#glass"
+        },
+        "up": {
+          "texture": "#glass"
+        }
+      }
+    },
+    {
+      "from": [
+        6.5,
+        7.5,
+        6.5
+      ],
+      "to": [
+        9.5,
+        8.5,
+        9.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#glass"
+        },
+        "south": {
+          "texture": "#glass"
+        },
+        "east": {
+          "texture": "#glass"
+        },
+        "west": {
+          "texture": "#glass"
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        8.5,
+        4
+      ],
+      "to": [
+        12,
+        14,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#glass"
+        },
+        "south": {
+          "texture": "#glass"
+        },
+        "east": {
+          "texture": "#glass"
+        },
+        "west": {
+          "texture": "#glass"
+        },
+        "down": {
+          "texture": "#glass"
+        }
+      }
+    }
+  ]
+}

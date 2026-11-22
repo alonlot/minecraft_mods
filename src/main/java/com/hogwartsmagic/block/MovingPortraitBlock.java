@@ -12,6 +12,7 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -35,6 +36,17 @@ public class MovingPortraitBlock extends HorizontalDirectionalBlock {
     @Override
     protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
         return CODEC;
+    }
+
+    /**
+     * Hangs on the wall the player clicks, facing out of it. Clicking a floor or ceiling turns the
+     * portrait toward the player instead.
+     */
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        Direction face = context.getClickedFace();
+        Direction facing = face.getAxis().isHorizontal() ? face : context.getHorizontalDirection().getOpposite();
+        return defaultBlockState().setValue(FACING, facing);
     }
 
     @Override

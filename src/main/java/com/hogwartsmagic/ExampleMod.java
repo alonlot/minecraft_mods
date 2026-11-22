@@ -819,6 +819,7 @@ public class ExampleMod
                 output.accept(RAVENCLAW_BANNER_BLOCK_ITEM.get());
                 output.accept(HUFFLEPUFF_BANNER_BLOCK_ITEM.get());
                 output.accept(SLYTHERIN_BANNER_BLOCK_ITEM.get());
+                com.hogwartsmagic.block.decor.ModDecorations.CREATIVE_ORDER.forEach(item -> output.accept(item.get()));
                 output.accept(ARCANE_DUST.get());
                 output.accept(ARCANE_CORE.get());
                 output.accept(OWL_ROUTE_TAG.get());
@@ -892,6 +893,8 @@ public class ExampleMod
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
 
+        // Queue the decoration blocks, items and block entity before the registers attach.
+        com.hogwartsmagic.block.decor.ModDecorations.init();
         // Register the Deferred Register to the mod event bus so blocks get registered
         BLOCKS.register(modEventBus);
         // Register the Deferred Register to the mod event bus so items get registered

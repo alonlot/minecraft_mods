@@ -569,7 +569,7 @@ Each spell below lists the implemented gameplay behavior currently present in th
 ### Moving Portrait
 
 - Decorative portrait block.
-- Directional placement.
+- Thin frame that hangs on the wall you click (clicking a floor turns it toward you).
 - Uses magical ambient particles for a living-painting feel.
 
 ### Candle Cluster
@@ -619,6 +619,50 @@ Uses:
 - Slytherin Banner.
 
 These are decorative house-themed blocks.
+
+### Hogwarts Decorations
+
+All decorations are in the mod creative tab and have crafting recipes. Most of them turn to face the
+player who places them. Wall pieces hang on the wall you click and need a solid wall face behind
+them; they drop when the wall goes.
+
+Great Hall:
+
+- Floating Candles: three lit candles that hover in mid-air. No support, no collision, light 14.
+- Hanging House Banners (Gryffindor, Ravenclaw, Hufflepuff, Slytherin): two blocks high, hang on a
+  wall, need a free block above where you click. Breaking either half drops one banner.
+- House Points Hourglasses (one per house): rubies, sapphires, yellow diamonds and emeralds. Light 5.
+
+Common room:
+
+- School Trunk: holds 27 stacks like a chest, drops its contents when broken, gives a comparator signal.
+- Owl Cage: brass cage with a snowy owl.
+- Wizard Chess Board: a game in progress.
+- House Crest Plaques (one per house): wall shields with the house animal.
+
+Classroom and library:
+
+- Potion Shelf (wall): four potion bottles on a dark wood shelf.
+- Pensieve: carved stone basin with a silver memory pool. Light 7, silver wisps rise from it.
+- Brass Telescope: on a tripod, aimed up at the sky.
+- Scrolls and Quill: rolled scrolls, an open page, an inkwell and a quill.
+
+Quidditch:
+
+- Quidditch Hoop Pole and Quidditch Hoop: stack poles as high as you like and put a hoop on top. The
+  ring is wider than one block and has no collision outside the centre block.
+- Broom Rack (wall): two brooms on pegs.
+- Quidditch Cup: gold trophy on a dark wood base.
+
+Furniture:
+
+- Wizard Table: tables next to each other join into one long top. Legs show only at the open corners.
+- Wizard Chair, Great Hall Bench, Common Room Armchair: right click to sit (sneak and right click to
+  place a block against them instead). Sneak to stand up.
+- Writing Desk: desk with an open book, inkwell, quill and parchment.
+
+Assets come from `build_scripts/generate_decorations.py` (textures in `build_scripts/decor_textures.py`).
+Change the script and run it again rather than editing the generated JSON or PNG files.
 
 ### Patronus Light Block
 

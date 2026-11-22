@@ -45,6 +45,16 @@ public class ModEntities {
                             .fireImmune()
                             .build("ukrainian_ironbelly"));
 
+    /** Invisible mount for sitting on chairs, benches and armchairs. Never saved, never summoned. */
+    public static final RegistryObject<EntityType<SeatEntity>> SEAT =
+            ENTITY_TYPES.register("seat",
+                    () -> EntityType.Builder.<SeatEntity>of(SeatEntity::new, MobCategory.MISC)
+                            .sized(0.001f, 0.001f)
+                            .noSummon()
+                            .clientTrackingRange(8)
+                            .updateInterval(Integer.MAX_VALUE)
+                            .build("seat"));
+
     public static final RegistryObject<EntityType<GringottsCartEntity>> GRINGOTTS_CART =
             ENTITY_TYPES.register("gringotts_cart",
                     () -> EntityType.Builder.<GringottsCartEntity>of(GringottsCartEntity::new, MobCategory.MISC)

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "PPP",
+    "GXG",
+    "PPP"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:dark_oak_slab"
+    },
+    "G": {
+      "item": "minecraft:glass"
+    },
+    "X": {
+      "item": "minecraft:emerald"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:slytherin_points_hourglass",
+    "count": 1
+  }
+}

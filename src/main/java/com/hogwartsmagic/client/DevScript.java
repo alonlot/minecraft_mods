@@ -30,6 +30,8 @@ import java.util.Deque;
  *   interact hogwartsmagic:niffler   right-click (empty hand) the nearest entity of that type, as the player
  *   chat Sherbet Lemon   say it in chat, as the player typing it would
  *   look 90 30           the player's yaw and pitch
+ *   pan 120 30 40        turn smoothly to that yaw and pitch over 40 ticks (for recordings)
+ *   mark name            log the wall-clock time and the frame rate, to cut a recording at
  *   gui off              hide the HUD (gui on: show it)
  *   camera back          third person from behind (front, first)
  *   shot name            a screenshot, screenshots/name.png
@@ -44,6 +46,9 @@ public final class DevScript {
     private static int waiting;
     private static boolean opening;
     private static int joinedTicks;
+    private static int panLeft;
+    private static float panYaw;
+    private static float panPitch;
 
     private DevScript() {
     }
@@ -95,6 +100,16 @@ public final class DevScript {
                 lines = new ArrayDeque<>();
             }
         }
+        if (panLeft > 0) {
+            // An even turn: each tick takes its share of what is left, so it ends exactly on target.
+            float dy = net.minecraft.util.Mth.wrapDegrees(panYaw - mc.player.getYRot()) / panLeft;
+            float dp = (panPitch - mc.player.getXRot()) / panLeft;
+            mc.player.yRotO = mc.player.getYRot();
+            mc.player.xRotO = mc.player.getXRot();
+            mc.player.setYRot(mc.player.getYRot() + dy);
+            mc.player.setXRot(mc.player.getXRot() + dp);
+            panLeft--;
+        }
         if (waiting > 0) {
             waiting--;
             return;
@@ -144,6 +159,14 @@ public final class DevScript {
                     mc.player.yRotO = mc.player.getYRot();
                     mc.player.xRotO = mc.player.getXRot();
                 }
+                case "pan" -> {
+                    String[] a = arg.split("\\s+");
+                    panYaw = Float.parseFloat(a[0]);
+                    panPitch = Float.parseFloat(a[1]);
+                    panLeft = Math.max(1, Integer.parseInt(a[2]));
+                }
+                case "mark" -> LOGGER.info("Dev script: mark {} at {} ms, {} fps", arg.trim(),
+                        System.currentTimeMillis(), mc.getFps());
                 case "gui" -> mc.options.hideGui = arg.trim().equals("off");
                 case "camera" -> mc.options.setCameraType(switch (arg.trim()) {
                     case "back" -> net.minecraft.client.CameraType.THIRD_PERSON_BACK;

@@ -1,0 +1,49 @@
+# Tomb curse effects, for a video: run it while recording the screen, then cut between the two marks
+# and speed the cut up by four (the game runs at a quarter speed between them, so a software renderer
+# still draws every moment smoothly). See README.md.
+wait 40
+cmd time set midnight
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd gamerule sendCommandFeedback false
+cmd gamerule announceAdvancements false
+cmd tombcurse room
+gui off
+camera back
+look 150 40
+wait 60
+cmd tick rate 5
+wait 4
+mark start
+# The dark room: a slow turn across it.
+pan 205 36 40
+wait 44
+# Revelio: the wave runs out over the floor, the cursed tiles light and their sigils rise.
+cmd tombcurse reveal
+wait 46
+pan 150 30 50
+wait 56
+pan 180 36 14
+wait 16
+# Lifting a curse: the sigil is torn out of the stone.
+cmd tombcurse lift risen
+wait 40
+# The Withering: rune circle, smoke coiling in, the Eye of Horus, the darkness at the edges.
+gui on
+cmd tombcurse trigger withering
+wait 76
+cmd effect clear @s
+gui off
+wait 8
+# The Risen: green fire whirls where the dead will come up, then they break out.
+cmd tombcurse trigger risen
+wait 76
+cmd kill @e[type=!player]
+wait 8
+# The Collapse: the ground rumbles, sand trickles, the ceiling falls.
+cmd tombcurse trigger collapse
+wait 66
+mark end
+cmd tick rate 20
+wait 10
+quit

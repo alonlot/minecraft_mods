@@ -44,6 +44,9 @@ _LIGHT_NAMES = frozenset((
 ))
 
 DARK_RADIUS = 7                   # a floor cell farther than this from a light is "dark"
+# The mod's own blocks that give real light (block light 13 and 14), placed by rooms_decor. block_id keeps a
+# non-minecraft namespace, so these are matched whole.
+_MOD_LIGHTS = frozenset(('hogwartsmagic:candle_cluster', 'hogwartsmagic:floating_candle'))
 
 
 def block_id(state):
@@ -84,7 +87,7 @@ def is_light(state):
         return 'lit=true' in state
     if name in ('campfire', 'soul_campfire'):
         return 'lit=false' not in state
-    return name in _LIGHT_NAMES or name.endswith('_froglight')
+    return name in _LIGHT_NAMES or name in _MOD_LIGHTS or name.endswith('_froglight')
 
 
 def too_tall(state):

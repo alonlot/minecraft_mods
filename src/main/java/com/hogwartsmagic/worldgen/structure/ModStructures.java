@@ -27,6 +27,10 @@ public final class ModStructures {
     public static final RegistryObject<StructureType<MiniHogwartsStructure>> MINI_HOGWARTS_TYPE =
             STRUCTURE_TYPES.register("mini_hogwarts", () -> () -> MiniHogwartsStructure.CODEC);
 
+    /** A jigsaw that will not start on water (the desert dig site and tomb); same JSON as minecraft:jigsaw. */
+    public static final RegistryObject<StructureType<DryJigsawStructure>> DRY_JIGSAW_TYPE =
+            STRUCTURE_TYPES.register("dry_jigsaw", () -> () -> DryJigsawStructure.CODEC);
+
     public static final RegistryObject<StructurePieceType> MINI_HOGWARTS_PIECE =
             STRUCTURE_PIECE_TYPES.register("mini_hogwarts",
                     () -> (StructurePieceType.ContextlessType) MiniHogwartsPiece::new);

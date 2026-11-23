@@ -1,5 +1,5 @@
 {
-  "type": "minecraft:jigsaw",
+  "type": "hogwartsmagic:dry_jigsaw",
   "biomes": "#hogwartsmagic:has_structure/cursebreaker_dig",
   "step": "surface_structures",
   "terrain_adaptation": "beard_thin",

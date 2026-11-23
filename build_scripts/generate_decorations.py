@@ -455,9 +455,10 @@ def quidditch():
     ]
     for side in (-1, 1):
         x0 = 2 if side < 0 else 12
-        cup.append(el((x0 + (0.5 if side < 0 else 0), 10, 7.25), (x0 + (2 if side < 0 else 1.5), 11, 8.75), "gold"))
+        # The top and bottom bars meet the upright instead of overlapping it, which z-fought.
+        cup.append(el((x0 + (1 if side < 0 else 0), 10, 7.25), (x0 + (2 if side < 0 else 1), 11, 8.75), "gold"))
         cup.append(el((2 if side < 0 else 13, 7.5, 7.25), (3 if side < 0 else 14, 10.5, 8.75), "gold"))
-        cup.append(el((x0 + (0.5 if side < 0 else 0), 7, 7.25), (x0 + (2 if side < 0 else 1.5), 8, 8.75), "gold"))
+        cup.append(el((x0 + (1 if side < 0 else 0), 7, 7.25), (x0 + (2 if side < 0 else 1), 8, 8.75), "gold"))
     model("quidditch_cup", {"gold": GOLD, "wood": DARK_WOOD, "inside": V("raw_gold_block"), "particle": GOLD}, cup)
     blockstate_facing("quidditch_cup")
     item_from_block("quidditch_cup")
@@ -517,11 +518,12 @@ def furniture():
     arm += [
         el((1, 2, 1), (15, 7, 15), "velvet"),
         el((3, 7, 1.5), (13, 9, 12.5), "velvet"),
-        el((1, 7, 1), (3, 12, 15), "velvet"),
-        el((13, 7, 1), (15, 12, 15), "velvet"),
+        # The arms stop at the back's front face (z=12.5): running through it, their faces z-fought its own.
+        el((1, 7, 1), (3, 12, 12.5), "velvet"),
+        el((13, 7, 1), (15, 12, 12.5), "velvet"),
         el((1, 7, 12.5), (15, 22, 15), "velvet"),
-        el((0.5, 12, 0.5), (3.5, 13, 15), "velvet"),
-        el((12.5, 12, 0.5), (15.5, 13, 15), "velvet"),
+        el((0.5, 12, 0.5), (3.5, 13, 12.5), "velvet"),
+        el((12.5, 12, 0.5), (15.5, 13, 12.5), "velvet"),
     ]
     model("common_room_armchair", {"velvet": D("red_velvet"), "leg": DARK_LOG, "particle": D("red_velvet")}, arm)
     blockstate_facing("common_room_armchair")
@@ -763,10 +765,13 @@ def remake_book_pile():
 
 def remake_owl_perch():
     els = [
-        el((2, 0, 7), (14, 1.5, 9), "log"),
-        el((7, 0, 2), (9, 1.5, 14), "log"),
+        # Four feet around the hub, not two crossing bars: overlapping faces z-fought.
+        el((2, 0, 7), (6, 1.5, 9), "log"),
+        el((10, 0, 7), (14, 1.5, 9), "log"),
+        el((7, 0, 2), (9, 1.5, 6), "log"),
+        el((7, 0, 10), (9, 1.5, 14), "log"),
         el((6, 0, 6), (10, 2.5, 10), "log"),
-        el((7, 2.5, 7), (9, 13, 9), "log"),
+        el((7, 2.5, 7), (9, 12, 9), "log"),  # ends under the brass collar
         el((6.5, 12, 6.5), (9.5, 13, 9.5), "brass"),
         # The perch bar ends the post: a T, not a cross.
         el((1.5, 13, 7), (14.5, 15, 9), "wrap"),
@@ -787,8 +792,10 @@ def remake_floo_fireplace():
         el((0, 2, 3), (2.5, 22, 14), "stone", tex_for={"east": "soot"}),
         el((13.5, 2, 3), (16, 22, 14), "stone", tex_for={"west": "soot"}),
         el((2.5, 18, 3), (13.5, 22, 14), "stone", tex_for={"down": "soot"}),
-        el((-1, 22, 0), (17, 24, 15.5), "wood"),
-        el((1, 24, 0), (15, 30, 4), "stone"),
+        # Mantel and chimney start 0.25 into the back wall and the chimney tops it by 0.25: sharing its
+        # back face and top face, they z-fought.
+        el((-1, 22, 0.25), (17, 24, 15.5), "wood"),
+        el((1, 24, 0.25), (15, 30.25, 4), "stone"),
         el((3, 2, 7.5), (13, 3, 8.5), "iron"),
         el((3.5, 2, 4.5), (12.5, 4, 6.5), "log", tex_for={"east": "log_end", "west": "log_end"}),
         el((5, 3, 6.5), (11, 5, 8.5), "log", tex_for={"east": "log_end", "west": "log_end"}),

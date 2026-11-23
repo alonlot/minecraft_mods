@@ -23,3 +23,16 @@ expect the flat world's surface at y -60.
 the open with a held torch and with fire). Run it in its own flat world, for example
 `HOGWARTSMAGIC_DEV_WORLD=yeti_demo`. The player gets night vision and full resistance so the script
 survives the fight.
+
+## Videos
+
+`tomb_curses_video.txt` is the tomb curses as a video. Record it with
+`bash tools/dev_scripts/record_video.sh tools/dev_scripts/tomb_curses_video.txt curse_video OUT_DIR`.
+The script slows the game to a quarter speed (`/tick rate 5`) between `mark start` and `mark end`, so
+software rendering still draws every moment; the log gives each mark's wall-clock time, and
+`rec_start_ms` the recording's start. Then:
+
+    ffmpeg -ss <start - rec_start, seconds> -t <(end - start) seconds> -i OUT_DIR/raw.mkv \
+      -vf "setpts=PTS/4,fps=30" -c:v libx264 -crf 20 -pix_fmt yuv420p out.mp4
+
+The Collapse buries the third-person camera at the very end: cut before the frame goes black.

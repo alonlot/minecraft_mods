@@ -865,7 +865,8 @@ def wand_workbench():
     for (x, z) in ((0.5, 0.5), (13, 0.5), (0.5, 13), (13, 13)):
         els.append(el((x, 0, z), (x + 2.5, 11, z + 2.5), "leg"))
     els += [
-        el((0, 11, 0), (16, 13, 16), "top"),
+        # Ends at 12.5, under the tabletop board: both topping out at 13 z-fought.
+        el((0, 11, 0), (16, 12.5, 16), "top"),
         el((-0.5, 12.5, -0.5), (16.5, 13, 16.5), "top"),
         el((1, 3, 1), (15, 4, 15), "top"),
         # Slim wand boxes stacked on the low shelf.

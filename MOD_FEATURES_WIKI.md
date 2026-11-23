@@ -1075,12 +1075,19 @@ Where they appear in the world:
   at Flourish and Blotts and Scribbulus, telescopes and trunks at Wiseacres, cafe tables at Fortescue's,
   chess boards at the joke shops, and a customer chair at Ollivanders. `generate_diagon_alley.py` puts
   them in as its last step (`furnish_diagon_alley.py`, which finds each shop from its keeper).
-- Mini Hogwarts (`build_scripts/mini_hogwarts/rooms_decor.py`, the castle build's last room step): the
-  four House Points Hourglasses and the house banners in the entrance hall; armchairs, the crest plaque and
-  banner, a chess board and an owl cage in the Gryffindor common room; a school trunk at every dormitory bed;
-  crest plaques, banners, a chess board and a desk in the Slytherin common room; desks, scrolls, books,
-  candles and floating candles in the Library; telescopes in the Astronomy gallery; a desk, scrolls and books
-  in the Headmaster's office and the classrooms. The Great Hall keeps its own furnishing.
+- Mini Hogwarts Great Hall (`build_scripts/mini_hogwarts/hall.py`, `furnish_hall`): the four house tables
+  are joined Wizard Tables with a Great Hall Bench along both sides, the High Table is a Wizard Table with a
+  Wizard Chair at every staff place (Dumbledore's inside the copper throne frame), and hanging house banners
+  hang on both end walls and on every pier above the braziers (Hufflepuff and Gryffindor down the north wall,
+  Slytherin and Ravenclaw down the south). The Sorting memory's own Great Hall is not changed.
+- Mini Hogwarts (`build_scripts/mini_hogwarts/rooms_decor.py`, the castle build's last room step): every
+  vanilla house banner left in the castle (the west gallery, the dungeons) becomes a hanging house banner; the
+  four House Points Hourglasses, the house banners and the four crest plaques in the entrance hall;
+  armchairs, the crest plaque and two banners, a chess board, an owl cage, a broom rack and the Quidditch Cup
+  in the Gryffindor common room; a school trunk at every dormitory bed and a banner there; crest plaques,
+  banners, a chess board and a desk in the Slytherin common room; desks, scrolls, books, candles and floating
+  candles in the Library; telescopes in the Astronomy gallery; a desk, scrolls and books in the Headmaster's
+  office and the classrooms.
 
 Assets come from `build_scripts/generate_decorations.py` (textures in `build_scripts/decor_textures.py`).
 Change the script and run it again rather than editing the generated JSON or PNG files.
@@ -1666,7 +1673,7 @@ A small, furnished castle that is already standing when you find it, like a wood
 
 **Great Hall.**
 
-- The film's hall: four long house tables with the High Table on its dais, braziers, tall windows and a Gothic double portal. It stands on the castle's central axis.
+- The film's hall: four long house tables with benches along both sides, the High Table on its dais with a chair at every staff place, house banners on the walls and piers, braziers, tall windows and a Gothic double portal. It stands on the castle's central axis. The tables, benches, chairs and banners are the mod's own decorations, so you can sit on the benches and chairs.
 - The ceiling is the enchanted sky, and it follows the real one: blue day with drifting clouds, dawn and dusk tints, stars at night, grey cloud in rain and lightning in thunderstorms. Hundreds of candles float above the tables, bobbing and flickering.
 - By day, shafts of sunlight come through the tall windows. They fade in rain and at night.
 - The two great doors swing open as you come within a few blocks and close a few seconds after the last person leaves. They are only a picture over an open doorway, so they can never trap you.

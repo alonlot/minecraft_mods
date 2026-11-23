@@ -562,7 +562,116 @@ def build_set():
     add_gable_dress(g)
     windows = add_window_lights(g)
     add_roof_gothic(g, windows)
+    furnish_hall(g)
     return g, windows, seen
+
+
+# ---------------------------------------------------------------- the mod's furniture (local frame)
+# The memory set's furniture is vanilla stand-ins: slab benches with wall-sign aprons, slab-and-stair table tops,
+# mangrove-stair staff chairs with dark-oak doors for high backs, and vanilla wall banners. In the castle (only: the
+# Sorting memory keeps its own set) they become the mod's decorations. Everything stays in its cell, at the same
+# heights: a bench's seat is 8/16 up like the slab's, so the memory's seat anchors still fit.
+MOD = 'hogwartsmagic:'
+BANNER_HOUSE = {'red': 'gryffindor', 'yellow': 'hufflepuff', 'blue': 'ravenclaw', 'green': 'slytherin'}
+TABLE_X = (G.BENCH_X[0] - 1, G.BENCH_X[1] + 1)          # the tops run one cell past the benches at both ends
+DAIS_X = (2, 18)                                         # the staff dais (floor y 1, feet y 2)
+_SIDE = {(0, -1): 'north', (1, 0): 'east', (0, 1): 'south', (-1, 0): 'west'}
+# House banners on the long walls, one on the hall face of every pier above its brazier (lower half y 11, upper
+# y 12, under the corbel at y 14): the north wall (z 5 face, nearest the Hufflepuff and Gryffindor tables) and the
+# south wall (z 39 face, nearest Ravenclaw and Slytherin) each alternate their two houses.
+PIER_BANNER_Y = 11
+PIER_BANNER_WALLS = ((6, 5, 'south', ('hufflepuff', 'gryffindor')), (38, 39, 'north', ('slytherin', 'ravenclaw')))
+
+
+def _tables(g, cells):
+    """Write wizard_table into every cell of `cells`, each joined to its neighbours in the set."""
+    for (x, y, z) in cells:
+        sides = {_SIDE[(dx, dz)]: str((x + dx, y, z + dz) in cells).lower() for dx, dz in _SIDE}
+        g[(x, y, z)] = MOD + 'wizard_table[%s]' % ','.join('%s=%s' % (k, sides[k])
+                                                           for k in ('east', 'north', 'south', 'west'))
+
+
+def furnish_hall(g):
+    """House tables, benches, the High Table and its chairs, and the house banners, as the mod's decorations."""
+    stats = Counter()
+    # 1. the four house tables: three-wide tops joined into one long table each, a bench along both sides
+    for z_lo, z_hi in G.TABLES.values():
+        top = {(x, 1, z) for x in range(TABLE_X[0], TABLE_X[1] + 1) for z in range(z_lo + 1, z_hi)
+               if _short(g.get((x, 1, z), 'air')).startswith('dark_oak_')}
+        _tables(g, top)
+        stats['house table cells'] += len(top)
+        for z, facing, apron in ((z_lo, 'south', z_lo - 1), (z_hi, 'north', z_hi + 1)):
+            for x in range(G.BENCH_X[0], G.BENCH_X[1] + 1):
+                assert _short(g.get((x, 1, z), 'air')) == 'dark_oak_slab', ('no bench slab at', x, z)
+                g[(x, 1, z)] = MOD + 'great_hall_bench[facing=%s]' % facing
+                stats['benches'] += 1
+                if _short(g.get((x, 1, apron), 'air')) == 'dark_oak_wall_sign':
+                    del g[(x, 1, apron)]
+    # 2. the High Table on the dais: its slab and upside-down stair top in one joined table
+    dais = [(x, 2, z) for x in range(DAIS_X[0], DAIS_X[1] + 1) for z in range(0, SET_SIZE[2])]
+    top = set()
+    for p in dais:
+        s = g.get(p)
+        if s and _short(s) in ('dark_oak_slab', 'dark_oak_stairs') and 'top' in s:
+            top.add(p)
+    _tables(g, top)
+    stats['high table cells'] += len(top)
+    # 3. the staff chairs: every mangrove stair on the dais becomes a wizard chair facing the table beside it; the
+    #    door leaves that stood behind them as high backs go (the chair has its own back), and Dumbledore's seat in
+    #    its copper throne frame becomes a chair too
+    for p in dais:
+        x, y, z = p
+        s = g.get(p)
+        if s and _short(s).endswith('_door'):
+            del g[p]
+            if _short(g.get((x, y + 1, z), 'air')).endswith('_door'):
+                del g[(x, y + 1, z)]
+            stats['door backs removed'] += 1
+    throne = (4, 2, G.AXIS_Z)
+    for p in dais + [throne]:
+        x, y, z = p
+        s = g.get(p)
+        if not s or not (_short(s) == 'mangrove_stairs' or p == throne):
+            continue
+        facing = next((f for (dx, dz), f in _SIDE.items() if (x + dx, y, z + dz) in top), 'east')
+        g[p] = MOD + 'wizard_chair[facing=%s]' % facing
+        stats['staff chairs'] += 1
+    # 4. banners: every vanilla house banner (the end walls, the entrance hall) becomes a hanging house banner; a
+    #    two-high vanilla pair (y, y + 2) is one banner whose rod hangs where the top one did
+    for p in sorted([p for p, s in g.items() if _short(s).replace('_wall_banner', '') in BANNER_HOUSE
+                     and _short(s).endswith('_wall_banner')], key=lambda p: -p[1]):
+        s = g.get(p)
+        if not s or not _short(s).endswith('_wall_banner'):
+            continue                                     # the lower half of a pair already handled
+        x, y, z = p
+        colour = _short(s).replace('_wall_banner', '')
+        facing = _split(s)[1]['facing']
+        back = next(d for d, f in _SIDE.items() if f == facing)
+        behind = g.get((x - back[0], y - 1, z - back[1]))
+        if (x, y - 1, z) in g or not behind or not checks.supports(behind) or 'glass' in behind:
+            continue                                     # nowhere for the lower half: the vanilla banner stays
+        below2 = g.get((x, y - 2, z))
+        if below2 and below2 == s:
+            del g[(x, y - 2, z)]                         # the pair's lower banner: one hanging banner replaces both
+        house = BANNER_HOUSE[colour]
+        g[(x, y - 1, z)] = MOD + '%s_hanging_banner[facing=%s,half=lower]' % (house, facing)
+        g[p] = MOD + '%s_hanging_banner[facing=%s,half=upper]' % (house, facing)
+        stats['banners converted'] += 1
+    # 5. a banner on every pier's hall face, above the braziers
+    inner = sorted(p for p in PIERS if p not in (G.PIERS[0], G.PIERS[-1]))   # the end corners carry end-wall ones
+    for z, wall_z, facing, houses in PIER_BANNER_WALLS:
+        for i, px in enumerate(inner):
+            y = PIER_BANNER_Y
+            cells = ((px, y, z), (px, y + 1, z))
+            if any(c in g for c in cells) or not all(_short(g.get((px, c[1], wall_z), 'air')) not in ('air',)
+                                                     and 'glass' not in g[(px, c[1], wall_z)] for c in cells):
+                continue
+            house = houses[i % 2]
+            g[cells[0]] = MOD + '%s_hanging_banner[facing=%s,half=lower]' % (house, facing)
+            g[cells[1]] = MOD + '%s_hanging_banner[facing=%s,half=upper]' % (house, facing)
+            stats['pier banners'] += 1
+    furnish_hall.stats = dict(stats)
+    return stats
 
 
 # ---------------------------------------------------------------- castle-frame steps

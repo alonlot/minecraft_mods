@@ -252,15 +252,15 @@ def plinth_report(cells, footprint):
 
 def hall_table_cells(cells):
     """{(x, z)} the four house tables of the Great Hall above: their tops at the hall's feet level (top slabs, and the
-    upside-down stairs that shape their ends), in the columns of the hall that hold a long run of top slabs (the High
-    Table on its dais is higher)."""
+    upside-down stairs that shape their ends, or the mod's wizard tables hall.furnish_hall puts in their place), in
+    the columns of the hall that hold a long run of top slabs (the High Table on its dais is higher)."""
     x0, _, z0, x1, _, z1 = hall.HALL_PROPER_BOX
     cols, ends = {}, {}
     for z in range(z0, z1 + 1):
         for x in range(x0, x1 + 1):
             s = cells.get((x, MAIN_FLOOR_Y + 1, z), '')
             name = checks.block_id(s)
-            if name == 'dark_oak_slab' and 'type=top' in s:
+            if (name == 'dark_oak_slab' and 'type=top' in s) or name == 'hogwartsmagic:wizard_table':
                 cols.setdefault(x, set()).add(z)
             elif name == 'dark_oak_stairs' and 'half=top' in s:
                 ends.setdefault(x, set()).add(z)

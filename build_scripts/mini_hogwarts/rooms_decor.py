@@ -10,15 +10,21 @@ stand on, with a solid wall beside it (or, for the trunks, at the foot of a bed)
 The rooms' own checks (reachability, sealed air, free anchor cells) then hold it to that.
 
 What goes where:
-  entrance hall          the four House Points Hourglasses in a row against one wall, the four house banners
-  Gryffindor common room two armchairs, the crest plaque and banner, a chess board, an owl cage
-  Gryffindor dormitory   a school trunk at the foot of every bed, an owl cage
+  entrance hall          the four House Points Hourglasses in a row against one wall, the four house banners and
+                         the four house crest plaques
+  Gryffindor common room two armchairs, the crest plaque and two banners, a chess board, an owl cage, a broom rack
+                         and the Quidditch Cup
+  Gryffindor dormitory   a school trunk at the foot of every bed, an owl cage, a banner
   Slytherin common room  crest plaques and banners, a chess board, a writing desk, candles
   Library                writing desks, scrolls, book piles, candles, floating candles over the floor
   Astronomy gallery      brass telescopes, looking out
   Headmaster's office    a writing desk, scrolls, books, a telescope, candles
-  Charms, Transfiguration, Defence   a teacher's desk, scrolls, candles
-The Great Hall already has its tables, benches, banners and floating candles, so nothing is added there.
+  Charms, Transfiguration, Defence   a teacher's desk, scrolls, candles (books in Charms and Defence)
+The Great Hall is furnished by its own step (hall.furnish_hall: tables, benches, staff chairs, banners).
+
+Before the kits, every vanilla house-colour wall banner left in the castle (the west gallery's, the Slytherin
+dungeon's) becomes the mod's two-high hanging house banner, its rod where the vanilla banner hung, when the cell
+below it is free and walled; otherwise the vanilla banner stays.
 """
 
 from . import checks
@@ -34,11 +40,13 @@ NO_FACING = ('candle_cluster', 'enchanted_book_pile', 'floating_candle')
 # facing it: telescopes look out) or 'float:piece' (four blocks over the floor, under the ceiling).
 ROOM_KITS = {
     'entrance hall': ((46, 25, 112, 76, 25, 137), 25,
-                      ['hourglasses'] + ['banner:%s' % h for h in HOUSES]),
+                      ['hourglasses'] + ['banner:%s' % h for h in HOUSES]
+                      + ['wall:%s_crest_plaque' % h for h in HOUSES]),
     'gryffindor common room': ((56, 45, 169, 66, 45, 179), 45,
                                ['common_room_armchair', 'common_room_armchair', 'wall:gryffindor_crest_plaque',
-                                'banner:gryffindor', 'wizard_chess_board', 'owl_cage']),
-    'gryffindor dormitory': ((56, 52, 169, 66, 52, 179), 52, ['trunks', 'owl_cage']),
+                                'banner:gryffindor', 'wizard_chess_board', 'owl_cage', 'broom_rack',
+                                'quidditch_cup', 'banner:gryffindor']),
+    'gryffindor dormitory': ((56, 52, 169, 66, 52, 179), 52, ['trunks', 'owl_cage', 'banner:gryffindor']),
     'slytherin common room': ((47, 9, 44, 75, 9, 63), 9,
                               ['wall:slytherin_crest_plaque', 'wall:slytherin_crest_plaque', 'banner:slytherin',
                                'banner:slytherin', 'wizard_chess_board', 'writing_desk', 'candle_cluster',
@@ -49,10 +57,12 @@ ROOM_KITS = {
     'astronomy gallery': ((53, 59, 140, 69, 59, 156), 59, ['look:brass_telescope'] * 4 + ['scroll_stack']),
     "headmaster's office": ((53, 64, 140, 69, 64, 156), 64,
                             ['writing_desk', 'scroll_stack', 'enchanted_book_pile', 'look:brass_telescope',
-                             'candle_cluster']),
-    'charms': ((41, 26, 185, 48, 26, 189), 26, ['writing_desk', 'scroll_stack', 'candle_cluster']),
+                             'candle_cluster', 'enchanted_book_pile']),
+    'charms': ((41, 26, 185, 48, 26, 189), 26, ['writing_desk', 'scroll_stack', 'candle_cluster',
+                                                'enchanted_book_pile']),
     'transfiguration': ((36, 32, 185, 47, 32, 189), 32, ['writing_desk', 'scroll_stack', 'candle_cluster']),
-    'defence': ((34, 26, 192, 42, 26, 201), 26, ['writing_desk', 'scroll_stack', 'candle_cluster']),
+    'defence': ((34, 26, 192, 42, 26, 201), 26, ['writing_desk', 'scroll_stack', 'candle_cluster',
+                                                 'enchanted_book_pile']),
 }
 
 
@@ -166,9 +176,35 @@ def _trunks(p, box, y):
     return placed
 
 
+BANNER_HOUSE = {'red': 'gryffindor', 'yellow': 'hufflepuff', 'blue': 'ravenclaw', 'green': 'slytherin'}
+FACING_STEP = {'north': (0, -1), 'south': (0, 1), 'east': (1, 0), 'west': (-1, 0)}
+
+
+def _upgrade_banners(p):
+    """Every vanilla house-colour wall banner to a hanging house banner, its upper half (the rod) where the vanilla
+    banner hung and its lower half in the cell below, when that cell is air with a solid wall behind it and no
+    anchor in it. Returns the number upgraded."""
+    done = 0
+    for (x, y, z), s in sorted(p.cells.items()):
+        name = checks.block_id(s)
+        colour = name[:-len('_wall_banner')] if name.endswith('_wall_banner') else None
+        if colour not in BANNER_HOUSE:
+            continue
+        facing = s.split('facing=')[1].split(',')[0].rstrip(']')
+        dx, dz = FACING_STEP[facing]
+        if not (p.air(x, y - 1, z) and p.solid_wall(x - dx, y - 1, z - dz)) or (x, y - 1, z) in p.keep_clear:
+            continue
+        house = BANNER_HOUSE[colour]
+        p.grid.set(x, y - 1, z, M + '%s_hanging_banner[facing=%s,half=lower]' % (house, facing))
+        p.grid.set(x, y, z, M + '%s_hanging_banner[facing=%s,half=upper]' % (house, facing))
+        done += 1
+    p.stats['banners upgraded'] = done
+    return done
+
+
 def place_decor(grid):
     p = _Placer(grid)
-    report = {}
+    report = {'vanilla banners upgraded': _upgrade_banners(p)}
     for room, (box, ys, kit) in ROOM_KITS.items():
         p.used = []
         done = 0

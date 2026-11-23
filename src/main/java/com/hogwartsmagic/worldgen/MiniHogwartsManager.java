@@ -118,6 +118,7 @@ public final class MiniHogwartsManager {
             return;
         }
         if (activeJob.advance(BLOCKS_PER_TICK)) {
+            activeJob.decorate(); // Great Hall furniture, house banners and the mod's decorations
             activeJob.furnish(); // one-shot: themed chests + decorations in the landmark rooms
             activeJob.spawnStudents(); // populate the finished castle with a crowd of students
             activeJob.spawnHouseElves(); // and a few elves below stairs
@@ -285,6 +286,12 @@ public final class MiniHogwartsManager {
 
         // ── Furnishing: themed chests + decorations in the landmark rooms ──────────────────
 
+        /** Runs once after the castle is placed and before {@link #furnish()}, which fills only what is left empty. */
+        void decorate() {
+            int placed = MiniHogwartsDecor.place(level, anchor);
+            LOGGER.info("Mini Hogwarts decorated with {} blocks", placed);
+        }
+
         /** Runs once after the castle is fully placed. Each item only lands on an empty floor tile. */
         void furnish() {
             RandomSource rng = level.getRandom();
@@ -317,13 +324,11 @@ public final class MiniHogwartsManager {
                     decoNear(spot, Blocks.TORCH.defaultBlockState());
                 }
             }
-            // Great Hall — the ground floor at the footprint center, with a short carpet runner.
-            BlockPos hall = floorSpotNear(width / 2, 1, length / 2, 10);
-            if (placeChest(hall, Theme.GREAT_HALL, rng)) {
+            // Great Hall — in the window bay behind the headmaster's chair. No loose decorations:
+            // the hall is furnished already, and a random lantern would land on a teacher's seat.
+            BlockPos hall = anchor.offset(MiniHogwartsDecor.GREAT_HALL_CHEST);
+            if (placeChest(hall, Theme.GREAT_HALL, rng, Direction.WEST)) {
                 placed++;
-                layCarpetRunner(hall);
-                decoNear(hall, Blocks.LANTERN.defaultBlockState());
-                decoNear(hall, Blocks.FLOWER_POT.defaultBlockState());
             }
             // Tower treasure — a hidden pocket near the very top.
             if (topX >= 0) {
@@ -442,10 +447,14 @@ public final class MiniHogwartsManager {
         }
 
         private boolean placeChest(BlockPos pos, Theme theme, RandomSource rng) {
+            return placeChest(pos, theme, rng, Direction.NORTH);
+        }
+
+        private boolean placeChest(BlockPos pos, Theme theme, RandomSource rng, Direction facing) {
             if (pos == null || !level.getBlockState(pos).isAir()) {
                 return false;
             }
-            level.setBlock(pos, Blocks.CHEST.defaultBlockState().setValue(ChestBlock.FACING, Direction.NORTH), SETBLOCK_FLAGS);
+            level.setBlock(pos, Blocks.CHEST.defaultBlockState().setValue(ChestBlock.FACING, facing), SETBLOCK_FLAGS);
             if (!(level.getBlockEntity(pos) instanceof ChestBlockEntity chest)) {
                 return false;
             }
@@ -470,24 +479,6 @@ public final class MiniHogwartsManager {
                     near.getZ() - anchor.getZ(), 3);
             if (spot != null && level.getBlockState(spot).isAir() && !spot.equals(near)) {
                 level.setBlock(spot, deco, SETBLOCK_FLAGS);
-            }
-        }
-
-        private void layCarpetRunner(BlockPos start) {
-            BlockState[] colors = {
-                    Blocks.RED_CARPET.defaultBlockState(), Blocks.BLUE_CARPET.defaultBlockState(),
-                    Blocks.YELLOW_CARPET.defaultBlockState(), Blocks.GREEN_CARPET.defaultBlockState()
-            };
-            for (int i = 0; i < 6; i++) {
-                mutable.set(start.getX() + i, start.getY(), start.getZ());
-                if (!level.getBlockState(mutable).isAir()) {
-                    continue;
-                }
-                mutable.set(start.getX() + i, start.getY() - 1, start.getZ());
-                if (level.getBlockState(mutable).isAir()) {
-                    continue;
-                }
-                level.setBlock(new BlockPos(start.getX() + i, start.getY(), start.getZ()), colors[i % colors.length], SETBLOCK_FLAGS);
             }
         }
     }

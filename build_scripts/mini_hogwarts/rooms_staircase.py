@@ -87,8 +87,11 @@ ENTRY_DOOR = ((60, 62), (138, 140))    # x and z ranges through the entrance hal
 ENTRY_DOOR_Y = (FIRST_FEET, FIRST_FEET + 2)       # 3 tall, plus the pointed head cell at x 61
 GRYFFINDOR_DOOR = (61, TOP_FEET, 155)  # the sham door's cell on the ring's inner course; z 156 is already open
 BRIDGE_FAR_END = (61, TOP_FEET, 170)   # the bridge's last free cell, in front of the bridge tower's door
-FAT_LADY_WALL = (60, TOP_FEET + 2, 155)
-FAT_LADY_CELLS = [(x, y, 154) for x in (59, 60) for y in range(TOP_FEET + 1, TOP_FEET + 5)]
+# The Fat Lady (a 2 x 4 canvas, PortraitKind.FAT_LADY) hangs over that door, her bottom edge on the landing: the door's
+# two cells are walled shut in lining behind her, and in game she takes them out when the password is said and puts
+# them back after (PortraitDoor: only the cells in line with the open bridge behind are taken).
+FAT_LADY_WALL = (61, TOP_FEET + 1, 155)
+FAT_LADY_CELLS = [(x, y, 154) for x in (60, 61) for y in range(TOP_FEET, TOP_FEET + 4)]
 # Sir Cadogan (a 4 x 2 canvas, PortraitKind.SIR_CADOGAN) guards the way in: on the imperial landing, on the entrance
 # hall's far wall (z 138) just west of the entry door's andesite jamb, his bottom edge a block above the landing and the
 # house banners hanging clear above him. The wall is the set's own stone brick, left as it is (his canvas carries its
@@ -441,21 +444,39 @@ def build_entry_door(grid):
 
 
 def build_gryffindor_door(grid):
-    """The top landing's door onto the bridge (the sham door's cell opened, 1 x 2 like the bridge itself) and the
-    wall it stands in: the south niche filled flat from the landing up, the Fat Lady's place (x 59..60, y 46..49)
-    with dark-oak bars above and below her and a dark-oak post between her and the door."""
+    """The top landing's door onto the bridge (the sham door's cell, 1 x 2 like the bridge itself) behind the Fat
+    Lady, and the wall it stands in: the south niche filled flat from the landing up in lining, the door's two cells
+    left in lining too (she opens them in game), her place (x 60..61, y 45..48) between dark-oak posts with a
+    dark-oak bar over her."""
     x, y, z = GRYFFINDOR_DOOR
     for xx in (60, 61, 62):
         for yy in range(TOP_FEET, TOP_FEET + 6):
             grid.set(xx, yy, z, LINING)
-    grid.clear(x, y, z)
-    grid.clear(x, y + 1, z)
-    for yy in range(y + 2, y + 6):
-        grid.set(x, yy, z, FRAME_JAMB)
-    for xx in (59, 60):
-        grid.set(xx, TOP_FEET, z, FRAME_BAR)
-        grid.set(xx, TOP_FEET + 5, z, FRAME_BAR)
-    grid.set(x + 1, TOP_FEET, z - 1, _lantern(False))       # a lantern on the floor beside the door lights her
+    for xx in (59, 62):
+        for yy in range(TOP_FEET, TOP_FEET + 5):
+            grid.set(xx, yy, z, FRAME_JAMB)
+    for xx in (60, 61):
+        grid.set(xx, TOP_FEET + 4, z, FRAME_BAR)
+    grid.set(x + 1, TOP_FEET, z - 1, _lantern(False))       # a lantern on the floor beside her lights her
+
+
+def door_open_cells(cells):
+    """A copy of a grid's cells with the Fat Lady swung open: the door's two cells cleared, as she leaves them in
+    game. Every walk check runs on this, since the bridge and the Gryffindor tower are only reached through her."""
+    opened = dict(cells)
+    x, y, z = GRYFFINDOR_DOOR
+    opened.pop((x, y, z), None)
+    opened.pop((x, y + 1, z), None)
+    return opened
+
+
+def open_gryffindor_door(grid):
+    """The grid as walked with the Fat Lady swung open (see door_open_cells)."""
+    from .grid import Grid
+    opened = Grid()
+    opened.cells = door_open_cells(grid.cells)
+    opened.anchors = grid.anchors
+    return opened
 
 
 CHAIN = G.state('chain', axis='y', waterlogged=False)

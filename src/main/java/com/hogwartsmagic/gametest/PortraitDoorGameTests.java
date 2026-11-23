@@ -140,6 +140,46 @@ public final class PortraitDoorGameTests {
         });
     }
 
+    /**
+     * The Mini Hogwarts shape: a one-thick wall whose 1 x 2 doorway (x 4, y 2..3) is walled shut behind her canvas,
+     * with a one-wide bridge beyond it. She opens exactly those two cells, not her whole 2 x 4 footprint.
+     */
+    @GameTest(template = EMPTY, batch = "portrait_door_doorway", timeoutTicks = 100)
+    public static void walledDoorwayOpensOnlyTheDoor(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        PortraitEntity lady = build(helper);
+        for (int x = 2; x <= 6; x++) {
+            for (int y = 2; y <= 6; y++) {
+                boolean bridge = x == 4 && y <= 3;
+                level.setBlock(helper.absolutePos(new BlockPos(x, y, 5)),
+                        bridge ? Blocks.AIR.defaultBlockState() : Blocks.COBBLESTONE.defaultBlockState(), 3);
+            }
+        }
+        ServerPlayer p = helper.makeMockServerPlayerInLevel();
+        stand(helper, p, 4.0, 2.0, 1.5, 180f);
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.PAPER));
+        lady.interact(p, InteractionHand.MAIN_HAND);
+        PortraitPasswords.heardChat(p, "Balderdash");
+        PortraitPasswords.heardChat(p, "balderdash");
+        helper.assertTrue(lady.isOpen(), "she did not open");
+        int open = 0;
+        for (int x = 3; x <= 4; x++) {
+            for (int y = 2; y <= 5; y++) {
+                boolean air = level.getBlockState(helper.absolutePos(new BlockPos(x, y, 4))).isAir();
+                boolean door = x == 4 && y <= 3;
+                helper.assertTrue(air == door, "wall cell " + x + "," + y + (door ? " stayed shut" : " was taken out"));
+                open += air ? 1 : 0;
+            }
+        }
+        helper.assertTrue(open == 2, "expected the 2 door cells open, found " + open);
+        lady.kill();
+        for (int y = 2; y <= 3; y++) {
+            helper.assertTrue(level.getBlockState(helper.absolutePos(new BlockPos(4, y, 4))).is(Blocks.STONE_BRICKS),
+                    "the door was not walled shut again at y " + y);
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = EMPTY, batch = "portrait_door_broken", timeoutTicks = 100)
     public static void brokenWhileOpenPutsTheWallBack(GameTestHelper helper) {
         PortraitEntity lady = build(helper);

@@ -40,7 +40,9 @@ import java.util.UUID;
  *       chat (or aloud, through wand voice casting) within 30 s becomes her password.</li>
  *   <li><b>Opening:</b> saying the password within {@link #HEAR_RANGE} blocks in front of her swings the canvas
  *       out on its left edge and opens the wall behind it, up to {@link #MAX_WALL} blocks deep, down to the first
- *       layer you can stand in (the passage). Without such a layer she still swings, but the wall stays.</li>
+ *       layer with a column you can walk through (the passage), taking out only the cells in line with that
+ *       layer's open ones (a 1 x 2 doorway behind her opens as 1 x 2). Without a passage she still swings, but the
+ *       wall stays.</li>
  *   <li><b>Asking:</b> right-click her empty-handed and she asks "Password?"; a wrong answer in the next 15 s is
  *       turned away. Other chat is never touched.</li>
  *   <li><b>Closing:</b> after {@link #OPEN_TICKS} she swings back once nobody stands in the opened wall, and every
@@ -228,8 +230,14 @@ final class PortraitDoor {
             return;
         }
         int depth = passageDepth(level);
+        List<BlockPos> passage = depth > 0 ? layer(depth) : List.of();
         for (int d = 0; d < depth; d++) {
-            for (BlockPos pos : layer(d)) {
+            List<BlockPos> wall = layer(d);
+            for (int i = 0; i < wall.size(); i++) {
+                BlockPos pos = wall.get(i);
+                if (!passable(level, passage.get(i))) {
+                    continue; // only the cells in line with the open passage: a 1 x 2 door stays 1 x 2
+                }
                 BlockState state = level.getBlockState(pos);
                 if (state.isAir() || state.hasBlockEntity() || state.getDestroySpeed(level, pos) < 0.0F) {
                     continue;
@@ -291,28 +299,25 @@ final class PortraitDoor {
 
     /**
      * How many layers of wall stand between her and the passage: the first layer behind the canvas (0 = the block
-     * she hangs on) whose two bottom rows you could stand in. -1 when there is none within {@link #MAX_WALL}.
+     * she hangs on) with a column whose two bottom cells you could walk through (a 1-wide bridge counts). -1 when
+     * there is none within {@link #MAX_WALL}. Only the wall cells in line with that layer's open cells are taken out.
      */
     private int passageDepth(ServerLevel level) {
+        int h = portrait.kind().heightBlocks();
         for (int d = 0; d <= MAX_WALL; d++) {
-            boolean walkable = true;
-            for (BlockPos pos : layer(d)) {
-                int row = pos.getY() - bottomY();
-                if (row <= 1 && (!level.isLoaded(pos) || !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty())) {
-                    walkable = false;
-                    break;
+            List<BlockPos> cells = layer(d);
+            for (int col = 0; col < portrait.kind().widthBlocks(); col++) {
+                // layer() lists each column bottom to top
+                if (passable(level, cells.get(col * h)) && passable(level, cells.get(col * h + 1))) {
+                    return d;
                 }
-            }
-            if (walkable) {
-                return d;
             }
         }
         return -1;
     }
 
-    private int bottomY() {
-        int h = portrait.kind().heightBlocks();
-        return portrait.tilePos().getY() - (h - 1) / 2;
+    private static boolean passable(ServerLevel level, BlockPos pos) {
+        return level.isLoaded(pos) && level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
     }
 
     /**

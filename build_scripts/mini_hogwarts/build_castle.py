@@ -287,7 +287,8 @@ def verify(grid):
 
     # 3. the hall and the viaduct can be walked to from the main entrance
     start = tuple(a['main_entrance'])
-    walk = checks.reachable(grid, start)
+    # walked with the Fat Lady swung open (she is the only way onto the bridge and into the Gryffindor tower)
+    walk = checks.reachable(rooms_staircase.open_gryffindor_door(grid), start)
     stool_front = hall.STOOL_FRONT_CELL
     assert stool_front in walk, 'stool front %s not reachable from %s' % (stool_front, start)
     deck = hall.VIADUCT_DECK_CELL
@@ -363,7 +364,7 @@ def verify(grid):
 
 def verify_staircase(grid, base, walk):
     """The Grand Staircase's promises: the well's plan is the old tower's, every landing is walked to from the main
-    entrance, the top landing's door leads over the bridge to the Gryffindor tower with the Fat Lady's wall beside
+    entrance, the top landing's door leads over the bridge to the Gryffindor tower with the Fat Lady hung over
     it, no dark floor anywhere in the tower, the statues stand clear of the walk and the portraits have a wall."""
     S = rooms_staircase
     a = grid.anchors
@@ -378,10 +379,15 @@ def verify_staircase(grid, base, walk):
     door = S.GRYFFINDOR_DOOR
     assert door in walk and S.BRIDGE_FAR_END in walk, ('the Gryffindor door does not lead over the bridge', door)
 
-    # 11. the Fat Lady: her wall stands beside that door and is solid behind her whole canvas, which is free
+    # 11. the Fat Lady: she hangs over that door (its two cells, walled shut behind her canvas, open only when she
+    #     does), the wall is solid behind her whole canvas, which is free, and the bridge behind the door is open
     fl = a['fat_lady']
     wx, wy, wz = fl['wall']
-    assert fl['facing'] == 'north' and wz == door[2] and abs(wx - door[0]) <= 2, ('Fat Lady not at the door', fl)
+    assert fl['facing'] == 'north' and wz == door[2], ('Fat Lady not at the door', fl)
+    for c in (door, (door[0], door[1] + 1, door[2])):
+        assert (c[0], c[1], c[2] - 1) in S.FAT_LADY_CELLS, ('the Fat Lady does not cover the door', c)
+        assert checks.supports(grid.get(*c)), ('the door is not walled shut behind her', c, grid.get(*c))
+        assert grid.is_air(c[0], c[1], c[2] + 1), ('nothing open behind the door', c)
     for x, y, z in S.FAT_LADY_CELLS:
         assert grid.is_air(x, y, z), ('something in front of the Fat Lady', (x, y, z), grid.get(x, y, z))
         assert checks.supports(grid.get(x, y, z + 1)), ('no wall behind the Fat Lady', (x, y, z + 1))
@@ -408,7 +414,7 @@ def verify_staircase(grid, base, walk):
         assert all(grid.is_air(x, y + dy, z) for dy in range(3)), ('statue has no headroom', (x, y, z))
         assert checks.supports(grid.get(x, y - 1, z)), ('statue not on a floor', (x, y, z))
     blocked = Grid()
-    blocked.cells = dict(cells)
+    blocked.cells = rooms_staircase.door_open_cells(cells)  # the Fat Lady swung open
     for x, y, z in statues:
         for dy in range(3):
             blocked.set(x, y + dy, z, 'minecraft:stone')
@@ -458,7 +464,7 @@ def verify_library(grid, base, walk):
     assert len(doors) == 2 and doors[0][0] == doors[1][0], ('the bars need exactly one door', doors)
     assert L.RESTRICTED_INSIDE in walk, ('the Restricted Section\'s door does not open the way', L.RESTRICTED_INSIDE)
     walled = Grid()
-    walled.cells = dict(cells)
+    walled.cells = rooms_staircase.door_open_cells(cells)  # the Fat Lady swung open
     for p in doors:
         walled.set(*p, 'minecraft:stone')
     walk2 = checks.reachable(walled, tuple(a['main_entrance']))
@@ -530,7 +536,7 @@ def verify_towers(grid, base, walk):
     #     Gryffindor tower is walked to (and her anchor is still Task 4's, beside that door)
     assert a['fat_lady'] == {'wall': list(rooms_staircase.FAT_LADY_WALL), 'facing': 'north'}, a['fat_lady']
     walled = Grid()
-    walled.cells = dict(cells)
+    walled.cells = rooms_staircase.door_open_cells(cells)  # the Fat Lady swung open
     dx, dy, dz = rooms_staircase.GRYFFINDOR_DOOR
     walled.set(dx, dy, dz, 'minecraft:stone')
     walled.set(dx, dy + 1, dz, 'minecraft:stone')
@@ -652,7 +658,7 @@ def verify_classrooms(grid, base, walk):
     #     climbs back: the vestibule is walked to from its foot (a drop of three gets down a stair with a missing tread,
     #     but nobody gets up it)
     walled = Grid()
-    walled.cells = dict(cells)
+    walled.cells = rooms_staircase.door_open_cells(cells)  # the Fat Lady swung open
     for y in (rooms_library.FEET, rooms_library.FEET + 1):
         walled.set(rooms_library.TUNNEL_X[0] + 1, y, rooms_library.DOOR_Z, 'minecraft:stone')
     walk2 = checks.reachable(walled, tuple(a['main_entrance']))
@@ -728,7 +734,7 @@ def verify_below(grid, base, walk):
 
     # 43. the way down is the entrance hall's stair: with the slot floored over, nothing below is walked to
     floored = Grid()
-    floored.cells = dict(cells)
+    floored.cells = rooms_staircase.door_open_cells(cells)  # the Fat Lady swung open
     for x, z in B.slot_columns():
         floored.set(x, MAIN_FLOOR_Y, z, 'minecraft:stone')
     walk2 = checks.reachable(floored, tuple(a['main_entrance']))
@@ -839,7 +845,7 @@ def verify_corridors(grid, base, walk):
 
     def walled(points):
         g = Grid()
-        g.cells = dict(cells)
+        g.cells = rooms_staircase.door_open_cells(cells)  # the Fat Lady swung open
         for x, y, z in points:
             for dy in range(3):
                 g.set(x, y + dy, z, 'minecraft:stone')

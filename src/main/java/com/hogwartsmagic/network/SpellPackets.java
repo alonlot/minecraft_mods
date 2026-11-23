@@ -858,7 +858,7 @@ public class SpellPackets {
         }
     }
 
-    /** Client to server: a short phrase the voice recogniser heard while a gargoyle was listening (its password?). */
+    /** Client to server: a short phrase the voice recogniser heard while a gargoyle or a portrait listened (a password?). */
     public record VoiceSpokenPacket(String text) {
         public static final int MAX_LENGTH = 128;
 
@@ -868,6 +868,7 @@ public class SpellPackets {
                 return;
             }
             com.hogwartsmagic.worldgen.mechanism.CastleMechanisms.heardSpoken(player, p.text);
+            com.hogwartsmagic.portrait.PortraitPasswords.heardSpoken(player, p.text);
         }
     }
 

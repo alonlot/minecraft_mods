@@ -155,9 +155,12 @@ public final class CastleMechanisms {
         } else {
             LISTENING.remove(p.getUUID());
         }
-        com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
-                new com.hogwartsmagic.network.SpellPackets.GargoyleListeningPacket(on),
-                net.minecraftforge.network.PacketDistributor.PLAYER.with(p));
+        com.hogwartsmagic.spell.voice.VoiceEars.sync(p); // one flag shared with the password portraits
+    }
+
+    /** Whether a closed gargoyle is listening to this player now. */
+    public static boolean gargoyleListensTo(UUID player) {
+        return LISTENING.contains(player);
     }
 
     @SubscribeEvent
@@ -306,7 +309,7 @@ public final class CastleMechanisms {
     // ── the password ─────────────────────────────────────────────────────────────────────
 
     /** Lower case, letters and digits only, single spaces: "Sherbet  lemon!" and "sherbet lemon" are one password. */
-    static String normalise(String text) {
+    public static String normalise(String text) {
         StringBuilder out = new StringBuilder();
         boolean space = false;
         for (char ch : text.toLowerCase(Locale.ROOT).toCharArray()) {

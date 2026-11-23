@@ -45,6 +45,11 @@ public record PortraitKind(String id, String displayName, int widthBlocks, int h
 
     public static final List<PortraitKind> ALL = List.of(FAT_LADY, SIR_CADOGAN);
 
+    /** Whether this portrait guards a passage with a password (the Fat Lady: see {@code PortraitDoor}). */
+    public boolean guardsPassage() {
+        return "fat_lady".equals(id);
+    }
+
     /** Id of the entity type, the item and the sound prefix owner: {@code <id>_portrait}. */
     public String registryPath() {
         return id + "_portrait";

@@ -35,6 +35,8 @@ public class PortraitRenderer extends EntityRenderer<PortraitEntity> {
     private static final float BACK_Z = 0.03125f;
     private static final float FRAME_WIDTH = 0.1f;
     private static final float MIN_WEIGHT = 0.02f;
+    /** How far a password portrait swings out of the wall, hinged on its image-left edge. */
+    private static final float SWING_DEGREES = 100f;
 
     private final PortraitKind kind;
     private final PuppetMesh mesh;
@@ -83,6 +85,14 @@ public class PortraitRenderer extends EntityRenderer<PortraitEntity> {
 
         pose.pushPose();
         pose.mulPose(Axis.YP.rotationDegrees(180.0F - yaw));
+        float open = entity.getOpenAmount(partialTick);
+        if (open > 0f) {
+            // hinge: the image-left edge (local +x) on the wall face; the free edge comes out toward the viewer
+            float eased = open * open * (3f - 2f * open);
+            pose.translate(halfW, 0f, BACK_Z);
+            pose.mulPose(Axis.YN.rotationDegrees(SWING_DEGREES * eased));
+            pose.translate(-halfW, 0f, -BACK_Z);
+        }
         PoseStack.Pose p = pose.last();
 
         boolean video = false;

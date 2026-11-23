@@ -14,6 +14,8 @@ import net.minecraft.server.level.ServerEntity;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -51,23 +53,33 @@ public class PortraitEntity extends HangingEntity {
     /** Entity id of the player she looks at, -1 for nobody. */
     private static final EntityDataAccessor<Integer> LOOK =
             SynchedEntityData.defineId(PortraitEntity.class, EntityDataSerializers.INT);
+    /** A password portrait swung open (see {@link PortraitDoor}). */
+    private static final EntityDataAccessor<Boolean> OPEN =
+            SynchedEntityData.defineId(PortraitEntity.class, EntityDataSerializers.BOOLEAN);
+    /** Ticks a swing open or shut takes. */
+    private static final float SWING_TICKS = 14f;
 
     private static final int BRAIN_INTERVAL = 10;
 
     private final PortraitKind kind;
     private final PortraitBrain brain;
+    private final PortraitDoor door;
     private int brainTimer;
+    /** How far she has swung open, 0..1, on both sides (the renderer eases it). */
+    private float openAmount, openAmountO;
 
     public PortraitEntity(EntityType<? extends PortraitEntity> type, Level level, PortraitKind kind) {
         super(type, level);
         this.kind = kind;
         this.brain = new PortraitBrain(this);
+        this.door = new PortraitDoor(this);
     }
 
     public PortraitEntity(Level level, PortraitKind kind, BlockPos pos, Direction direction) {
         super(PortraitRegistry.typeOf(kind), level, pos);
         this.kind = kind;
         this.brain = new PortraitBrain(this);
+        this.door = new PortraitDoor(this);
         this.setDirection(direction);
     }
 
@@ -80,6 +92,7 @@ public class PortraitEntity extends HangingEntity {
         builder.define(SERIAL, 0);
         builder.define(LINE, -1);
         builder.define(LOOK, -1);
+        builder.define(OPEN, false);
     }
 
     // ---------------------------------------------------------------- synced state
@@ -118,6 +131,28 @@ public class PortraitEntity extends HangingEntity {
         return brain;
     }
 
+    PortraitDoor door() {
+        return door;
+    }
+
+    /** The tile cell the canvas is laid out from (see {@code PortraitPlacement.canvasCell}). */
+    BlockPos tilePos() {
+        return this.pos;
+    }
+
+    public boolean isOpen() {
+        return this.entityData.get(OPEN);
+    }
+
+    void setOpenSynced(boolean open) {
+        this.entityData.set(OPEN, open);
+    }
+
+    /** How far she has swung open, 0 (shut) to 1 (open), between the last two ticks. */
+    public float getOpenAmount(float partialTick) {
+        return openAmountO + (openAmount - openAmountO) * partialTick;
+    }
+
     /** Called by the explosion, lightning and punch hooks. Server only. */
     public void trigger(PortraitLines.Reaction reaction, @Nullable ServerPlayer who) {
         if (this.level() instanceof ServerLevel && !this.isRemoved()) {
@@ -136,10 +171,22 @@ public class PortraitEntity extends HangingEntity {
     @Override
     public void tick() {
         super.tick(); // the vanilla "wall still there?" check, server side
+        openAmountO = openAmount;
+        float target = isOpen() ? 1f : 0f;
+        if (this.tickCount <= 2) {
+            openAmount = openAmountO = target; // just loaded: no swing
+        } else if (openAmount < target) {
+            openAmount = Math.min(target, openAmount + 1f / SWING_TICKS);
+        } else if (openAmount > target) {
+            openAmount = Math.max(target, openAmount - 1f / SWING_TICKS);
+        }
         if (!this.level().isClientSide && !this.isRemoved() && this.level() instanceof ServerLevel server) {
             if (++brainTimer >= BRAIN_INTERVAL) {
                 brainTimer = 0;
                 brain.tick(server);
+                if (kind.guardsPassage()) {
+                    door.tick(server);
+                }
             }
         }
     }
@@ -179,6 +226,40 @@ public class PortraitEntity extends HangingEntity {
         return false;
     }
 
+    // ---------------------------------------------------------------- the password door
+
+    @Override
+    public InteractionResult interact(Player player, InteractionHand hand) {
+        if (!kind.guardsPassage()) {
+            return super.interact(player, hand);
+        }
+        if (player instanceof ServerPlayer sp && !this.isRemoved()) {
+            door.interact(sp, hand);
+        }
+        return InteractionResult.sidedSuccess(this.level().isClientSide);
+    }
+
+    /** Open, the wall behind her may be gone for a moment: she stays up anyway. */
+    @Override
+    public boolean survives() {
+        return door.isOpen() || super.survives();
+    }
+
+    @Override
+    public void remove(Entity.RemovalReason reason) {
+        if (reason.shouldDestroy() && this.level() instanceof ServerLevel server) {
+            door.restore(server); // broken or killed while open: the wall goes back
+        }
+        super.remove(reason);
+    }
+
+    /** Swung open the canvas stands out of the wall, so it must not be culled with the flat box. */
+    @Override
+    public AABB getBoundingBoxForCulling() {
+        AABB box = super.getBoundingBoxForCulling();
+        return openAmount > 0f ? box.inflate(kind.widthBlocks()) : box;
+    }
+
     // ---------------------------------------------------------------- vanilla Painting mechanics
 
     @Override
@@ -197,12 +278,15 @@ public class PortraitEntity extends HangingEntity {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         tag.putByte("facing", (byte) this.direction.get2DDataValue());
+        door.save(tag);
         super.addAdditionalSaveData(tag);
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         this.direction = Direction.from2DDataValue(tag.getByte("facing"));
+        door.load(tag);
+        this.entityData.set(OPEN, door.isOpen());
         super.readAdditionalSaveData(tag);
         this.setDirection(this.direction);
     }

@@ -4691,5 +4691,77 @@
       }
     ],
     "subtitle": "subtitles.hogwartsmagic.hidden_house.jinx"
+  },
+  "portkey.charge": {
+    "subtitle": "subtitles.hogwartsmagic.portkey.charge",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portkey/charge",
+        "stream": false
+      }
+    ]
+  },
+  "portkey.hook": {
+    "subtitle": "subtitles.hogwartsmagic.portkey.hook",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portkey/hook",
+        "stream": false
+      }
+    ]
+  },
+  "portkey.transit": {
+    "subtitle": "subtitles.hogwartsmagic.portkey.transit",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portkey/transit",
+        "stream": false
+      }
+    ]
+  },
+  "portkey.land": {
+    "subtitle": "subtitles.hogwartsmagic.portkey.land",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portkey/land",
+        "stream": false
+      }
+    ]
+  },
+  "portkey.pop_depart": {
+    "subtitle": "subtitles.hogwartsmagic.portkey.pop_depart",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portkey/pop_depart",
+        "stream": false
+      }
+    ]
+  },
+  "portkey.pop_arrive": {
+    "subtitle": "subtitles.hogwartsmagic.portkey.pop_arrive",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portkey/pop_arrive",
+        "stream": false
+      }
+    ]
+  },
+  "portkey.crumble": {
+    "subtitle": "subtitles.hogwartsmagic.portkey.crumble",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portkey/crumble",
+        "stream": false
+      }
+    ]
+  },
+  "portkey.bind": {
+    "subtitle": "subtitles.hogwartsmagic.portkey.bind",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portkey/bind",
+        "stream": false
+      }
+    ]
   }
 }

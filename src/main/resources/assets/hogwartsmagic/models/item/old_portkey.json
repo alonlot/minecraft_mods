@@ -1,0 +1,10 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "hogwartsmagic:item/old_portkey"
+  },
+  "overrides": [
+    { "predicate": { "hogwartsmagic:charge": 0.35 }, "model": "hogwartsmagic:item/old_portkey_charging" },
+    { "predicate": { "hogwartsmagic:charge": 0.8 }, "model": "hogwartsmagic:item/old_portkey_blazing" }
+  ]
+}

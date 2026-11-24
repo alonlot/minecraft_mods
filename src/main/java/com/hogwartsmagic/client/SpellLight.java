@@ -86,6 +86,7 @@ public final class SpellLight {
         CrucioClient.lights(partial, now, sink);
         AquaStreamClient.lights(partial, now, sink);
         com.hogwartsmagic.client.fx.CurseFx.lights(partial, now, sink);
+        com.hogwartsmagic.client.fx.portkey.PortkeyClient.lights(partial, now, sink);
         lumos(partial, sink);
         if (lights.size() > MAX_SOURCES) {
             lights.sort((x, y) -> Double.compare(x.pos.distanceToSqr(camera), y.pos.distanceToSqr(camera)));

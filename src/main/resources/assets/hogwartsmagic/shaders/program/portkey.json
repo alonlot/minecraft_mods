@@ -1,0 +1,29 @@
+{
+    "blend": {
+        "func": "add",
+        "srcrgb": "one",
+        "dstrgb": "zero"
+    },
+    "vertex": "sobel",
+    "fragment": "hogwartsmagic:portkey",
+    "attributes": [ "Position" ],
+    "samplers": [
+        { "name": "DiffuseSampler" }
+    ],
+    "uniforms": [
+        { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "InSize",  "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+        { "name": "OutSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+        { "name": "PkTime",  "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Mix",     "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Twist",   "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Pull",    "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Blur",    "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Chroma",  "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Spin",    "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "CentreX", "type": "float", "count": 1, "values": [ 0.5 ] },
+        { "name": "CentreY", "type": "float", "count": 1, "values": [ 0.5 ] },
+        { "name": "Glow",    "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Seed",    "type": "float", "count": 1, "values": [ 0.0 ] }
+    ]
+}

@@ -579,6 +579,16 @@ public class ModSounds {
     // Hidden wizard houses: the glamour breaking, and the jinxed chest.
     public static final RegistryObject<SoundEvent> HIDDEN_HOUSE_REVEAL = register("hidden_house.reveal");
     public static final RegistryObject<SoundEvent> HIDDEN_HOUSE_JINX = register("hidden_house.jinx");
+    // --- Portkeys --- (build_scripts/generate_portkey_sounds.py): the charge hum, the yank, the tunnel wind, the
+    // landing, the two pops bystanders hear, the Old Portkey crumbling, the bind.
+    public static final RegistryObject<SoundEvent> PORTKEY_CHARGE = register("portkey.charge");
+    public static final RegistryObject<SoundEvent> PORTKEY_HOOK = register("portkey.hook");
+    public static final RegistryObject<SoundEvent> PORTKEY_TRANSIT = register("portkey.transit");
+    public static final RegistryObject<SoundEvent> PORTKEY_LAND = register("portkey.land");
+    public static final RegistryObject<SoundEvent> PORTKEY_POP_DEPART = register("portkey.pop_depart");
+    public static final RegistryObject<SoundEvent> PORTKEY_POP_ARRIVE = register("portkey.pop_arrive");
+    public static final RegistryObject<SoundEvent> PORTKEY_CRUMBLE = register("portkey.crumble");
+    public static final RegistryObject<SoundEvent> PORTKEY_BIND = register("portkey.bind");
 
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);

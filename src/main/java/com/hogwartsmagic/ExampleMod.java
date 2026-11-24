@@ -1165,6 +1165,12 @@ public class ExampleMod
                 .isSuffocating((s, l, p) -> false)
                 .isViewBlocking((s, l, p) -> false);
     }
+    // --- Portkeys ---
+    public static final RegistryObject<Item> PORTKEY = ITEMS.register("portkey",
+            () -> new com.hogwartsmagic.portkey.PortkeyItem(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> OLD_PORTKEY = ITEMS.register("old_portkey",
+            () -> new com.hogwartsmagic.portkey.OldPortkeyItem(new Item.Properties().stacksTo(1)
+                    .rarity(net.minecraft.world.item.Rarity.UNCOMMON)));
 
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
             .title(net.minecraft.network.chat.Component.translatable("itemGroup.hogwartsmagic.main_tab"))
@@ -1346,6 +1352,9 @@ public class ExampleMod
                 // Dragon nests
                 output.accept(HORNTAIL_EGG_ITEM.get());
                 output.accept(IRONBELLY_EGG_ITEM.get());
+                // --- Portkeys ---
+                output.accept(PORTKEY.get());
+                output.accept(OLD_PORTKEY.get());
             }).build());
 
     public ExampleMod()

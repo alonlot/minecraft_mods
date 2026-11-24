@@ -1,9 +1,12 @@
 package com.hogwartsmagic.hiddenhouse;
 
-import java.util.ArrayDeque;
+import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -54,14 +57,21 @@ public final class HiddenHouseRules {
      * {@link #REVEAL_RADIUS} of the cast, then everything linked to those by gaps of at most
      * {@link #LINK}, no further than {@link #MAX_HOUSE_SPAN} from the nearest of them, and no more
      * than {@link #MAX_HOUSE_BLOCKS} in all. Breadth-first, so the cap trims the far edge.
+     *
+     * <p>Cells are packed into longs and bucketed on a grid four blocks wide, so every neighbour of
+     * a cell lies in one of 27 buckets: no record is allocated and no seven-by-seven-by-seven cube is
+     * probed per block.
      */
     public static List<Cell> house(Set<Cell> candidates, double cx, double cy, double cz) {
         List<Cell> seeds = new ArrayList<>();
         double r2 = (double) REVEAL_RADIUS * REVEAL_RADIUS;
+        Long2ObjectOpenHashMap<LongArrayList> grid = new Long2ObjectOpenHashMap<>();
         for (Cell c : candidates) {
             if (distSq(c, cx, cy, cz) <= r2) {
                 seeds.add(c);
             }
+            grid.computeIfAbsent(pack(c.x() >> BUCKET_SHIFT, c.y() >> BUCKET_SHIFT, c.z() >> BUCKET_SHIFT),
+                    k -> new LongArrayList()).add(pack(c.x(), c.y(), c.z()));
         }
         if (seeds.isEmpty()) {
             return List.of();
@@ -71,30 +81,67 @@ public final class HiddenHouseRules {
         Cell origin = seeds.get(0);
 
         List<Cell> out = new ArrayList<>();
-        Set<Cell> seen = new HashSet<>();
-        ArrayDeque<Cell> queue = new ArrayDeque<>();
+        LongOpenHashSet seen = new LongOpenHashSet();
+        LongArrayFIFOQueue queue = new LongArrayFIFOQueue();
         for (Cell s : seeds) {
-            if (seen.add(s)) {
-                queue.add(s);
+            if (seen.add(pack(s.x(), s.y(), s.z()))) {
+                queue.enqueue(pack(s.x(), s.y(), s.z()));
             }
         }
         while (!queue.isEmpty() && out.size() < MAX_HOUSE_BLOCKS) {
-            Cell c = queue.poll();
-            out.add(c);
-            for (int dx = -LINK; dx <= LINK; dx++) {
-                for (int dy = -LINK; dy <= LINK; dy++) {
-                    for (int dz = -LINK; dz <= LINK; dz++) {
-                        Cell n = new Cell(c.x() + dx, c.y() + dy, c.z() + dz);
-                        if (!candidates.contains(n) || seen.contains(n) || span(n, origin) > MAX_HOUSE_SPAN) {
+            long packed = queue.dequeueLong();
+            int x = unpackX(packed);
+            int y = unpackY(packed);
+            int z = unpackZ(packed);
+            out.add(new Cell(x, y, z));
+            for (int bx = -1; bx <= 1; bx++) {
+                for (int by = -1; by <= 1; by++) {
+                    for (int bz = -1; bz <= 1; bz++) {
+                        LongArrayList bucket = grid.get(pack((x >> BUCKET_SHIFT) + bx, (y >> BUCKET_SHIFT) + by,
+                                (z >> BUCKET_SHIFT) + bz));
+                        if (bucket == null) {
                             continue;
                         }
-                        seen.add(n);
-                        queue.add(n);
+                        for (int i = 0; i < bucket.size(); i++) {
+                            long n = bucket.getLong(i);
+                            int nx = unpackX(n);
+                            int ny = unpackY(n);
+                            int nz = unpackZ(n);
+                            if (cheb(nx, ny, nz, x, y, z) <= LINK && !seen.contains(n)
+                                    && cheb(nx, ny, nz, origin.x(), origin.y(), origin.z()) <= MAX_HOUSE_SPAN) {
+                                seen.add(n);
+                                queue.enqueue(n);
+                            }
+                        }
                     }
                 }
             }
         }
         return out;
+    }
+
+    /** Buckets are 2^2 = 4 blocks wide, one more than {@link #LINK}. */
+    private static final int BUCKET_SHIFT = 2;
+
+    /** The same packing as {@code BlockPos.asLong}, without the Minecraft class. */
+    private static long pack(int x, int y, int z) {
+        return ((long) (x & 0x3FFFFFF) << 38) | ((long) (z & 0x3FFFFFF) << 12) | (y & 0xFFFL);
+    }
+
+    private static int unpackX(long l) {
+        return (int) (l >> 38);
+    }
+
+    private static int unpackY(long l) {
+        return (int) (l << 52 >> 52);
+    }
+
+    private static int unpackZ(long l) {
+        return (int) (l << 26 >> 38);
+    }
+
+    private static int cheb(int ax, int ay, int az, int bx, int by, int bz) {
+        return Math.max(Math.abs(ax - bx), Math.max(Math.abs(ay - by), Math.abs(az - bz)));
     }
 
     /** Ticks a block {@code distance} blocks from the cast waits for the shimmer, capped at {@link #MAX_DELAY}. */
@@ -139,9 +186,5 @@ public final class HiddenHouseRules {
         double dy = c.y() + 0.5 - cy;
         double dz = c.z() + 0.5 - cz;
         return dx * dx + dy * dy + dz * dz;
-    }
-
-    private static int span(Cell a, Cell b) {
-        return Math.max(Math.abs(a.x() - b.x()), Math.max(Math.abs(a.y() - b.y()), Math.abs(a.z() - b.z())));
     }
 }

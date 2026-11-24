@@ -6,7 +6,14 @@ import com.hogwartsmagic.fx.Fx;
 import com.hogwartsmagic.fx.FxKinds;
 import com.hogwartsmagic.spell.vfx.SpellVfxOptions;
 import com.hogwartsmagic.tomb.TombCurses;
+import com.hogwartsmagic.block.entity.HiddenHouseBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,6 +27,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -57,6 +65,36 @@ public final class HiddenHouseJinx {
         }
     }
 
+    /** Mining the chest is no way round the jinx: the hex fires, and the chest stays for now. */
+    @SubscribeEvent
+    public static void onBreak(BlockEvent.BreakEvent event) {
+        if (!(event.getLevel() instanceof ServerLevel level) || !(event.getPlayer() instanceof ServerPlayer player)
+                || !TombCurses.canTrigger(player)) {
+            return;
+        }
+        BlockPos pos = event.getPos();
+        if (level.getBlockState(pos).getBlock() instanceof ChestBlock && tryHex(level, pos, player)) {
+            event.setCanceled(true);
+        }
+    }
+
+    /**
+     * Removes the ward at {@code wardPos} and hands the chest below the loot table the ward was holding.
+     * The jinxed chest is stored with no loot of its own, so a hopper under it, or a broken chest, can
+     * take nothing until the ward is gone.
+     */
+    public static void liftWard(ServerLevel level, BlockPos wardPos) {
+        BlockEntity be = level.getBlockEntity(wardPos);
+        CompoundTag held = be instanceof HiddenHouseBlockEntity hidden ? hidden.realNbt() : null;
+        level.setBlock(wardPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        if (held != null && held.contains("LootTable")
+                && level.getBlockEntity(wardPos.below()) instanceof ChestBlockEntity chest) {
+            chest.setLootTable(ResourceKey.create(Registries.LOOT_TABLE,
+                    ResourceLocation.parse(held.getString("LootTable"))), level.random.nextLong());
+            chest.setChanged();
+        }
+    }
+
     /**
      * Fires the hex if a ward sits over {@code chest}: knockback away from the chest, blindness, the
      * ward consumed.
@@ -68,7 +106,7 @@ public final class HiddenHouseJinx {
         if (!level.getBlockState(above).is(ExampleMod.JINX_WARD.get())) {
             return false;
         }
-        level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        liftWard(level, above);
         player.knockback(HiddenHouseRules.JINX_PUSH, chest.getX() + 0.5 - player.getX(),
                 chest.getZ() + 0.5 - player.getZ());
         player.hurtMarked = true;

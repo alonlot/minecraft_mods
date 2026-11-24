@@ -676,7 +676,6 @@ public final class SeaCaveGameTests {
         helper.assertTrue(com.hogwartsmagic.spell.AquaStream.spoils(level, null, near, null), "a drop 2 blocks from a thirsty player vanishes");
         helper.assertTrue(near.gone, "the spoiled drop is removed");
         helper.assertTrue(com.hogwartsmagic.locket.LocketCaves.isThirsty(player), "the water did not cure the thirst");
-        helper.assertFalse(player.isOnFire() && player.getRemainingFireTicks() < 0, "untouched");
         com.hogwartsmagic.spell.AquaStream.Drop far = new com.hogwartsmagic.spell.AquaStream.Drop(2, at.add(8.0, 0.5, 0.0), new Vec3(-1, 0, 0));
         helper.assertFalse(com.hogwartsmagic.spell.AquaStream.spoils(level, null, far, null) || far.gone, "a distant drop flies on");
         // landing on a player holding a goblet, not thirsty
@@ -705,7 +704,8 @@ public final class SeaCaveGameTests {
         helper.assertTrue(com.hogwartsmagic.locket.LocketCaves.isCoveredWater(helper.getLevel(), lake), "the cell is covered water");
         helper.assertTrue(com.hogwartsmagic.locket.LocketCaves.dipGoblet(helper.getLevel(), player, goblet, lake), "the dip fills");
         helper.assertTrue(com.hogwartsmagic.item.CaveGobletItem.fillOf(goblet) == com.hogwartsmagic.locket.GobletFill.WATER, "goblet holds water");
-        helper.assertFalse(basin.isAmbushActive(), "no ambush before the drink");
+        helper.assertTrue(basin.isAmbushActive(), "the lake wakes the moment the goblet touches it");
+        helper.assertTrue(com.hogwartsmagic.locket.LocketCaves.isThirsty(player), "still thirsty until the drink");
         com.hogwartsmagic.item.CaveGobletItem.drinkFrom(goblet, helper.getLevel(), player);
         helper.assertFalse(com.hogwartsmagic.locket.LocketCaves.isThirsty(player), "thirst cured");
         helper.assertTrue(basin.isAmbushActive(), "the lake wakes");

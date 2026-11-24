@@ -191,7 +191,7 @@ public final class LocketCaves {
 
     /** The thirst is cured by the lake's black water, and the water wakes: start the ambush if it is not already on. */
     public static void slakeThirst(ServerPlayer player, DespairBasinBlockEntity basin) {
-        if (cureThirst(player) && !basin.isAmbushActive()) {
+        if (cureThirst(player) && !basin.isAmbushActive()) { // already awake from the dip, or the bottle path
             basin.startAmbush(player);
         }
     }
@@ -202,7 +202,8 @@ public final class LocketCaves {
      * Returns whether the goblet was filled.
      */
     public static boolean dipGoblet(ServerLevel level, ServerPlayer player, net.minecraft.world.item.ItemStack goblet, BlockPos pos) {
-        if (!level.getFluidState(pos).is(FluidTags.WATER)) {
+        if (!level.getFluidState(pos).is(FluidTags.WATER)
+                || com.hogwartsmagic.item.CaveGobletItem.fillOf(goblet) != GobletFill.EMPTY) {
             return false;
         }
         Optional<DespairBasinBlockEntity> found = findBasinFor(level, pos);
@@ -212,6 +213,10 @@ public final class LocketCaves {
         }
         com.hogwartsmagic.item.CaveGobletItem.setFill(goblet, GobletFill.WATER);
         level.playSound(null, player.blockPosition(), SoundEvents.BUCKET_FILL, SoundSource.PLAYERS, 0.8f, 0.7f);
+        // The moment the goblet touches the lake, the lake wakes.
+        if (isThirsty(player) && !found.get().isAmbushActive()) {
+            found.get().startAmbush(player);
+        }
         return true;
     }
 

@@ -54,6 +54,10 @@ public class HorcruxHeartRenderer implements BlockEntityRenderer<HorcruxBlockEnt
         if (level == null || !(be.isActive() || be.isPrimed())) {
             return;
         }
+        // The hideouts' cursed cup shares this block entity but is its own object: no reliquary heart over it.
+        if (be.getBlockState().getBlock() instanceof com.hogwartsmagic.block.CursedCupBlock) {
+            return;
+        }
         boolean rite = be.isPrimed();
         int rgb = rite ? HorcruxBlockEntity.RITE_CRIMSON : HorcruxBlockEntity.SOUL_GREEN;
         float r = ((rgb >> 16) & 0xFF) / 255.0f, g = ((rgb >> 8) & 0xFF) / 255.0f, b = (rgb & 0xFF) / 255.0f;

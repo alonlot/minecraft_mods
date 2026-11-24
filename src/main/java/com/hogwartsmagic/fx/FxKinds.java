@@ -60,4 +60,13 @@ public final class FxKinds {
     public static final String CURSE_REVEAL = "curse_reveal";
     /** A shown curse is lifted out of its tile at (x, y, z) and breaks into gold. params: curse id. */
     public static final String CURSE_LIFT = "curse_lift";
+
+    // --- Hidden wizard houses ---
+
+    /**
+     * Revelio unmasks a hidden wizard house: a pale shimmer sweeps out from (x, y, z) through the house as the
+     * glamour breaks. params: radius (blocks the shimmer reaches), speed (blocks a tick). Handled by
+     * client.fx.HiddenHouseFx.
+     */
+    public static final String HIDDEN_HOUSE_SHIMMER = "hidden_house_shimmer";
 }

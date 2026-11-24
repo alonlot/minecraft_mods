@@ -576,6 +576,9 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> GNOME_SQUEAK = register("gnome.squeak");
     public static final RegistryObject<SoundEvent> GNOME_BITE = register("gnome.bite");
     public static final RegistryObject<SoundEvent> GNOME_WAIL = register("gnome.wail");
+    // Hidden wizard houses: the glamour breaking, and the jinxed chest.
+    public static final RegistryObject<SoundEvent> HIDDEN_HOUSE_REVEAL = register("hidden_house.reveal");
+    public static final RegistryObject<SoundEvent> HIDDEN_HOUSE_JINX = register("hidden_house.jinx");
 
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);

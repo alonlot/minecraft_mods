@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "look=mossy_cobblestone": { "model": "minecraft:block/mossy_cobblestone" },
+    "look=cobblestone": { "model": "minecraft:block/cobblestone" },
+    "look=stone_bricks": { "model": "minecraft:block/stone_bricks" }
+  }
+}

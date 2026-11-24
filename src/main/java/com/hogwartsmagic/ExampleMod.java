@@ -1135,6 +1135,37 @@ public class ExampleMod
     public static final RegistryObject<Item> HORNTAIL_EGG_ITEM = ITEMS.register("horntail_egg", () -> new BlockItem(HORNTAIL_EGG.get(), new Item.Properties()));
     public static final RegistryObject<Item> IRONBELLY_EGG_ITEM = ITEMS.register("ironbelly_egg", () -> new BlockItem(IRONBELLY_EGG.get(), new Item.Properties()));
 
+
+    // Hidden wizard houses: the ruin stone that vanishes, the glamours that become the cottage, and the jinx.
+    public static final RegistryObject<Block> PHANTOM_RUIN = BLOCKS.register("phantom_ruin",
+            () -> new com.hogwartsmagic.block.PhantomRuinBlock(BlockBehaviour.Properties
+                    .ofFullCopy(net.minecraft.world.level.block.Blocks.COBBLESTONE).noLootTable()));
+    public static final RegistryObject<Block> GLAMOURED_BLOCK = BLOCKS.register("glamoured_block",
+            () -> new com.hogwartsmagic.block.GlamouredBlock(glamourProperties()));
+    public static final RegistryObject<Block> JINX_WARD = BLOCKS.register("jinx_ward",
+            () -> new com.hogwartsmagic.block.JinxWardBlock(glamourProperties()));
+    public static final RegistryObject<Item> PHANTOM_RUIN_ITEM = ITEMS.register("phantom_ruin",
+            () -> new BlockItem(PHANTOM_RUIN.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.HiddenHouseBlockEntity>> HIDDEN_HOUSE_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("hidden_house", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.HiddenHouseBlockEntity::new,
+                    PHANTOM_RUIN.get(), GLAMOURED_BLOCK.get(), JINX_WARD.get()
+            ).build(null));
+
+    /**
+     * What a glamour is made of: nothing to touch or see, unbreakable, unpushable. Never {@code air()}
+     * or {@code replaceable()}: trees and block placement would overwrite the house.
+     */
+    private static BlockBehaviour.Properties glamourProperties() {
+        return BlockBehaviour.Properties.of().noCollission().noOcclusion().noLootTable()
+                .strength(-1.0F, 3600000.0F)
+                .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)
+                .isValidSpawn((s, l, p, t) -> false)
+                .isRedstoneConductor((s, l, p) -> false)
+                .isSuffocating((s, l, p) -> false)
+                .isViewBlocking((s, l, p) -> false);
+    }
+
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
             .title(net.minecraft.network.chat.Component.translatable("itemGroup.hogwartsmagic.main_tab"))
             .withTabsBefore(CreativeModeTabs.COMBAT)
@@ -1304,6 +1335,7 @@ public class ExampleMod
                 output.accept(UNCOMMON_TOME_OF_MASTERY.get());
                 output.accept(RARE_TOME_OF_MASTERY.get());
                 output.accept(EPIC_TOME_OF_MASTERY.get());
+                output.accept(PHANTOM_RUIN_ITEM.get()); // Hidden wizard houses
                 // Add books for all spells
                 for (com.hogwartsmagic.spell.SpellType spell : com.hogwartsmagic.spell.SpellType.values()) {
                     output.accept(com.hogwartsmagic.item.MagicBookItem.createBook(spell));
@@ -1359,6 +1391,7 @@ public class ExampleMod
         com.hogwartsmagic.entity.ModVillagers.VILLAGER_PROFESSIONS.register(modEventBus);
         // Code-defined structures (Mini Hogwarts): structure and piece types.
         com.hogwartsmagic.worldgen.structure.ModStructures.register(modEventBus);
+        com.hogwartsmagic.worldgen.structure.GlamourRotationProcessor.register(modEventBus); // Hidden wizard houses
         // Register loot modifiers
         LOOT_MODIFIER_SERIALIZERS.register(modEventBus);
         // Register sounds

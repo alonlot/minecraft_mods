@@ -4675,5 +4675,21 @@
         "stream": false
       }
     ]
+  },
+  "hidden_house.reveal": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:hidden_house/reveal"
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.hidden_house.reveal"
+  },
+  "hidden_house.jinx": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:hidden_house/jinx"
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.hidden_house.jinx"
   }
 }

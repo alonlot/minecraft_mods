@@ -2082,5 +2082,12 @@
   "subtitles.hogwartsmagic.gnome.giggle": "Gnome giggles",
   "subtitles.hogwartsmagic.gnome.squeak": "Gnome squeaks",
   "subtitles.hogwartsmagic.gnome.bite": "Gnome bites",
-  "subtitles.hogwartsmagic.gnome.wail": "Gnome wails"
+  "subtitles.hogwartsmagic.gnome.wail": "Gnome wails",
+  "block.hogwartsmagic.phantom_ruin": "Phantom Ruin",
+  "block.hogwartsmagic.glamoured_block": "Glamoured Block",
+  "block.hogwartsmagic.jinx_ward": "Jinx Ward",
+  "subtitles.hogwartsmagic.hidden_house.reveal": "Glamour breaks",
+  "subtitles.hogwartsmagic.hidden_house.jinx": "Jinx cracks",
+  "message.hogwartsmagic.hidden_house.jinx": "The chest was jinxed!",
+  "gui.hogwartsmagic.grimoire.source.hidden_house": "Hidden wizard houses"
 }

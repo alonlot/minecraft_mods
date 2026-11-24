@@ -48,6 +48,14 @@ public class HeldGnomeItem extends Item {
                 inv.setItem(i, ItemStack.EMPTY);
             }
         }
+        if (p.containerMenu != null) {
+            // An open chest or other menu: the placeholder may have been shuffled into one of its slots.
+            for (var slot : p.containerMenu.slots) {
+                if (slot.getItem().getItem() instanceof HeldGnomeItem) {
+                    slot.set(ItemStack.EMPTY);
+                }
+            }
+        }
         if (p.containerMenu != null && p.containerMenu.getCarried().getItem() instanceof HeldGnomeItem) {
             p.containerMenu.setCarried(ItemStack.EMPTY);
         }

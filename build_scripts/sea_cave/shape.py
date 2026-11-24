@@ -204,7 +204,13 @@ def _body_top(x, z, d):
     if v > 9:
         # the south-east flank stands lower, by a different amount along its length
         h -= 2.0 + 6.0 * vn(x, z, 6, 12)
-    return snap_near(h + dip(x, z))
+    # Pass 2b: no level terrace round the spire. The top rolls off toward every edge of the body,
+    # by a different amount along its length, and is broken by blocks missing in rough pieces.
+    h -= max(0.0, 7.0 - d) * (0.9 + 0.6 * vn(x, z, 5, 13))
+    h += 1.8 * sn(x, z, 3.0, 14) - 1.5 * math.floor(2.0 * vn(x, z, 2.5, 15))
+    if math.hypot(x - 47, z - 39) < 11:
+        h = max(h, 54.0)     # keep 4+ of rock over the antechamber and the arch passage
+    return h + dip(x, z)
 
 
 def _spire_top(x, z, d):
@@ -900,7 +906,7 @@ def _mass_solid(c, i, m, x, y, z):
     bi, rec, lo, hi = bed(e)
     # Walls are fluted, not ringed: narrow vertical facets that drift slowly with height carry the
     # face, and only the softest beds cut a recess, and only along part of the perimeter.
-    rec = {0: 0.0, 1: 0.35, 2: 1.4}[rec] * smooth(1.6 * vn(x, z, 8, m['seed'] + 31 * bi) - 0.3)
+    rec = {0: 0.0, 1: 0.2, 2: 0.7}[rec] * smooth(1.6 * vn(x, z, 8, m['seed'] + 31 * bi) - 0.3)
     flute = sn(x + 0.12 * y, z - 0.09 * y, 2.6, m['seed']) + 0.7 * sn(x, z, 7, m['seed'] + 5)
     taper = m['taper'] * up
     if m['side'] is not None:

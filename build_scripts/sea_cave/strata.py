@@ -97,7 +97,7 @@ assert len(BED_STONE) == len(F.BEDS)
 # the colour bands sit exactly on the beds shape.py steps the outline with, so a snapped top is
 # the top of its own band. A fractional warp would misalign them everywhere and speckle every flat
 # top with the next band (seen in the first render: dark blotches on the shoulder from above).
-WARP = ((1.25, 40.0, 501), (0.35, 15.0, 502))
+WARP = ((1.25, 40.0, 501), (0.35, 15.0, 502), (1.6, 10.0, 504))
 
 
 def warp(x, z):
@@ -125,7 +125,7 @@ def _shift_grid():
                     changed = True
         if not changed:
             break
-    for _ in range(20):
+    for _ in range(80):
         changed = False
         for (x, z), v in list(g.items()):
             for a, b in (((x - 1, z), (x + 1, z)), ((x, z - 1), (x, z + 1))):
@@ -156,8 +156,42 @@ def bed_index(x, y, z):
     return k
 
 
+# Pass 2b: few, thick, visible strata with ragged contacts, dark at the wet foot and lighter where
+# the rock dries out high up. Each entry is (bottom bed height, stone); a stone runs up to the next
+# bottom. Neighbouring stones stay within MAX_STEP luma: blackstone only ever touches basalt.
+ZONES = [
+    (-99, D),
+    (18, C),     # cavern walls: rubbly band round the lake shore and up the walls
+    (27, D),
+    (33, S),     # under the sea floor, the darkening begins
+    (36, K),     # the wet foot: black rock from below the waterline (42) to the first ledges
+    (47, S),     # smooth basalt, then columnar basalt, over the black foot
+    (51, B),
+    (55, C),
+    (60, D),     # the dry upper stack
+    (66, C),     # rubbly bed round the spire's waist (a pale tuff belt here read as a painted ring)
+    (69, D),
+    (77, B),
+    (81, C),     # the crown
+]
+
+
+def _zone_index(e):
+    k = 0
+    for i, (lo, _) in enumerate(ZONES):
+        if e >= lo:
+            k = i
+    return k
+
+
 def block_at(x, y, z):
-    return BED_STONE[bed_index(x, y, z)]
+    global _SHIFT
+    if _SHIFT is None:
+        _SHIFT = _shift_grid()
+    s = _SHIFT.get((x, z))
+    if s is None:
+        s = math.floor(F.bed_eff(x, 0, z)) + int(round(warp(x, z)))
+    return ZONES[_zone_index(y + s)][1]
 
 
 # Blocks that carry an `axis` (pillars): written standing.

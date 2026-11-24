@@ -213,6 +213,11 @@ public final class SeaCaveGameTests {
     private static final int[][] CROSSING = {{-3, -3}, {0, -3}, {2, 0}, {2, 3}};
 
     private static void waterArena(GameTestHelper helper) {
+        // A skiff left by a neighbouring test sits inside rise()'s one-per-cave search; clear strays first.
+        for (com.hogwartsmagic.entity.CaveBoatEntity stray : helper.getLevel().getEntitiesOfClass(com.hogwartsmagic.entity.CaveBoatEntity.class,
+                new net.minecraft.world.phys.AABB(helper.absolutePos(new BlockPos(4, 1, 4))).inflate(24.0D))) {
+            stray.discard();
+        }
         for (int x = 0; x <= 8; x++) {
             for (int z = 0; z <= 8; z++) {
                 helper.setBlock(new BlockPos(x, 0, z), net.minecraft.world.level.block.Blocks.BARRIER);
@@ -591,7 +596,23 @@ public final class SeaCaveGameTests {
 
     // ---- the basin restores its goblet ---------------------------------------------------------
 
+    /**
+     * Leftovers of earlier tests (a mock player still carrying a goblet, a dropped goblet) are inside a legacy basin's
+     * cave-wide search box and would stop it restoring one; batch order is not fixed, so each test clears them first.
+     */
+    private static void purgeGoblets(GameTestHelper helper) {
+        for (net.minecraft.server.level.ServerPlayer p : helper.getLevel().players()) {
+            p.getInventory().clearOrCountMatchingItems(st -> st.is(ExampleMod.CRYSTAL_GOBLET_ITEM.get()), -1, p.inventoryMenu.getCraftSlots());
+        }
+        for (net.minecraft.world.entity.item.ItemEntity e : helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(helper.absolutePos(BlockPos.ZERO)).inflate(200.0D),
+                i -> i.getItem().is(ExampleMod.CRYSTAL_GOBLET_ITEM.get()))) {
+            e.discard();
+        }
+    }
+
     private static void gobletFloor(GameTestHelper helper) {
+        purgeGoblets(helper);
         for (int x = 0; x <= 2; x++) {
             for (int z = 0; z <= 2; z++) {
                 helper.setBlock(new BlockPos(x, 0, z), net.minecraft.world.level.block.Blocks.STONE);

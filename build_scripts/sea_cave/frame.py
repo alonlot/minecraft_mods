@@ -41,7 +41,7 @@ CLEFT_LEAN = 'west'
 SUMMIT = (54, 87, 30)
 SHOULDER = (32, 68, 46)
 WATERLINE_CENTROID = (45, 42, 40)
-NEEDLE = (72, 60, 67)
+NEEDLE = (68, 60, 67)          # note says x 72; pulled west to keep the rim inside the frame
 STUMP = (18, 48, 22)
 
 CLEFT_X = (37, 39)          # 3 wide at the waterline
@@ -81,11 +81,11 @@ ISLAND_TOP = (24, 14, 41)                   # solid top 14, feet 15
 BASIN = (24, 15, 41)
 GOBLET = (25, 15, 42)
 
-CAVERN_BOX = ((6, 60), (0, 36), (24, 68))   # x, y, z: where cavern cells can be
+CAVERN_BOX = ((10, 60), (0, 36), (24, 66))   # x, y, z: where cavern cells can be
 VAULT = (36, 35, 40)                        # highest cavern air
-FALLEN_SLAB = ((13, 19), (9, 12), (31, 34))
+FALLEN_SLAB = ((16, 22), (9, 12), (31, 34))    # note: x 13..19; the west wall moved east
 NORTH_LEDGE = ((20, 40), 18, (27, 29))      # x range, solid top, z range
-DRIP_SW = ((14, 22), (22, 24), (52, 60))
+DRIP_SW = ((17, 23), (22, 24), (52, 59))
 DRIP_SE = ((44, 50), (23, 25), (60, 64))
 BEACH = ((34, 50), (59, 63))                # x, z
 

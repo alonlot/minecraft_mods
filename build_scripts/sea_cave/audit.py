@@ -52,42 +52,60 @@ def _tunnel_cells(blocks):
 
 
 def cleft_open(blocks):
-    """A 3-wide opening at least 8 tall, spanning the waterline, open to the sea on the south face,
-    whose carved cells connect through carved space to the flooded tunnel."""
+    """A 3-wide, at least 8-tall opening of CARVED cells cut into the rock of the south face (open
+    sea does not count), spanning the waterline, with rock on both sides of it and the open sea in
+    front of it, that connects through carved space to the flooded tunnel. The 3-wide window may
+    shift one block per row, to follow the cleft's lean."""
     (x0, x1), (y0, y1), (z0, z1) = F.CLEFT_ZONE
+
+    def window(x, y, z):
+        return all(_kind(blocks, (x + i, y, z)) in ('air', 'water') for i in range(3))
+
+    def run(x, z, step):
+        n, y, xs = 0, F.SEA_Y + step, x
+        while y0 <= y <= y1:
+            nxt = [xx for xx in (xs, xs - 1, xs + 1) if window(xx, y, z)]
+            if not nxt:
+                break
+            xs = nxt[0]
+            n += 1
+            y += step
+        return n
+
+    def open_to_sea(x, z):
+        for i in range(3):
+            for dz in range(1, 5):
+                k = _kind(blocks, (x + i, F.SEA_Y, z + dz))
+                if k is None:
+                    break
+                if k not in ('air', 'water'):
+                    return False
+            else:
+                return False
+        return True
+
     best = None
-    for z in range(z0, z1 + 1):
+    for z in range(z1, z0 - 1, -1):
         for x in range(x0, x1 - 1):
-            # vertical run of non-solid cells at x..x+2 that includes the waterline
-            def clear(y):
-                return all(_kind(blocks, (x + i, y, z)) in (None, 'air', 'water') for i in range(3))
-            if not clear(F.SEA_Y):
+            if not window(x, F.SEA_Y, z):
                 continue
-            lo = F.SEA_Y
-            while lo - 1 >= y0 and clear(lo - 1):
-                lo -= 1
-            hi = F.SEA_Y
-            while hi + 1 <= y1 and clear(hi + 1):
-                hi += 1
-            if hi - lo + 1 < 8:
+            if _kind(blocks, (x - 1, F.SEA_Y, z)) != 'solid' or _kind(blocks, (x + 3, F.SEA_Y, z)) != 'solid':
                 continue
-            # the opening must be open to the sea: the cell just south of it unlisted, not rock
-            if not all(_kind(blocks, (x + i, F.SEA_Y, z + 1)) is None for i in range(3)):
+            if not open_to_sea(x, z):
                 continue
-            # and carved behind it (it is a cleft, not just the outside of the face)
-            seeds = [(x + i, y, z - 1) for i in range(3) for y in range(lo, hi + 1)
-                     if _kind(blocks, (x + i, y, z - 1)) in ('air', 'water')]
-            if seeds:
-                best = (x, z, lo, hi, seeds)
+            tall = 1 + run(x, z, 1) + run(x, z, -1)
+            if tall >= 8:
+                best = (x, z, [(x + i, F.SEA_Y, z) for i in range(3)])
                 break
         if best:
             break
     if not best:
-        return ['cleft_open: no 3-wide opening at least 8 tall across the waterline on the south face']
+        return ['cleft_open: no 3-wide, 8-tall carved opening in the rock across the waterline on '
+                'the south face']
     targets = _tunnel_cells(blocks)
     if not targets:
         return ['cleft_open: the flooded tunnel is not carved']
-    seen = set(best[4])
+    seen = set(best[2])
     q = deque(seen)
     while q:
         p = q.popleft()
@@ -99,6 +117,36 @@ def cleft_open(blocks):
                 seen.add(n)
                 q.append(n)
     return ['cleft_open: the opening at x%d..%d z%d does not reach the tunnel' % (best[0], best[0] + 2, best[1])]
+
+
+def footprint_rim(blocks, margin=2, band=6.0, low=10):
+    """Nothing listed within `margin` of the frame edge, and nothing solid above y `low` within
+    `band` of the footprint's rim (the edge of the set of columns the template lists at all), so the
+    template sinks into the natural sea floor instead of ending in a square cliff."""
+    cols = {}
+    for (x, y, z), v in blocks.items():
+        top = cols.get((x, z), -1)
+        if v[0] not in SOLID_SKIP and y > top:
+            cols[(x, z)] = y
+        elif (x, z) not in cols:
+            cols[(x, z)] = -1
+    out = []
+    near = [q for q in cols if min(q[0], q[1], F.SIZE[0] - 1 - q[0], F.SIZE[2] - 1 - q[1]) < margin]
+    if near:
+        out.append('footprint_rim: %d listed columns within %d of the frame edge, e.g. %s'
+                   % (len(near), margin, near[0]))
+    rim = [(x, z) for x in range(-1, F.SIZE[0] + 1) for z in range(-1, F.SIZE[2] + 1)
+           if (x, z) not in cols and any((x + dx, z + dz) in cols for dx, dz in N4)]
+    high = []
+    for (x, z), top in cols.items():
+        if top <= low:
+            continue
+        if any((x - a) ** 2 + (z - b) ** 2 <= band * band for a, b in rim):
+            high.append(((x, z), top))
+    if high:
+        out.append('footprint_rim: %d columns stand above y%d within %g of the rim, e.g. %s top %d'
+                   % (len(high), low, band, high[0][0], high[0][1]))
+    return out
 
 
 def watertight(blocks):
@@ -129,19 +177,45 @@ def _floor_tops(blocks, x, z):
     return None
 
 
+def _island_dry(blocks):
+    """Dry columns (solid top above the lake) joined to the island crest, 4-connected."""
+    start = (F.ISLAND_TOP[0], F.ISLAND_TOP[2])
+
+    def dry(q):
+        t = _floor_tops(blocks, q[0], q[1])
+        return t is not None and t > F.LAKE_Y
+
+    if not dry(start):
+        return set()
+    seen, q = {start}, [start]
+    while q and len(seen) < 2000:
+        a = q.pop()
+        for dx, dz in N4:
+            n = (a[0] + dx, a[1] + dz)
+            if n not in seen and dry(n):
+                seen.add(n)
+                q.append(n)
+    return seen
+
+
 def island_steps(blocks):
-    """Every island or lake-bed column within the island's radius + 4 differs from each neighbour
-    by at most 1, so the island slopes into the lake on every side with no step over 1 block."""
+    """Every island or lake-bed column within the island's radius + 4 differs from each such
+    neighbour by at most 1, so the island slopes into the lake on every side with no step over 1
+    block. Island columns are the dry ground joined to the crest; lake-bed columns have water
+    directly above their top. Dry shore under the cavern walls is neither."""
     cx, cz = F.ISLAND_CENTRE
     reach = F.ISLAND_RADIUS + 4
+    island = _island_dry(blocks)
     tops = {}
     for x in range(int(cx - reach) - 1, int(cx + reach) + 2):
         for z in range(int(cz - reach) - 1, int(cz + reach) + 2):
             if math.hypot(x - cx, z - cz) <= reach:
                 t = _floor_tops(blocks, x, z)
-                if t is not None:
+                if t is None:
+                    continue
+                if (x, z) in island or _kind(blocks, (x, t + 1, z)) == 'water':
                     tops[(x, z)] = t
-    if not tops or max(tops.values()) < F.LAKE_Y + 3:
+    if not island or max(tops.values()) < F.LAKE_Y + 3:
         return ['island_steps: no island rises 3 above the lake within %d of %s' % (reach, (cx, cz))]
     bad = []
     for (x, z), t in tops.items():
@@ -152,6 +226,24 @@ def island_steps(blocks):
     if bad:
         return ['island_steps: %d steps over 1 block, e.g. %s top %d next to %s top %d'
                 % ((len(bad),) + bad[0])]
+    return []
+
+
+def island_isolated(blocks):
+    """The island's dry ground (solid top above the lake) is its own: a flood over dry columns from
+    its crest stays within its radius + 1, and it spans 10 to 12 blocks."""
+    cx, cz = F.ISLAND_CENTRE
+    seen = _island_dry(blocks)
+    if not seen:
+        return ['island_isolated: the island crest is not dry ground']
+    far = [a for a in seen if math.hypot(a[0] - cx, a[1] - cz) > F.ISLAND_RADIUS + 1]
+    if far:
+        return ['island_isolated: dry ground runs from the island to %s, beyond its radius + 1 '
+                '(%d dry columns joined)' % (max(far, key=lambda a: math.hypot(a[0] - cx, a[1] - cz)), len(seen))]
+    span = max(max(p[0] for p in seen) - min(p[0] for p in seen) + 1,
+               max(p[1] for p in seen) - min(p[1] for p in seen) + 1)
+    if not 10 <= span <= 12:
+        return ['island_isolated: the island is %d across, not 10 to 12' % span]
     return []
 
 
@@ -349,7 +441,9 @@ def problems(blocks, extra=None):
     out = []
     out += cleft_open(blocks)
     out += watertight(blocks)
+    out += footprint_rim(blocks)
     out += island_steps(blocks)
+    out += island_isolated(blocks)
     out += route_walkable(blocks)
     out += no_primitive(blocks)
     out += rock_cover(blocks, extra.get('descent'), extra.get('cavern'))

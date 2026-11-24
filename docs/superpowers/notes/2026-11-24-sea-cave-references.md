@@ -186,7 +186,8 @@ Iterations, and what each render showed:
    waterline); island rebuilt as a faceted mound (it had grown to about 20 across through the
    no-step relaxation): now 11 x 10 above the lake, crest 14 at (24, 41).
 
-Gate check on the final renders (`build/shots/sea_cave_p1_*.png` under the textured viewer):
+Gate check on the first submission (`build/shots/sea_cave_p1_*.png` under the textured viewer). Rows
+marked in the review-fix table below supersede these:
 
 | View | What I saw |
 |---|---|
@@ -222,3 +223,59 @@ The only straight lines are the frame-edge sides of the buried plinth.
 
 Still owed: the in-game check at night, and standpoint renders from pass 2 on. The viewer cannot
 show darkness, so whether the cleft reads dark from the sea is unverified.
+
+### Pass 1, review fixes
+
+The review found six faults; all are fixed and the audits pass again (generator: `locket_cave
+78x88x78 166811 blocks 3 block types ... ok`; the template is 78 square now because nothing is
+listed within 2 of the frame edge).
+
+1. **Square plinth.** The template now writes only an irregular footprint: the stack masses, every
+   carved column and the cavern plan plus 2, grown by 11..14 blocks with noise, never within 2 of the
+   frame edge. Within 6 blocks of the footprint's rim nothing stands above local 10 (the rim sinks to
+   local 2..9, world ~23..30); inward of that the flank climbs at a wandering 1.8..5.4 a block. Corners
+   and frame edges are unlisted, so the natural sea floor and the sea run up to the rock. New audit
+   `footprint_rim`. To make room, the cavern's west wall moved from x 8 to about x 13..15 and its south
+   wall from z 66 to about z 63..64; the lake's west shore moved with it (x 15..17), the fallen slab moved
+   3 east (x 16..22), the satellite needle moved 4 west (centre x 68, top still 60), and the east
+   platform stops at x 71.
+2. **East apron cut by the frame.** Gone with the footprint: every column is clamped by its distance
+   to the rim, not by the frame.
+3. **Island joined to the north wall.** The north ledge's talus now stops at the water, and the
+   no-step relaxation only runs over lake and island columns within the island's reach (it used to
+   drag the ledge height out into the lake). `island_steps` now counts island columns (dry ground
+   joined to the crest) and lake-bed columns (water above), not the dry shore under the walls. New
+   audit `island_isolated`: dry ground joined to the crest stays within radius + 1 and spans 10..12
+   (it is x 20..30, z 37..48).
+4. **Shoulder and ledges as extruded cylinders.** Their tops are now bed planes tilted away from a
+   high edge with pieces broken out in steps (not a dome falling off radially, which my first try did
+   and which read as a turret). The ledge plans have 2..4-block jogs; the shoulder is drawn square to
+   the map on the cross-joint set (faces 2..6 long meeting at corners), with no taper and weaker flutes.
+5. **Spire tiers.** The spire only steps back on its south-west side (toward the ledges); its
+   north-west, north-east and south-east faces run straight up from the body. Its top is no longer
+   snapped to the beds, and the body's south-east flank drops by a varying 2..8 instead of a uniform 5.
+6. **`cleft_open` could pass a 1 x 2 slot.** It now measures carved cells only: a 3-wide window of
+   carved cells across the waterline, allowed to shift one block per row (the lean), at least 8 tall,
+   with rock on both sides at the waterline and the open sea within 4 blocks in front, then a flood to
+   the tunnel. The notch is suppressed round the cleft so its sides stand.
+7. (Optional item) **Castle windows on the south face.** These were the cleft's hairline, broken into
+   two pockets where it stepped west, and the south-east-face joint gully. The hairline is now one
+   continuous crack cut through to the face, and that gully is gone.
+
+| View (fix round, `sea_cave_p1_fix_*`) | What I saw |
+|---|---|
+| East (`_e`) | The spire is one face from the body to the summit with a hooked top, no longer four or five tiers. Below it the body and platform still show two or three bed steps on the south-east flank. Needle at left. |
+| North-west close (`_nw_close`) and west (`_shoulder_w`) | The spire is a tall fluted column. The shoulder now reads as a broken square block with a tilted top. From the north-west corner it is still a fairly compact block next to the spire, but no longer a round turret with a lid. Ledges step down toward it with irregular edges. |
+| South at sea level (`_sea`, `_windows`) | The rectangular pits are gone in the close view. From 40 out the hairline shows as two dark dots where a protruding block hides its middle. It reads as a crack in the close view, less so at that distance. |
+| Under water, east (`_rim_e`) and south-west (`_rim_sw`) | The footprint ends in a low skirt at local 2..9 everywhere, with irregular outline and no square edge. Above the skirt the flank climbs steeply. On the east it is effectively the platform's own fluted wall, about 30 blocks of near-vertical underwater cliff, because the platform has to reach x 71 to cover the descent and the rim must stay inside the frame. From the south-west it reads as a broad, uneven mound, not a frustum now that the slope wanders. |
+| Top (`_top`, flat `_fixflat_top`) | Listed area is an irregular blob x 2..77, z 3..77 with all four corners empty. |
+| North (`_n`), west (`_w`), ENE (`_ene`) | As before. The spire's north-east face is a single tall face. |
+| Cavern (flat `_fixflat_cut_*`, `_floor`, `_ceiling`) | Same character as before, a little narrower in the west. The island is clearly separate from the north ledge, with water between. |
+
+Six failure modes after the fixes: (2) proportion: the east underwater cliff is the one thing that
+still looks abrupt, and only from below the sea; (6) mechanical regularity: the spire's tiering is
+gone, and two or three bed steps remain on the south-east flank of the body. The others are
+unchanged. **Would a person believe it was shaped?** From the north-west, ENE, east at sea level and
+west, yes. From due south at sea level it is still more massif than column. **Perfect primitive?**
+None above the seabed. Under water the flank is no longer a uniform-slope frustum. The east face is a
+near-vertical wall in section, but not straight in plan.

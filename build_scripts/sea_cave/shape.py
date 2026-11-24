@@ -166,15 +166,21 @@ BODY = _plan([(25.5, -1), (26, 3), (24.5, 6), (24, 13), (19, 15), (17, 17), (11,
 SPIRE = _plan([(19.5, -10), (20, -6), (19, -1), (17, 1.5), (14, 1), (12.5, 3), (9, 2.5),
                (7, -1), (7.5, -6), (5.5, -9), (6, -12.5), (12, -12.5), (13.5, -9.5), (15, -7.5),
                (17, -8.5)])
-LEDGE76 = _plan([(7.5, -12.5), (9, -4), (9.5, 3), (6.5, 4), (3, 3.5), (2.5, -2), (3, -11),
-                 (5, -13.5)])
-LEDGE72 = _plan([(3.5, -11), (4.5, 4.5), (0.5, 5.5), (-3, 4), (-3.5, -3), (-3, -10.5)])
-SHOULDER = _plan([(-8, -11), (-8.5, -3), (-10, -2.5), (-10.5, 2.5), (-17, 3), (-18, -1.5),
-                  (-20, -2), (-20, -9), (-14, -11.5)])
-# the east flank's wave-cut bench, a few blocks above the sea; it wraps the descent
-BENCH = _plan([(28, 2.5), (28.5, 11), (23.5, 17), (21.5, 24), (15, 26.5), (8.5, 29), (4, 31),
-               (-0.5, 30), (-2.5, 23.5), (-4.5, 15), (-3, 9), (5, 8), (15, 6), (22, 2.5)])
-NEEDLE = [(69, 64), (72, 63), (75, 65), (75, 69), (73, 71), (70, 70.5), (68, 67)]
+LEDGE76 = _plan([(7.5, -12.5), (8, -8), (10, -7.5), (10, -1), (9, 3), (5.5, 4), (5.5, 1),
+                 (2.5, 0.5), (2.5, -4), (3.5, -4.5), (3, -11), (5, -13.5)])
+LEDGE72 = _plan([(3.5, -11), (4, -6), (2, -5.5), (2.5, 1), (4.5, 1.5), (4, 5), (-1, 5.5), (-1, 2.5),
+                 (-3.5, 2), (-3.5, -4), (-1.5, -4.5), (-3, -10.5), (0, -11.5)])
+# The shoulder is cut by the cross-joint set, square to the map: faces a few blocks long that
+# meet at corners, so it reads as a broken block, not a turret.
+SHOULDER = [(27, 40), (33, 40), (33, 42), (37, 42), (37, 47), (35, 47), (35, 51), (29, 51), (29, 49),
+            (26, 49), (26, 44), (27, 44)]
+# Drawn in x, z: it has to stop 9 blocks short of the frame's east edge so the seabed rim can sink
+# below the natural sea floor before the template ends.
+BENCH = [(58, 19), (64, 18), (67.5, 22), (69.5, 28), (69.5, 33), (70.5, 37.5), (70.5, 44), (71, 49),
+         (71, 55), (68.5, 59.5), (63.5, 61), (57, 58), (52, 54), (49, 48.5), (54, 42.5), (60, 34),
+         (59, 28)]
+# the satellite needle, pulled 4 west of the note's x 72 for the same reason
+NEEDLE = [(65, 65), (68, 64), (71, 65), (71.5, 68), (69, 70), (66, 69.5), (64.5, 67.5)]
 STUMP = [(15, 19), (19, 18), (22, 20), (21.5, 24), (18, 26), (14, 24)]
 
 # Top of the body along the blade, before the beds snap it: low at the south-west tip, the saddle
@@ -196,7 +202,8 @@ def _body_top(x, z, d):
     u, v = xz_to_uv(x, z)
     h = _interp(BODY_PROFILE, u) + 1.5 * sn(x, z, 7, 11)
     if v > 9:
-        h -= 5          # the south-east flank stands a bed or two lower
+        # the south-east flank stands lower, by a different amount along its length
+        h -= 2.0 + 6.0 * vn(x, z, 6, 12)
     return snap_near(h + dip(x, z))
 
 
@@ -209,18 +216,27 @@ def _spire_top(x, z, d):
             + 0.5 * max(0.0, sv - v - 3.0) + 0.5 * sn(x, z, 3, 21))
     if drop <= 0.5:
         return F.SUMMIT[1] + 0.99 + dip(x, z)
-    return snap_near(F.SUMMIT[1] + 0.99 - drop + dip(x, z))
+    return F.SUMMIT[1] + 0.99 - drop + dip(x, z)
 
 
-def _flat(y_top, wobble=0.0, seed=0):
+def _tilted(y_top, high, fall, slope, rough, seed):
+    """A bed-plane top: highest along the edge through `high`, falling at `slope` per block in the
+    blade direction `fall` (u, v), with pieces broken out of it in steps. A plane, never a dome."""
+    hu, hv = xz_to_uv(*high)
+    fu, fv = fall
+    n = math.hypot(fu, fv)
+
     def top(x, z, d):
-        return dip(x, z) + y_top + 0.99 - wobble * vn(x, z, 4, seed)
+        u, v = xz_to_uv(x, z)
+        along = ((u - hu) * fu + (v - hv) * fv) / n
+        broken = rough * math.floor(2.0 * vn(x, z, 3.0, seed))     # 0 or rough: a missing piece
+        return dip(x, z) + y_top + 0.99 - slope * max(0.0, along) - broken
     return top
 
 
 def _needle_top(x, z, d):
     # a tilted top, high on its north-west corner
-    return dip(x, z) + F.NEEDLE[1] + 0.99 - 0.6 * max(0.0, (x - 71) + (z - 66))
+    return dip(x, z) + F.NEEDLE[1] + 0.99 - 0.6 * max(0.0, (x - 69) + (z - 67.5))
 
 
 def _stump_top(x, z, d):
@@ -240,24 +256,33 @@ def _bench_top(x, z, d):
 
 
 MASSES = [
-    # name, plan, ref y, lean (x, z) per block, taper, recess scale, top(x, z, d), notch, seed
-    dict(name='body', poly=BODY, ref=42, lean=(0.03, -0.028), taper=0.025, recess=1.0,
+    # name, plan, ref y, lean (x, z) per block, taper, taper side (u, v) or None for all round,
+    # recess scale, top(x, z, d), notch, seed, flute and bed-noise amplitudes
+    dict(name='body', poly=BODY, ref=42, lean=(0.03, -0.028), taper=0.025, side=None, recess=1.0,
          top=_body_top, notch=True, seed=101, shared=0.7, band=0.45),
-    dict(name='spire', poly=SPIRE, ref=62, lean=(0.035, -0.035), taper=0.075, recess=0.8,
-         top=_spire_top, notch=False, seed=202, shared=0.5, band=0.35),
-    dict(name='ledge76', poly=LEDGE76, ref=62, lean=(0.06, -0.05), taper=0.04, recess=0.8,
-         top=_flat(76, 0.3, 41), notch=False, seed=303, shared=0.5, band=0.35),
-    dict(name='ledge72', poly=LEDGE72, ref=62, lean=(0.05, -0.04), taper=0.04, recess=0.8,
-         top=_flat(72, 0.3, 42), notch=False, seed=404, shared=0.5, band=0.35),
-    dict(name='shoulder', poly=SHOULDER, ref=58, lean=(0.03, -0.02), taper=0.05, recess=0.8,
-         top=_flat(68, 0.25, 43), notch=False, seed=505, shared=0.6, band=0.35),
-    dict(name='bench', poly=BENCH, ref=42, lean=(0.0, 0.0), taper=0.0, recess=0.6,
-         top=_bench_top, notch=False, seed=606, shared=1.5, band=0.4),
-    dict(name='needle', poly=NEEDLE, ref=40, lean=(0.05, 0.04), taper=0.07, recess=0.4,
+    # the spire only steps back on its south-west side, toward the ledges; its other faces run
+    # straight up from the body
+    dict(name='spire', poly=SPIRE, ref=62, lean=(0.035, -0.035), taper=0.16, side=(-1.0, 0.25),
+         recess=0.25, top=_spire_top, notch=False, seed=202, shared=0.5, band=0.2),
+    dict(name='ledge76', poly=LEDGE76, ref=62, lean=(0.06, -0.05), taper=0.04, side=None,
+         recess=0.8, top=_tilted(76, (47.5, 31.5), (-1.0, 0.6), 0.35, 1.0, 41), notch=False, seed=303,
+         shared=0.3, band=0.3),
+    dict(name='ledge72', poly=LEDGE72, ref=62, lean=(0.05, -0.04), taper=0.04, side=None,
+         recess=0.8, top=_tilted(72, (43.5, 35.5), (-0.6, 1.0), 0.4, 1.0, 42), notch=False, seed=404,
+         shared=0.3, band=0.3),
+    dict(name='shoulder', poly=SHOULDER, ref=58, lean=(0.03, -0.02), taper=0.0, side=None,
+         recess=0.8, top=_tilted(68, (F.SHOULDER[0], F.SHOULDER[2]), (-1.0, -0.5), 0.35, 1.0, 43), notch=False,
+         seed=505, shared=0.3, band=0.3),
+    dict(name='bench', poly=BENCH, ref=42, lean=(0.0, 0.0), taper=0.0, side=None, recess=0.6,
+         top=_bench_top, notch=False, seed=606, shared=0.55, band=0.4),
+    dict(name='needle', poly=NEEDLE, ref=40, lean=(0.05, 0.04), taper=0.07, side=None, recess=0.4,
          top=_needle_top, notch=True, seed=707, shared=0.35, band=0.25),
-    dict(name='stump', poly=STUMP, ref=40, lean=(0.0, 0.0), taper=0.05, recess=0.5,
+    dict(name='stump', poly=STUMP, ref=40, lean=(0.0, 0.0), taper=0.05, side=None, recess=0.5,
          top=_stump_top, notch=True, seed=808, shared=0.5, band=0.3),
 ]
+for _m in MASSES:
+    _m['centre'] = xz_to_uv(sum(p[0] for p in _m['poly']) / len(_m['poly']),
+                            sum(p[1] for p in _m['poly']) / len(_m['poly']))
 
 # Vertical joints: gullies cut into the faces across the blade, the way a stack splits.
 # In blade coordinates: (u, v0, v1, depth, y-from, y-to); a gully runs across v at one u.
@@ -265,7 +290,6 @@ JOINTS_UV = [
     (-22.0, -14, -6, 2.4, 36, 70),     # north-west face, splits the tip from the shoulder
     (-6.0, -15, -9, 2.2, 38, 66),      # north-west face, under the saddle
     (6.5, -15, -9, 2.0, 38, 66),       # north-west face, under the ledges
-    (-7.0, 7, 13, 1.5, 38, 64),        # south-east face
     (20.0, 8, 16, 2.0, 40, 64),        # south-east face, north-east end
     (-26.0, 1, 10, 1.8, 36, 60),       # south-west tip
     (12.0, 1, 6, 1.6, 64, 88),         # spire, south-east side
@@ -276,9 +300,9 @@ JOINTS_UV = [
 JOINTS = [uv_to_xz(u, a) + uv_to_xz(u, b) + (dep, ya, yb) for u, a, b, dep, ya, yb in JOINTS_UV]
 
 
-def _joint_inset(x, y, z):
+def _joint_inset(x, y, z, joints=None):
     out = 0.0
-    for x0, z0, x1, z1, depth, ya, yb in JOINTS:
+    for x0, z0, x1, z1, depth, ya, yb in (JOINTS if joints is None else joints):
         if not (ya <= y <= yb):
             continue
         d, t = _seg_dist(x, z, x0, z0, x1, z1)
@@ -296,6 +320,8 @@ def _notch_inset(x, y, z):
     west = smooth((44 - x) / 16.0)
     sw = smooth((z - 44) / 14.0) * smooth((40 - x) / 12.0)
     depth = 0.8 + 2.2 * max(west, sw) + 0.6 * sn(x, z, 3, 91)
+    # the face round the cleft is left standing, so the cleft reads as a crack, not a cave mouth
+    depth *= 1.0 - 0.9 * math.exp(-((x - 38.5) ** 2) / 10.0 - ((z - 57.5) ** 2) / 12.0)
     return prof * depth
 
 
@@ -319,8 +345,9 @@ def _crack(x, y, z):
     if zf is not None and z == zf + 3 and 52 <= x <= 57 and 73 <= y <= 81:
         return True
     if 52 <= y <= F.CLEFT_HAIR_TOP:
-        hx = 37 if y < 55 else 36
-        if x == hx and 55 <= z <= 59:
+        # one continuous hairline, stepping west at y 55 with both cells open on that row, cut
+        # right through to the face so it reads as a crack, not a row of pits
+        if (x == 37 and y <= 55 or x == 36 and y >= 55) and 54 <= z <= 62:
             return True
     return False
 
@@ -333,7 +360,7 @@ BOULDERS = [
     (20, 39, 57, 2.4, 2.0, 2.0), (25, 41, 63, 2.0, 2.4, 1.6), (14, 38, 34, 1.8, 1.8, 2.2),
     (31, 40, 64, 1.6, 2.2, 1.8), (48, 40, 62, 1.8, 2.0, 1.6), (53, 39, 61, 1.6, 1.6, 2.0),
     (30, 40, 23, 2.0, 2.2, 1.8), (42, 39, 18, 1.8, 2.0, 1.6), (23, 39, 28, 2.2, 2.0, 2.0),
-    (75, 39, 37, 1.6, 2.2, 1.8), (66, 38, 64, 1.4, 1.8, 1.4),
+    (61, 38, 63, 1.4, 1.8, 1.4),
 ]
 
 
@@ -350,13 +377,13 @@ def _boulder(x, y, z):
 
 # --- interior features --------------------------------------------------------------------------
 
-CAVERN = [(10, 31), (14, 27), (20, 26), (26, 27), (31, 25), (37, 26), (43, 27), (48, 29),
+CAVERN = [(15, 31), (17, 28), (21, 26), (26, 27), (31, 25), (37, 26), (43, 27), (48, 29),
           (52, 31), (55, 35), (55, 40), (57, 43), (58, 47), (55, 49), (55, 54), (53, 59),
-          (49, 63), (44, 65), (37, 64), (31, 66), (26, 65), (20, 63), (15, 61), (11, 57),
-          (9, 52), (10, 46), (8, 40), (9, 35)]
-LAKE = [(13, 31), (18, 30), (24, 31), (30, 30), (36, 30), (42, 31), (47, 33), (50, 37),
+          (49, 63), (44, 64), (37, 63), (31, 64), (26, 63), (21, 62), (17, 60), (15, 57),
+          (14, 52), (15, 46), (13, 40), (14, 35)]
+LAKE = [(17, 31), (20, 30), (24, 31), (30, 30), (36, 30), (42, 31), (47, 33), (50, 37),
         (51, 42), (49, 47), (47, 51), (45, 55), (42, 57), (37, 58), (31, 57), (26, 59),
-        (20, 57), (15, 54), (11, 50), (9, 45), (10, 39), (10, 34)]
+        (21, 57), (18, 54), (16, 50), (15, 45), (15, 39), (16, 34)]
 ANTE = [(43, 38), (45, 36), (48, 35), (50, 37), (52, 39), (51, 42), (49, 44), (46, 44), (43, 42)]
 ARCH_PASSAGE = [(46.5, 38.5), (48.2, 37.2), (49.6, 35.4), (51.0, 33.6), (52.0, 33.2)]
 
@@ -383,10 +410,10 @@ def island_height(x, z):
     rho += 2.6 * bite
     tx, tz = F.ISLAND_TOP[0], F.ISLAND_TOP[2]
     crest = math.hypot(x - tx, z - tz)
-    h = 14.4 - 0.5 * crest if rho <= 5.6 else None
-    edge = 11.2 - 1.0 * (rho - 5.6)
+    h = 14.4 - 0.55 * crest if rho <= 5.0 else None
+    edge = 10.9 - 1.0 * (rho - 5.0)
     h = max(h if h is not None else -9, edge if rho > 5.0 else -9)
-    if rho <= 5.6:
+    if rho <= 5.0:
         h = max(h, edge)
     for scx, scz, hu, hv, ang, gx, gz in ISLAND_SLABS:
         a = math.radians(ang)
@@ -563,7 +590,7 @@ def _build():
     for x, z in cav_cols:
         sl = c.lake(x, z) + 1.1 * sn(x, z, 3, 81)
         if sl > 0:
-            cliff = (z < 36) or (x < 15)
+            cliff = (z < 36) or (x < 19)
             k = smooth(sl / (3.0 if cliff else 7.0))
             f = 8 - int(round(5 * k + 0.6 * sn(x, z, 2.5, 82)))
             f = max(3, min(8, f))
@@ -584,7 +611,8 @@ def _build():
             depth = lz1 + (1 if vn(x, 0, 3, 84) > 0.55 else 0)
             if z <= depth:
                 floor[(x, z)] = max(floor[(x, z)], ltop - (1 if vn(x, z, 2, 85) > 0.8 else 0))
-            elif 27 <= x <= 32:
+            elif 27 <= x <= 32 and c.lake(x, z) + 1.1 * sn(x, z, 3, 81) <= 0:
+                # talus spills from the ledge but stops at the water's edge
                 spill = ltop - int(1.3 * (z - depth) + 0.7 * vn(x, z, 2, 86))
                 floor[(x, z)] = max(floor[(x, z)], spill)
 
@@ -594,11 +622,16 @@ def _build():
     island_cols = [(x, z) for x, z in cav_cols if math.hypot(x - icx, z - icz) <= reach + 1]
     for x, z in island_cols:
         floor[(x, z)] = max(floor[(x, z)], island_height(x, z))
+    # relax only inside the audited reach and only against neighbours inside it, so nothing from
+    # the walls or the north ledge is dragged out into the lake
+    relax = {(x, z) for x, z in island_cols if math.hypot(x - icx, z - icz) <= F.ISLAND_RADIUS + 4.6
+             and c.lake(x, z) + 1.1 * sn(x, z, 3, 81) > 0}
     for _ in range(30):
         changed = False
-        for x, z in island_cols:
+        for x, z in relax:
             f = floor[(x, z)]
-            m = max(floor.get((x + dx, z + dz), -9) for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            m = max(floor[(x + dx, z + dz)] if (x + dx, z + dz) in relax else -9
+                    for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))
             if m - 1 > f:
                 floor[(x, z)] = m - 1
                 changed = True
@@ -716,8 +749,8 @@ def _build():
     c.cav_cols = cav_set
 
     # ---- seabed, apron and the cap over the cavern -----------------------------------------
-    c.base = _seabed(c)
     c.carve = carve
+    c.base = _seabed(c)
     si = [m['name'] for m in MASSES].index('spire')
     c.spire_face = {}
     for x in range(51, 59):
@@ -726,6 +759,9 @@ def _build():
                 c.spire_face[x] = z
                 break
     return c
+
+
+RIM_MARGIN = 2       # nothing is listed within this many blocks of the frame edge
 
 
 def _seabed(c):
@@ -786,7 +822,48 @@ def _seabed(c):
             base[q] = max(base[q], v)
         elif q in base:
             base[q] = max(base[q], v + 0.6 * sn(q[0], q[1], 2.2, 127))
-    return {q: int(math.floor(v)) for q, v in base.items()}
+    # --- the footprint: everything the template writes stands inside it, and its rim sinks to
+    # local 2..8 (world ~23..29) before it ends, so the natural sea floor runs up to the rock
+    # instead of meeting a square cliff at the frame edge. Outside it nothing is listed.
+    core = set()
+    for x in range(W):
+        for z in range(D):
+            if any(c.fields[i](x, z) > -2.5 for i in range(len(MASSES))):
+                core.add((x, z))
+    core |= {(p[0], p[2]) for p in c.carve}
+    for (x, z) in c.cav_cols:
+        for dx in range(-2, 3):
+            for dz in range(-2, 3):
+                core.add((x + dx, z + dz))
+    edge = [q for q in core if any((q[0] + dx, q[1] + dz) not in core
+                                   for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))]
+    foot = set()
+    for x in range(RIM_MARGIN, W - RIM_MARGIN):
+        for z in range(RIM_MARGIN, D - RIM_MARGIN):
+            if (x, z) in core:
+                foot.add((x, z))
+                continue
+            dmin = min((x - a) ** 2 + (z - b) ** 2 for a, b in edge)
+            if dmin <= (11.0 + 3.0 * vn(x, z, 6, 130)) ** 2:
+                foot.add((x, z))
+    outside = [(x, z) for x in range(-1, W + 1) for z in range(-1, D + 1) if (x, z) not in foot]
+    rim_edge = [q for q in outside if any((q[0] + dx, q[1] + dz) in foot
+                                          for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))]
+    out = {}
+    for (x, z) in foot:
+        d = math.sqrt(min((x - a) ** 2 + (z - b) ** 2 for a, b in rim_edge))
+        if d <= 6.0:
+            lim = 2.0 + 1.1 * d + 1.0 * vn(x, z, 3, 131)        # at most 9.6 within 6 of the rim
+        else:
+            # then a flank whose steepness wanders, so it is not a frustum
+            lim = (9.6 + (1.8 + 3.6 * vn(x, z, 7, 132)) * (d - 6.0)
+                   + 2.0 * sn(x, z, 2.5, 133) * min(1.0, (d - 6.0) / 3.0))
+        out[(x, z)] = int(math.floor(min(base[(x, z)], lim)))
+        if d <= 6.0:
+            out[(x, z)] = min(out[(x, z)], 10)
+    c.rim_dist = {q: math.sqrt(min((q[0] - a) ** 2 + (q[1] - b) ** 2 for a, b in rim_edge))
+                  for q in foot}
+    return out
 
 
 def _cache():
@@ -812,12 +889,21 @@ def _mass_solid(c, i, m, x, y, z):
     # face, and only the softest beds cut a recess, and only along part of the perimeter.
     rec = {0: 0.0, 1: 0.35, 2: 1.4}[rec] * smooth(1.6 * vn(x, z, 8, m['seed'] + 31 * bi) - 0.3)
     flute = sn(x + 0.12 * y, z - 0.09 * y, 2.6, m['seed']) + 0.7 * sn(x, z, 7, m['seed'] + 5)
-    inset = (m['taper'] * up + rec * m['recess'] + m['shared'] * flute
+    taper = m['taper'] * up
+    if m['side'] is not None:
+        u, v = xz_to_uv(x, z)
+        cu, cv = m['centre']
+        su, sv = m['side']
+        k = ((u - cu) * su + (v - cv) * sv) / (math.hypot(u - cu, v - cv) * math.hypot(su, sv) + 1e-6)
+        taper *= max(0.0, k)
+    inset = (taper + rec * m['recess'] + m['shared'] * flute
              + m['band'] * 0.4 * sn(x, z, 3.5, m['seed'] + 13 * bi))
     if m['notch']:
         inset += _notch_inset(x, y, z)
-    if m['name'] in ('body', 'spire', 'bench'):
-        inset += _joint_inset(x, y, z)
+    if m['name'] in ('body', 'spire'):
+        inset += _joint_inset(x, y, z, JOINTS[:-2])
+    elif m['name'] == 'bench':
+        inset += _joint_inset(x, y, z, JOINTS[-2:])       # the surge channels only
     return d > inset
 
 
@@ -826,8 +912,12 @@ def envelope(x, y, z):
     if not (0 <= x < W and 0 <= y < H and 0 <= z < D):
         return False
     c = _cache()
+    if (x, z) not in c.base:
+        return False         # outside the footprint the world's own sea floor and sea stay
     if y <= c.base[(x, z)]:
         return True
+    if c.rim_dist[(x, z)] <= 6.0 and y > 10:
+        return False         # the rim stays low: nothing stands near the footprint's edge
     if _crack(x, y, z):
         return False
     for i, m in enumerate(MASSES):

@@ -60,4 +60,26 @@ public final class FxKinds {
     public static final String CURSE_REVEAL = "curse_reveal";
     /** A shown curse is lifted out of its tile at (x, y, z) and breaks into gold. params: curse id. */
     public static final String CURSE_LIFT = "curse_lift";
+
+    // --- Portkeys. Handled by client.fx.portkey.PortkeyClient. ---
+
+    /** A Portkey starts charging in entityId's hand at (x, y, z). params: charge ticks, old (1 = an Old Portkey). */
+    public static final String PORTKEY_CHARGE = "portkey_charge";
+    /** entityId let go (or was interrupted) before the hook: the charge powers down. No params. */
+    public static final String PORTKEY_CANCEL = "portkey_cancel";
+    /** The hook at (x, y, z), the holder's feet; entityId the holder: the implosion. params: group radius. */
+    public static final String PORTKEY_HOOK = "portkey_hook";
+    /**
+     * Sent to each traveller alone: you are in the tunnel. params: max ticks, crossDim (1 = another dimension),
+     * isHolder (1 = you held the boot), old (1 = an Old Portkey).
+     */
+    public static final String PORTKEY_TRANSIT = "portkey_transit";
+    /** The group lands at (x, y, z), their feet: the burst. params: how many travelled. */
+    public static final String PORTKEY_ARRIVE = "portkey_arrive";
+    /** Sent to each traveller alone: the journey failed and they were dropped back. No params. */
+    public static final String PORTKEY_ABORT = "portkey_abort";
+    /** A spent Old Portkey crumbles in entityId's hand at (x, y, z). No params. */
+    public static final String PORTKEY_CRUMBLE = "portkey_crumble";
+    /** entityId bound a Portkey to (x, y, z), their feet: a rune ring flashes. No params. */
+    public static final String PORTKEY_BIND = "portkey_bind";
 }

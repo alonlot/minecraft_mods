@@ -2114,7 +2114,7 @@ public class ModEvents {
     }
 
     /** Find a safe feet position (2-high air gap on solid, dry ground) in the target column, or null. */
-    private static Vec3 findApparitionLanding(ServerLevel level, int targetX, int targetZ) {
+    public static Vec3 findApparitionLanding(ServerLevel level, int targetX, int targetZ) {
         BlockPos probe = new BlockPos(targetX, level.getMinBuildHeight() + 1, targetZ);
         if (!level.isLoaded(probe)) {
             return null;

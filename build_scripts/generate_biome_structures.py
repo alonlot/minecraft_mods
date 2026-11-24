@@ -5977,6 +5977,524 @@ def audit_yeti_cave(blocks, entities):
     return problems
 
 
+# --- Hidden wizard houses ------------------------------------------------------------------------
+# A hidden wizard house is drawn twice, as a ruin and as the cottage it is hiding, and the two views
+# are merged cell by cell. Where both views agree the block is simply real. Where only the cottage
+# has a block, it is written as a glamoured block holding the real state, which Revelio turns real.
+# Where only the ruin has a stone, it is a phantom ruin block, which vanishes. Ground, floor, stump
+# walls, the jinxed chest and the wild undergrowth are the same in both, so they never change.
+# Revelio lives in hiddenhouse/HiddenHouses.java; the rules mirrored here are in HiddenHouseRules.java.
+
+HOUSE_G = 2                       # standing level: y=0 dirt, y=1 floor and ground, y=2 first air above
+HOUSE_X0, HOUSE_X1 = 4, 13        # outer faces of the walls
+HOUSE_Z0, HOUSE_Z1 = 3, 11
+HOUSE_DOOR_X = 8                  # the door in the south wall
+HOUSE_LINK = 3                    # HiddenHouseRules.LINK
+HOUSE_SPAN = 24                   # HiddenHouseRules.MAX_HOUSE_SPAN
+HOUSE_MAX = 2048                  # HiddenHouseRules.MAX_HOUSE_BLOCKS
+HOUSE_LOOT = 'hogwartsmagic:chests/hidden_house'
+HOUSE_BE = {'id': 'hogwartsmagic:hidden_house'}
+
+# Mirrors HiddenHouseRules.isGlamourTarget (the reveal places blocks without shape updates, so nothing
+# whose shape comes from its neighbours may be glamoured).
+GLAMOUR_DENY = {'minecraft:' + n for n in (
+    'air', 'cave_air', 'void_air', 'water', 'lava', 'bubble_column', 'fire', 'soul_fire', 'redstone_wire',
+    'tripwire', 'iron_bars', 'chorus_plant', 'spawner', 'trial_spawner', 'piston_head', 'moving_piston',
+    'nether_portal', 'end_portal', 'end_gateway')} | {'hogwartsmagic:' + n for n in (
+    'glamoured_block', 'phantom_ruin', 'jinx_ward', 'cursed_glyph', 'concealed_sandstone', 'concealed_rock')}
+GLAMOUR_DENY_SUFFIX = ('_fence', '_pane', '_wall')
+
+HOUSE_STONE = [('minecraft:mossy_cobblestone', 5), ('minecraft:cobblestone', 4), ('minecraft:stone_bricks', 3)]
+HOUSE_FLOOR = [('minecraft:stone_bricks', 5), ('minecraft:mossy_stone_bricks', 3), ('minecraft:cobblestone', 2),
+               ('minecraft:mossy_cobblestone', 2), ('minecraft:cracked_stone_bricks', 2)]
+HOUSE_GROUND = [('minecraft:grass_block', 8), ('minecraft:podzol', 3), ('minecraft:coarse_dirt', 2),
+                ('minecraft:moss_block', 1), ('minecraft:rooted_dirt', 1)]
+HOUSE_ROOF = [('minecraft:dark_oak_stairs', 7), ('minecraft:spruce_stairs', 3)]
+PHANTOM_LOOKS = {'minecraft:mossy_cobblestone': 'mossy_cobblestone', 'minecraft:cobblestone': 'cobblestone',
+                 'minecraft:stone_bricks': 'stone_bricks'}
+PHANTOM_BLOCK = 'hogwartsmagic:phantom_ruin'
+GLAMOUR_BLOCK = 'hogwartsmagic:glamoured_block'
+WARD_BLOCK = 'hogwartsmagic:jinx_ward'
+HOUSE_FLOWERS = ['minecraft:poppy', 'minecraft:dandelion', 'minecraft:azure_bluet', 'minecraft:cornflower',
+                 'minecraft:oxeye_daisy', 'minecraft:lily_of_the_valley', 'minecraft:red_tulip']
+
+
+def glamour(b, pos, name, props=None, nbt=None):
+    """A block that is not there until Revelio: invisible, holding the real state."""
+    real = {'Name': ('string', name)}
+    if props:
+        real['Properties'] = ('compound', {k: ('string', str(v)) for k, v in props.items()})
+    be = dict(HOUSE_BE)
+    be['Real'] = ('compound', real)
+    if nbt:
+        be['RealNbt'] = ('compound', {k: (v if isinstance(v, tuple) else ('string', v)) for k, v in nbt.items()})
+    b[pos] = (GLAMOUR_BLOCK, None, be)
+
+
+def phantom(b, pos, look):
+    """A ruin stone that was never there. `look` is a vanilla stone id from PHANTOM_LOOKS."""
+    b[pos] = (PHANTOM_BLOCK, {'look': PHANTOM_LOOKS[look]}, dict(HOUSE_BE))
+
+
+def ward(b, pos):
+    """The jinx laid over the trapped chest."""
+    b[pos] = (WARD_BLOCK, None, dict(HOUSE_BE))
+
+
+def _look_of(props):
+    for stone, key in PHANTOM_LOOKS.items():
+        if (props or {}).get('look') == key:
+            return stone
+    return 'minecraft:mossy_cobblestone'
+
+
+def glamour_real(v):
+    """(name, props, nbt) a glamoured entry will become."""
+    real = v[2]['Real'][1]
+    props = {k: s[1] for k, s in real['Properties'][1].items()} if 'Properties' in real else None
+    nbt = None
+    if 'RealNbt' in v[2]:
+        nbt = {k: (s[1] if s[0] == 'string' else s) for k, s in v[2]['RealNbt'][1].items()}
+    return real['Name'][1], props, nbt
+
+
+def _door(b, x, y, z, facing, hinge='left'):
+    for half, yy in (('lower', y), ('upper', y + 1)):
+        b[(x, yy, z)] = ('minecraft:spruce_door', {'facing': facing, 'half': half, 'hinge': hinge,
+                                                   'open': 'false', 'powered': 'false'}, None)
+
+
+def _log(b, pos, axis='y', name='minecraft:spruce_log'):
+    b[pos] = (name, {'axis': axis}, None)
+
+
+def _lantern(b, pos, hanging):
+    b[pos] = ('minecraft:lantern', {'hanging': 'true' if hanging else 'false', 'waterlogged': 'false'}, None)
+
+
+def _shutter(b, pos, facing):
+    b[pos] = ('minecraft:spruce_trapdoor', {'facing': facing, 'half': 'top', 'open': 'true',
+                                            'powered': 'false', 'waterlogged': 'false'}, None)
+
+
+def _soil(b, x, z):
+    below = b.get((x, 1, z), (None,))[0]
+    return below in DIRT_TAG
+
+
+def _roof_d(z):
+    return min(z - 2, 12 - z)
+
+
+def house_ground(b):
+    """The ground the house stands on, the worn path to its door, and the foundation and floor.
+    Shared by both views."""
+    for x in range(18):
+        for z in range(16):
+            dx = (x - 8.5) / 8.9
+            dz = (z - 7.5) / 7.5
+            r = math.hypot(dx, dz)
+            if r > 1.0 - 0.18 * noise(x, 0, z, 601):
+                continue
+            g = tex(HOUSE_GROUND, x, 1, z, 602)
+            put(b, (x, 1, z), g, {'snowy': 'false'} if g in ('minecraft:grass_block', 'minecraft:podzol') else None)
+            put(b, (x, 0, z), tex([('minecraft:dirt', 4), ('minecraft:coarse_dirt', 2)], x, 0, z, 603))
+    # The worn path from the door out through the garden.
+    for z in range(12, 16):
+        for x in (8, 7 if z % 2 else 9):
+            if (x, 1, z) in b:
+                put(b, (x, 1, z), 'minecraft:dirt_path')
+    # Foundation and floor.
+    for x in range(HOUSE_X0, HOUSE_X1 + 1):
+        for z in range(HOUSE_Z0, HOUSE_Z1 + 1):
+            put(b, (x, 0, z), 'minecraft:cobblestone')
+            edge = x in (HOUSE_X0, HOUSE_X1) or z in (HOUSE_Z0, HOUSE_Z1)
+            put(b, (x, 1, z), 'minecraft:cobblestone' if edge else tex(HOUSE_FLOOR, x, 1, z, 604))
+    # A warding mosaic in front of the loot chest, two of its tiles cursed.
+    for x in range(9, 12):
+        for z in range(8, 11):
+            put(b, (x, 1, z), GLYPH)
+    cursed(b, (10, 1, 10), 'collapse')
+    cursed(b, (11, 1, 9), 'withering')
+
+
+def house_walls(b):
+    """Stone walls, the door, the windows and their shutters, the carved interior."""
+    for x in range(HOUSE_X0, HOUSE_X1 + 1):
+        for z in range(HOUSE_Z0, HOUSE_Z1 + 1):
+            if not (x in (HOUSE_X0, HOUSE_X1) or z in (HOUSE_Z0, HOUSE_Z1)):
+                continue
+            corner = x in (HOUSE_X0, HOUSE_X1) and z in (HOUSE_Z0, HOUSE_Z1)
+            for y in range(HOUSE_G, HOUSE_G + 5):
+                put(b, (x, y, z), 'minecraft:stone_bricks' if corner else tex(HOUSE_STONE, x, y, z, 611))
+    # The door, and windows with their shutters.
+    for y in (2, 3):
+        b.pop((HOUSE_DOOR_X, y, HOUSE_Z1), None)
+    _door(b, HOUSE_DOOR_X, 2, HOUSE_Z1, 'south')
+    for x in (6, 10):
+        put(b, (x, 3, HOUSE_Z1), 'minecraft:glass')
+        _shutter(b, (x - 1, 3, HOUSE_Z1 + 1), 'south')
+        _shutter(b, (x + 1, 3, HOUSE_Z1 + 1), 'south')
+        put(b, (x, 3, HOUSE_Z0), 'minecraft:glass')
+        _shutter(b, (x - 1, 3, HOUSE_Z0 - 1), 'north')
+        _shutter(b, (x + 1, 3, HOUSE_Z0 - 1), 'north')
+    put(b, (HOUSE_X0, 3, 7), 'minecraft:glass')
+    _shutter(b, (HOUSE_X0 - 1, 3, 6), 'west')
+    _shutter(b, (HOUSE_X0 - 1, 3, 8), 'west')
+    # Carve the interior, the whole vault under the roof, so no tree stands in the cottage.
+    for x in range(HOUSE_X0 + 1, HOUSE_X1):
+        for z in range(HOUSE_Z0 + 1, HOUSE_Z1):
+            for y in range(HOUSE_G, HOUSE_G + 3 + min(_roof_d(z), 4) + 1):
+                b.setdefault((x, y, z), ('minecraft:cave_air', None, None))
+
+
+def house_roof(b):
+    """A steep dark-oak roof along x, a ridge, and gables of spruce plank with a round-ish window."""
+    for x in range(HOUSE_X0 - 1, HOUSE_X1 + 2):
+        for z in range(2, 13):
+            d = _roof_d(z)
+            y = 6 + d
+            if d < 5:
+                stair(b, (x, y, z), tex(HOUSE_ROOF, x, y, z, 621), 'south' if z < 7 else 'north')
+            else:
+                put(b, (x, 10, z), 'minecraft:dark_oak_planks')
+                slab(b, (x, 11, z), 'minecraft:dark_oak_slab')
+    for x in (HOUSE_X0, HOUSE_X1):
+        for z in range(HOUSE_Z0 + 1, HOUSE_Z1):
+            for y in range(7, 6 + min(_roof_d(z), 5)):
+                put(b, (x, y, z), 'minecraft:spruce_planks')
+            if x == HOUSE_X0 and z == 7:
+                put(b, (x, 8, z), 'minecraft:glass')
+    # Tie beams across the vault, and the lanterns that hang from them.
+    for x in (6, 9, 12):
+        for z in range(HOUSE_Z0 + 1, HOUSE_Z1):
+            _log(b, (x, 7, z), 'z')
+    for pos in ((9, 6, 7), (6, 6, 9), (12, 6, 5)):
+        _lantern(b, pos, True)
+
+
+def house_chimney(b):
+    """The hearth in the east wall, its flue, and a chimney stack with a smouldering pot."""
+    for z in range(6, 9):
+        for x in (14, 15):
+            for y in range(2, 13):
+                put(b, (x, y, z), tex(HOUSE_STONE, x, y, z, 631))
+    for z in range(6, 9):
+        for y in range(7, 10):
+            put(b, (13, y, z), tex(HOUSE_STONE, 13, y, z, 632))
+    b[(13, 2, 7)] = ('minecraft:campfire', {'facing': 'west', 'lit': 'true', 'signal_fire': 'false',
+                                           'waterlogged': 'false'}, None)
+    b[(13, 3, 7)] = ('hogwartsmagic:wizard_cauldron', {'level': '3'}, None)
+    for pos in ((13, 4, 7), (14, 4, 7)) + tuple((14, y, 7) for y in range(5, 12)):
+        b[pos] = ('minecraft:cave_air', None, None)
+    b[(14, 12, 7)] = ('minecraft:campfire', {'facing': 'south', 'lit': 'true', 'signal_fire': 'false',
+                                            'waterlogged': 'false'}, None)
+    put(b, (13, 5, 7), 'minecraft:stone_bricks')
+
+
+def house_interior(b):
+    """The cosy part: bed, books, hearth, table, rug, lanterns and the loot chest."""
+    # A bed in the corner with the trapped chest at its foot (the chest is real in both views).
+    b[(5, 2, 5)] = ('minecraft:red_bed', {'facing': 'north', 'part': 'foot', 'occupied': 'false'}, None)
+    b[(5, 2, 4)] = ('minecraft:red_bed', {'facing': 'north', 'part': 'head', 'occupied': 'false'}, None)
+    chest(b, (5, 2, 6), 'east', HOUSE_LOOT)
+    # Books: a wall of shelves on the north wall, a smaller case on the west, a lectern and a barrel.
+    for x in range(8, 12):
+        for y in range(2, 5):
+            put(b, (x, y, 4), 'minecraft:bookshelf')
+    for z in range(8, 11):
+        for y in range(2, 5):
+            put(b, (5, y, z), 'minecraft:bookshelf')
+    b[(7, 2, 4)] = ('minecraft:lectern', {'facing': 'south', 'has_book': 'true', 'powered': 'false'}, None)
+    b[(12, 2, 4)] = ('minecraft:barrel', {'facing': 'up', 'open': 'false'}, None)
+    b[(9, 5, 4)] = ('minecraft:candle', {'candles': '3', 'lit': 'true', 'waterlogged': 'false'}, None)
+    b[(10, 5, 4)] = ('minecraft:candle', {'candles': '2', 'lit': 'true', 'waterlogged': 'false'}, None)
+    put(b, (8, 5, 4), 'minecraft:potted_fern')
+    # Brewing by the fire.
+    b[(12, 2, 9)] = ('minecraft:brewing_stand', {'has_bottle_0': 'true', 'has_bottle_1': 'false',
+                                                'has_bottle_2': 'true'}, None)
+    # Fireside armchairs.
+    for z in (6, 8):
+        b[(11, 2, z)] = ('hogwartsmagic:common_room_armchair', {'facing': 'east'}, None)
+    # A joined two-by-two table with a chair on two sides.
+    table = {(8, 7): ('false', 'true', 'true', 'false'), (9, 7): ('false', 'false', 'true', 'true'),
+             (8, 8): ('true', 'true', 'false', 'false'), (9, 8): ('true', 'false', 'false', 'true')}
+    for (x, z), (n, e, s, w) in table.items():
+        b[(x, 2, z)] = ('hogwartsmagic:wizard_table', {'north': n, 'east': e, 'south': s, 'west': w}, None)
+    b[(8, 2, 6)] = ('hogwartsmagic:wizard_chair', {'facing': 'south'}, None)
+    b[(9, 2, 9)] = ('hogwartsmagic:wizard_chair', {'facing': 'north'}, None)
+    # A rug round the table.
+    for x in range(7, 11):
+        for z in range(6, 10):
+            if b.get((x, 2, z), ('minecraft:cave_air',))[0] == 'minecraft:cave_air' and not (x >= 9 and z >= 8):
+                put(b, (x, 2, z), 'minecraft:red_carpet')
+    # The loot chest in the south-east corner, in front of the cursed mosaic.
+    chest(b, (12, 2, 10), 'west', HOUSE_LOOT)
+
+
+def house_garden(b):
+    """What the house keeps outside: flowers, lantern posts, a rain barrel and a woodpile."""
+    for x in (5, 6, 7, 9, 10, 11):
+        if _soil(b, x, 12):
+            put(b, (x, 2, 12), HOUSE_FLOWERS[int(noise(x, 2, 12, 641) * len(HOUSE_FLOWERS))])
+    for x in (6, 7, 10, 11):
+        if _soil(b, x, 14):
+            put(b, (x, 2, 14), HOUSE_FLOWERS[int(noise(x, 2, 14, 642) * len(HOUSE_FLOWERS))])
+    for x, kind in ((4, 'minecraft:rose_bush'), (12, 'minecraft:lilac')):
+        if _soil(b, x, 12):
+            b[(x, 2, 12)] = (kind, {'half': 'lower'}, None)
+            b[(x, 3, 12)] = (kind, {'half': 'upper'}, None)
+    for x in (7, 9):
+        if _soil(b, x, 13):
+            for y in range(2, 5):
+                _log(b, (x, y, 13))
+            _lantern(b, (x, 5, 13), False)
+    if _soil(b, 14, 11):
+        b[(14, 2, 11)] = ('minecraft:barrel', {'facing': 'up', 'open': 'false'}, None)
+    for z in range(5, 10):
+        if _soil(b, 2, z):
+            _log(b, (2, 2, z), 'z')
+            if 6 <= z <= 8:
+                _log(b, (2, 3, z), 'z')
+
+
+def cottage_blocks():
+    """The whole house as it really is."""
+    b = {}
+    house_ground(b)
+    house_walls(b)
+    house_roof(b)
+    house_chimney(b)
+    house_interior(b)
+    house_garden(b)
+    return b
+
+
+# --- the ruin ------------------------------------------------------------------------------------
+
+def stump_height(x, z):
+    """How many courses of wall are left standing: ragged, tall at the corners."""
+    n = noise(x // 2, 0, z // 2, 651)
+    h = int(round(0.2 + 3.0 * n + (noise(x, 0, z, 652) - 0.5) * 1.6))
+    if x in (HOUSE_X0, HOUSE_X1) and z in (HOUSE_Z0, HOUSE_Z1):
+        h = max(h, 3)
+    if z == HOUSE_Z1 and x in (HOUSE_DOOR_X - 1, HOUSE_DOOR_X + 1):
+        h = max(h, 3)          # the broken doorway: two jambs still standing
+    return max(0, min(4, h))
+
+
+HEAPS = [(6.5, 9.0, 2.2, 2), (11.0, 5.5, 1.6, 2), (3.0, 4.0, 2.0, 2), (14.5, 10.5, 2.4, 2),
+         (2.5, 11.5, 1.8, 1), (16.5, 8.5, 1.8, 2), (12.0, 1.5, 1.8, 1), (6.0, 6.5, 1.3, 2)]
+
+
+def heap_height(x, z):
+    h = 0
+    for cx, cz, r, peak in HEAPS:
+        d = math.hypot(x - cx, z - cz)
+        if d < r:
+            h = max(h, int(round(peak * (1.0 - d / r) + noise(x, 0, z, 661) * 0.5)))
+    return h
+
+
+def ruin_blocks(c):
+    """The same place as a dull overgrown ruin: stump walls, rubble that was never there, undergrowth."""
+    b = {}
+    for pos, v in c.items():
+        if pos[1] <= 1:
+            b[pos] = v
+    # Wall stumps and the chimney: the cottage own stone cells, as far up as they still stand.
+    for pos, v in c.items():
+        x, y, z = pos
+        if y < HOUSE_G or v[0] not in PHANTOM_LOOKS:
+            continue
+        if x >= 14:
+            if y <= 6 and not (y == 6 and noise(x, y, z, 653) > 0.5):
+                b[pos] = v
+        elif y - HOUSE_G < stump_height(x, z):
+            b[pos] = v
+    # The trapped chest stays visible; the ward over it is the jinx.
+    b[(5, 2, 6)] = c[(5, 2, 6)]
+    ward(b, (5, 3, 6))
+    # Rubble heaps: stones that vanish, only where the cottage has nothing in the column.
+    reserved = {(5, 6), (6, 6), (7, 10), (8, 10), (8, 11), (8, 12), (9, 10)}
+    for x in range(0, 18):
+        for z in range(0, 16):
+            if (x, z) in reserved or (x, 1, z) not in b:
+                continue
+            h = heap_height(x, z)
+            for y in range(2, 2 + h):
+                if any((x, yy, z) in c and c[(x, yy, z)][0] != 'minecraft:cave_air' for yy in range(2, 2 + h + 1)):
+                    break
+                if (x, y, z) in b:
+                    break
+                phantom(b, (x, y, z), tex(HOUSE_STONE, x, y, z, 662))
+    # Undergrowth outside: vines on the stumps, moss, ferns and a few wildflowers, azalea bushes.
+    dirs = {'north': (0, -1), 'south': (0, 1), 'west': (-1, 0), 'east': (1, 0)}
+    for pos in sorted(b):
+        x, y, z = pos
+        v = b[pos]
+        if y < 3 or v[0] not in PHANTOM_LOOKS:
+            continue
+        for side, (dx, dz) in dirs.items():
+            n = (x + dx, y, z + dz)
+            if n in b or n in c or noise(x + dx, y, z + dz, 671 + dx + 2 * dz) < 0.55:
+                continue
+            outside = not (HOUSE_X0 < n[0] < HOUSE_X1 and HOUSE_Z0 < n[2] < HOUSE_Z1)
+            if outside:
+                opposite = {'north': 'south', 'south': 'north', 'west': 'east', 'east': 'west'}[side]
+                vine(b, n, opposite)
+    for x in range(18):
+        for z in range(16):
+            if (x, 1, z) not in b or (x, 2, z) in b or (x, 2, z) in c:
+                continue
+            n = noise(x, 2, z, 681)
+            soil = b[(x, 1, z)][0] in DIRT_TAG
+            inside = HOUSE_X0 <= x <= HOUSE_X1 and HOUSE_Z0 <= z <= HOUSE_Z1
+            if inside or not soil or b[(x, 1, z)][0] == 'minecraft:dirt_path':
+                continue
+            if n > 0.86:
+                put(b, (x, 2, z), 'minecraft:flowering_azalea')
+            elif n > 0.74:
+                put(b, (x, 2, z), 'minecraft:fern')
+            elif n > 0.58:
+                put(b, (x, 2, z), 'minecraft:short_grass')
+            elif n < 0.12:
+                put(b, (x, 2, z), 'minecraft:moss_carpet')
+    return b
+
+
+def merge_hidden(cottage, ruin):
+    """Merge the two views. Returns (blocks, problems)."""
+    out, problems = {}, []
+    for pos in sorted(set(cottage) | set(ruin)):
+        c, r = cottage.get(pos), ruin.get(pos)
+        if r is None:
+            if c[0] == 'minecraft:cave_air':
+                out[pos] = c
+            elif c[0] in GLAMOUR_DENY or c[0].endswith(GLAMOUR_DENY_SUFFIX):
+                problems.append('%s at %s cannot be glamoured' % (c[0], pos))
+                out[pos] = c
+            else:
+                glamour(out, pos, c[0], c[1], c[2])
+        elif c is None:
+            out[pos] = r
+        elif r[0] in (PHANTOM_BLOCK, WARD_BLOCK):
+            if c[0] == 'minecraft:cave_air':
+                out[pos] = r
+            else:
+                problems.append('phantom ruin at %s sits on cottage %s' % (pos, c[0]))
+        elif r == c:
+            out[pos] = c
+        else:
+            problems.append('the views disagree at %s: ruin %s, cottage %s' % (pos, r[0], c[0]))
+            out[pos] = c
+    return out, problems
+
+
+def ruin_view(blocks):
+    """What the template looks like before Revelio, with plain vanilla blocks."""
+    out = {}
+    for pos, v in blocks.items():
+        if v[0] in (GLAMOUR_BLOCK, WARD_BLOCK, 'minecraft:cave_air'):
+            continue
+        out[pos] = (_look_of(v[1]), None, None) if v[0] == PHANTOM_BLOCK else v
+    return out
+
+
+def cottage_view(blocks):
+    """What it becomes once Revelio has unmasked it."""
+    out = {}
+    for pos, v in blocks.items():
+        if v[0] in (PHANTOM_BLOCK, WARD_BLOCK, 'minecraft:cave_air'):
+            continue
+        out[pos] = glamour_real(v) if v[0] == GLAMOUR_BLOCK else v
+    return out
+
+
+def hidden_house():
+    cottage = cottage_blocks()
+    blocks, problems = merge_hidden(cottage, ruin_blocks(cottage))
+    if problems:
+        raise SystemExit('hidden_house: ' + '; '.join(problems[:12]))
+    return blocks, []
+
+
+def audit_hidden_house(blocks):
+    """The house must be one connected, bounded thing for Revelio, the ruin must read as a ruin, the
+    cottage must be whole, and nothing resting on a hidden block may be left floating."""
+    problems = []
+    hidden = [p for p, v in blocks.items() if v[0] in (GLAMOUR_BLOCK, PHANTOM_BLOCK, WARD_BLOCK)]
+    if len(hidden) > HOUSE_MAX:
+        problems.append('%d hidden blocks, more than a reveal will take (%d)' % (len(hidden), HOUSE_MAX))
+    # One component under the Chebyshev link, bounded span.
+    rest, parts = set(hidden), 0
+    while rest:
+        parts += 1
+        stack = [rest.pop()]
+        while stack:
+            x, y, z = stack.pop()
+            near = [q for q in rest if max(abs(q[0] - x), abs(q[1] - y), abs(q[2] - z)) <= HOUSE_LINK]
+            for q in near:
+                rest.discard(q)
+            stack.extend(near)
+    if parts != 1:
+        problems.append('the hidden blocks fall into %d groups, a reveal would leave some behind' % parts)
+    for i in range(3):
+        if hidden and max(p[i] for p in hidden) - min(p[i] for p in hidden) + 1 > HOUSE_SPAN:
+            problems.append('the hidden blocks span more than %d on axis %d' % (HOUSE_SPAN, i))
+    ruin, cot = ruin_view(blocks), cottage_view(blocks)
+    problems += ['ruin: ' + p for p in audit('hidden_house_ruin', ruin)]
+    problems += ['cottage: ' + p for p in audit('hidden_house_cottage', cot)]
+    # The ruin: one chest, and nothing tall that is not rubble or the chimney.
+    chests = [p for p, v in ruin.items() if v[0] == 'minecraft:chest']
+    if len(chests) != 1:
+        problems.append('the ruin shows %d chests, wanted exactly 1' % len(chests))
+    for (x, y, z), v in ruin.items():
+        if y > HOUSE_G + 3 and x < 14 and v[0] != 'minecraft:cave_air':
+            if blocks[(x, y, z)][0] != PHANTOM_BLOCK:
+                problems.append('the ruin has a real %s at %s above the stumps' % (v[0], (x, y, z)))
+    for (x, y, z), v in ruin.items():
+        if v[0] in ('minecraft:vine', 'minecraft:fern', 'minecraft:short_grass', 'minecraft:moss_carpet',
+                    'minecraft:flowering_azalea', 'minecraft:red_carpet', 'minecraft:lantern'):
+            if v[0] == 'minecraft:vine':
+                held = [(x + dx, y, z + dz) for s, (dx, dz) in
+                        (('north', (0, -1)), ('south', (0, 1)), ('west', (-1, 0)), ('east', (1, 0)))
+                        if v[1].get(s) == 'true']
+                if not any(h in blocks and blocks[h][0] in PHANTOM_LOOKS for h in held):
+                    problems.append('vine at %s hangs on %s' % ((x, y, z), [blocks.get(h, (None,))[0] for h in held]))
+                continue
+            under = blocks.get((x, y - 1, z), (None,))[0]
+            if under in (GLAMOUR_BLOCK, PHANTOM_BLOCK, None):
+                problems.append('%s at %s rests on %s' % (v[0], (x, y, z), under))
+    # The cottage: whole beds and doors, books, a cauldron, fires, two chests.
+    names = [v[0] for v in cot.values()]
+    for pos, v in cot.items():
+        if v[0] == 'minecraft:red_bed' and v[1]['part'] == 'foot':
+            dx, _, dz = DIRS[v[1]['facing']]
+            head = cot.get((pos[0] + dx, pos[1], pos[2] + dz), (None, {}))
+            if head[0] != 'minecraft:red_bed' or head[1].get('part') != 'head':
+                problems.append('the bed at %s has no head' % (pos,))
+        if v[0] == 'minecraft:spruce_door' and v[1]['half'] == 'lower':
+            if cot.get((pos[0], pos[1] + 1, pos[2]), (None, {}))[1].get('half') != 'upper':
+                problems.append('the door at %s has no upper half' % (pos,))
+    if names.count('minecraft:bookshelf') < 8:
+        problems.append('the cottage has only %d bookshelves' % names.count('minecraft:bookshelf'))
+    if 'hogwartsmagic:wizard_cauldron' not in names:
+        problems.append('the cottage has no cauldron')
+    if names.count('minecraft:campfire') < 1:
+        problems.append('the cottage has no fire')
+    if names.count('minecraft:chest') != 2:
+        problems.append('the cottage has %d chests, wanted 2' % names.count('minecraft:chest'))
+    # Cursed tiles hide among plain glyph tiles, as in the tomb.
+    for (x, y, z), v in blocks.items():
+        if v[0] == 'hogwartsmagic:cursed_glyph':
+            plain = sum(1 for dx in (-1, 0, 1) for dz in (-1, 0, 1)
+                        if blocks.get((x + dx, y, z + dz), (None,))[0] == GLYPH)
+            if plain < 3:
+                problems.append('cursed glyph at %s has only %d plain tiles round it' % ((x, y, z), plain))
+    return problems
+
+
 BUILDS = {
     'fen_gibbet': fen_gibbet,
     'fen_prison': fen_prison,
@@ -5999,6 +6517,7 @@ BUILDS = {
     'cursed_tomb': cursed_tomb,
     'cursebreaker_dig': cursebreaker_dig,
     'yeti_cave': yeti_cave,
+    'hidden_house': hidden_house,  # Hidden wizard houses
 }
 
 # Builds whose empty space is water rather than air. Anything waterloggable inside one has to say so,
@@ -6038,7 +6557,7 @@ WATERLOGGABLE = ('_stairs', '_slab', '_wall', '_fence', 'iron_bars', 'chain')
 
 def see_through(block):
     """True if you can see past this block. Bars next to bars is a cage, not a burial."""
-    if block is None or block in ('minecraft:air', 'minecraft:water'):
+    if block is None or block in ('minecraft:air', 'minecraft:cave_air', 'minecraft:water'):
         return True
     return (block in LANTERNS
             or block in ('minecraft:cobweb', 'minecraft:iron_bars', 'minecraft:chain',
@@ -6215,7 +6734,7 @@ def audit(name, blocks):
         if block == 'minecraft:chest':
             dx, _, dz = DIRS[props['facing']]
             front = at((x + dx, y, z + dz))
-            if front is not None and front not in ('minecraft:air', 'minecraft:water'):
+            if front is not None and front not in ('minecraft:air', 'minecraft:cave_air', 'minecraft:water'):
                 problems.append(f'chest at {pos} faces {props["facing"]} into {front}')
             for other in chests:
                 if other != pos and abs(other[0] - x) + abs(other[1] - y) + abs(other[2] - z) == 1:
@@ -6313,6 +6832,8 @@ if __name__ == '__main__':
             problems += audit_locket_cave(blocks)
         if name == 'cursed_tomb':
             problems += audit_cursed_tomb(blocks)
+        if name == 'hidden_house':
+            problems += audit_hidden_house(blocks)
         if name == 'yeti_cave':
             problems += audit_yeti_cave(blocks, entities)
         path = os.path.join(OUT, name + '.nbt')

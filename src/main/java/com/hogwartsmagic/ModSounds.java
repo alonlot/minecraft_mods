@@ -571,6 +571,10 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> CAST_RELEASE_PUNCH = register("cast.release_punch");
     public static final RegistryObject<SoundEvent> CAST_IMPACT_CRUNCH = register("cast.impact_crunch");
 
+    // Hidden wizard houses: the glamour breaking, and the jinxed chest.
+    public static final RegistryObject<SoundEvent> HIDDEN_HOUSE_REVEAL = register("hidden_house.reveal");
+    public static final RegistryObject<SoundEvent> HIDDEN_HOUSE_JINX = register("hidden_house.jinx");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

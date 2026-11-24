@@ -96,6 +96,13 @@ public final class MagicBookChestLoot {
             SpellType.CAELUM_FASCINO
     };
 
+    // Hidden wizard houses: a house own charms.
+    private static final SpellType[] HIDDEN_HOUSE = {
+            SpellType.REVELIO, SpellType.ALOHOMORA, SpellType.COLLOPORTUS, SpellType.REPARO, SpellType.ACCIO,
+            SpellType.LUMOS, SpellType.CONFUNDO, SpellType.CAVE_INIMICUM, SpellType.PROTEGO_MAXIMA,
+            SpellType.PIERTOTUM_LOCOMOTOR, SpellType.CAELUM_FASCINO
+    };
+
     static {
         put("minecraft:chests/village/village_plains_house", VILLAGE);
         put("minecraft:chests/village/village_desert_house", VILLAGE);
@@ -131,6 +138,7 @@ public final class MagicBookChestLoot {
         put("minecraft:chests/abandoned_mineshaft", DUNGEON_MIX);
         put("minecraft:chests/desert_pyramid", DUNGEON_MIX);
         put("minecraft:chests/jungle_temple", DUNGEON_MIX);
+        putGuaranteed("hogwartsmagic:chests/hidden_house", HIDDEN_HOUSE); // Hidden wizard houses
 
     }
 
@@ -151,6 +159,7 @@ public final class MagicBookChestLoot {
         indexSource("stronghold", STRONGHOLD_LIBRARY);
         indexSource("dungeon", DUNGEON_MIX);
         indexSource("common_chests", DEFAULT_POOL);
+        indexSource("hidden_house", HIDDEN_HOUSE); // Hidden wizard houses
     }
 
     private static void indexSource(String labelSuffix, SpellType[] pool) {

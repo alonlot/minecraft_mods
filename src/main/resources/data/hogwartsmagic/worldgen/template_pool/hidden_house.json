@@ -1,0 +1,14 @@
+{
+  "fallback": "minecraft:empty",
+  "elements": [
+    {
+      "weight": 1,
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "hogwartsmagic:hidden_house",
+        "processors": "hogwartsmagic:hidden_house",
+        "projection": "rigid"
+      }
+    }
+  ]
+}

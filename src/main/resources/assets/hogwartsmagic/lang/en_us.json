@@ -2071,5 +2071,12 @@
   "message.hogwartsmagic.headmaster_stair.wrong": "The gargoyle does not move.",
   "message.hogwartsmagic.headmaster_stair.leaving": "The stair rises to take you down.",
   "message.hogwartsmagic.headmaster_stair.hint": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand.",
-  "message.hogwartsmagic.headmaster_stair.hint_sweets": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand. (The Headmaster is fond of a Sherbet Lemon.)"
+  "message.hogwartsmagic.headmaster_stair.hint_sweets": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand. (The Headmaster is fond of a Sherbet Lemon.)",
+  "block.hogwartsmagic.phantom_ruin": "Phantom Ruin",
+  "block.hogwartsmagic.glamoured_block": "Glamoured Block",
+  "block.hogwartsmagic.jinx_ward": "Jinx Ward",
+  "subtitles.hogwartsmagic.hidden_house.reveal": "Glamour breaks",
+  "subtitles.hogwartsmagic.hidden_house.jinx": "Jinx cracks",
+  "message.hogwartsmagic.hidden_house.jinx": "The chest was jinxed!",
+  "gui.hogwartsmagic.grimoire.source.hidden_house": "Hidden wizard houses"
 }

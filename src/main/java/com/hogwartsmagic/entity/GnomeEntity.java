@@ -42,7 +42,6 @@ import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Blocks;
@@ -236,7 +235,7 @@ public class GnomeEntity extends PathfinderMob {
     }
 
     private boolean mobGriefing() {
-        return this.level().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING);
+        return net.minecraftforge.event.ForgeEventFactory.getMobGriefingEvent(this.level(), this);
     }
 
     // --- the garden --------------------------------------------------------------------------------------------

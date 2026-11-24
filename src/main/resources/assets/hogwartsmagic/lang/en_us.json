@@ -2075,5 +2075,12 @@
   "block.hogwartsmagic.horntail_egg": "Horntail Egg",
   "block.hogwartsmagic.ironbelly_egg": "Ironbelly Egg",
   "block.hogwartsmagic.dragon_egg.tooltip": "Long cold, and heavy as stone. Knockturn Alley pays for these.",
-  "block.hogwartsmagic.dragon_egg.stolen": "Somewhere close, a dragon has your scent."
+  "block.hogwartsmagic.dragon_egg.stolen": "Somewhere close, a dragon has your scent.",
+  "entity.hogwartsmagic.gnome": "Garden Gnome",
+  "item.hogwartsmagic.gnome_spawn_egg": "Garden Gnome Spawn Egg",
+  "item.hogwartsmagic.held_gnome": "Struggling Gnome",
+  "subtitles.hogwartsmagic.gnome.giggle": "Gnome giggles",
+  "subtitles.hogwartsmagic.gnome.squeak": "Gnome squeaks",
+  "subtitles.hogwartsmagic.gnome.bite": "Gnome bites",
+  "subtitles.hogwartsmagic.gnome.wail": "Gnome wails"
 }

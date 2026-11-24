@@ -1,0 +1,29 @@
+{
+  "loader": "forge:separate_transforms",
+  "base": {
+    "parent": "minecraft:item/generated",
+    "textures": {
+      "layer0": "hogwartsmagic:item/blank"
+    }
+  },
+  "perspectives": {
+    "gui": {
+      "parent": "minecraft:item/generated",
+      "textures": {
+        "layer0": "hogwartsmagic:item/held_gnome"
+      }
+    },
+    "ground": {
+      "parent": "minecraft:item/generated",
+      "textures": {
+        "layer0": "hogwartsmagic:item/held_gnome"
+      }
+    },
+    "fixed": {
+      "parent": "minecraft:item/generated",
+      "textures": {
+        "layer0": "hogwartsmagic:item/held_gnome"
+      }
+    }
+  }
+}

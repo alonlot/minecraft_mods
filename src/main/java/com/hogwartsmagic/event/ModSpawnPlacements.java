@@ -158,5 +158,12 @@ public class ModSpawnPlacements {
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 com.hogwartsmagic.entity.WhompingWillowEntity::canSpawn,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
+        // Garden gnomes
+        event.register(
+                ModEntities.GNOME.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                com.hogwartsmagic.entity.GnomeEntity::canSpawn,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
     }
 }

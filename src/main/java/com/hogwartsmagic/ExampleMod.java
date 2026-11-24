@@ -912,6 +912,14 @@ public class ExampleMod
     public static final RegistryObject<Item> ACROMANTULA_SPAWN_EGG = ITEMS.register("acromantula_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.ACROMANTULA, 0x1A1A1A, 0x4D0000, new Item.Properties()));
 
+    // Garden gnomes
+    public static final RegistryObject<Item> GNOME_SPAWN_EGG = ITEMS.register("gnome_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.GNOME, 0x7D6E5D, 0x4B3F35, new Item.Properties()));
+
+    /** The invisible placeholder held while a garden gnome hangs from your hand. Not in any creative tab. */
+    public static final RegistryObject<Item> HELD_GNOME = ITEMS.register("held_gnome",
+            () -> new com.hogwartsmagic.item.HeldGnomeItem(new Item.Properties().stacksTo(1)));
+
     public static final RegistryObject<Item> DEMENTOR_SPAWN_EGG = ITEMS.register("dementor_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.DEMENTOR, 0x111111, 0x333333, new Item.Properties()));
 
@@ -1285,6 +1293,7 @@ public class ExampleMod
                 output.accept(BOGGART_SPAWN_EGG.get()); // Boggart Spawn Egg
                 output.accept(WHOMPING_WILLOW_SPAWN_EGG.get()); // Whomping Willow Spawn Egg
                 output.accept(SNAKE_SPAWN_EGG.get()); // Wild Snake Spawn Egg
+                output.accept(GNOME_SPAWN_EGG.get()); // Garden gnomes
                 output.accept(GALLEON.get());
                 output.accept(CURSED_GALLEON.get());
                 output.accept(CLANKERS.get()); // Galleon

@@ -513,4 +513,14 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .noSave()
                             .build("pensieve_body"));
+
+    // Garden gnomes: half a block tall, whole-body box.
+    public static final RegistryObject<EntityType<GnomeEntity>> GNOME =
+            ENTITY_TYPES.register("gnome",
+                    () -> EntityType.Builder.<GnomeEntity>of(GnomeEntity::new, MobCategory.CREATURE)
+                            .sized(0.4F, 0.5F)
+                            .eyeHeight(0.42F)
+                            .clientTrackingRange(10)
+                            .updateInterval(2)
+                            .build("gnome"));
 }

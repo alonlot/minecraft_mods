@@ -1,3 +1,8 @@
 {
-  "variants": { "": { "model": "hogwartsmagic:block/blood_seal" } }
+  "variants": {
+    "stage=0": { "model": "hogwartsmagic:block/blood_seal" },
+    "stage=1": { "model": "hogwartsmagic:block/blood_seal_1" },
+    "stage=2": { "model": "hogwartsmagic:block/blood_seal_2" },
+    "stage=3": { "model": "hogwartsmagic:block/blood_seal_2" }
+  }
 }

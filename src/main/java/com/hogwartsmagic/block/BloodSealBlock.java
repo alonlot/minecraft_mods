@@ -4,6 +4,8 @@ import com.hogwartsmagic.spell.combat.CombatDamage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -28,6 +30,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -53,18 +56,23 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
     /** Horizontal direction pointing to the outside of the cave. */
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
+    /** The look: 0 bare rock with a hairline, 1 smeared, 2 melting, 3 open. OPEN stays the collision flag (true at 3). */
+    public static final IntegerProperty STAGE = IntegerProperty.create("stage", 0, 3);
+
+    /** Ticks between melt stages: 0 to 1 on the click, 1 to 2, then 2 to 3, so the arch is open after 14 ticks. */
+    private static final int MELT_STEP = 7;
     private static final int OPEN_TICKS = 1200;
     private static final int MAX_ARCH = 64;
     private static final float TOLL = 6.0F;
 
     public BloodSealBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(OPEN, false).setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any().setValue(OPEN, false).setValue(STAGE, 0).setValue(FACING, Direction.NORTH));
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(OPEN, FACING);
+        builder.add(OPEN, STAGE, FACING);
     }
 
     /** The placer stands on the outside, facing in, so the outside is the opposite of where they look. */
@@ -95,8 +103,8 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (state.getValue(OPEN)) {
-            return InteractionResult.PASS;
+        if (state.getValue(OPEN) || state.getValue(STAGE) != 0) {
+            return InteractionResult.PASS; // open, or already melting: no second toll
         }
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
@@ -112,7 +120,7 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
             ((ServerLevel) level).sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(new DustParticleOptions(new Vector3f(0.6f, 0f, 0f), 1.2f)),
                     hit.getLocation().x, hit.getLocation().y, hit.getLocation().z, 20, 0.2, 0.2, 0.2, 0);
         }
-        setArch(level, pos, true);
+        meltArch(level, pos, 1);
         level.playSound(null, pos, SoundEvents.STONE_BUTTON_CLICK_ON, SoundSource.BLOCKS, 1f, 0.5f);
         return InteractionResult.CONSUME;
     }
@@ -135,19 +143,30 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
         return seals;
     }
 
-    /** Sets OPEN on the whole connected arch; opening schedules the reseal on the clicked block. */
-    static void setArch(Level level, BlockPos start, boolean open) {
+    /** Puts the whole connected arch at one stage; 3 also opens it. The clicked block carries the schedule. */
+    static void meltArch(Level level, BlockPos start, int stage) {
         for (BlockPos p : arch(level, start)) {
             BlockState s = level.getBlockState(p);
-            level.setBlock(p, s.setValue(OPEN, open), Block.UPDATE_CLIENTS);
+            level.setBlock(p, s.setValue(STAGE, stage).setValue(OPEN, stage == 3), Block.UPDATE_CLIENTS);
         }
-        if (open) {
-            level.scheduleTick(start, level.getBlockState(start).getBlock(), OPEN_TICKS);
+        level.scheduleTick(start, level.getBlockState(start).getBlock(), stage == 3 ? OPEN_TICKS : MELT_STEP);
+    }
+
+    /** Seals the whole arch back to bare rock. */
+    static void sealArch(Level level, BlockPos start) {
+        for (BlockPos p : arch(level, start)) {
+            BlockState s = level.getBlockState(p);
+            level.setBlock(p, s.setValue(STAGE, 0).setValue(OPEN, false), Block.UPDATE_CLIENTS);
         }
     }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        int stage = state.getValue(STAGE);
+        if (!state.getValue(OPEN) && stage != 0) {
+            meltArch(level, pos, stage + 1); // melting: stage 1 -> 2 -> 3
+            return;
+        }
         if (!state.getValue(OPEN)) {
             return;
         }
@@ -158,7 +177,25 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
                 return;
             }
         }
-        setArch(level, pos, false);
+        sealArch(level, pos);
+    }
+
+    /** A slow red drip from the top of the arch's outer face, only when someone is close enough to see it. */
+    @Override
+    @OnlyIn(Dist.CLIENT)
+    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+        if (state.getValue(OPEN) || state.getValue(STAGE) == 3 || random.nextInt(10) != 0) {
+            return;
+        }
+        if (level.getNearestPlayer(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 4.0, false) == null) {
+            return;
+        }
+        Direction out = state.getValue(FACING);
+        boolean top = !(level.getBlockState(pos.above()).getBlock() instanceof BloodSealBlock);
+        double x = pos.getX() + 0.5 + out.getStepX() * 0.52 + (out.getStepX() == 0 ? random.nextDouble() - 0.5 : 0);
+        double z = pos.getZ() + 0.5 + out.getStepZ() * 0.52 + (out.getStepZ() == 0 ? random.nextDouble() - 0.5 : 0);
+        double y = top ? pos.getY() + 1.0 : pos.getY() + random.nextDouble();
+        level.addParticle(new DustParticleOptions(new Vector3f(0.55f, 0f, 0f), 0.8f), x, y, z, 0, -0.08, 0);
     }
 
     @Override

@@ -313,7 +313,15 @@ public class ExampleMod
     public static final RegistryObject<Block> OWL_PERCH = BLOCKS.register("owl_perch",
             () -> new com.hogwartsmagic.block.OwlPerchBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_FENCE).strength(1.0f)));
     public static final RegistryObject<Block> FLOO_FIREPLACE = BLOCKS.register("floo_fireplace",
-            () -> new com.hogwartsmagic.block.FlooFireplaceBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SOUL_CAMPFIRE).strength(2.5f).lightLevel(state -> 12)));
+            () -> new com.hogwartsmagic.block.FlooFireplaceBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SOUL_CAMPFIRE).strength(2.5f).lightLevel(state -> 12)
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)));
+    /** The stone frame around a Floo hearth: jambs, lintel and mantel. Never an item; see FlooFireplacePartBlock. */
+    public static final RegistryObject<Block> FLOO_FIREPLACE_PART = BLOCKS.register("floo_fireplace_part",
+            () -> new com.hogwartsmagic.block.FlooFireplacePartBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.STONE_BRICKS)
+                    .strength(2.5f)
+                    .noOcclusion()
+                    .noLootTable()
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)));
     public static final RegistryObject<Block> WARD = BLOCKS.register("ward",
             () -> new com.hogwartsmagic.block.WardBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.AMETHYST_BLOCK)
                     .strength(2.0f)

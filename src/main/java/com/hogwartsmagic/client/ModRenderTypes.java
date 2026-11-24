@@ -250,6 +250,12 @@ public final class ModRenderTypes extends RenderType {
      */
     public static final RenderType SPELL_GLOW = spellLight("hogwartsmagic_spell_glow", SPELL_GLOW_TEXTURE);
     public static final RenderType SPELL_RING = spellLight("hogwartsmagic_spell_ring", SPELL_RING_TEXTURE);
+    /**
+     * {@link #SPELL_GLOW} and {@link #SPELL_RING} under names the bloom pass makes glow. Not {@link #magicGlow}: that
+     * adds colour ignoring alpha, and these sprites keep their round shape in alpha, so they would draw as squares.
+     */
+    public static final RenderType BLOOM_GLOW = spellLight("hogwartsmagic_bloom_glow", SPELL_GLOW_TEXTURE);
+    public static final RenderType BLOOM_RING = spellLight("hogwartsmagic_bloom_ring", SPELL_RING_TEXTURE);
 
     private static RenderType spellLight(String name, ResourceLocation texture) {
         return create(

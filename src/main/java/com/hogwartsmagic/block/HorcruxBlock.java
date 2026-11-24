@@ -35,10 +35,13 @@ import java.util.List;
 public class HorcruxBlock extends BaseEntityBlock {
     public static final MapCodec<HorcruxBlock> CODEC = simpleCodec(HorcruxBlock::new);
     public static final BooleanProperty LIT = BlockStateProperties.LIT;
+    /** Follows the model (tools/horcrux/build_horcrux_models.py): foot, step, column, capital, cradle and heart. */
     private static final VoxelShape SHAPE = Shapes.or(
-            Block.box(2.0, 0.0, 2.0, 14.0, 4.0, 14.0),
-            Block.box(4.0, 4.0, 4.0, 12.0, 10.0, 12.0),
-            Block.box(5.0, 10.0, 5.0, 11.0, 13.0, 11.0)
+            Block.box(2.0, 0.0, 2.0, 14.0, 2.0, 14.0),
+            Block.box(3.0, 2.0, 3.0, 13.0, 4.0, 13.0),
+            Block.box(5.0, 4.0, 5.0, 11.0, 10.0, 11.0),
+            Block.box(4.0, 10.0, 4.0, 12.0, 11.0, 12.0),
+            Block.box(5.0, 11.0, 5.0, 11.0, 16.0, 11.0)
     );
 
     public HorcruxBlock(BlockBehaviour.Properties properties) {
@@ -80,7 +83,17 @@ public class HorcruxBlock extends BaseEntityBlock {
     @Nullable
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-        return level.isClientSide ? null : createTickerHelper(type, ExampleMod.HORCRUX_BLOCK_ENTITY.get(), HorcruxBlockEntity::tick);
+        // Both sides: the server counts the flare down, each client plays the heartbeat, smoke and whispers.
+        return createTickerHelper(type, ExampleMod.HORCRUX_BLOCK_ENTITY.get(), HorcruxBlockEntity::tick);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, net.minecraft.world.item.Item.TooltipContext context,
+                                List<net.minecraft.network.chat.Component> tooltip, net.minecraft.world.item.TooltipFlag flag) {
+        tooltip.add(net.minecraft.network.chat.Component.translatable("block.hogwartsmagic.horcrux.tooltip.1")
+                .withStyle(net.minecraft.ChatFormatting.DARK_GREEN));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("block.hogwartsmagic.horcrux.tooltip.2")
+                .withStyle(net.minecraft.ChatFormatting.GRAY));
     }
 
     @Override

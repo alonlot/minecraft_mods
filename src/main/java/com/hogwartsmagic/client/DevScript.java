@@ -175,6 +175,16 @@ public final class DevScript {
                 });
                 case "shot" -> Screenshot.grab(mc.gameDirectory, arg.trim() + ".png", mc.getMainRenderTarget(),
                         msg -> LOGGER.info("Dev script: {}", msg.getString()));
+                case "fx" -> {
+                    // fx <kind> x y z [params...]: play a cinematic effect here as if the server sent it about you.
+                    String[] a = arg.trim().split("\\s+");
+                    float[] params = new float[Math.max(0, a.length - 4)];
+                    for (int i = 0; i < params.length; i++) {
+                        params[i] = Float.parseFloat(a[4 + i]);
+                    }
+                    com.hogwartsmagic.client.fx.FxClient.play(a[0], Double.parseDouble(a[1]), Double.parseDouble(a[2]),
+                            Double.parseDouble(a[3]), mc.player.getId(), params);
+                }
                 case "quit" -> mc.stop();
                 default -> LOGGER.warn("Dev script: unknown line {}", line);
             }

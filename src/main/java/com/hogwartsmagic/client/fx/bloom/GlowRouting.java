@@ -36,6 +36,8 @@ final class GlowRouting {
             Map.entry("hogwartsmagic_patronus_light", GLOW),
             Map.entry("hogwartsmagic_mark_glow", GLOW),
             Map.entry("hogwartsmagic_magic_glow", GLOW),
+            Map.entry("hogwartsmagic_bloom_glow", GLOW),
+            Map.entry("hogwartsmagic_bloom_ring", GLOW),
             Map.entry("hogwartsmagic_fiendfyre_glow", FIRE),
             Map.entry("hogwartsmagic_fire_glow", FIRE),
             Map.entry("hogwartsmagic_avada_shadow", OCCLUDE),

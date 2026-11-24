@@ -854,6 +854,18 @@ public class ClientModEvents {
 
     @SubscribeEvent
     public static void onClientSetup(net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent event) {
+        // The cinematic effects register their FxClient handlers and HUD layers from their own nested mod-bus
+        // FMLClientSetupEvent listeners, but those were never called in practice: Forge logs them as subscribed,
+        // yet the client logs "No client handler" for every curse and Horcrux effect (seen 2026-11-24). This
+        // listener does run, so it calls them itself. Every one is an idempotent map put, so a second call is harmless.
+        com.hogwartsmagic.client.fx.CameraShake.Setup.onClientSetup(event);
+        com.hogwartsmagic.client.fx.creature.SlamFx.Setup.onClientSetup(event);
+        com.hogwartsmagic.client.fx.CurseFx.Setup.onClientSetup(event);
+        com.hogwartsmagic.client.fx.HorcruxFx.Setup.onClientSetup(event);
+        com.hogwartsmagic.client.fx.intro.BossIntroClient.Setup.onClientSetup(event);
+        com.hogwartsmagic.client.fx.marks.MarkSpells.onClientSetup(event);
+        com.hogwartsmagic.client.fx.moments.MomentsClient.Setup.onClientSetup(event);
+        com.hogwartsmagic.client.fx.broom.BroomSpeedFx.Setup.onClientSetup(event);
         event.enqueueWork(() -> {
             MenuScreens.register(ExampleMod.WAND_WORKBENCH_MENU.get(), com.hogwartsmagic.client.WandWorkbenchScreen::new);
             MenuScreens.register(ExampleMod.BROOM_WORKBENCH_MENU.get(), com.hogwartsmagic.client.BroomWorkbenchScreen::new);
@@ -1230,6 +1242,8 @@ public class ClientModEvents {
         event.registerBlockEntityRenderer(ExampleMod.TOMB_MARKER_BLOCK_ENTITY.get(),
                 com.hogwartsmagic.client.fx.CurseGlyphRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.WAND_WORKBENCH_BLOCK_ENTITY.get(), WandWorkbenchRenderer::new);
+        event.registerBlockEntityRenderer(ExampleMod.HORCRUX_BLOCK_ENTITY.get(),
+                com.hogwartsmagic.client.renderer.HorcruxHeartRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.PENSIEVE_BLOCK_ENTITY.get(),
                 com.hogwartsmagic.client.pensieve.PensieveBasinRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.BROOM_WORKBENCH_BLOCK_ENTITY.get(), com.hogwartsmagic.client.BroomWorkbenchRenderer::new);

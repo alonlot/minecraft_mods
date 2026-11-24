@@ -565,6 +565,8 @@ public class ModEvents {
             com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(player);
             com.hogwartsmagic.spell.mastery.MasteryAwards.awardExistingRanks(player);
             HousePerks.applyHouseAttributes(player);
+            // A Horcrux destroyed while its owner was away or offline: look once, loading its chunk if need be.
+            HorcruxData.reconcileMissingHorcrux(player, true);
             HorcruxData.applyMaxHealthPenalty(player);
             // Dark Magic: after the house and Horcrux modifiers, so the Lost health cost clamps against the full max.
             com.hogwartsmagic.spell.dark.DarkMagicData.sync(player);
@@ -664,7 +666,9 @@ public class ModEvents {
         }
 
         if (horcrux == null) {
+            // The vessel went while the soul was flying to it: nothing to be reborn through, and nothing left to pay.
             HorcruxData.clearPendingRebirth(player);
+            HorcruxData.releaseForgedHorcrux(player);
             return;
         }
 
@@ -672,9 +676,8 @@ public class ModEvents {
         BlockPos targetPos = horcrux.getBlockPos().above();
         player.teleportTo(targetLevel, targetPos.getX() + 0.5D, targetPos.getY(), targetPos.getZ() + 0.5D, player.getYRot(), player.getXRot());
         horcrux.shatter(targetLevel);
-        HorcruxData.restoreSacrifice(player);
-        HorcruxData.clearBinding(player);
         HorcruxData.clearPendingRebirth(player);
+        HorcruxData.releaseForgedHorcrux(player);
 
         player.setHealth(Math.max(4.0F, player.getMaxHealth() * 0.3F));
         int debuffTicks = Config.getHorcruxRebirthDebuffTicks();
@@ -682,15 +685,18 @@ public class ModEvents {
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, debuffTicks, 1));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 20 * 10, 0));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 20 * 12, 0));
-        targetLevel.sendParticles(MagicParticles.SMOKE_DARK, player.getX(), player.getY() + 0.9D, player.getZ(), 26, 0.3, 0.45, 0.3, 0.02);
-        targetLevel.sendParticles(MagicParticles.MOTE_ICE, player.getX(), player.getY() + 1.0D, player.getZ(), 24, 0.35, 0.55, 0.35, 0.025);
-        targetLevel.sendParticles(MagicParticles.SMOKE_VIOLET, player.getX(), player.getY() + 0.75D, player.getZ(), 14, 0.2, 0.25, 0.2, 0.04);
-        targetLevel.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), SoundSource.PLAYERS, 0.75f, 1.7f);
-        targetLevel.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.9f, 0.6f);
-        player.displayClientMessage(Component.literal("Your soul claws its way back through the Horcrux.")
+        com.hogwartsmagic.fx.Fx.send(targetLevel, com.hogwartsmagic.fx.FxKinds.HORCRUX_REBIRTH, player.position(), 48.0,
+                player.getId());
+        targetLevel.playSound(null, player.blockPosition(), com.hogwartsmagic.ModSounds.HORCRUX_REBIRTH.get(), SoundSource.PLAYERS, 1.3f, 1.0f);
+        player.displayClientMessage(Component.translatable("message.hogwartsmagic.horcrux.reborn")
                 .withStyle(net.minecraft.ChatFormatting.DARK_PURPLE), false);
     }
 
+    /**
+     * The rite, once the altar has tasted a Killing Curse kill: one pulse a second, each tearing another piece of
+     * soul out of the owner into the vessel (HorcruxBlockEntity.feed), until it is bound after RITUAL_PULSES. The
+     * owner must stay alive and within RITUAL_RANGE of it, or the rite breaks and the vessel goes dormant.
+     */
     private static void tickHorcruxRitual(ServerPlayer player) {
         if (!HorcruxData.isRitualActive(player) || player.tickCount % 20 != 0) {
             return;
@@ -702,22 +708,42 @@ public class ModEvents {
             return;
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = (ServerLevel) horcrux.getLevel();
         BlockPos pos = horcrux.getBlockPos();
-        double missingCost = Math.max(0.0D, 2.0D - HorcruxData.getHealthCost(player));
-        if (missingCost > 0.0D) {
-            HorcruxData.addHealthCost(player, missingCost);
+        double range = HorcruxBlockEntity.RITUAL_RANGE;
+        boolean near = player.level() == level
+                && player.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= range * range;
+        // Out of reach the rite only waits (a Killing Curse can be cast from far off); a few seconds of it breaks it.
+        if (player.isAlive() && !near && horcrux.stray() < HorcruxBlockEntity.STRAY_PULSES) {
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.horcrux.come_back")
+                    .withStyle(net.minecraft.ChatFormatting.DARK_RED), true);
+            return;
+        }
+        if (!player.isAlive() || !near) {
+            horcrux.abortRitual(level, player);
+            HorcruxData.restoreSacrifice(player);
+            HorcruxData.clearBinding(player);
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.horcrux.rite_broken")
+                    .withStyle(net.minecraft.ChatFormatting.GRAY), false);
+            return;
+        }
+
+        if (HorcruxData.getHealthCost(player) < 2.0D) {
+            HorcruxData.addHealthCost(player, 2.0D - HorcruxData.getHealthCost(player));
             HorcruxData.applyMaxHealthPenalty(player);
         }
-        player.setHealth(Math.min(player.getHealth(), Math.max(1.0F, player.getMaxHealth())));
-        level.sendParticles(MagicParticles.SMOKE_DARK, player.getX(), player.getY() + 1.0D, player.getZ(),
-                18, 0.22D, 0.35D, 0.22D, 0.03D);
-        level.sendParticles(MagicParticles.MOTE_ICE, pos.getX() + 0.5D, pos.getY() + 1.05D, pos.getZ() + 0.5D,
-                14, 0.25D, 0.35D, 0.25D, 0.02D);
-        level.sendParticles(MagicParticles.SMOKE_VIOLET, pos.getX() + 0.5D, pos.getY() + 0.9D, pos.getZ() + 0.5D,
-                8, 0.2D, 0.15D, 0.2D, 0.02D);
-        level.playSound(null, pos, net.minecraft.sounds.SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 0.9F, 0.45F);
-        level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.SOUL_ESCAPE.value(), SoundSource.PLAYERS, 0.7F, 0.55F);
+        int pulse = horcrux.feed(level, player);
+        // It hurts, but never kills: a rite that killed its caster would bind a soul to a corpse.
+        if (player.getHealth() > 1.5F) {
+            player.hurt(player.damageSources().magic(), 0.5F);
+        }
+        if (player.isDeadOrDying()) {
+            return;
+        }
+        if (pulse < HorcruxBlockEntity.RITUAL_PULSES) {
+            player.displayClientMessage(horcrux.getStatusMessage().copy().withStyle(net.minecraft.ChatFormatting.DARK_RED), true);
+            return;
+        }
 
         horcrux.completeBinding(level, player);
         HorcruxData.completeRitual(player);
@@ -725,13 +751,11 @@ public class ModEvents {
         // Dark Magic: a torn soul (+30, and never below the floor of 60 while the Horcrux exists).
         com.hogwartsmagic.spell.dark.DarkDeeds.onHorcruxForged(player);
         player.setHealth(Math.max(1.0F, Math.min(player.getHealth(), player.getMaxHealth())));
-        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 20 * 6, 0));
-        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 20 * 8, 0));
+        // Timed to land with the bind's slam, ~2 s in (HorcruxFx.BOUND_SLAM); the shorter blindness lifts first.
+        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 20 * 5, 0));
+        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 20 * 6, 0));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WEAKNESS, 20 * 12, 1));
-        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME), pos.getX() + 0.5D, pos.getY() + 1.1D, pos.getZ() + 0.5D,
-                22, 0.3D, 0.4D, 0.3D, 0.015D);
-        level.playSound(null, pos, net.minecraft.sounds.SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.8F, 0.5F);
-        player.displayClientMessage(Component.literal("Your Horcrux is forged. One heart is forever chained to the altar.")
+        player.displayClientMessage(Component.translatable("message.hogwartsmagic.horcrux.forged")
                 .withStyle(net.minecraft.ChatFormatting.DARK_PURPLE), false);
     }
 
@@ -2003,10 +2027,11 @@ public class ModEvents {
             cancelApparitionChannel(player, wand);
             return;
         }
-        BlockPos exit = fireplacePos.above();
-        double x = exit.getX() + 0.5;
-        double y = exit.getY();
-        double z = exit.getZ() + 0.5;
+        BlockPos exit = fireplacePos;
+        Vec3 spot = com.hogwartsmagic.block.FlooFireplaceBlock.standingSpot(fireplacePos);
+        double x = spot.x;
+        double y = spot.y;
+        double z = spot.z;
         if (com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(level).isWardedAt(exit)
                 || !level.noCollision(player.getDimensions(player.getPose()).makeBoundingBox(x, y, z))) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
@@ -2239,7 +2264,8 @@ public class ModEvents {
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.perch.named", perch.getPerchName()), true);
             return true;
         }
-        if (event.getLevel().getBlockEntity(event.getPos()) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity fireplace) {
+        if (event.getLevel().getBlockEntity(com.hogwartsmagic.block.FlooFireplaceBlock.resolveHearth(event.getLevel(), event.getPos()))
+                instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity fireplace) {
             // Same owner protection as the naming screen (SetFlooNamePacket): a name tag must not take someone else's fireplace.
             java.util.UUID owner = fireplace.getOwner();
             if (owner != null && !owner.equals(player.getUUID()) && !player.hasPermissions(2)) {
@@ -2313,9 +2339,7 @@ public class ModEvents {
                 || !source.getLinkedPositions().contains(destinationPos)
                 // Never land inside blocks: something built over the destination hearth fizzles the trip.
                 || !serverLevel.noCollision(player, player.getBoundingBox().move(
-                        destinationPos.getX() + 0.5 - player.getX(),
-                        destinationPos.getY() + 1.0 - player.getY(),
-                        destinationPos.getZ() + 0.5 - player.getZ()))) {
+                        com.hogwartsmagic.block.FlooFireplaceBlock.standingSpot(destinationPos).subtract(player.position())))) {
             serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
                     com.hogwartsmagic.ModSounds.FLOO_FIZZLE.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
             com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.FLOO_FIZZLE, player.getX(), player.getY(), player.getZ(), 0);
@@ -2327,8 +2351,9 @@ public class ModEvents {
             return;
         }
 
-        BlockPos exitPos = destinationPos.above();
-        player.teleportTo(exitPos.getX() + 0.5, exitPos.getY(), exitPos.getZ() + 0.5);
+        // Arrive standing in the destination fireplace, on its hearth.
+        Vec3 exit = com.hogwartsmagic.block.FlooFireplaceBlock.standingSpot(destinationPos);
+        player.teleportTo(exit.x, exit.y, exit.z);
         com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         com.hogwartsmagic.assignment.AssignmentEvents.onFlooTravel(player);
         com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.FLOO_ARRIVE, player.getX(), player.getY(), player.getZ(), 0);

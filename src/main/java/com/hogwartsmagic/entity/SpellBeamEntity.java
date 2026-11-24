@@ -1170,11 +1170,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
             }
             if (horcrux.beginRitual(serverLevel, player)) {
                 HorcruxData.startRitual(player, serverLevel, candidate);
-                com.hogwartsmagic.spell.SpellBeamFx.effectAt(serverLevel, SpellType.AVADA_KEDAVRA, Vec3.atCenterOf(candidate).add(0.0, 0.6, 0.0),
-                        com.hogwartsmagic.spell.SpellBeamFx.EVADE);
-                serverLevel.playSound(null, candidate, SoundEvents.WARDEN_HEARTBEAT, SoundSource.BLOCKS, 1.0F, 0.55F);
-                serverLevel.playSound(null, candidate, SoundEvents.SOUL_ESCAPE.value(), SoundSource.BLOCKS, 1.0F, 0.5F);
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal("The Horcrux has tasted death. Now it will feed on you.")
+                // The rite's look and sound are the vessel's own (HorcruxBlockEntity.beginRitual).
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.hogwartsmagic.horcrux.rite_begun")
                         .withStyle(net.minecraft.ChatFormatting.DARK_PURPLE), false);
             }
             return;

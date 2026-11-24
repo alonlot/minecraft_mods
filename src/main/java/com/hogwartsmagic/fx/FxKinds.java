@@ -90,4 +90,19 @@ public final class FxKinds {
     public static final String PORTKEY_CRUMBLE = "portkey_crumble";
     /** entityId bound a Portkey to (x, y, z), their feet: a rune ring flashes. No params. */
     public static final String PORTKEY_BIND = "portkey_bind";
+    // --- The Horcrux rite. Position is the vessel's heart (block centre, ~1 block up); entityId the soul's owner.
+    // Handled by client.fx.HorcruxFx. ---
+
+    /** A Killing Curse kill over the altar wakes it: a crimson shock and the rite circle opens. No params. */
+    public static final String HORCRUX_RITE = "horcrux_rite";
+    /** One pulse of the rite: a tether of soul is torn from the owner into the heart. params: pulse (1..), pulses. */
+    public static final String HORCRUX_FEED = "horcrux_feed";
+    /** The soul fragment is sealed in: implosion, a pillar of green light, a ground-wide shockwave. No params. */
+    public static final String HORCRUX_BOUND = "horcrux_bound";
+    /** The rite breaks (the owner strayed or died): the tether snaps back. No params. */
+    public static final String HORCRUX_ABORT = "horcrux_abort";
+    /** The vessel is destroyed: it sucks in, bursts, and the trapped soul shrieks out of it. params: violent (0/1). */
+    public static final String HORCRUX_SHATTER = "horcrux_shatter";
+    /** The owner's body reforms at the vessel: black smoke spirals into them. Position is their feet. No params. */
+    public static final String HORCRUX_REBIRTH = "horcrux_rebirth";
 }

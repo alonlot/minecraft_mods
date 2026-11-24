@@ -60,41 +60,45 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
             level.setBlock(pos, state.setValue(net.minecraft.world.level.block.CampfireBlock.LIT, true), 3);
             state = level.getBlockState(pos);
         }
+        // A fireplace from before it was walk-in is one block: grow the frame around it once there is room.
+        if (serverLevel.getGameTime() % 40L == 0L) {
+            FlooFireplaceBlock.completeFrame(serverLevel, pos, state.getValue(FlooFireplaceBlock.FACING));
+        }
         fireplace.tryIgniteFromDroppedPowder(serverLevel);
         if (fireplace.activeTicks > 0) {
             fireplace.activeTicks--;
             fireplace.setActiveBlockState(true);
             serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME),
                     pos.getX() + 0.5,
-                    pos.getY() + 0.75,
+                    pos.getY() + 0.7,
                     pos.getZ() + 0.5,
-                    5, 0.2, 0.08, 0.2, 0.008);
+                    7, 0.3, 0.45, 0.3, 0.008);
             serverLevel.sendParticles(MagicParticles.SMOKE_GREEN,
                     pos.getX() + 0.5,
-                    pos.getY() + 0.92,
+                    pos.getY() + 1.3,
                     pos.getZ() + 0.5,
-                    6, 0.26, 0.16, 0.26, 0.012);
+                    6, 0.3, 0.4, 0.3, 0.012);
             serverLevel.sendParticles(MagicParticles.SMOKE_DARK,
                     pos.getX() + 0.5,
-                    pos.getY() + 0.82,
+                    pos.getY() + 1.8,
                     pos.getZ() + 0.5,
-                    3, 0.18, 0.22, 0.18, 0.005);
+                    3, 0.25, 0.15, 0.25, 0.005);
             serverLevel.sendParticles(MagicParticles.MOTE_GREEN,
                     pos.getX() + 0.5,
-                    pos.getY() + 0.95,
+                    pos.getY() + 1.1,
                     pos.getZ() + 0.5,
-                    1, 0.2, 0.1, 0.2, 0.0);
+                    2, 0.3, 0.5, 0.3, 0.0);
             serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(FLOO_GLOW),
                     pos.getX() + 0.5,
-                    pos.getY() + 0.72,
+                    pos.getY() + 0.8,
                     pos.getZ() + 0.5,
-                    2, 0.22, 0.08, 0.22, 0.0);
+                    3, 0.3, 0.45, 0.3, 0.0);
             if (serverLevel.random.nextInt(3) == 0) {
                 serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.ASH),
                         pos.getX() + 0.5,
-                        pos.getY() + 0.85,
+                        pos.getY() + 1.2,
                         pos.getZ() + 0.5,
-                        1, 0.15, 0.08, 0.15, 0.0);
+                        1, 0.25, 0.4, 0.25, 0.0);
             }
             if (fireplace.activeTicks == 0) {
                 fireplace.setActiveBlockState(false);
@@ -102,9 +106,9 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
         } else if (!fireplace.fireplaceName.isBlank() && serverLevel.getGameTime() % 8L == 0L) {
             serverLevel.sendParticles(MagicParticles.SMOKE_GREY,
                     pos.getX() + 0.5,
-                    pos.getY() + 0.75,
+                    pos.getY() + 0.9,
                     pos.getZ() + 0.5,
-                    1, 0.12, 0.05, 0.12, 0.0);
+                    1, 0.12, 0.1, 0.12, 0.0);
         }
     }
 
@@ -113,7 +117,9 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
         if (this.activeTicks > 0) {
             return;
         }
-        AABB powderBox = new AABB(worldPosition).inflate(0.35, 0.2, 0.35).move(0.0, 0.2, 0.0);
+        // Powder dropped by someone standing in the hearth lands in it, or just in front of it if they faced out.
+        net.minecraft.core.Direction front = getBlockState().getValue(FlooFireplaceBlock.FACING).getOpposite();
+        AABB powderBox = new AABB(worldPosition).expandTowards(front.getStepX(), 0.0, front.getStepZ()).inflate(0.1, 0.2, 0.1);
         ItemEntity powderEntity = level.getEntitiesOfClass(ItemEntity.class, powderBox,
                 entity -> entity.isAlive() && entity.getItem().is(ExampleMod.FLOO_POWDER.get()))
                 .stream()
@@ -123,9 +129,10 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
             return;
         }
 
+        // The traveller has to be standing inside the fireplace, on the hearth.
         ServerPlayer player = level.getEntitiesOfClass(ServerPlayer.class,
-                        new AABB(worldPosition).inflate(0.7, 1.4, 0.7),
-                        serverPlayer -> serverPlayer.onGround())
+                        new AABB(worldPosition).expandTowards(0.0, 1.0, 0.0),
+                        serverPlayer -> serverPlayer.onGround() && serverPlayer.blockPosition().equals(worldPosition))
                 .stream()
                 .findFirst()
                 .orElse(null);
@@ -153,24 +160,24 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
         setActiveBlockState(true);
         level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL_FIRE_FLAME),
                 worldPosition.getX() + 0.5,
-                worldPosition.getY() + 0.75,
+                worldPosition.getY() + 0.8,
                 worldPosition.getZ() + 0.5,
-                26, 0.25, 0.14, 0.25, 0.01);
+                32, 0.3, 0.5, 0.3, 0.01);
         level.sendParticles(MagicParticles.SMOKE_GREEN,
+                worldPosition.getX() + 0.5,
+                worldPosition.getY() + 1.3,
+                worldPosition.getZ() + 0.5,
+                18, 0.3, 0.45, 0.3, 0.01);
+        level.sendParticles(MagicParticles.SMOKE_DARK,
+                worldPosition.getX() + 0.5,
+                worldPosition.getY() + 1.7,
+                worldPosition.getZ() + 0.5,
+                12, 0.28, 0.25, 0.28, 0.008);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(FLOO_GLOW),
                 worldPosition.getX() + 0.5,
                 worldPosition.getY() + 0.9,
                 worldPosition.getZ() + 0.5,
-                18, 0.24, 0.2, 0.24, 0.01);
-        level.sendParticles(MagicParticles.SMOKE_DARK,
-                worldPosition.getX() + 0.5,
-                worldPosition.getY() + 0.88,
-                worldPosition.getZ() + 0.5,
-                12, 0.22, 0.28, 0.22, 0.008);
-        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(FLOO_GLOW),
-                worldPosition.getX() + 0.5,
-                worldPosition.getY() + 0.72,
-                worldPosition.getZ() + 0.5,
-                16, 0.26, 0.1, 0.26, 0.0);
+                16, 0.3, 0.5, 0.3, 0.0);
     }
 
     private void setActiveBlockState(boolean active) {
@@ -246,7 +253,10 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
 
     public Component getStatusMessage(Player player) {
         String name = fireplaceName.isBlank() ? "Unnamed Floo fireplace" : fireplaceName;
-        return Component.literal(name + " - stand on the soul flames and drop Floo Powder to travel");
+        if (level != null && !FlooFireplaceBlock.isComplete(level, worldPosition, getBlockState().getValue(FlooFireplaceBlock.FACING))) {
+            return Component.translatable("message.hogwartsmagic.floo.no_room");
+        }
+        return Component.literal(name + " - step into the fireplace and drop Floo Powder to travel");
     }
 
     private void syncToClients() {

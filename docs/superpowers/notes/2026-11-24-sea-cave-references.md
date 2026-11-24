@@ -142,3 +142,83 @@ inclusive. Water positions are the top water block.
 
 The waterline centroid, cleft, tunnel, antechamber, arch, descent and mouth chain together in this
 order, and every one of them sits inside the stack footprint or its solid underwater flare.
+
+## Pass 1: silhouette (gate check)
+
+Built by `build_scripts/sea_cave/` (frame, shape, audit), one stone (`minecraft:deepslate`, axis y)
+plus `cave_air` and water. Template 80 x 88 x 80, 256,082 listed cells. Audits all pass
+(cleft_open, watertight, island_steps, route_walkable, no_primitive, plus rock_cover: 4 blocks of
+template rock between every carved cell and the open sea, and between the descent and the cavern).
+Cavern sections fit their best ellipse on 16 / 29 / 41 / 44 / 38 % of their outer wall at
+y 12 / 16 / 20 / 24 / 28 (limit 60 %).
+
+Choices made while shaping (the deferred review notes):
+- **Cleft lean: west.** The beds dip east (0.06 per block) and a little south; the cleft is a joint at
+  right angles to them, so it steps one block west going up (x 37..39 at the waterline, 36..38 from
+  y 46, a 2-wide top at 50..51, and the 1-wide hairline at x 37 then 36 up to y 58).
+- **Rock under the tunnel and beside the descent.** The cavern is carved only beyond 4.5 blocks of the
+  tunnel, pool, antechamber, arch passage and every descent leg but the last two (which run into the
+  wall at the mouth); the `rock_cover` audit checks the descent against the cavern cell by cell.
+- **Shore ramp.** The drops are placed unevenly along a 4-connected walk through the waypoints; the
+  solid-top profile from the ledge is 25 24 23 22 22 21 21 20 19 19 19 18 17 16 16 16 16 16 16 15 14
+  14 13 12 11 11 11: runs of one to three drops between landings of one to six blocks.
+- **Roof cap edge.** Over the cavern plus 4 blocks the seabed is at least y 28 and 5 above the highest
+  cavern air, with 0..1.6 of rubble on top; beyond the margin it loses about 1.3 a block (1.8 on a
+  diagonal) until it meets the apron or the seabed slope, so there is no ledge at its rim.
+
+Iterations, and what each render showed:
+1. Polygon plan per mass with banded recesses and a body top that terraced toward its rim. Every
+   view read as a **beehive / ziggurat**: concentric tiers body > ledges > spire, a knob on top, the
+   needle a string of beads. Failed (mechanical regularity, dome-like outline).
+2. Plans redrawn in blade coordinates along the north-east joint set with 1..4-block jogs; spire,
+   ledges and shoulder made flush with the north-west face. Plan read as a blade, but the textured
+   views showed a **stack of pancakes**: every bed made a rim all round. Failed.
+3. Walls fluted instead of ringed (vertical facets drifting slowly with height, only the softest beds
+   recessed and only along part of the perimeter), beds snapped to the nearest boundary. First pass
+   that read as rock. The cleft sat at a corner of an indent and did not read as a crack; the face
+   was rebuilt round it (buttress east of it, face at z 58..59 west of it).
+4. North-west face given bays at the saddle and between spire and ledges; saddle and south-west tip
+   lowered so the shoulder, ledges and spire stand as separate masses; spire top changed from a
+   radial crown (read as a box) to a corner summit falling away south-west and steeply south-east.
+5. The east platform read as a round **plate** under the spire: made unsnapped and broken on top,
+   edge noise doubled, two surge channels cut across it.
+6. Cavern walls lean in as they rise (0.55 a block above y 12, roughened in 3D, undercut at the
+   waterline); island rebuilt as a faceted mound (it had grown to about 20 across through the
+   no-step relaxation): now 11 x 10 above the lake, crest 14 at (24, 41).
+
+Gate check on the final renders (`build/shots/sea_cave_p1_*.png` under the textured viewer):
+
+| View | What I saw |
+|---|---|
+| North (`_n`, flat `_flat_elev_north`) | The blade end-on: a spike, broad foot, summit off to the east side, a sheer north corner. |
+| East (`_e`, `_esea`) | Needle at left, separate above the water; the spire's north-east face one cliff from the platform to the top; the broken east platform low under it. Some bed steps still stack on the spire's south-east side. |
+| South (`_s`, sea level 40 out `_sea`) | Broad, lopsided mass: low south-west tip, shoulder, spire behind at the east, needle at right. From sea level the top line is fairly level and reads as a massif more than a column. The cleft shows only as a narrow slot here (the viewer has no light); the depth-shaded face (`_flat_face_south`) shows it as a dark slot 3 wide and 13 tall with the hairline above. |
+| West (`_w`) | The blade end-on from the tip: a tall narrow mass with the spire rising behind. |
+| North-west (`_nw`), east-north-east (`_ene`) | Shoulder and spire as two separate jointed columns with a bay between; fluted faces, stepped tops. The best reads of the set. |
+| Top (`_top`, `_flat_top`) | Blade north-east to south-west, jogged outline, stump north-west, needle south-east, apron widest west. |
+| Cutaways (`_cutx`, `_cutx_low`, `_cutz`, `_hidewater`, flat `_flat_cut_*`, `_flat_floor`, `_flat_ceiling`) | Cavern sections irregular with leaning walls and a ceiling stepping in panels up to the vault (35 at (36, 40)); island a low faceted mound with shelves; the pool sits well above the cavern roof. The textured interior shots are hard to read: the viewer has no lighting, and with water hidden it shows thin see-through slits that the watertight audit says are not real holes. |
+
+The six failure modes:
+1. **Loud density** - n/a for one stone; nothing scattered.
+2. **Proportion** - the underwater plinth fills the whole 80 x 80 frame down to y 0, with straight
+   sides at the frame edge from about y 23 down. It is meant to sit in the seabed, but over deep
+   ocean it would stand as a square cliff (Task 5 placement concern). Above water nothing eats the
+   frame.
+3. **Focal point** - the spire is the clear focus from every side but due south at sea level, where
+   the massif hides it.
+4. **Scatter** - boulders are hand-placed, mostly west, not sprinkled.
+5. **One-block contrast** - n/a (one stone).
+6. **Mechanical regularity** - the tiers and rings are gone; flutes and joints vary. Residual: the
+   spire's south-east side still shows three or four stacked bed steps from the east.
+
+**Would a person believe it was shaped?** From north-west, east-north-east and east at sea level,
+yes: jointed columns, a broken platform, a separate needle. From due south at sea level it reads as a
+rocky massif with a crenellated top line rather than a stack; acceptable for a silhouette pass, worth
+revisiting when strata go on (Task 3), since banding will change how that face reads.
+
+**Any perfect primitive?** No circle, dome, cylinder or straight wall above the seabed. The island is
+mound-shaped (it has to be: no step over 1 from bed to top) but faceted and bitten on the north.
+The only straight lines are the frame-edge sides of the buried plinth.
+
+Still owed: the in-game check at night, and standpoint renders from pass 2 on. The viewer cannot
+show darkness, so whether the cleft reads dark from the sea is unverified.

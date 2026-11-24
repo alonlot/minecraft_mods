@@ -66,6 +66,10 @@ public final class GnomeGameTests {
     private static ServerPlayer survivor(GameTestHelper h) {
         ServerPlayer p = h.makeMockServerPlayerInLevel();
         p.setGameMode(GameType.SURVIVAL);
+        // A new ServerPlayer ignores all damage for its first 60 ticks (spawn protection), and a mock
+        // player is never ticked down, so without this every bite would bounce off.
+        net.minecraftforge.fml.util.ObfuscationReflectionHelper.setPrivateValue(
+                ServerPlayer.class, p, 0, "spawnInvulnerableTime");
         return p;
     }
 

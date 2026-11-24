@@ -61,8 +61,10 @@ not copy the crystal look.
 Frame: template local x 0..79 (east +), y 0..89, z 0..79 (south +), before jigsaw rotation.
 **Sea level: the top water block is local y 42**; local y 43 is the first open-air layer outside.
 Local y 0 is about world 20, so the seabed apron sits near local y 24 to 28 at the frame edge.
-**Cavern lake surface: top water block at local y 10.** All coordinates are rough and are block
-positions; "floor" means the block the player stands on is one below.
+**Cavern lake surface: top water block at local y 10.** All coordinates are rough block positions.
+For walkable places two heights are named: **feet y** is the air block the player's feet occupy, and
+**solid top** is the block they stand on, always feet y minus 1. Opening heights are air blocks,
+inclusive. Water positions are the top water block.
 
 1. **Main spire.** Summit at (54, 87, 30), the highest point, about 45 above the sea. The waterline
    footprint is about x 22..68, z 20..60, an uneven outline longer north-east to south-west (a blade,
@@ -89,35 +91,46 @@ positions; "floor" means the block the player stands on is one below.
    (40, 37, 52), (43, 36, 47) and (45, 37, 44) to rise into the antechamber pool at (46, 41, 41).
    About 18 blocks long, roof below y 42 from z 54 to z 43 so it is fully flooded, water throughout.
 8. **Antechamber.** Irregular pocket about 8 x 7, centre (47, 45, 40). Pool about 4 x 3 at
-   (45..48, 38..42, 40..42), water top at y 42 like the sea. The rock lip round it stands at y 43..44
-   (floor y 43), and the ceiling slopes from y 50 over the pool to y 47 at the exit.
-9. **Blood arch.** A short passage, 2 wide and 3 tall, runs from the antechamber lip (floor 48, 43, 38)
-   through (50, 43, 35) to the arch. The arch stands in the plane x = 52, opening z 32..34,
-   y 44..47 (floor y 43), a rough pointed outline, not a semicircle.
+   (45..48, 38..42, 40..42), water top at y 42 like the sea. Climbing out: a 1-block step inside
+   the pool edge (solid top y 43, feet y 44), then the lip all round (solid top y 44, feet y 45),
+   2 blocks above the sea's water top, so the sea cannot spill over it. The antechamber floor beyond
+   is at the lip height (solid top 44, feet 45). The ceiling (first solid block) slopes from y 51 over
+   the pool to y 48 at the exit.
+9. **Blood arch.** A short passage, 2 wide and 3 tall (air y 45..47, solid top 44, roof solid from
+   y 48), runs from the antechamber lip (48, feet 45, 38) through (50, feet 45, 35) to the arch. The
+   arch stands in the plane x = 52, opening z 32..34, the same 3 tall as the passage: air y 45..47,
+   sill solid top y 44, solid above from y 48. The outline is rough and pointed, not a semicircle.
 10. **Descending passage.** From the arch it winds east, south and back west inside the eastern flank,
-    floor stepping down at most 1 per block, 2 to 3 wide, 3 tall. Floor waypoints:
-    (55, 43, 33), (59, 41, 31), (63, 39, 34), (64, 37, 39), (62, 35, 43) (a small widening, the
-    "halfway" standpoint), (63, 33, 47), (65, 31, 51), (64, 29, 55), (61, 27, 52), (58, 25, 48).
+    floor stepping down at most 1 per block, 2 to 3 wide, 3 tall. Waypoints as (x, feet y, z):
+    (55, 45, 33), (59, 43, 31), (63, 41, 34), (64, 39, 39), (62, 37, 43) (a small widening, the
+    "halfway" standpoint), (63, 35, 47), (65, 33, 51), (64, 31, 55), (61, 29, 52), (58, 27, 48).
     It keeps at least 4 blocks of rock between it and the sea and between it and the cavern.
-11. **Passage mouth.** The passage opens high on the cavern's east wall at (56, 24, 46), onto a ledge
-    at (53..55, 24, 45..47), 14 above the lake.
+11. **Passage mouth.** The passage opens high on the cavern's east wall at (56, feet 26, 46), air
+    y 26..28, onto a ledge at x 53..55, z 45..47 (solid top 25, feet 26), 15 above the lake. The
+    cavern ceiling round the mouth is at least y 31 (first solid block).
 12. **The cavern.** Irregular chamber about x 8..58, z 26..66 (50 x 40); the east wall reaches x 58
     only around the mouth (z 42..48) and falls back to x 55 south of z 48, clear of the descent. The lake fills most
     of the floor: lake about x 12..52, z 30..60, bed y 3..8 (deepest in the middle, shallow shelves
-    near shores). The ceiling is lowest at the edges, y 22..24 under the south and west where only
-    seabed lies above, rising in steps to a high vault of y 35 at about (36, 35, 40). Above any part
-    of the cavern, solid rock is at least 4 thick: under the tunnel the ceiling stays at or below
+    near shores). The ceiling is lowest at the edges: highest air y 22..24 under the south and west (first solid
+    block y 23..25), rising in steps to a high vault, highest air y 35, at about (36, 35, 40). Above any part
+    of the cavern, solid rock is at least 4 thick: under the tunnel the highest cavern air stays at or below
     y 31, under the antechamber at or below y 33.
+    **Roof cap outside the stack.** Parts of the cavern lie outside the stack footprint (x 8..21 on
+    the west, z 61..66 on the south). Over the whole cavern plan plus a 4-block margin (about x 4..62,
+    z 22..70) the template writes its own solid rock cap: its top surface is at least y 28 everywhere
+    and at least 4 solid blocks above the highest cavern air beneath it, uneven and rubbly on top,
+    sloping down outside the margin to meet the seabed at the frame edge. It never relies on world
+    terrain for cover. Below the cavern the template is solid down to y 0.
 13. **Shore path.** From the mouth ledge down along the east and south-east wall on a rough ramp of
-    ledges, never over the water: (53, 22, 50), (51, 19, 54), (48, 16, 58), (45, 13, 60), reaching the
-    south shore at (42, 11, 61). East of x 50 the floor is dry talus, not lake.
+    ledges, never over the water, as (x, feet y, z): (53, 23, 50), (51, 20, 54), (48, 17, 58),
+    (45, 14, 60), reaching the south shore at (42, 12, 61) (solid top 11, 1 above the lake). East of x 50 the floor is dry talus, not lake.
 14. **Iron ring and dock.** Ring set in a shore boulder at (41, 12, 62). Skiff dock (water) at
     (40, 10, 57). Pebble beach along the south shore x 34..50, z 59..63, the only gentle shore.
 15. **Skiff waypoints.** Dock (40, 10, 57), then (39, 10, 52), (35, 10, 48), landing (32, 10, 45) on the
     island's east shore. A curve, not a line.
 16. **The island.** Off-centre west-north of the lake centre (33, 46): footprint about x 20..31,
-    z 37..47 (11 x 10, an uneven oval with a bite on the north side). Highest ground y 14 at
-    (24, 14, 41), 4 above the water; the shore slopes all round with no step over 1 block, continuing
+    z 37..47 (11 x 10, an uneven oval with a bite on the north side). Highest ground solid top y 14
+    (feet 15) at (24, 14, 41), 4 above the water; the shore slopes all round with no step over 1 block, continuing
     under the water as shelves down to the bed at y 5. Basin on the highest ground at (24, 15, 41);
     goblet beside it at (25, 15, 42). Built of tilted slabs, like the film island.
 17. **Fallen slab.** A big tilted slab about 7 x 3 x 2 lying half in the lake at the north-west wall,

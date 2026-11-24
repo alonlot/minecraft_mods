@@ -62,8 +62,8 @@ public final class HideoutLeader {
             wizard.setPersistenceRequired();
             data.putBoolean(HideoutRules.ARMED_KEY, true);
         }
-        BlockPos home = BlockPos.of(data.getLong(HideoutRules.HOME_KEY));
-        wizard.restrictTo(home, (int) HideoutRules.LEASH_RADIUS);
+        // No restrictTo: vanilla target goals refuse anyone outside the restriction circle, so a player shooting
+        // him from the doorway would never be fought back. GuardAltarGoal alone keeps him near the altar.
         boolean hasGoal = wizard.goalSelector.getAvailableGoals().stream()
                 .anyMatch(g -> g.getGoal() instanceof GuardAltarGoal);
         if (!hasGoal) {
@@ -117,7 +117,10 @@ public final class HideoutLeader {
 
         private void go() {
             Vec3 h = home();
-            wizard.getNavigation().moveTo(h.x, h.y, h.z, 1.15);
+            // A path cannot be made while he is airborne (knocked back, just landed): try again next tick
+            // instead of waiting out the whole repath interval.
+            boolean ok = wizard.getNavigation().moveTo(h.x, h.y, h.z, 1.15);
+            repath = ok ? 0 : HideoutRules.LEASH_REPATH_TICKS - 1;
         }
 
         @Override

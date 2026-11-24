@@ -6,7 +6,6 @@ import com.hogwartsmagic.block.entity.HorcruxBlockEntity;
 import com.hogwartsmagic.entity.HorcruxSoulEntity;
 import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.fx.Fx;
-import com.hogwartsmagic.tomb.CurseScheduler;
 import com.hogwartsmagic.util.MagicParticles;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -78,7 +77,10 @@ public final class CursedCup {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.cursed_cup.freed"), false);
             }
         }
-        CurseScheduler.after(HideoutRules.REWARD_DELAY_TICKS, () -> payOut(level, cup));
+        // Next server tick, not a CurseScheduler job: that list is dropped when the server stops, and a player
+        // who leaves (Portkey, Floo, quit) right after breaking the cup must still get the chest.
+        level.getServer().tell(new net.minecraft.server.TickTask(level.getServer().getTickCount() + 1,
+                () -> payOut(level, cup)));
     }
 
     /** The reward: a chest on the cup's spot if it is free (fire and air give way), else the loot spilled. */

@@ -140,14 +140,15 @@ public class DespairBasinBlockEntity extends BlockEntity {
     /**
      * The cup is felt on screen, not read: the hidden DESPAIR effect (amplifier = stage, refreshed per cup) drives the
      * client overlay, a small shake reaches the drinker, whispers play to the drinker alone, and the last cups
-     * bring them to their knees (the client dips the view; the legs are held by maximum slowness).
+     * bring them to their knees (a hidden marker effect makes the drinker client crouch and hold still).
      */
     private void feelDespair(ServerLevel level, ServerPlayer p) {
         int stage = DespairRules.stageFor(drinks);
         p.addEffect(new MobEffectInstance(ExampleMod.DESPAIR.getHolder().get(), DespairRules.DESPAIR_TICKS, stage,
                 false, false, false));
         if (stage > 0) {
-            com.hogwartsmagic.fx.Fx.shake(level, p.position(), DespairRules.shakeStrength(drinks), 2f, 20 + 6 * stage);
+            com.hogwartsmagic.fx.Fx.sendTo(p, com.hogwartsmagic.fx.FxKinds.SHAKE, p.getX(), p.getY(), p.getZ(), -1,
+                    DespairRules.shakeStrength(drinks), 2f, 20 + 6 * stage, 1.0f); // the drinker alone
         }
         for (int i = 0; i < DespairRules.whisperSounds(drinks); i++) {
             // Near the drinker head, a little different each time; only this player is sent the sound.
@@ -159,7 +160,8 @@ public class DespairBasinBlockEntity extends BlockEntity {
         }
         int kneel = DespairRules.kneelTicks(drinks);
         if (kneel > 0) {
-            p.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, kneel, 255,
+            // The marker the drinker client reads: it holds the knees down (crouch + no walking) for exactly this long.
+            p.addEffect(new MobEffectInstance(ExampleMod.DESPAIR_KNEEL.getHolder().get(), kneel, 0,
                     false, false, false));
         }
     }

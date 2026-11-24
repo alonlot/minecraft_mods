@@ -429,6 +429,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         // into the live ServerLevel from the worldgen step while this wizard is written into the proto chunk.
         if (p_33284_ != net.minecraft.world.entity.MobSpawnType.EVENT
                 && p_33284_ != net.minecraft.world.entity.MobSpawnType.CHUNK_GENERATION
+                && p_33284_ != net.minecraft.world.entity.MobSpawnType.STRUCTURE
                 && this.random.nextFloat() < 0.05f) {
             Level lvl = (Level)p_33282_.getLevel();
             com.hogwartsmagic.entity.BroomEntity broom = new com.hogwartsmagic.entity.BroomEntity(com.hogwartsmagic.entity.ModEntities.BROOM.get(), lvl);

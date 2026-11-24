@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "hogwartsmagic:block/cursed_cup"
+    },
+    "lit=true": {
+      "model": "hogwartsmagic:block/cursed_cup"
+    }
+  }
+}

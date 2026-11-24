@@ -5977,6 +5977,615 @@ def audit_yeti_cave(blocks, entities):
     return problems
 
 
+# --- Dark wizard hideouts ---------------------------------------------------------------------------
+# A shabby, half-collapsed hut hides a hatch. Under it a stair drops fifteen blocks to a Death Eater lair:
+# a glyph-inlaid corridor with cursed tiles, three cells with an Inferius apiece, a library, a potion lab,
+# and behind a concealed wall a ritual room where a named dark wizard guards a cursed golden cup.
+
+HIDE_W = HIDE_D = 33
+HIDE_G = 20                  # first air level above the ground; the structure's start height is -HIDE_G
+HIDE_F = 4                   # room floor block; the player stands at HIDE_F + 1
+HIDE_S = HIDE_F + 1
+HIDE_WALL = [('minecraft:deepslate_bricks', 6), ('minecraft:cracked_deepslate_bricks', 3),
+             ('minecraft:cobbled_deepslate', 3), ('minecraft:blackstone', 1)]
+HIDE_FLOOR = [('minecraft:deepslate_tiles', 6), ('minecraft:cracked_deepslate_tiles', 3),
+              ('minecraft:polished_deepslate', 1)]
+HIDE_RUBBLE = [('minecraft:cobbled_deepslate', 5), ('minecraft:gravel', 2), ('minecraft:deepslate_bricks', 1)]
+HUT_PLANKS = [('minecraft:spruce_planks', 6), ('minecraft:dark_oak_planks', 3), ('minecraft:oak_planks', 1)]
+HUT_FOUND = [('minecraft:mossy_cobblestone', 5), ('minecraft:cobblestone', 4), ('minecraft:cracked_stone_bricks', 1)]
+HIDE_LEADER_TAG = 'hogwartsmagic:hideout_leader'
+HIDE_CELLS_BOX = (3, 11, 7, 13)           # x0, x1, z0, z1 of the cells' interiors
+HIDE_LIB_BOX = (13, 21, 4, 13)
+HIDE_LAB_BOX = (3, 11, 19, 29)
+HIDE_RITUAL_BOX = (23, 29, 3, 13)
+HIDE_CELL_XS = ((3, 4), (6, 7), (9, 10))  # each cell's two columns
+HIDE_WALL_X = (25, 26, 27)                # the concealed wall's columns, on z = 14
+
+
+def hollow(b, air, x0, y0, z0, x1, y1, z1):
+    """Like carve, but cave_air: plain air in a template means leave the world alone, and a hideout
+    has to carve its rooms out of whatever rock is there."""
+    for x in range(min(x0, x1), max(x0, x1) + 1):
+        for y in range(min(y0, y1), max(y0, y1) + 1):
+            for z in range(min(z0, z1), max(z0, z1) + 1):
+                put(b, (x, y, z), 'minecraft:cave_air')
+                air.add((x, y, z))
+
+
+def hideout_shell(b, air):
+    """Close every carved space in with deepslate, so an aquifer or a cave never opens into the lair."""
+    for (x, y, z) in list(air):
+        for dx, dy, dz in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)):
+            n = (x + dx, y + dy, z + dz)
+            if n not in b and n[1] < HIDE_G:
+                put(b, n, tex(HIDE_WALL, n[0], n[1], n[2], 7301))
+
+
+def hide_floor(b, x0, z0, x1, z1, salt):
+    for x in range(x0, x1 + 1):
+        for z in range(z0, z1 + 1):
+            put(b, (x, HIDE_F, z), tex(HIDE_FLOOR, x, HIDE_F, z, salt))
+
+
+def hide_cobweb(b, air, spots):
+    for p in spots:
+        if p in air and b.get(p, ('',))[0] == 'minecraft:cave_air':
+            put(b, p, 'minecraft:cobweb')
+
+
+def hide_skull(b, pos, wither=False, rotation=0):
+    put(b, pos, 'minecraft:wither_skeleton_skull' if wither else 'minecraft:skeleton_skull',
+        {'rotation': str(rotation), 'powered': 'false'})
+
+
+def hide_candles(b, pos, count=1, lit=False):
+    put(b, pos, 'minecraft:black_candle', {'candles': str(count), 'lit': 'true' if lit else 'false',
+                                           'waterlogged': 'false'})
+
+
+def hide_hang(b, pos):
+    put(b, pos, 'minecraft:soul_lantern', {'hanging': 'true', 'waterlogged': 'false'})
+
+
+def hide_chain(b, x, y0, y1, z):
+    for y in range(y0, y1 + 1):
+        put(b, (x, y, z), 'minecraft:chain', {'axis': 'y', 'waterlogged': 'false'})
+
+
+def hideout_hut(b, air):
+    """A shabby hut, half fallen in: the north-east third of its roof is gone, its planks have gaps and
+    a hatch in the floor is the only thing that is still shut."""
+    G = HIDE_G
+    x0, x1, z0, z1 = 11, 21, 11, 21
+    # Foundation: two courses of rubble under the whole footprint so the hut never floats on a slope.
+    for x in range(x0, x1 + 1):
+        for z in range(z0, z1 + 1):
+            for y in (G - 3, G - 2):
+                put(b, (x, y, z), tex(HUT_FOUND, x, y, z, 7101))
+    for x in range(x0, x1 + 1):
+        for z in range(z0, z1 + 1):
+            wall = x in (x0, x1) or z in (z0, z1)
+            if wall:
+                put(b, (x, G - 1, z), tex(HUT_FOUND, x, G - 1, z, 7102))
+            else:
+                # The floor: rotted spruce, with dirt showing through where the boards have gone.
+                r = noise(x, 0, z, 7103)
+                put(b, (x, G - 1, z), 'minecraft:coarse_dirt' if r < 0.12 else 'minecraft:podzol' if r < 0.2
+                    else tex(HUT_PLANKS, x, G - 1, z, 7104))
+    # Walls: a log frame at the corners and every fourth post, planks between, gaps where they rotted.
+    for y in range(G, G + 3):
+        for x in range(x0, x1 + 1):
+            for z in range(z0, z1 + 1):
+                if not (x in (x0, x1) or z in (z0, z1)):
+                    continue
+                corner = x in (x0, x1) and z in (z0, z1)
+                post = (x - x0) % 5 == 0 or (z - z0) % 5 == 0
+                if corner or (post and (x in (x0, x1)) != (z in (z0, z1))):
+                    put(b, (x, y, z), 'minecraft:dark_oak_log', {'axis': 'y'})
+                elif noise(x, y, z, 7105) < 0.2:
+                    continue                       # a gap in the boards
+                else:
+                    put(b, (x, y, z), tex(HUT_PLANKS, x, y, z, 7106))
+    # The doorway, south wall, two high, and a window each side with the glass long gone.
+    for y in (G, G + 1):
+        put(b, (16, y, z1), 'minecraft:cave_air')
+    for p in ((x0, G + 1, 15), (x1, G + 1, 17), (13, G + 1, z0)):
+        put(b, p, 'minecraft:cave_air')
+    # Gable ends, filled up under the roof line.
+    for z in range(z0, z1 + 1):
+        d = abs(z - 16)
+        top = G + 3 + (5 - d)
+        for y in range(G + 3, top):
+            for x in (x0, x1):
+                if noise(x, y, z, 7107) > 0.15:
+                    put(b, (x, y, z), tex(HUT_PLANKS, x, y, z, 7108))
+    # The roof: a steep spruce gable along x, with the north-east third fallen in.
+    for x in range(x0 - 1, x1 + 2):
+        for z in range(z0 - 1, z1 + 2):
+            d = abs(z - 16)
+            if d > 6:
+                continue
+            fallen = x >= 17 and z <= 15
+            if fallen:
+                continue
+            if x in (x0 - 1, x1 + 1) and noise(x, z, 0, 7109) < 0.4:
+                continue
+            y = G + 3 + (5 - d) if d <= 5 else G + 3 - 1
+            facing = 'south' if z < 16 else 'north'
+            if d == 0:
+                slab(b, (x, G + 8, z), 'minecraft:spruce_slab')
+            elif noise(x, y, z, 7111) < 0.1:
+                continue                           # a missing course
+            else:
+                stair(b, (x, y, z), 'minecraft:spruce_stairs' if noise(x, y, z, 7112) > 0.3
+                      else 'minecraft:dark_oak_stairs', facing)
+    # Fallen roof: the stairs and slabs that used to be over the north-east corner, now on the floor.
+    for (x, z, kind) in ((18, 12, 'stairs'), (19, 14, 'slab'), (20, 12, 'stairs'), (17, 14, 'slab'),
+                         (19, 12, 'slab'), (18, 15, 'stairs'), (20, 14, 'slab')):
+        if kind == 'stairs':
+            stair(b, (x, G, z), 'minecraft:spruce_stairs', ('north', 'east', 'south', 'west')[(x + z) % 4])
+        else:
+            slab(b, (x, G, z), 'minecraft:dark_oak_slab')
+    for (x, z) in ((19, 13), (20, 13)):
+        put(b, (x, G, z), 'minecraft:dark_oak_log', {'axis': 'x'})
+    # Inside: hollow it out, then furnish it as somebody's last bad week.
+    for x in range(x0 + 1, x1):
+        for z in range(z0 + 1, z1):
+            for y in range(G, G + 3):
+                if (x, y, z) not in b:
+                    put(b, (x, y, z), 'minecraft:air')
+    put(b, (13, G, 13), 'minecraft:red_bed', {'facing': 'north', 'part': 'foot', 'occupied': 'false'})
+    put(b, (13, G, 12), 'minecraft:red_bed', {'facing': 'north', 'part': 'head', 'occupied': 'false'})
+    # A table, one chair, a broken cauldron and a cold hearth against the west wall.
+    put(b, (16, G, 14), 'minecraft:spruce_fence')
+    slab(b, (16, G + 1, 14), 'minecraft:spruce_slab')
+    stair(b, (15, G, 14), 'minecraft:spruce_stairs', 'east')
+    put(b, (12, G, 18), 'minecraft:cauldron')
+    put(b, (12, G, 16), 'minecraft:cobblestone')
+    put(b, (12, G + 1, 16), 'minecraft:cobblestone')
+    put(b, (12, G, 17), 'minecraft:campfire', {'facing': 'east', 'lit': 'false', 'signal_fire': 'false',
+                                               'waterlogged': 'false'})
+    put(b, (20, G, 19), 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    for p in ((12, G + 2, 12), (14, G + 2, 20), (20, G + 2, 18), (12, G + 2, 20), (19, G + 2, 12)):
+        if b.get(p, ('',))[0] == 'minecraft:air':
+            put(b, p, 'minecraft:cobweb')
+    # The hatch: two trapdoors in the boards, the first one the way down.
+    for z in (19, 20):
+        b[(14, G - 1, z)] = ('minecraft:spruce_trapdoor', {'facing': 'north', 'half': 'top', 'open': 'false',
+                                                           'powered': 'false', 'waterlogged': 'false'}, None)
+    # Outside: a lantern on a fence post by the door, a stump, rank grass the wind has flattened.
+    put(b, (18, G, 24), 'minecraft:spruce_fence')
+    put(b, (18, G + 1, 24), 'minecraft:spruce_fence')
+    put(b, (18, G + 2, 24), 'minecraft:lantern', {'hanging': 'false', 'waterlogged': 'false'})
+    put(b, (13, G, 23), 'minecraft:dark_oak_log', {'axis': 'y'})
+    put(b, (9, G, 15), 'minecraft:cobweb')
+    # A trodden path from the door.
+    for z in (22, 23, 24, 25):
+        put(b, (16, G - 1, z), 'minecraft:dirt_path')
+
+
+def hideout_stair(b, air):
+    """The way down: seven steps south in a one-wide shaft, a landing, seven steps back north in a wider
+    one, and a last flat run that opens into the corridor."""
+    S = HIDE_S
+    # Flight A, x = 14. Step i stands at y = G - i; the first two stand under the hatch trapdoors.
+    for i in range(7):
+        z = 19 + i
+        stand = HIDE_G - i
+        if i == 0:
+            hollow(b, air, 14, stand, z, 14, stand, z)
+        elif i == 1:
+            hollow(b, air, 14, stand, z, 14, stand, z)
+        else:
+            hollow(b, air, 14, stand, z, 14, min(stand + 2, HIDE_G - 2), z)
+        stair(b, (14, stand - 1, z), 'minecraft:cobbled_deepslate_stairs', 'north')
+    # Landing, y = 12, then flight B, x = 16..17, stepping down towards the corridor.
+    hollow(b, air, 13, 12, 26, 17, 15, 27)
+    fill_tex(b, 13, 11, 26, 17, 11, 27, HIDE_FLOOR, 7201)
+    for z in range(25, 18, -1):
+        stand = 11 - (25 - z)
+        hollow(b, air, 16, stand, z, 17, stand + 3, z)
+        for x in (16, 17):
+            stair(b, (x, stand - 1, z), 'minecraft:cobbled_deepslate_stairs', 'south')
+    hollow(b, air, 16, S, 18, 17, S + 3, 18)
+    # Dressing: a lantern at the foot of each flight, a skeleton that did not make it back up, cobwebs,
+    # a gutter of old candle wax down the wall.
+    hide_hang(b, (14, 15, 26))
+    hide_hang(b, (17, 11, 22))
+    hide_skull(b, (13, 12, 27), rotation=4)
+    put(b, (15, 12, 27), 'minecraft:bone_block', {'axis': 'z'})
+    hide_candles(b, (13, 12, 26), 3)
+    hide_cobweb(b, air, [(13, 15, 26), (17, 15, 27), (16, 14, 25), (17, 12, 19), (14, 17, 23), (14, 16, 24)])
+
+
+def hideout_corridor(b, air):
+    """The long gallery under the hut. Three wide, inlaid with a hieroglyph runner whose tiles are not all
+    what they seem, ribbed with deepslate arches and lit by two or three soul lanterns."""
+    S = HIDE_S
+    hollow(b, air, 3, S, 15, 29, S + 3, 17)
+    hide_floor(b, 3, 15, 29, 17, 7301)
+    cursed_at = {(6, 15): 'risen', (9, 17): 'withering', (12, 16): 'collapse', (21, 15): 'withering',
+                 (22, 17): 'risen', (24, 16): 'collapse', (26, 15): 'risen', (28, 17): 'withering'}
+    for x in range(5, 29):
+        if 15 <= x <= 18:
+            continue                       # the stair foot stays plain
+        for z in (15, 16, 17):
+            put(b, (x, HIDE_F, z), GLYPH)
+    for (x, z), curse in cursed_at.items():
+        cursed(b, (x, HIDE_F, z), curse)
+    # Arches: a post each side, a lintel stair above it, and a lantern between.
+    for x in (8, 13, 20, 25):
+        for z in (15, 17):
+            for y in (S, S + 1, S + 2):
+                put(b, (x, y, z), 'minecraft:deepslate_brick_wall', {'up': 'true', 'north': 'none', 'south': 'none',
+                                                                        'east': 'none', 'west': 'none',
+                                                                        'waterlogged': 'false'})
+            stair(b, (x, S + 3, z), 'minecraft:deepslate_brick_stairs', 'south' if z == 15 else 'north',
+                  half='top')
+        put(b, (x, S + 3, 16), 'minecraft:deepslate_brick_slab', {'type': 'top', 'waterlogged': 'false'})
+    hide_hang(b, (13, S + 2, 16))
+    hide_hang(b, (25, S + 2, 16))
+    hide_hang(b, (6, S + 3, 16))
+    # West end: the ceiling came down here long ago. A heap of rubble, a skeleton under it, bones.
+    for (x, z, h) in ((3, 15, 3), (3, 16, 4), (3, 17, 3), (4, 15, 2), (4, 16, 3), (4, 17, 2), (5, 16, 1), (5, 15, 1)):
+        for y in range(S, S + h):
+            put(b, (x, y, z), tex(HIDE_RUBBLE, x, y, z, 7302))
+    hide_skull(b, (5, S + 1, 16), rotation=10)
+    hide_skull(b, (4, S + 3, 17), wither=True, rotation=2)
+    put(b, (5, S, 17), 'minecraft:bone_block', {'axis': 'x'})
+    # Along the walls: candle stubs on the ledges the arches leave, dust, bones, cobwebs.
+    for (x, z) in ((10, 15), (17, 17), (23, 17), (28, 15)):
+        hide_candles(b, (x, S, z), 2 + (x % 3))
+    put(b, (11, S, 17), 'minecraft:bone_block', {'axis': 'z'})
+    put(b, (19, S, 15), 'minecraft:skeleton_skull', {'rotation': '12', 'powered': 'false'})
+    hide_cobweb(b, air, [(3, S + 3, 15), (8, S + 3, 16), (13, S + 3, 15), (19, S + 3, 17),
+                         (29, S + 3, 17), (29, S + 3, 15), (9, S + 2, 15), (22, S + 3, 15)])
+    # East end, the dead end that is not one: the same rock everywhere so the concealed patch does not stand
+    # out, and a lone candle left at the foot of it.
+    hide_candles(b, (24, S, 15), 1)
+    put(b, (29, S, 16), 'minecraft:bone_block', {'axis': 'y'})
+    hide_skull(b, (29, S + 1, 16), rotation=8)
+
+
+def hideout_cells(b, air):
+    """Three cells off the north wall, each a bed of straw and a heap of bones behind iron bars, one bar
+    bent aside so what is inside can come out."""
+    S = HIDE_S
+    keep = {'PersistenceRequired': ('byte', 1)}
+    ents = []
+    bent = {0: 4, 1: 6, 2: 10}
+    for i, (xa, xb) in enumerate(HIDE_CELL_XS):
+        hollow(b, air, xa, S, 7, xb, S + 3, 13)
+        hide_floor(b, xa, 7, xb, 13, 7401 + i)
+        # Front: bars from floor to lintel, with one column bent aside; the lintel is stone.
+        for x in (xa, xb):
+            for y in (S, S + 1, S + 2):
+                if x != bent[i]:
+                    put(b, (x, y, 14), 'minecraft:iron_bars')
+            put(b, (x, S + 3, 14), tex(HIDE_WALL, x, S + 3, 14, 7402))
+        # Inside: straw, bones, a bucket, chain manacles on the back wall.
+        put(b, (xa, S, 8), 'minecraft:hay_block', {'axis': 'x'})
+        put(b, (xb, S, 8), 'minecraft:hay_block', {'axis': 'x'}) if i != 1 else \
+            put(b, (xb, S, 8), 'minecraft:bone_block', {'axis': 'x'})
+        put(b, (xa if i != 2 else xb, S, 7), 'minecraft:bone_block', {'axis': 'z'})
+        hide_skull(b, (xb if i != 2 else xa, S, 7), rotation=(i * 5) % 16)
+        hide_chain(b, xa, S + 1, S + 3, 7)
+        if i != 1:
+            hide_chain(b, xb, S + 2, S + 3, 7)
+        if i == 0:
+            put(b, (xb, S, 12), 'minecraft:cauldron')
+        hollow(b, air, bent[i], S, 14, bent[i], S + 2, 14)       # the bent bar: the way out
+        cx = xa if i != 1 else xb
+        ents.append(entity(cx + 0.5, float(S), 11.5, 'hogwartsmagic:inferius', dict(keep)))
+    # The cell block's own: a barrel of scraps by the first cell, cracked flags, wax-stub candles.
+    b[(10, S, 13)] = ('minecraft:barrel', {'facing': 'west', 'open': 'false'},
+                      {'id': 'minecraft:barrel', 'LootTable': 'hogwartsmagic:chests/dark_hideout_cells'})
+    # The hatch in the north wall is the cell block's only light: one soul lantern hung from the corridor.
+    hide_cobweb(b, air, [(3, S + 3, 8), (7, S + 3, 12), (10, S + 3, 9), (4, S + 2, 13), (9, S + 3, 7)])
+    return ents
+
+
+def hideout_library(b, air):
+    """A dead man's library: tall stacks of black-market grimoires, a reading table, cobwebs over everything."""
+    S = HIDE_S
+    x0, x1, z0, z1 = HIDE_LIB_BOX
+    hollow(b, air, x0, S, z0, x1, S + 3, z1)
+    hide_floor(b, x0, z0, x1, z1, 7501)
+    # Doorway from the corridor, z = 14.
+    hollow(b, air, 16, S, 14, 17, S + 2, 14)
+    # Shelving round three walls, three high, a chiseled shelf now and then.
+    for y in (S, S + 1, S + 2):
+        for z in range(z0, z1 - 1):
+            for x in (x0, x1):
+                chiseled = noise(x, y, z, 7502) < 0.2
+                if chiseled:
+                    put(b, (x, y, z), 'minecraft:chiseled_bookshelf',
+                        {'facing': 'east' if x == x0 else 'west',
+                         **{f'slot_{i}_occupied': 'false' for i in range(6)}})
+                else:
+                    put(b, (x, y, z), 'minecraft:bookshelf')
+        for x in range(x0 + 1, x1):
+            put(b, (x, y, z0), 'minecraft:bookshelf')
+    # Two free-standing stacks, with a gap where one has been pulled down.
+    for xs in (15, 19):
+        for z in range(6, 11):
+            for y in (S, S + 1, S + 2):
+                if noise(xs, y, z, 7503) < 0.14:
+                    continue
+                put(b, (xs, y, z), 'minecraft:bookshelf')
+    # The reading corner: a table, a lectern, two chairs, and candles.
+    put(b, (17, S, 8), 'minecraft:dark_oak_fence')
+    slab(b, (17, S + 1, 8), 'minecraft:dark_oak_slab')
+    put(b, (17, S, 9), 'minecraft:dark_oak_fence')
+    slab(b, (17, S + 1, 9), 'minecraft:dark_oak_slab')
+    stair(b, (16, S, 8), 'minecraft:dark_oak_stairs', 'east')
+    stair(b, (18, S, 9), 'minecraft:dark_oak_stairs', 'west')
+    hide_candles(b, (17, S + 2, 8), 3, lit=True)
+    put(b, (17, S, 6), 'minecraft:lectern', {'facing': 'south', 'has_book': 'false', 'powered': 'false'})
+    for x in range(16, 19):
+        put(b, (x, S, 11), 'minecraft:black_carpet')
+    b[(14, S, 5)] = ('minecraft:chest', {'facing': 'east'},
+                     {'id': 'minecraft:chest', 'LootTable': 'hogwartsmagic:chests/dark_hideout_library'})
+    hide_hang(b, (17, S + 3, 7))
+    hide_hang(b, (14, S + 3, 11))
+    put(b, (20, S, 12), 'minecraft:bone_block', {'axis': 'x'})
+    hide_skull(b, (20, S + 1, 12), rotation=11)
+    hide_cobweb(b, air, [(14, S + 3, 5), (20, S + 3, 5), (16, S + 3, 12), (20, S + 3, 12), (14, S + 2, 12),
+                         (17, S + 3, 4 + 3), (15, S + 3, 12), (21 - 1, S + 3, 7)])
+
+
+def hideout_lab(b, air):
+    """The potion lab: benches of stained dark oak, brewing stands with something still bubbling, a cracked
+    cauldron, barrels, and the smell of old dittany."""
+    S = HIDE_S
+    x0, x1, z0, z1 = HIDE_LAB_BOX
+    hollow(b, air, x0, S, z0, x1, S + 3, z1)
+    hide_floor(b, x0, z0, x1, z1, 7601)
+    hollow(b, air, 7, S, 18, 8, S + 2, 18)               # doorway from the corridor
+    # West bench: dark oak top, brewing stands and cauldrons on it.
+    for z in range(21, 28):
+        put(b, (x0, S, z), 'minecraft:dark_oak_planks')
+    for z, kind in ((21, 'stand'), (22, 'cauldron'), (23, 'stand'), (25, 'stand'), (26, 'cauldron'),
+                    (27, 'stand')):
+        if kind == 'stand':
+            put(b, (x0, S + 1, z), 'minecraft:brewing_stand', {'has_bottle_0': 'true' if z % 2 else 'false',
+                                                               'has_bottle_1': 'false', 'has_bottle_2': 'true'})
+        else:
+            put(b, (x0, S + 1, z), 'minecraft:cauldron') if z == 22 else put(
+                b, (x0, S + 1, z), 'minecraft:water_cauldron', {'level': '2'})
+    # East shelf: stripped logs carrying candles, flower pots, glass bottles, a skull.
+    for z in range(21, 28):
+        put(b, (x1, S, z), 'minecraft:stripped_dark_oak_log', {'axis': 'z'})
+    for z in (21, 23, 24, 27):
+        hide_candles(b, (x1, S + 1, z), 1 + z % 3)
+    hide_skull(b, (x1, S + 1, 25), rotation=12)
+    put(b, (x1, S + 1, 22), 'minecraft:potted_red_mushroom')
+    put(b, (x1, S + 1, 26), 'minecraft:potted_brown_mushroom')
+    # Back wall: barrels in a stack and a rack of herbs hung from the ceiling.
+    for x in (4, 5, 6):
+        put(b, (x, S, z1), 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    put(b, (5, S + 1, z1), 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    for x in (4, 6, 9):
+        put(b, (x, S + 3, 27), 'minecraft:hanging_roots', {'waterlogged': 'false'})
+    # A work table in the middle with a cracked cauldron beside it.
+    put(b, (7, S, 24), 'minecraft:dark_oak_fence')
+    slab(b, (7, S + 1, 24), 'minecraft:dark_oak_slab')
+    put(b, (8, S, 24), 'minecraft:dark_oak_fence')
+    slab(b, (8, S + 1, 24), 'minecraft:dark_oak_slab')
+    hide_candles(b, (7, S + 2, 24), 3, lit=True)
+    put(b, (10, S, 23), 'minecraft:cauldron')
+    b[(9, S, 28)] = ('minecraft:chest', {'facing': 'north'},
+                     {'id': 'minecraft:chest', 'LootTable': 'hogwartsmagic:chests/dark_hideout_lab'})
+    hide_hang(b, (7, S + 3, 22))
+    hide_hang(b, (4, S + 3, 25))
+    put(b, (6, S, 21), 'minecraft:bone_block', {'axis': 'x'})
+    hide_cobweb(b, air, [(3, S + 3, 19), (11, S + 3, 19), (11, S + 3, 29), (3, S + 3, 29), (6, S + 2, 29),
+                         (11, S + 2, 26)])
+
+
+def hideout_ritual(b, air):
+    """The ritual room. A tall apse at the north end with the altar and the cup, a floor circle of crying
+    obsidian and gilded blackstone, black pillars, skulls on the walls and the Dark Mark over the cup. The
+    leader waits in the circle with his back to the door."""
+    S = HIDE_S
+    x0, x1, z0, z1 = HIDE_RITUAL_BOX
+    hollow(b, air, x0, S, z0, x1, S + 3, z1)
+    hollow(b, air, 24, S + 4, z0, 28, S + 6, 7)          # the apse rises two blocks higher over the altar
+    hide_floor(b, x0, z0, x1, z1, 7701)
+    # The circle, centred on (26, 8): a polished disc, a crying obsidian ring, gilded spokes.
+    for x in range(x0, x1 + 1):
+        for z in range(5, 12):
+            d = math.hypot(x - 26, z - 8)
+            if d <= 1.3:
+                put(b, (x, HIDE_F, z), 'minecraft:polished_blackstone')
+            elif 2.2 <= d <= 3.1:
+                put(b, (x, HIDE_F, z), 'minecraft:crying_obsidian' if noise(x, 0, z, 7702) > 0.3
+                    else 'minecraft:gilded_blackstone')
+            elif d <= 3.7 and (abs(x - 26) <= 0 or abs(z - 8) <= 0):
+                put(b, (x, HIDE_F, z), 'minecraft:gilded_blackstone')
+    for (x, z) in ((24, 6), (28, 6), (24, 10), (28, 10)):    # blood where the ring is stained
+        if noise(x, 0, z, 7703) < 0.6:
+            put(b, (x, HIDE_F, z), 'minecraft:nether_wart_block')
+    # The altar: a stepped dais of polished blackstone with a crying obsidian block for the cup to stand on.
+    for x in range(25, 28):
+        put(b, (x, S, 3), 'minecraft:polished_blackstone_bricks')
+    stair(b, (25, S, 4), 'minecraft:polished_blackstone_stairs', 'east')
+    stair(b, (27, S, 4), 'minecraft:polished_blackstone_stairs', 'west')
+    put(b, (26, S, 4), 'minecraft:crying_obsidian')
+    b[(26, S + 1, 4)] = ('hogwartsmagic:cursed_cup', {'lit': 'true'},
+                         {'id': 'hogwartsmagic:horcrux', 'Active': ('byte', 1)})
+    put(b, (25, S + 1, 3), 'minecraft:polished_blackstone_brick_wall', {'up': 'true', 'north': 'none', 'south': 'none',
+                                                                        'east': 'none', 'west': 'none',
+                                                                        'waterlogged': 'false'})
+    put(b, (27, S + 1, 3), 'minecraft:polished_blackstone_brick_wall', {'up': 'true', 'north': 'none', 'south': 'none',
+                                                                        'east': 'none', 'west': 'none',
+                                                                        'waterlogged': 'false'})
+    hide_candles(b, (25, S + 2, 3), 3, lit=True)
+    hide_candles(b, (27, S + 2, 3), 2, lit=True)
+    dark_mark_banner(b, (26, S + 3, 3), 'south')
+    # Black pillars down the room, each with a chain-hung soul lantern and a skull on its foot.
+    for (x, z) in ((24, 7), (28, 7), (24, 11), (28, 11)):
+        for y in range(S, S + 4):
+            put(b, (x, y, z), 'minecraft:chiseled_polished_blackstone' if y in (S, S + 3)
+                else 'minecraft:polished_blackstone_bricks')
+        hide_skull(b, (x + (1 if x == 24 else -1), S, z), wither=True, rotation=4 if x == 24 else 12)
+    for x in (25, 27):
+        hide_chain(b, x, S + 2, S + 3, 9)
+        hide_hang(b, (x, S + 1, 9))
+    # Along the walls: candle clusters on the floor, skulls on ledges, bones.
+    for (x, z, n) in ((23, 4, 3), (29, 4, 2), (23, 13, 4), (29, 13, 3), (23, 9, 2), (29, 9, 1)):
+        hide_candles(b, (x, S, z), n, lit=(n >= 3))
+    for z in (12, 13):                                   # a red runner from the door to the circle
+        put(b, (26, S, z), 'minecraft:red_carpet')
+    hide_cobweb(b, air, [(23, S + 3, 3), (29, S + 3, 3), (23, S + 3, 13), (29, S + 3, 13), (24, S + 6, 3),
+                         (28, S + 6, 3)])
+
+
+def hideout_concealed_wall(b):
+    """The way into the ritual room is a stretch of the corridor's north wall that looks like every other
+    stretch of it, until Revelio shows it."""
+    S = HIDE_S
+    for x in range(22, 31):
+        for y in range(S, S + 4):
+            put(b, (x, y, 14), tex(LOCKET_ROCK, x, y, 14, 7801))
+    for x in HIDE_WALL_X:
+        for y in (S, S + 1, S + 2):
+            put(b, (x, y, 14), 'hogwartsmagic:concealed_rock', {'revealed': 'false'})
+
+
+def dark_hideout():
+    b, air = {}, set()
+    hideout_hut(b, air)
+    hideout_stair(b, air)
+    hideout_corridor(b, air)
+    cells = hideout_cells(b, air)
+    hideout_library(b, air)
+    hideout_lab(b, air)
+    hideout_ritual(b, air)
+    hideout_concealed_wall(b)
+    hideout_shell(b, air)
+    S = HIDE_S
+    keep = {'PersistenceRequired': ('byte', 1)}
+    leader = entity(26.5, float(S), 8.5, 'hogwartsmagic:wizard', dict(
+        keep, Tags=('list', 'string', [('string', HIDE_LEADER_TAG)]),
+        Rotation=('list', 'float', [('float', 180.0), ('float', 0.0)])))
+    return b, cells + [leader]
+
+
+def hideout_air_view(blocks):
+    """The global audit only knows plain air as open space; the hideout carves with cave_air."""
+    return {p: (('minecraft:air',) + tuple(v[1:]) if v[0] == 'minecraft:cave_air' else v) for p, v in blocks.items()}
+
+
+def hideout_walk(blocks, start, open_wall):
+    """Every standing cell a player can reach from `start`: climbing one block (a stair lets the step skip
+    the headroom check), dropping up to three. Unset cells are rock below the ground and open air above it;
+    the concealed rock is passable only when `open_wall` says Revelio has shown it."""
+    ground = HIDE_G
+
+    def solid(p):
+        v = blocks.get(p)
+        if v is None:
+            return p[1] < ground
+        name = v[0]
+        if name == 'hogwartsmagic:concealed_rock':
+            return not open_wall
+        return not any(k in name for k in ('air', 'cobweb', '_trapdoor', '_carpet', 'candle', 'roots',
+                                            'lantern', 'chain', 'skull', 'campfire'))
+
+    def stands(p):
+        x, y, z = p
+        return not solid(p) and not solid((x, y + 1, z)) and solid((x, y - 1, z))
+
+    lo = [min(p[i] for p in blocks) for i in range(3)]
+    hi = [max(p[i] for p in blocks) for i in range(3)]
+    seen, queue = {start}, [start]
+    while queue:
+        x, y, z = queue.pop()
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            for dy in (1, 0, -1, -2, -3):
+                n = (x + dx, y + dy, z + dz)
+                if not all(lo[i] <= n[i] <= hi[i] for i in range(3)):
+                    continue
+                if n in seen or not stands(n):
+                    continue
+                if dy == 1 and solid((x, y + 2, z)) and not blocks.get((n[0], n[1] - 1, n[2]), ('',))[0].endswith('_stairs'):
+                    continue
+                seen.add(n)
+                queue.append(n)
+                break
+    return seen
+
+
+def audit_dark_hideout(blocks, entities):
+    problems = []
+    if not 10 <= HIDE_G - HIDE_S <= 20:
+        problems.append('the rooms are %d below the surface, outside 10..20' % (HIDE_G - HIDE_S))
+
+    def box(b4):
+        x0, x1, z0, z1 = b4
+        return {(x, HIDE_S, z) for x in range(x0, x1 + 1) for z in range(z0, z1 + 1)}
+
+    ritual, lab, lib = box(HIDE_RITUAL_BOX), box(HIDE_LAB_BOX), box(HIDE_LIB_BOX)
+    cell_cells = [{(x, HIDE_S, z) for x in xs for z in range(7, 14)} for xs in HIDE_CELL_XS]
+    start = (16, HIDE_G, 23)
+    opened = hideout_walk(blocks, start, True)
+    shut = hideout_walk(blocks, start, False)
+    if not opened & ritual:
+        problems.append('with the concealed wall open the ritual room cannot be reached')
+    if shut & ritual:
+        problems.append('the ritual room can be reached with the concealed wall shut')
+    for name, room in (('lab', lab), ('library', lib)):
+        if not shut & room:
+            problems.append('the %s cannot be reached with the wall shut' % name)
+        if not opened & room:
+            problems.append('the %s cannot be reached with the wall open' % name)
+    for i, room in enumerate(cell_cells):
+        if not shut & room:
+            problems.append('cell %d cannot be reached' % i)
+    glyphs = [p for p, v in blocks.items() if v[0] == 'hogwartsmagic:cursed_glyph']
+    if len(glyphs) < 5:
+        problems.append('only %d cursed glyphs' % len(glyphs))
+    for (x, y, z) in glyphs:
+        if not any(blocks.get((x + dx, y, z + dz), (None,))[0] == GLYPH
+                   for dx, dz in ((1, 1), (1, -1), (-1, 1), (-1, -1), (2, 0), (0, 2), (-2, 0), (0, -2), (1, 0), (0, 1))):
+            problems.append('cursed glyph at %s has no plain glyph tiles round it to hide among' % ((x, y, z),))
+        if 16 <= x <= 17:
+            problems.append('cursed glyph at %s sits on the stair foot' % ((x, y, z),))
+    cups = [p for p, v in blocks.items() if v[0] == 'hogwartsmagic:cursed_cup']
+    if len(cups) != 1:
+        problems.append('%d cursed cups, want exactly 1' % len(cups))
+    else:
+        cup = cups[0]
+        be = blocks[cup][2] or {}
+        if be.get('Active') != ('byte', 1):
+            problems.append('the cup is not baked Active')
+        below = blocks.get((cup[0], cup[1] - 1, cup[2]), ('minecraft:air',))[0]
+        if PASSABLE.search(below):
+            problems.append('the cup stands on %s' % below)
+    leaders = [e for e in entities if e['nbt'][1]['id'][1] == 'hogwartsmagic:wizard'
+               and any(t[1] == HIDE_LEADER_TAG for t in e['nbt'][1].get('Tags', ('', '', []))[2])]
+    if len(leaders) != 1:
+        problems.append('%d leaders, want exactly 1' % len(leaders))
+    else:
+        x, y, z = [v[1] for v in leaders[0]['pos'][2]]
+        if (int(math.floor(x)), HIDE_S, int(math.floor(z))) not in ritual:
+            problems.append('the leader stands at %s, outside the ritual room' % ((x, y, z),))
+    inferi = 0
+    for e in entities:
+        if e['nbt'][1]['id'][1] == 'hogwartsmagic:inferius':
+            x, y, z = [v[1] for v in e['pos'][2]]
+            if any((int(math.floor(x)), HIDE_S, int(math.floor(z))) in room for room in cell_cells):
+                inferi += 1
+    if inferi < 3:
+        problems.append('only %d Inferi in the cells' % inferi)
+    for loot in ('dark_hideout_cells', 'dark_hideout_lab', 'dark_hideout_library'):
+        if not any(v[0] in ('minecraft:chest', 'minecraft:barrel') and (v[2] or {}).get('LootTable', '').endswith(loot)
+                   for v in blocks.values()):
+            problems.append('no container with the %s loot' % loot)
+    return problems
+
+
 BUILDS = {
     'fen_gibbet': fen_gibbet,
     'fen_prison': fen_prison,
@@ -5999,6 +6608,8 @@ BUILDS = {
     'cursed_tomb': cursed_tomb,
     'cursebreaker_dig': cursebreaker_dig,
     'yeti_cave': yeti_cave,
+    # Dark wizard hideouts
+    'dark_hideout': dark_hideout,
 }
 
 # Builds whose empty space is water rather than air. Anything waterloggable inside one has to say so,
@@ -6302,7 +6913,8 @@ if __name__ == '__main__':
         low = [min(p[i] for p in blocks) for i in range(3)]
         problems = ['blocks reach %s, below the template corner: outside the structure box' % (low,)] \
             if min(low) < 0 else []
-        problems += (audit(name, blocks) + audit_entities(blocks, entities, size)
+        problems += (audit(name, hideout_air_view(blocks) if name == 'dark_hideout' else blocks)
+                    + audit_entities(blocks, entities, size)
                     + audit_paintings(blocks, entities) + audit_entity_room(blocks, entities)
                     + audit_fire(blocks))
         if name == 'chamber_hall':
@@ -6315,6 +6927,8 @@ if __name__ == '__main__':
             problems += audit_cursed_tomb(blocks)
         if name == 'yeti_cave':
             problems += audit_yeti_cave(blocks, entities)
+        if name == 'dark_hideout':
+            problems += audit_dark_hideout(blocks, entities)
         path = os.path.join(OUT, name + '.nbt')
         write_nbt(path, build_template(blocks, entities))
         kinds = len({v[0] for v in blocks.values()})

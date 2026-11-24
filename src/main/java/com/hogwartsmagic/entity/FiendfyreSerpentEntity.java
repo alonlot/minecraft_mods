@@ -382,7 +382,7 @@ public class FiendfyreSerpentEntity extends Entity implements FireBreather {
                 continue;
             }
             BlockState state = level.getBlockState(scan);
-            if (!state.is(ExampleMod.HORCRUX.get())) {
+            if (!(state.getBlock() instanceof com.hogwartsmagic.block.HorcruxBlock)) {
                 continue;
             }
             if (!(level.getBlockEntity(scan) instanceof HorcruxBlockEntity horcrux) || !(horcrux.isActive() || horcrux.isPrimed())) {

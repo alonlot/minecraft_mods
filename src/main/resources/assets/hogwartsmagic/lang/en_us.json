@@ -2071,5 +2071,8 @@
   "message.hogwartsmagic.headmaster_stair.wrong": "The gargoyle does not move.",
   "message.hogwartsmagic.headmaster_stair.leaving": "The stair rises to take you down.",
   "message.hogwartsmagic.headmaster_stair.hint": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand.",
-  "message.hogwartsmagic.headmaster_stair.hint_sweets": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand. (The Headmaster is fond of a Sherbet Lemon.)"
+  "message.hogwartsmagic.headmaster_stair.hint_sweets": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand. (The Headmaster is fond of a Sherbet Lemon.)",
+  "block.hogwartsmagic.cursed_cup": "Cursed Golden Cup",
+  "message.hogwartsmagic.cursed_cup.status": "The little golden cup is warm, and something inside it is watching you.",
+  "message.hogwartsmagic.cursed_cup.freed": "A shriek tears out of the cup, and something that was once a man flees through the stone."
 }

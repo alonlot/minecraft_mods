@@ -112,13 +112,6 @@ public class ExampleMod
                     .persistent(com.hogwartsmagic.locket.GobletFill.CODEC)
                     .networkSynchronized(com.hogwartsmagic.locket.GobletFill.STREAM_CODEC)
                     .build());
-    /** The basin a cave goblet belongs to; it crumbles back beside it when it leaves the cave. */
-    public static final RegistryObject<net.minecraft.core.component.DataComponentType<net.minecraft.core.BlockPos>> GOBLET_HOME =
-            DATA_COMPONENTS.register("goblet_home", () -> net.minecraft.core.component.DataComponentType.<net.minecraft.core.BlockPos>builder()
-                    .persistent(net.minecraft.core.BlockPos.CODEC)
-                    .networkSynchronized(net.minecraft.core.BlockPos.STREAM_CODEC)
-                    .build());
-
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.MagicBookLootModifier>> MAGIC_BOOK_LOOT_MODIFIER =
             LOOT_MODIFIER_SERIALIZERS.register("magic_books", () -> com.hogwartsmagic.loot.MagicBookLootModifier.CODEC);
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.SortingHatLootModifier>> SORTING_HAT_LOOT_MODIFIER =

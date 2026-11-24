@@ -1,7 +1,6 @@
 package com.hogwartsmagic.block;
 
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.item.CaveGobletItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -31,28 +30,14 @@ public class CrystalGobletBlock extends Block {
         return SHAPE;
     }
 
-    /** Lifting the goblet: the block becomes the item, which remembers the basin beside it. */
+    /** Lifting the goblet: the block becomes the item. A left-click drops it too (loot table), so it is never lost. */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             ItemStack goblet = new ItemStack(ExampleMod.CRYSTAL_GOBLET_ITEM.get());
-            BlockPos basin = nearestBasin(level, pos);
-            if (basin != null) {
-                CaveGobletItem.setHome(goblet, basin);
-            }
             level.removeBlock(pos, false);
             player.getInventory().placeItemBackInInventory(goblet);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
-    }
-
-    @org.jetbrains.annotations.Nullable
-    private static BlockPos nearestBasin(Level level, BlockPos pos) {
-        for (BlockPos at : BlockPos.betweenClosed(pos.offset(-4, -2, -4), pos.offset(4, 2, 4))) {
-            if (level.getBlockState(at).is(ExampleMod.DESPAIR_BASIN.get())) {
-                return at.immutable();
-            }
-        }
-        return null;
     }
 }

@@ -89,6 +89,9 @@ public class DespairBasinBlock extends BaseEntityBlock {
         if (!(stack.getItem() instanceof com.hogwartsmagic.item.CaveGobletItem)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
+        if (com.hogwartsmagic.item.CaveGobletItem.fillOf(stack) != com.hogwartsmagic.locket.GobletFill.EMPTY) {
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION; // a full goblet drinks instead
+        }
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer
                 && level.getBlockEntity(pos) instanceof DespairBasinBlockEntity be) {
             be.dip(serverPlayer, stack);

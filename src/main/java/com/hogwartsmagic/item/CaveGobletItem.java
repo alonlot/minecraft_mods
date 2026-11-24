@@ -6,7 +6,6 @@ import com.hogwartsmagic.locket.GobletFill;
 import com.hogwartsmagic.locket.GobletRules;
 import com.hogwartsmagic.locket.LocketCaves;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -22,8 +21,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,16 +44,6 @@ public class CaveGobletItem extends Item {
         } else {
             stack.set(ExampleMod.GOBLET_FILL.get(), fill);
         }
-    }
-
-    /** A goblet lifted from a block or dipped remembers the basin it belongs to. */
-    public static void setHome(ItemStack stack, BlockPos basin) {
-        stack.set(ExampleMod.GOBLET_HOME.get(), basin.immutable());
-    }
-
-    @Nullable
-    public static BlockPos homeOf(ItemStack stack) {
-        return stack.get(ExampleMod.GOBLET_HOME.get());
     }
 
     @Override
@@ -95,7 +82,7 @@ public class CaveGobletItem extends Item {
         }
         setFill(stack, GobletFill.EMPTY);
         if (fill == GobletFill.POTION) {
-            DespairBasinBlockEntity basin = basinOf(stack, level, player.blockPosition());
+            DespairBasinBlockEntity basin = basinOf(level, player.blockPosition());
             if (basin != null) {
                 basin.drink(player);
             }
@@ -103,77 +90,26 @@ public class CaveGobletItem extends Item {
         // WATER only empties the goblet for now: the lake dip and the thirst cure are wired separately.
     }
 
+    /** The basin of the cave this holder stands in, if any (loaded chunks only). */
     @Nullable
-    private static DespairBasinBlockEntity basinOf(ItemStack stack, ServerLevel level, BlockPos near) {
-        BlockPos home = homeOf(stack);
-        if (home != null && level.hasChunkAt(home) && level.getBlockEntity(home) instanceof DespairBasinBlockEntity be) {
-            return be;
-        }
+    private static DespairBasinBlockEntity basinOf(ServerLevel level, BlockPos near) {
         return LocketCaves.findBasinFor(level, near).orElse(null);
     }
 
+    /** A goblet outside a cave crumbles: particles, a sound, and the item is gone. The basin restores its own. */
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity holder, int slot, boolean selected) {
         if (!(level instanceof ServerLevel server) || !(holder instanceof ServerPlayer player)
                 || (player.tickCount + slot) % CHECK_INTERVAL != 0) {
             return;
         }
-        DespairBasinBlockEntity basin = basinOf(stack, server, player.blockPosition());
-        if (basin == null) {
-            // Outside every cave. A goblet with a home crumbles back to it; one with none just crumbles.
-            crumble(stack, server, player, homeOf(stack));
-            return;
+        DespairBasinBlockEntity basin = basinOf(server, player.blockPosition());
+        boolean inCave = basin != null && basin.layout().inCave(player.blockPosition());
+        if (GobletRules.leavesCave(inCave)) {
+            server.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_BREAK, SoundSource.PLAYERS, 1f, 0.7f);
+            server.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1.0, player.getZ(), 12, 0.3, 0.4, 0.3, 0.02);
+            stack.shrink(1);
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.goblet_crumbles"), true);
         }
-        if (homeOf(stack) == null) {
-            setHome(stack, basin.getBlockPos());
-        }
-        if (GobletRules.leavesCave(basin.layout().inCave(player.blockPosition()))) {
-            crumble(stack, server, player, basin.getBlockPos());
-        }
-    }
-
-    /** Takes the goblet from the player and sets a goblet block back beside its basin. */
-    private static void crumble(ItemStack stack, ServerLevel level, ServerPlayer player, @Nullable BlockPos basin) {
-        level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_BREAK, SoundSource.PLAYERS, 1f, 0.7f);
-        level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1.0, player.getZ(), 12, 0.3, 0.4, 0.3, 0.02);
-        stack.shrink(1);
-        if (basin != null) {
-            placeBesideBasin(level, basin);
-        }
-        player.displayClientMessage(Component.translatable("message.hogwartsmagic.goblet_crumbles"), true);
-    }
-
-    /** The nearest free cell next to the basin gets a goblet block. Returns where it went, or null. */
-    @Nullable
-    public static BlockPos placeBesideBasin(ServerLevel level, BlockPos basin) {
-        if (!level.hasChunkAt(basin)) {
-            level.getChunk(basin); // the basin is in a generated cave, so this is a load from disk
-        }
-        if (!level.getBlockState(basin).is(ExampleMod.DESPAIR_BASIN.get())) {
-            return null;
-        }
-        BlockState goblet = ExampleMod.CRYSTAL_GOBLET.get().defaultBlockState();
-        BlockPos best = null;
-        double bestDist = Double.MAX_VALUE;
-        for (int dx = -3; dx <= 3; dx++) {
-            for (int dz = -3; dz <= 3; dz++) {
-                for (int dy = 0; dy <= 1; dy++) {
-                    BlockPos at = basin.offset(dx, dy, dz);
-                    double dist = at.distSqr(basin);
-                    if (dist == 0 || dist >= bestDist || !level.hasChunkAt(at)) {
-                        continue;
-                    }
-                    if (level.getBlockState(at).isAir() && level.getFluidState(at).isEmpty()
-                            && level.getBlockState(at.below()).isFaceSturdy(level, at.below(), Direction.UP)) {
-                        best = at;
-                        bestDist = dist;
-                    }
-                }
-            }
-        }
-        if (best != null) {
-            level.setBlock(best, goblet, Block.UPDATE_ALL);
-        }
-        return best;
     }
 }

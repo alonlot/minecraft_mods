@@ -108,7 +108,6 @@ public class DespairBasinBlockEntity extends BlockEntity {
         drinker = p.getUUID();
         lastDrink = now;
         CaveGobletItem.setFill(goblet, GobletFill.POTION);
-        CaveGobletItem.setHome(goblet, worldPosition);
         level.playSound(null, worldPosition, SoundEvents.BOTTLE_FILL, SoundSource.BLOCKS, 1f, 0.6f);
         setChanged();
         return true;
@@ -137,6 +136,54 @@ public class DespairBasinBlockEntity extends BlockEntity {
         level.playSound(null, worldPosition, SoundEvents.GENERIC_DRINK, SoundSource.BLOCKS, 1f, 0.6f);
         setStage(BasinStage.DRINKING); // drops the level, and shows the Locket once the sixth cup is drunk
         setChanged();
+    }
+
+    /**
+     * The cave has exactly one goblet and nothing may lose it: when no goblet block stands near the basin, no goblet
+     * item lies in the cave and nobody in the cave carries one, a new goblet block is set beside the basin.
+     * Returns whether one was placed. Never loads a chunk.
+     */
+    public boolean restoreGoblet(ServerLevel level) {
+        for (BlockPos at : BlockPos.betweenClosed(worldPosition.offset(-3, -3, -3), worldPosition.offset(3, 3, 3))) {
+            if (level.hasChunkAt(at) && level.getBlockState(at).is(ExampleMod.CRYSTAL_GOBLET.get())) {
+                return false;
+            }
+        }
+        CaveLayout l = layout();
+        int r = l.radius();
+        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(
+                worldPosition.getX() - r, worldPosition.getY() - l.down(), worldPosition.getZ() - r,
+                worldPosition.getX() + r + 1, worldPosition.getY() + l.up() + 1, worldPosition.getZ() + r + 1);
+        if (!level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, box,
+                e -> e.getItem().getItem() instanceof CaveGobletItem).isEmpty()) {
+            return false;
+        }
+        for (ServerPlayer p : level.players()) {
+            if (l.inCave(p.blockPosition()) && p.getInventory().hasAnyMatching(st -> st.getItem() instanceof CaveGobletItem)) {
+                return false;
+            }
+        }
+        BlockPos best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                BlockPos at = worldPosition.offset(dx, 0, dz);
+                double dist = at.distSqr(worldPosition);
+                if (dist == 0 || dist >= bestDist || !level.hasChunkAt(at)) {
+                    continue;
+                }
+                if (level.getBlockState(at).isAir() && level.getFluidState(at).isEmpty()
+                        && level.getBlockState(at.below()).isFaceSturdy(level, at.below(), net.minecraft.core.Direction.UP)) {
+                    best = at;
+                    bestDist = dist;
+                }
+            }
+        }
+        if (best == null) {
+            return false;
+        }
+        level.setBlock(best, ExampleMod.CRYSTAL_GOBLET.get().defaultBlockState(), Block.UPDATE_ALL);
+        return true;
     }
 
     /** Test hook: forgets the last cup so the next dip is not held back by the spacing rule. */
@@ -207,6 +254,9 @@ public class DespairBasinBlockEntity extends BlockEntity {
                 be.setChanged();
                 level.playSound(null, pos, SoundEvents.BREWING_STAND_BREW, SoundSource.BLOCKS, 1f, 0.5f);
             }
+        }
+        if (now % 100 == 0 && be.drinker == null && state.getValue(DespairBasinBlock.STAGE) != BasinStage.LOOTED) {
+            be.restoreGoblet(level);
         }
         if (now % 10 == 0) {
             be.checkLake(level, now);

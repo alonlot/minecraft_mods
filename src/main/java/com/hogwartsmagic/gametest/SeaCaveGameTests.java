@@ -588,4 +588,73 @@ public final class SeaCaveGameTests {
         helper.assertTrue(player.getInventory().contains(new net.minecraft.world.item.ItemStack(ExampleMod.SLYTHERINS_LOCKET.get())), "the Locket is in the drinker's pack");
         helper.succeed();
     }
+
+    // ---- the basin restores its goblet ---------------------------------------------------------
+
+    private static void gobletFloor(GameTestHelper helper) {
+        for (int x = 0; x <= 2; x++) {
+            for (int z = 0; z <= 2; z++) {
+                helper.setBlock(new BlockPos(x, 0, z), net.minecraft.world.level.block.Blocks.STONE);
+            }
+        }
+    }
+
+    private static int gobletBlocks(GameTestHelper helper) {
+        int n = 0;
+        for (int x = 0; x <= 2; x++) {
+            for (int y = 1; y <= 2; y++) {
+                for (int z = 0; z <= 2; z++) {
+                    if (helper.getBlockState(new BlockPos(x, y, z)).is(ExampleMod.CRYSTAL_GOBLET.get())) {
+                        n++;
+                    }
+                }
+            }
+        }
+        return n;
+    }
+
+    @GameTest(template = EMPTY, batch = "goblet_c", timeoutTicks = 200)
+    public static void basinRestoresALostGoblet(GameTestHelper helper) {
+        gobletFloor(helper);
+        gobletBasin(helper, false);
+        helper.assertTrue(gobletBlocks(helper) == 0, "no goblet block yet, the basin had its goblet destroyed");
+        helper.runAfterDelay(110, () -> {
+            helper.assertTrue(gobletBlocks(helper) == 1, "the basin set exactly one goblet back, found " + gobletBlocks(helper));
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "goblet_d", timeoutTicks = 200)
+    public static void basinAddsNoGobletWhileOneIsCarried(GameTestHelper helper) {
+        gobletFloor(helper);
+        gobletBasin(helper, false);
+        net.minecraft.server.level.ServerPlayer player = onIsland(helper);
+        player.getInventory().add(new net.minecraft.world.item.ItemStack(ExampleMod.CRYSTAL_GOBLET_ITEM.get()));
+        helper.runAfterDelay(110, () -> {
+            helper.assertTrue(gobletBlocks(helper) == 0, "a carried goblet means no new block, found " + gobletBlocks(helper));
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "goblet_e", timeoutTicks = 200)
+    public static void basinAddsNoGobletWhileOneLiesOnTheFloor(GameTestHelper helper) {
+        gobletFloor(helper);
+        gobletBasin(helper, false);
+        helper.spawnItem(ExampleMod.CRYSTAL_GOBLET_ITEM.get(), 0.5F, 1.0F, 0.5F);
+        helper.runAfterDelay(110, () -> {
+            helper.assertTrue(gobletBlocks(helper) == 0, "a dropped goblet means no new block, found " + gobletBlocks(helper));
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "goblet_f", timeoutTicks = 200)
+    public static void basinKeepsAnExistingGobletAlone(GameTestHelper helper) {
+        gobletFloor(helper);
+        gobletBasin(helper, false);
+        helper.setBlock(new BlockPos(2, 1, 1), ExampleMod.CRYSTAL_GOBLET.get());
+        helper.runAfterDelay(110, () -> {
+            helper.assertTrue(gobletBlocks(helper) == 1, "still exactly one goblet block, found " + gobletBlocks(helper));
+            helper.succeed();
+        });
+    }
 }

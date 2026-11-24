@@ -62,6 +62,13 @@ class PortkeyRulesTest {
     }
 
     @Test
+    void nerfedToThreeTripsTenMinutesApart() {
+        assertEquals(3, PortkeyRules.TRIPS);
+        assertEquals(12000, PortkeyRules.COOLDOWN_TICKS);
+        assertEquals(600, PortkeyRules.cooldownSeconds(PortkeyRules.COOLDOWN_TICKS));
+    }
+
+    @Test
     void cooldown() {
         assertEquals(1200L, PortkeyRules.cooldownLeft(100, 1300));
         assertEquals(0L, PortkeyRules.cooldownLeft(1400, 1300));

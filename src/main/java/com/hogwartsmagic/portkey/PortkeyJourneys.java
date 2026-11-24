@@ -123,10 +123,10 @@ public final class PortkeyJourneys {
         ServerLevel from = holder.serverLevel();
         String fromDim = from.dimension().location().toString();
         PortkeyLanding.Request request;
+        if (PortkeyData.spent(stack)) {
+            return false;
+        }
         if (old) {
-            if (PortkeyData.spent(stack)) {
-                return false;
-            }
             if (!PortkeyRules.oldWorksIn(fromDim, from.dimensionType().hasSkyLight(),
                     from.dimensionType().hasCeiling())) {
                 tell(holder, "old_refused");
@@ -299,6 +299,7 @@ public final class PortkeyJourneys {
             long now = journey.origin.getGameTime();
             PortkeyData.setReadyAt(journey.stack, now + PortkeyRules.COOLDOWN_TICKS);
             holder.getCooldowns().addCooldown(journey.stack.getItem(), PortkeyRules.COOLDOWN_TICKS);
+            PortkeyData.setTripsUsed(journey.stack, PortkeyData.tripsUsed(journey.stack) + 1); // one trip gone
         }
         PortkeyFx.hook(journey.origin, holder.position(), holder);
         boolean crossDim = journey.request.level() != journey.origin;
@@ -361,8 +362,8 @@ public final class PortkeyJourneys {
         ServerPlayer holder = journey.holder;
         float yaw = journey.old ? holder.getYRot() : journey.request.yaw();
         JOURNEYS.remove(holder.getUUID());
-        if (journey.old) {
-            PortkeyData.markSpent(journey.stack);
+        if (journey.old || PortkeyData.tripsUsed(journey.stack) >= PortkeyRules.TRIPS) {
+            PortkeyData.markSpent(journey.stack); // an Old one, or a crafted one on its last trip
         }
         List<Entity> pets = new ArrayList<>();
         int count = 0;
@@ -392,7 +393,7 @@ public final class PortkeyJourneys {
         }
         journey.request.release(); // only now: the pets' spots read the blocks round the landing
         PortkeyFx.arrive(target, land, count);
-        if (journey.old) {
+        if (PortkeyData.spent(journey.stack)) {
             CRUMBLES.put(holder.getUUID(), new Crumble(holder.getUUID(),
                     holder.server.getTickCount() + PortkeyRules.OLD_CRUMBLE_DELAY_TICKS));
         }
@@ -428,6 +429,7 @@ public final class PortkeyJourneys {
         if (journey.hooked && !journey.old) {
             PortkeyData.setReadyAt(journey.stack, 0L);
             journey.holder.getCooldowns().removeCooldown(journey.stack.getItem());
+            PortkeyData.setTripsUsed(journey.stack, PortkeyData.tripsUsed(journey.stack) - 1);
         }
         if (!journey.hooked) {
             PortkeyFx.cancel(journey.origin, journey.lastPos, journey.holder);
@@ -437,12 +439,12 @@ public final class PortkeyJourneys {
         }
     }
 
-    /** A spent Old Portkey falls to dust in the hand. */
+    /** A spent Portkey (an Old one, or a crafted one past its last trip) falls to dust in the hand. */
     private static void crumble(ServerPlayer holder) {
         boolean found = false;
         for (InteractionHand hand : InteractionHand.values()) {
             ItemStack s = holder.getItemInHand(hand);
-            if (s.getItem() instanceof OldPortkeyItem && PortkeyData.spent(s)) {
+            if (s.getItem() instanceof PortkeyItem && PortkeyData.spent(s)) {
                 s.shrink(1);
                 found = true;
                 break;
@@ -452,7 +454,7 @@ public final class PortkeyJourneys {
             var inventory = holder.getInventory();
             for (int i = 0; i < inventory.getContainerSize(); i++) {
                 ItemStack s = inventory.getItem(i);
-                if (s.getItem() instanceof OldPortkeyItem && PortkeyData.spent(s)) {
+                if (s.getItem() instanceof PortkeyItem && PortkeyData.spent(s)) {
                     s.shrink(1);
                     found = true;
                     break;

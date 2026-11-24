@@ -13,8 +13,10 @@ public final class PortkeyRules {
 
     /** Ticks of holding use before the hook (3 s). */
     public static final int CHARGE_TICKS = 60;
-    /** Ticks a Portkey rests after a journey before it will go again (60 s). */
-    public static final int COOLDOWN_TICKS = 1200;
+    /** Ticks a Portkey rests after a journey before it will go again (10 min). */
+    public static final int COOLDOWN_TICKS = 12000;
+    /** Journeys a crafted Portkey makes before it crumbles, like an Old one, after the last landing. */
+    public static final int TRIPS = 3;
     /** Ticks after the hook before the server moves the travellers (they are inside the implosion until then). */
     public static final int TELEPORT_DELAY_TICKS = 5;
     /** The shortest tunnel, in ticks after the hook, even when the far end is ready at once (1.2 s). */

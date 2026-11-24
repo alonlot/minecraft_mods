@@ -74,7 +74,7 @@ public class PortkeyItem extends Item {
         if (left > 0L) {
             if (!level.isClientSide) {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.portkey.cooldown",
-                        PortkeyRules.cooldownSeconds(left)).withStyle(ChatFormatting.GRAY), true);
+                        String.format("%d:%02d", PortkeyRules.cooldownSeconds(left) / 60, PortkeyRules.cooldownSeconds(left) % 60)).withStyle(ChatFormatting.GRAY), true);
             }
             return InteractionResultHolder.fail(stack);
         }
@@ -100,6 +100,10 @@ public class PortkeyItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         Optional<PortkeyData.Binding> binding = PortkeyData.binding(stack);
+        if (!(this instanceof OldPortkeyItem)) {
+            int left = tripsLeft(stack);
+            lines.add(Component.translatable("tooltip.hogwartsmagic.portkey.trips", left).withStyle(ChatFormatting.GOLD));
+        }
         if (binding.isPresent()) {
             PortkeyData.Binding b = binding.get();
             String dim = b.dim().location().toString();
@@ -111,5 +115,26 @@ public class PortkeyItem extends Item {
         } else {
             lines.add(Component.translatable("tooltip.hogwartsmagic.portkey.unbound").withStyle(ChatFormatting.GRAY));
         }
+    }
+
+    /** Journeys this crafted Portkey has left. */
+    public static int tripsLeft(ItemStack stack) {
+        return Math.max(0, PortkeyRules.TRIPS - PortkeyData.tripsUsed(stack));
+    }
+
+    /** A worn crafted Portkey shows its journeys left as a bar, the way a tool shows wear. */
+    @Override
+    public boolean isBarVisible(ItemStack stack) {
+        return !(this instanceof OldPortkeyItem) && PortkeyData.tripsUsed(stack) > 0;
+    }
+
+    @Override
+    public int getBarWidth(ItemStack stack) {
+        return Math.round(13.0F * tripsLeft(stack) / PortkeyRules.TRIPS);
+    }
+
+    @Override
+    public int getBarColor(ItemStack stack) {
+        return net.minecraft.util.Mth.hsvToRgb(tripsLeft(stack) / (float) PortkeyRules.TRIPS / 3.0F, 1.0F, 1.0F);
     }
 }

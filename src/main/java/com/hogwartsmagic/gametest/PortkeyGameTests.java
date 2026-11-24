@@ -76,6 +76,23 @@ public final class PortkeyGameTests {
         return e.position().distanceTo(to) <= within;
     }
 
+    /** A crafted Portkey on its third journey lands, is spent, and will not go again (it crumbles in the hand). */
+    @GameTest(template = ROOM, timeoutTicks = LANDED + 20)
+    public static void lastTripSpendsIt(GameTestHelper helper) {
+        floor(helper);
+        ServerPlayer holder = player(helper, 1.5, 2, 1.5);
+        ItemStack stack = portkey(helper, holder, 6, 2, 6);
+        PortkeyData.setTripsUsed(stack, PortkeyRules.TRIPS - 1);
+        helper.assertFalse(PortkeyData.spent(stack), "two trips used still leaves one");
+        helper.assertTrue(PortkeyJourneys.begin(holder, InteractionHand.MAIN_HAND, false), "the last trip should start");
+        helper.runAfterDelay(LANDED, () -> {
+            helper.assertTrue(near(holder, helper.absoluteVec(new Vec3(6.5, 2, 6.5)), 1.5), "the last trip still lands");
+            helper.assertTrue(PortkeyData.spent(stack), "after its third journey the Portkey is spent");
+            helper.assertFalse(PortkeyJourneys.begin(holder, InteractionHand.MAIN_HAND, false), "a spent Portkey never goes");
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = ROOM, timeoutTicks = LANDED + 20)
     public static void groupTravelsSittingDogStays(GameTestHelper helper) {
         floor(helper);
@@ -115,7 +132,8 @@ public final class PortkeyGameTests {
         helper.runAfterDelay(PortkeyRules.CHARGE_TICKS + 1, () -> {
             long now = helper.getLevel().getGameTime();
             long left = PortkeyRules.cooldownLeft(now, PortkeyData.readyAt(stack));
-            helper.assertTrue(left > 1100, "the Portkey should rest about a minute, rests " + left);
+            helper.assertTrue(left > 11900, "the Portkey should rest about ten minutes, rests " + left);
+            helper.assertTrue(PortkeyData.tripsUsed(stack) == 1, "one of its three trips is spent");
             helper.assertFalse(PortkeyJourneys.begin(holder, InteractionHand.MAIN_HAND, false),
                     "it should not go again while resting");
             helper.succeed();

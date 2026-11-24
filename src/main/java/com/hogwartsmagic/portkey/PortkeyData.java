@@ -24,6 +24,7 @@ public final class PortkeyData {
     private static final String YAW = "PortkeyYaw";
     private static final String READY_AT = "PortkeyReadyAt";
     private static final String SPENT = "PortkeySpent";
+    private static final String TRIPS = "PortkeyTrips";
 
     private PortkeyData() {
     }
@@ -79,6 +80,17 @@ public final class PortkeyData {
     public static void markSpent(ItemStack stack) {
         CompoundTag tag = tag(stack);
         tag.putBoolean(SPENT, true);
+        put(stack, tag);
+    }
+
+    /** Journeys a crafted Portkey has made (kept in its own data, not as durability, so no anvil or grid repairs it). */
+    public static int tripsUsed(ItemStack stack) {
+        return tag(stack).getInt(TRIPS);
+    }
+
+    public static void setTripsUsed(ItemStack stack, int trips) {
+        CompoundTag tag = tag(stack);
+        tag.putInt(TRIPS, Math.max(0, trips));
         put(stack, tag);
     }
 }

@@ -175,9 +175,44 @@ public final class LocketCaves {
         if (player.containerMenu != player.inventoryMenu) {
             player.containerMenu.sendAllDataToRemote();
         }
-        if (cureThirst(player) && !found.get().isAmbushActive()) {
-            found.get().startAmbush(player);
+        slakeThirst(player, found.get());
+    }
+
+    /** Whether p carries Unquenchable Thirst. */
+    public static boolean isThirsty(net.minecraft.world.entity.LivingEntity p) {
+        var thirst = ExampleMod.UNQUENCHABLE_THIRST.getHolder().orElse(null);
+        return thirst != null && p.hasEffect(thirst);
+    }
+
+    /** Whether pos is cave lake water of this basin's cave (the antechamber pool and open sea are not). */
+    public static boolean isLakeWater(ServerLevel level, DespairBasinBlockEntity basin, BlockPos pos) {
+        return basin.layout().inLake(pos, isCoveredWater(level, pos));
+    }
+
+    /** The thirst is cured by the lake's black water, and the water wakes: start the ambush if it is not already on. */
+    public static void slakeThirst(ServerPlayer player, DespairBasinBlockEntity basin) {
+        if (cureThirst(player) && !basin.isAmbushActive()) {
+            basin.startAmbush(player);
         }
+    }
+
+    /**
+     * An empty goblet dipped at pos. Fills with lake water only where the water is the cave lake; any other water
+     * (the antechamber pool, open sea, a placed bucket) is refused with a message and nothing changes.
+     * Returns whether the goblet was filled.
+     */
+    public static boolean dipGoblet(ServerLevel level, ServerPlayer player, net.minecraft.world.item.ItemStack goblet, BlockPos pos) {
+        if (!level.getFluidState(pos).is(FluidTags.WATER)) {
+            return false;
+        }
+        Optional<DespairBasinBlockEntity> found = findBasinFor(level, pos);
+        if (found.isEmpty() || !isLakeWater(level, found.get(), pos)) {
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.goblet_refuses_water"), true);
+            return false;
+        }
+        com.hogwartsmagic.item.CaveGobletItem.setFill(goblet, GobletFill.WATER);
+        level.playSound(null, player.blockPosition(), SoundEvents.BUCKET_FILL, SoundSource.PLAYERS, 0.8f, 0.7f);
+        return true;
     }
 
     /** Dropped Horcrux items (the Locket) neither burn, explode nor despawn. */

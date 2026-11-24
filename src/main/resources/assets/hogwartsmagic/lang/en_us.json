@@ -294,6 +294,7 @@
   "message.hogwartsmagic.basin_in_use": "Someone else is drinking.",
   "message.hogwartsmagic.goblet_crumbles": "The goblet cannot leave the cave. It crumbles to dust.",
   "item.hogwartsmagic.crystal_goblet": "Crystal Goblet",
+  "message.hogwartsmagic.goblet_refuses_water": "The goblet will not hold this water.",
   "message.hogwartsmagic.thirst_cured": "You drink the black water...",
   "message.hogwartsmagic.water_stirs": "The water stirs...",
   "gui.hogwartsmagic.recipe_book": "Book",

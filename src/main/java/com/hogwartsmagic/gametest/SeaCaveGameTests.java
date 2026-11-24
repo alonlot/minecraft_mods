@@ -657,4 +657,64 @@ public final class SeaCaveGameTests {
             helper.succeed();
         });
     }
+
+    // ---- thirst through the goblet -------------------------------------------------------------
+
+    private static void thirst(net.minecraft.server.level.ServerPlayer player) {
+        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.UNQUENCHABLE_THIRST.getHolder().get(), 6000, 0));
+    }
+
+    /** Conjured water never reaches a thirsty player. Calls AquaStream.spoils directly: a stream needs a real caster. */
+    @GameTest(template = EMPTY, batch = "thirst_a", timeoutTicks = 60)
+    public static void aquaIntoGobletVanishes(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        Vec3 at = helper.absoluteVec(new Vec3(1.5, 1.0, 1.5));
+        player.setPos(at.x, at.y, at.z);
+        thirst(player);
+        net.minecraft.server.level.ServerLevel level = helper.getLevel();
+        com.hogwartsmagic.spell.AquaStream.Drop near = new com.hogwartsmagic.spell.AquaStream.Drop(1, at.add(2.0, 0.5, 0.0), new Vec3(-1, 0, 0));
+        helper.assertTrue(com.hogwartsmagic.spell.AquaStream.spoils(level, null, near, null), "a drop 2 blocks from a thirsty player vanishes");
+        helper.assertTrue(near.gone, "the spoiled drop is removed");
+        helper.assertTrue(com.hogwartsmagic.locket.LocketCaves.isThirsty(player), "the water did not cure the thirst");
+        helper.assertFalse(player.isOnFire() && player.getRemainingFireTicks() < 0, "untouched");
+        com.hogwartsmagic.spell.AquaStream.Drop far = new com.hogwartsmagic.spell.AquaStream.Drop(2, at.add(8.0, 0.5, 0.0), new Vec3(-1, 0, 0));
+        helper.assertFalse(com.hogwartsmagic.spell.AquaStream.spoils(level, null, far, null) || far.gone, "a distant drop flies on");
+        // landing on a player holding a goblet, not thirsty
+        player.removeAllEffects();
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(ExampleMod.CRYSTAL_GOBLET_ITEM.get()));
+        com.hogwartsmagic.spell.AquaStream.Drop onGoblet = new com.hogwartsmagic.spell.AquaStream.Drop(3, at.add(8.0, 0.5, 0.0), new Vec3(-1, 0, 0));
+        var hit = new com.hogwartsmagic.spell.AquaStream.Drop.Hit(at, new Vec3(-1, 0, 0), null, player, 8.0);
+        helper.assertTrue(com.hogwartsmagic.spell.AquaStream.spoils(level, null, onGoblet, hit) && onGoblet.gone, "water landing on a goblet holder vanishes");
+        helper.succeed();
+    }
+
+    /** A thirsty player dips the goblet in covered cave-lake water, drinks it: cured, and the lake wakes. */
+    @GameTest(template = EMPTY, batch = "thirst_b", timeoutTicks = 60)
+    public static void gobletInLakeStartsAmbush(GameTestHelper helper) {
+        gobletFloor(helper);
+        com.hogwartsmagic.block.entity.DespairBasinBlockEntity basin = gobletBasin(helper, false);
+        BlockPos at = helper.absolutePos(GOBLET_BASIN);
+        basin.setLayoutDirectly(new com.hogwartsmagic.locket.CaveLayout(2, at, java.util.List.of(), at, at, at,
+                java.util.List.of(), at.getY(), 12, 12, 12));
+        helper.setBlock(new BlockPos(2, 1, 2), net.minecraft.world.level.block.Blocks.WATER);
+        helper.setBlock(new BlockPos(2, 2, 2), net.minecraft.world.level.block.Blocks.STONE);
+        net.minecraft.server.level.ServerPlayer player = onIsland(helper);
+        thirst(player);
+        net.minecraft.world.item.ItemStack goblet = new net.minecraft.world.item.ItemStack(ExampleMod.CRYSTAL_GOBLET_ITEM.get());
+        BlockPos lake = helper.absolutePos(new BlockPos(2, 1, 2));
+        helper.assertTrue(com.hogwartsmagic.locket.LocketCaves.isCoveredWater(helper.getLevel(), lake), "the cell is covered water");
+        helper.assertTrue(com.hogwartsmagic.locket.LocketCaves.dipGoblet(helper.getLevel(), player, goblet, lake), "the dip fills");
+        helper.assertTrue(com.hogwartsmagic.item.CaveGobletItem.fillOf(goblet) == com.hogwartsmagic.locket.GobletFill.WATER, "goblet holds water");
+        helper.assertFalse(basin.isAmbushActive(), "no ambush before the drink");
+        com.hogwartsmagic.item.CaveGobletItem.drinkFrom(goblet, helper.getLevel(), player);
+        helper.assertFalse(com.hogwartsmagic.locket.LocketCaves.isThirsty(player), "thirst cured");
+        helper.assertTrue(basin.isAmbushActive(), "the lake wakes");
+        helper.assertTrue(com.hogwartsmagic.item.CaveGobletItem.fillOf(goblet) == com.hogwartsmagic.locket.GobletFill.EMPTY, "goblet emptied");
+        // water above the lake surface (a pool, a placed bucket) is not the lake and is refused
+        helper.setBlock(new BlockPos(0, 2, 2), net.minecraft.world.level.block.Blocks.WATER);
+        net.minecraft.world.item.ItemStack second = new net.minecraft.world.item.ItemStack(ExampleMod.CRYSTAL_GOBLET_ITEM.get());
+        helper.assertFalse(com.hogwartsmagic.locket.LocketCaves.dipGoblet(helper.getLevel(), player, second, helper.absolutePos(new BlockPos(0, 2, 2))),
+                "water above the lake surface is not the lake");
+        helper.succeed();
+    }
 }

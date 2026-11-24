@@ -6036,9 +6036,13 @@ def phantom(b, pos, look):
     b[pos] = (PHANTOM_BLOCK, {'look': PHANTOM_LOOKS[look]}, dict(HOUSE_BE))
 
 
-def ward(b, pos):
-    """The jinx laid over the trapped chest."""
-    b[pos] = (WARD_BLOCK, None, dict(HOUSE_BE))
+def ward(b, pos, held_loot=None):
+    """The jinx laid over the trapped chest. It holds the chest loot table: the chest itself is stored
+    with none, so nothing (a hopper, a pickaxe) can take the loot until the ward is gone."""
+    be = dict(HOUSE_BE)
+    if held_loot:
+        be['RealNbt'] = ('compound', {'LootTable': ('string', held_loot)})
+    b[pos] = (WARD_BLOCK, None, be)
 
 
 def _look_of(props):
@@ -6197,7 +6201,7 @@ def house_interior(b):
     # A bed in the corner with the trapped chest at its foot (the chest is real in both views).
     b[(5, 2, 5)] = ('minecraft:red_bed', {'facing': 'north', 'part': 'foot', 'occupied': 'false'}, None)
     b[(5, 2, 4)] = ('minecraft:red_bed', {'facing': 'north', 'part': 'head', 'occupied': 'false'}, None)
-    chest(b, (5, 2, 6), 'east', HOUSE_LOOT)
+    b[(5, 2, 6)] = ('minecraft:chest', {'facing': 'east'}, {'id': 'minecraft:chest'})   # loot is held by the ward
     # Books: a wall of shelves on the north wall, a smaller case on the west, a lectern and a barrel.
     for x in range(8, 12):
         for y in range(2, 5):
@@ -6322,7 +6326,7 @@ def ruin_blocks(c):
             b[pos] = v
     # The trapped chest stays visible; the ward over it is the jinx.
     b[(5, 2, 6)] = c[(5, 2, 6)]
-    ward(b, (5, 3, 6))
+    ward(b, (5, 3, 6), HOUSE_LOOT)
     # Rubble heaps: stones that vanish, only where the cottage has nothing in the column.
     reserved = {(5, 6), (6, 6), (7, 10), (8, 10), (8, 11), (8, 12), (9, 10)}
     for x in range(0, 18):

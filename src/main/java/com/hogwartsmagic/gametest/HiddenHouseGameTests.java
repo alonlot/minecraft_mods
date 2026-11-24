@@ -73,10 +73,16 @@ public final class HiddenHouseGameTests {
         ((HiddenHouseBlockEntity) helper.getBlockEntity(rel)).setReal(null, null);
     }
 
-    /** A jinx ward at {@code rel}. */
+    /** A jinx ward at {@code rel}, holding the loot table of the chest below it. */
     static void ward(GameTestHelper helper, BlockPos rel) {
         helper.setBlock(rel, ExampleMod.JINX_WARD.get().defaultBlockState());
-        ((HiddenHouseBlockEntity) helper.getBlockEntity(rel)).setReal(null, null);
+        CompoundTag held = new CompoundTag();
+        held.putString("LootTable", HOUSE_LOOT);
+        ((HiddenHouseBlockEntity) helper.getBlockEntity(rel)).setReal(null, held);
+    }
+
+    private static boolean hasLoot(GameTestHelper helper, BlockPos rel) {
+        return helper.getBlockEntity(rel) instanceof ChestBlockEntity c && c.getLootTable() != null;
     }
 
     /** Casts the house reveal from a point in the test own frame. */
@@ -214,7 +220,9 @@ public final class HiddenHouseGameTests {
         player.setPos(helper.absoluteVec(new Vec3(4.5, 1.0, 4.5)));
         ServerLevel level = helper.getLevel();
         BlockPos abs = helper.absolutePos(chest);
+        helper.assertFalse(hasLoot(helper, chest), "a warded chest holds no loot yet");
         helper.assertTrue(HiddenHouseJinx.tryHex(level, abs, player), "the first opening should fire the hex");
+        helper.assertTrue(hasLoot(helper, chest), "lifting the ward gives the chest its loot");
         helper.assertTrue(player.getEffect(MobEffects.BLINDNESS) != null
                         && player.getEffect(MobEffects.BLINDNESS).getDuration() >= HiddenHouseRules.JINX_BLIND_TICKS - 1,
                 "blinded");
@@ -222,6 +230,27 @@ public final class HiddenHouseGameTests {
         helper.assertBlockPresent(Blocks.AIR, chest.above());
         helper.assertFalse(HiddenHouseJinx.tryHex(level, abs, player), "the hex fires once");
         helper.succeed();
+    }
+
+    /** Someone standing in one half of a bed holds both halves back; neither is left alone. */
+    @GameTest(template = EMPTY9, timeoutTicks = 120)
+    public static void revealHoldsBothHalvesOfABed(GameTestHelper helper) {
+        BlockPos foot = new BlockPos(2, 1, 3);
+        BlockPos head = new BlockPos(2, 1, 4);
+        glamour(helper, foot, bed(BedPart.FOOT), null);
+        glamour(helper, head, bed(BedPart.HEAD), null);
+        ArmorStand stand = helper.spawn(EntityType.ARMOR_STAND, head);
+        cast(helper, 2.5, 3.0, 3.5);
+        helper.runAfterDelay(25, () -> {
+            helper.assertBlockPresent(ExampleMod.GLAMOURED_BLOCK.get(), foot);
+            helper.assertBlockPresent(ExampleMod.GLAMOURED_BLOCK.get(), head);
+            stand.discard();
+            helper.runAfterDelay(HiddenHouseRules.OCCUPIED_RETRY_TICKS + 2, () -> {
+                helper.assertBlockPresent(Blocks.RED_BED, foot);
+                helper.assertBlockPresent(Blocks.RED_BED, head);
+                helper.succeed();
+            });
+        });
     }
 
     /** Revelio disarms the jinx: unmasking the house lifts the ward. */
@@ -236,6 +265,7 @@ public final class HiddenHouseGameTests {
         cast(helper, 4.5, 2.0, 5.5);
         helper.runAfterDelay(HiddenHouseRules.MAX_DELAY + 5, () -> {
             helper.assertBlockPresent(Blocks.AIR, chest.above());
+            helper.assertTrue(hasLoot(helper, chest), "the reveal gives the chest its loot");
             helper.assertFalse(HiddenHouseJinx.tryHex(helper.getLevel(), helper.absolutePos(chest), player),
                     "no hex after the reveal");
             helper.succeed();
@@ -292,6 +322,10 @@ public final class HiddenHouseGameTests {
                         "the loot chest should keep its table");
             }
             helper.assertFalse(level.getBlockState(e.getKey()).is(ExampleMod.JINX_WARD.get()), "the ward is lifted");
+            if (e.getValue().isAir() && level.getBlockState(e.getKey().below()).is(Blocks.CHEST)) {
+                helper.assertTrue(level.getBlockEntity(e.getKey().below()) instanceof ChestBlockEntity c
+                        && c.getLootTable() != null, "the jinxed chest should have its loot once the ward is gone");
+            }
         }
         AABB box = helper.getBounds();
         int glyphs = 0;

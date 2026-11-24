@@ -118,15 +118,27 @@ public final class HiddenHouses {
             return;
         }
         BlockState target = be.real() != null ? be.real() : Blocks.AIR.defaultBlockState();
-        if (!target.getCollisionShape(level, pos).isEmpty()
-                && !level.getEntitiesOfClass(LivingEntity.class, new AABB(pos), e -> !e.isSpectator()).isEmpty()) {
+        if (be.getBlockState().is(com.hogwartsmagic.ExampleMod.JINX_WARD.get())) {
+            // A ward is air: lifting it also hands the chest below its loot.
+            HiddenHouseJinx.liftWard(level, pos);
+            level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.SPARK, WARD_RGB, 0.25F, 20),
+                    pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 6, 0.25, 0.25, 0.25, 0.05);
+            return;
+        }
+        // Both halves of a bed or a door wait if either cell is occupied, so a lone half is never left behind.
+        BlockPos partner = partnerOf(be.real(), pos);
+        boolean occupied = occupied(level, pos, target);
+        if (!occupied && partner != null && level.getBlockEntity(partner) instanceof HiddenHouseBlockEntity other
+                && other.real() != null) {
+            occupied = occupied(level, partner, other.real());
+        }
+        if (occupied) {
             if (retries < HiddenHouseRules.OCCUPIED_MAX_RETRIES) {
                 CurseScheduler.after(HiddenHouseRules.OCCUPIED_RETRY_TICKS, () -> revealOne(level, pos, retries + 1));
             }
             // Past the retries it stays glamoured rather than entomb anyone; the next Revelio finishes it.
             return;
         }
-        boolean ward = target.isAir() && be.getBlockState().is(com.hogwartsmagic.ExampleMod.JINX_WARD.get());
         CompoundTag nbt = be.realNbt() == null ? null : be.realNbt().copy();
         level.setBlock(pos, target, REVEAL_FLAGS);
         if (nbt != null) {
@@ -139,13 +151,16 @@ public final class HiddenHouses {
                 fresh.setChanged();
             }
         }
-        if (ward) {
-            level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.SPARK, WARD_RGB, 0.25F, 20),
-                    pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 6, 0.25, 0.25, 0.25, 0.05);
-        } else if ((pos.getX() + pos.getY() * 3 + pos.getZ() * 5) % BURST_EVERY == 0) {
+        if ((pos.getX() + pos.getY() * 3 + pos.getZ() * 5) % BURST_EVERY == 0) {
             level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.MOTE, SHIMMER_RGB, 0.3F, 22),
                     pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 2, 0.3, 0.3, 0.3, 0.01);
         }
+    }
+
+    /** Whether a solid {@code target} would appear around a living thing. */
+    private static boolean occupied(ServerLevel level, BlockPos pos, BlockState target) {
+        return !target.getCollisionShape(level, pos).isEmpty()
+                && !level.getEntitiesOfClass(LivingEntity.class, new AABB(pos), e -> !e.isSpectator()).isEmpty();
     }
 
     /** The other half of a bed or a door, or null for a block with no partner. */

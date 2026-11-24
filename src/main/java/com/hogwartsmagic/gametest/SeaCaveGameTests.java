@@ -367,6 +367,7 @@ public final class SeaCaveGameTests {
                 stage[0] = 1;
             } else if (stage[0] == 1 && flatDist(boat, shore) > 4.0D) {
                 boat.ejectPassengers();
+                player.setPos(player.getX(), player.getY() + 300.0D, player.getZ()); // nobody near the island
                 helper.assertTrue(com.hogwartsmagic.entity.CaveBoatEntity.rise(helper.getLevel(), layout) == null,
                         "a skiff out on the lake is not replaced");
                 stage[0] = 2;
@@ -375,6 +376,86 @@ public final class SeaCaveGameTests {
                 boat.discard();
                 helper.succeed();
             }
+        });
+    }
+
+    /** Board at the island and step straight off: the skiff must stay for the person on the island, not sail away empty. */
+    @GameTest(template = EMPTY9, batch = "skiff_g", timeoutTicks = 800)
+    public static void skiffBoardedAtIslandThenDismountedStaysAtIsland(GameTestHelper helper) {
+        waterArena(helper);
+        com.hogwartsmagic.locket.CaveLayout layout = crossingLayout(helper, 0);
+        BlockPos island = layout.dockIsland().below();
+        com.hogwartsmagic.entity.CaveBoatEntity boat = com.hogwartsmagic.entity.CaveBoatEntity.rise(helper.getLevel(), layout);
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        long[] stamp = {0L};
+        int[] stage = {0};
+        helper.onEachTick(() -> {
+            if (stage[0] == 0 && boat.riseTicks() == 0) {
+                mount(boat, player);
+                stage[0] = 1;
+            } else if (stage[0] == 1 && boat.isDockedAtIsland()) {
+                boat.ejectPassengers();
+                mount(boat, player); // sets the trip home going ...
+                boat.ejectPassengers(); // ... and the rider steps straight off
+                helper.assertTrue(boat.getPassengers().isEmpty(), "the rider is off");
+                stamp[0] = helper.getTick();
+                stage[0] = 2;
+            } else if (stage[0] == 2 && helper.getTick() - stamp[0] >= 120L) {
+                helper.assertTrue(boat.isDockedAtIsland() && flatDist(boat, island) < 0.4D, "the skiff stays at the island dock");
+                boat.discard();
+                helper.succeed();
+            }
+        });
+    }
+
+    /** Step off two blocks out from the island while the skiff heads for the shore: it turns round to the island. */
+    @GameTest(template = EMPTY9, batch = "skiff_h", timeoutTicks = 900)
+    public static void skiffDismountedNearIslandReturnsToIsland(GameTestHelper helper) {
+        waterArena(helper);
+        com.hogwartsmagic.locket.CaveLayout layout = crossingLayout(helper, 0);
+        BlockPos island = layout.dockIsland().below();
+        com.hogwartsmagic.entity.CaveBoatEntity boat = com.hogwartsmagic.entity.CaveBoatEntity.rise(helper.getLevel(), layout);
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        int[] stage = {0};
+        helper.onEachTick(() -> {
+            if (stage[0] == 0 && boat.riseTicks() == 0) {
+                mount(boat, player);
+                stage[0] = 1;
+            } else if (stage[0] == 1 && boat.isDockedAtIsland()) {
+                boat.ejectPassengers();
+                mount(boat, player); // heading back to the shore
+                stage[0] = 2;
+            } else if (stage[0] == 2 && flatDist(boat, island) > 2.0D) {
+                boat.ejectPassengers();
+                player.setPos(boat.getX(), boat.getY(), boat.getZ()); // lands on the island side, near the dock
+                stage[0] = 3;
+            } else if (stage[0] == 3 && boat.isDockedAtIsland()) {
+                helper.assertTrue(arenaSkiffs(helper).size() == 1, "one skiff");
+                boat.discard();
+                helper.succeed();
+            }
+        });
+    }
+
+    /** Duplicates left by a logout: empty ones away from the island are tidied before a new skiff is considered. */
+    @GameTest(template = EMPTY9, batch = "skiff_i", timeoutTicks = 200)
+    public static void skiffDuplicatesAreTidiedOnRise(GameTestHelper helper) {
+        waterArena(helper);
+        com.hogwartsmagic.locket.CaveLayout layout = crossingLayout(helper, 0);
+        com.hogwartsmagic.entity.CaveBoatEntity first = com.hogwartsmagic.entity.CaveBoatEntity.rise(helper.getLevel(), layout);
+        com.hogwartsmagic.entity.CaveBoatEntity twin = new com.hogwartsmagic.entity.CaveBoatEntity(
+                com.hogwartsmagic.entity.ModEntities.CAVE_BOAT.get(), helper.getLevel());
+        twin.load(first.saveWithoutId(new net.minecraft.nbt.CompoundTag()));
+        twin.setUUID(java.util.UUID.randomUUID());
+        twin.setPos(first.getX(), first.getY(), first.getZ());
+        helper.getLevel().addFreshEntity(twin);
+        helper.assertTrue(arenaSkiffs(helper).size() == 2, "set up two skiffs for one cave, found " + arenaSkiffs(helper).size() + " twin removed " + twin.isRemoved());
+        com.hogwartsmagic.entity.CaveBoatEntity kept = com.hogwartsmagic.entity.CaveBoatEntity.rise(helper.getLevel(), layout);
+        helper.assertTrue(kept == null, "an existing skiff at the shore means no new one");
+        helper.runAfterDelay(2, () -> {
+            helper.assertTrue(arenaSkiffs(helper).size() == 1, "the duplicate was discarded, found " + arenaSkiffs(helper).size());
+            arenaSkiffs(helper).forEach(net.minecraft.world.entity.Entity::discard);
+            helper.succeed();
         });
     }
 

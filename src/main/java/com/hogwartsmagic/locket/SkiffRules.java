@@ -87,9 +87,9 @@ public final class SkiffRules {
         return SPEED * Math.max(MIN_SPEED_FRACTION, 1.0D - LATCH_SLOW * latched);
     }
 
-    /** An empty skiff left mid-lake goes back to the shore; one at the island stays so nobody is stranded. */
-    public static boolean riderGoneReturnsToShore(boolean riderPresent, boolean atIsland) {
-        return !riderPresent && !atIsland;
+    /** An empty skiff goes back to the shore unless someone is near the island dock, where it must stay for them. */
+    public static boolean riderGoneReturnsToShore(boolean riderPresent, boolean playerNearIsland) {
+        return !riderPresent && !playerNearIsland;
     }
 
     /** Vertical bob of the hull, in blocks, at {@code ageTicks} (fractional): 0.06 at 0.15 Hz. */

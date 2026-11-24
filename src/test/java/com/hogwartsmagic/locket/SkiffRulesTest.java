@@ -34,8 +34,8 @@ class SkiffRulesTest {
     }
 
     @Test void riderGoneReturnsToShore() {
-        assertFalse(SkiffRules.riderGoneReturnsToShore(false, true), "empty at the island stays docked");
-        assertTrue(SkiffRules.riderGoneReturnsToShore(false, false), "empty mid-lake goes back to shore");
+        assertFalse(SkiffRules.riderGoneReturnsToShore(false, true), "empty with someone near the island stays for them");
+        assertTrue(SkiffRules.riderGoneReturnsToShore(false, false), "empty with nobody near the island goes back to shore");
         assertFalse(SkiffRules.riderGoneReturnsToShore(true, false), "a rider keeps the trip");
     }
 

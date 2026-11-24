@@ -139,8 +139,19 @@ public class CaveBoatEntity extends Entity {
         BlockPos island = route.get(route.size() - 1);
         // One skiff per cave: an empty one parked at the island is called back instead of a second being raised,
         // unless someone is standing on the island (they would be left without a way home).
-        for (CaveBoatEntity existing : level.getEntities(EntityTypeTest.forClass(CaveBoatEntity.class),
-                e -> e.isAlive() && shore.equals(e.shoreKey()))) {
+        List<CaveBoatEntity> found = new ArrayList<>(level.getEntities(EntityTypeTest.forClass(CaveBoatEntity.class),
+                e -> e.isAlive() && shore.equals(e.shoreKey())));
+        // Duplicates (left by a logout) are tidied first: empty ones that are not parked at the island go.
+        for (int i = 0; i < found.size() && found.size() > 1; ) {
+            CaveBoatEntity extra = found.get(i);
+            if (extra.getPassengers().isEmpty() && !extra.isDockedAtIsland()) {
+                extra.discard();
+                found.remove(i);
+            } else {
+                i++;
+            }
+        }
+        for (CaveBoatEntity existing : found) {
             if (existing.getPassengers().isEmpty() && existing.isDockedAtIsland()
                     && level.getNearestPlayer(island.getX() + 0.5D, island.getY(), island.getZ() + 0.5D, ISLAND_GUARD, false) == null) {
                 existing.callBack();
@@ -434,9 +445,19 @@ public class CaveBoatEntity extends Entity {
             return;
         }
         boolean rider = !this.getPassengers().isEmpty();
-        if (this.next >= 0 && this.dir > 0 && SkiffRules.riderGoneReturnsToShore(rider, false)) {
-            this.dir = -1; // the rider is gone mid-lake: turn back for the shore along the waypoint behind
-            this.next = Math.max(0, this.next - 1);
+        if (this.next >= 0 && !rider) {
+            // Nobody aboard: go where the people are. Anyone near the island dock (the rider who just stepped off
+            // included) keeps the skiff for the island; otherwise it goes back to the shore.
+            BlockPos isle = this.route.get(this.route.size() - 1);
+            boolean near = server.getNearestPlayer(isle.getX() + 0.5D, isle.getY(), isle.getZ() + 0.5D, ISLAND_GUARD, false) != null;
+            boolean toShore = SkiffRules.riderGoneReturnsToShore(false, near);
+            if (toShore && this.dir > 0) {
+                this.dir = -1;
+                this.next = Math.max(0, this.next - 1);
+            } else if (!toShore && this.dir < 0) {
+                this.dir = 1;
+                this.next = Math.min(this.route.size() - 1, this.next + 1);
+            }
         }
         if (this.next < 0) {
             this.setDeltaMovement(Vec3.ZERO);

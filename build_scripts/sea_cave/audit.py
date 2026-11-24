@@ -598,7 +598,7 @@ def palette_contrast(blocks, fallen=()):
     return out
 
 
-def problems(blocks, extra=None):
+def _problems_base(blocks, extra=None):
     if extra is None:
         from . import features, shape
         extra = dict(shape.feature_cells(), fallen=set(features.FALLEN))
@@ -615,3 +615,56 @@ def problems(blocks, extra=None):
     out += rock_cover(blocks, extra.get('descent'), extra.get('cavern'))
     out += palette_contrast(blocks, extra.get('fallen', ()))
     return out
+
+
+def markers_complete(blocks):
+    """The Java side finds the cave's working parts from these markers; every role must be there."""
+    from . import markers as M
+    found = {}
+    for p, v in blocks.items():
+        if v[0] == M.WAYPOINT and v[2]:
+            found.setdefault(v[2]['Role'][1], []).append((v[2]['Index'][1], p))
+    out = []
+    for role in ('basin', 'ring', 'dock_shore', 'dock_island', 'lake'):
+        if len(found.get(role, [])) != 1:
+            out.append('markers_complete: %d %s markers, need exactly 1' % (len(found.get(role, [])), role))
+    if not found.get('arch'):
+        out.append('markers_complete: no arch marker')
+    path = sorted(found.get('path', []))
+    if len(path) < 3 or [i for i, _ in path] != list(range(len(path))):
+        out.append('markers_complete: path indices %s, need 0..n with n >= 2' % [i for i, _ in path])
+    for (ia, a), (ib, b) in zip(path, path[1:]):
+        for t in range(1, 8):
+            x = round(a[0] + (b[0] - a[0]) * t / 8)
+            z = round(a[2] + (b[2] - a[2]) * t / 8)
+            under = blocks.get((x, a[1] - 1, z))
+            if under is None or under[0] != F.WATER:
+                out.append('markers_complete: skiff path %d->%d crosses non-water at (%d, %d)' % (ia, ib, x, z))
+                break
+    if not any(v[0] == M.BASIN for v in blocks.values()):
+        out.append('markers_complete: no basin block')
+    if not any(v[0] == M.SEAL for v in blocks.values()):
+        out.append('markers_complete: no blood seal in the arch')
+    return out
+
+
+# Pass 3's dressing is not rock: the rock audits see it as what it stands in.
+_AS_AIR = ('minecraft:pointed_dripstone', 'hogwartsmagic:cave_waypoint', 'hogwartsmagic:despair_basin',
+           'hogwartsmagic:crystal_goblet', 'hogwartsmagic:blood_seal')
+_AS_SEA = ('minecraft:seagrass', 'minecraft:kelp', 'minecraft:kelp_plant')
+
+
+def rock_view(blocks):
+    out = {}
+    for p, v in blocks.items():
+        if v[0] in _AS_AIR:
+            out[p] = (F.CAVE_AIR, None, None)
+        elif v[0] in _AS_SEA:
+            continue           # unlisted: the world's own sea
+        else:
+            out[p] = v
+    return out
+
+
+def problems(blocks, extra=None):
+    return _problems_base(rock_view(blocks), extra) + markers_complete(blocks)

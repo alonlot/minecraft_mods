@@ -6,7 +6,7 @@ black lake under the seabed. Pass 1 is the shape (shape.py); pass 2 paints it in
     blocks, entities = sea_cave.build()
 """
 
-from . import features, frame, shape, strata
+from . import detail, features, frame, markers, shape, strata
 
 
 CRUMB = 8      # loose rock at most this big is dropped; anything larger is left for the audit
@@ -56,6 +56,8 @@ def build():
         b = strata.block_at(*p) if v[0] == frame.STONE else v[0]
         if b in strata.LUMA:
             blocks[p] = (b, strata.props(b), None)
+    detail.apply(blocks)
+    markers.apply(blocks)
     # A structure void in the far top corner fixes the template at its full frame size, so the
     # footprint's 2-block margin is real in the written template (a void places nothing).
     corner = (frame.SIZE[0] - 1, frame.SIZE[1] - 1, frame.SIZE[2] - 1)

@@ -92,7 +92,7 @@ public final class LocketCaves {
 
     /** The nearest Basin of Despair whose cave contains pos, searching loaded chunks only. */
     public static Optional<DespairBasinBlockEntity> findBasinFor(ServerLevel level, BlockPos pos) {
-        int r = CaveGeometry.CAVE_RADIUS;
+        int r = CaveGeometry.SEARCH_RADIUS;
         int minCx = SectionPos.blockToSectionCoord(pos.getX() - r);
         int maxCx = SectionPos.blockToSectionCoord(pos.getX() + r);
         int minCz = SectionPos.blockToSectionCoord(pos.getZ() - r);
@@ -109,9 +109,8 @@ public final class LocketCaves {
                     if (!(be instanceof DespairBasinBlockEntity basin)) {
                         continue;
                     }
-                    BlockPos d = pos.subtract(be.getBlockPos());
                     double dist = pos.distSqr(be.getBlockPos());
-                    if (CaveGeometry.inCave(d.getX(), d.getY(), d.getZ()) && dist < bestDist) {
+                    if (basin.layout().inCave(pos) && dist < bestDist) {
                         best = basin;
                         bestDist = dist;
                     }
@@ -150,8 +149,7 @@ public final class LocketCaves {
         if (found.isEmpty()) {
             return;
         }
-        BlockPos wd = hit.getBlockPos().subtract(found.get().getBlockPos());
-        if (!CaveGeometry.inLake(wd.getX(), wd.getY(), wd.getZ())) {
+        if (!found.get().layout().inLake(hit.getBlockPos(), true)) {
             return; // the antechamber pool is not the lake
         }
         e.setCanceled(true);

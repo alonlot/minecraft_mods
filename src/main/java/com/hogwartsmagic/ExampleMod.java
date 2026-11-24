@@ -506,6 +506,15 @@ public class ExampleMod
                     CONCEALED_ROCK.get(), HIDDEN_CHAIN.get()
             ).build(null));
 
+    public static final RegistryObject<Block> CAVE_WAYPOINT = BLOCKS.register("cave_waypoint",
+            () -> new com.hogwartsmagic.block.CaveWaypointBlock(BlockBehaviour.Properties.of()
+                    .strength(-1.0f, 3600000.0f).noLootTable().noOcclusion().noCollission()
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.CaveWaypointBlockEntity>> CAVE_WAYPOINT_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("cave_waypoint", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.CaveWaypointBlockEntity::new, CAVE_WAYPOINT.get()
+            ).build(null));
+
     // Desert tomb dressing: hieroglyph walls, the cursed tiles hidden among them, and the sandstone
     // wall that hides the way down to the burial chamber. See TombCurses.
     public static final RegistryObject<Block> HIEROGLYPH_SANDSTONE = BLOCKS.register("hieroglyph_sandstone",

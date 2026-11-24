@@ -2,7 +2,7 @@ package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.ModSounds;
-import com.hogwartsmagic.locket.CaveGeometry;
+import com.hogwartsmagic.locket.CaveLayout;
 import com.hogwartsmagic.locket.InferiusRules;
 import com.hogwartsmagic.spell.combat.CrowdControl;
 import net.minecraft.core.BlockPos;
@@ -154,8 +154,9 @@ public class InferiusEntity extends Monster {
                 for (int y = self.getBlockY() + 2; y >= self.getBlockY() - 6; y--) {
                     BlockPos p = new BlockPos(x, y, z);
                     if (!self.level().getFluidState(p).is(FluidTags.WATER)) continue;
-                    BlockPos d = p.subtract(self.caveBasin);
-                    if (CaveGeometry.inLake(d.getX(), d.getY(), d.getZ())) {
+                    var layout = self.level().getBlockEntity(self.caveBasin) instanceof com.hogwartsmagic.block.entity.DespairBasinBlockEntity basin
+                            ? basin.layout() : CaveLayout.legacy(self.caveBasin);
+                    if (layout.inLake(p, true)) {
                         target = Vec3.atBottomCenterOf(p);
                         return true;
                     }

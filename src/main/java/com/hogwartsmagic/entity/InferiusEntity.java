@@ -73,6 +73,10 @@ public class InferiusEntity extends Monster {
     private int latchScan;
     private int leashScan;
     @Nullable private CaveLayout cachedLayout;
+    @Nullable private BlockPos facingFor;
+    @Nullable private net.minecraft.core.Direction archFacing;
+    private boolean pastArchNow;
+    private boolean returnNow;
 
     public InferiusEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
@@ -157,7 +161,8 @@ public class InferiusEntity extends Monster {
         @Override public boolean canUse() {
             InferiusEntity self = InferiusEntity.this;
             if (self.caveBasin == null || self.getTarget() != null || self.isInWater()) return false;
-            if (cooldown-- > 0) return false;
+            if (!self.returnNow && cooldown-- > 0) return false;
+            self.returnNow = false;
             cooldown = 40 + self.random.nextInt(40);
             CaveLayout layout = self.level().hasChunkAt(self.caveBasin)
                     && self.level().getBlockEntity(self.caveBasin) instanceof com.hogwartsmagic.block.entity.DespairBasinBlockEntity basin
@@ -215,8 +220,16 @@ public class InferiusEntity extends Monster {
     @Override
     protected int getBaseExperienceReward() { return isCaveBound() ? 0 : super.getBaseExperienceReward(); }
 
+    /** A latched Inferius, or one past the arch, takes no target: nothing re-acquires the rider or the escaping player. */
+    @Override
+    public void setTarget(@Nullable LivingEntity target) {
+        if (target != null && (latchedTo != null || pastArchNow)) return;
+        super.setTarget(target);
+    }
+
     @Override
     public boolean doHurtTarget(Entity target) {
+        if (latchedTo != null) return false; // clinging to the hull: the latch damage is the only harm
         boolean hit = super.doHurtTarget(target);
         if (hit && target instanceof LivingEntity living && !this.level().isClientSide
                 && InferiusRules.isGrabReady(this.level().getGameTime(), lastGrabTick)) {
@@ -327,19 +340,40 @@ public class InferiusEntity extends Monster {
         return best;
     }
 
-    /** Past the arch the lake guardians turn back: drop the target and walk home. Old caves (no arches) keep their rule. */
+    /**
+     * Past the arch (the outside of the blood seal's plane, read from the seal's FACING) the lake guardians turn back:
+     * drop the target, refuse a new one, and go to lake water. Old caves (no arches) and archless layouts keep their rule.
+     */
     private void tickArchLeash() {
         if (leashScan++ % 10 != 0 || caveBasin == null) return;
         CaveLayout layout = layoutOrNull();
-        if (layout == null || layout.arches().isEmpty()) return;
-        double archDist = Double.MAX_VALUE;
-        for (BlockPos arch : layout.arches()) {
-            archDist = Math.min(archDist, Math.hypot(arch.getX() - caveBasin.getX(), arch.getZ() - caveBasin.getZ()));
+        if (layout == null || layout.arches().isEmpty()) { pastArchNow = false; return; }
+        BlockPos arch = layout.arches().get(0);
+        double best = Double.MAX_VALUE;
+        for (BlockPos a : layout.arches()) {
+            double d = Math.hypot(a.getX() - caveBasin.getX(), a.getZ() - caveBasin.getZ());
+            if (d < best) { best = d; arch = a; }
         }
-        double dist = Math.hypot(this.getX() - (caveBasin.getX() + 0.5D), this.getZ() - (caveBasin.getZ() + 0.5D));
-        if (InferiusRules.pastArch(dist, archDist)) {
-            this.setTarget(null);
-            this.getNavigation().moveTo(caveBasin.getX() + 0.5D, caveBasin.getY(), caveBasin.getZ() + 0.5D, 1.0D);
+        if (!arch.equals(facingFor)) {
+            if (!this.level().hasChunkAt(arch)) { return; }
+            facingFor = arch;
+            archFacing = null;
+            double seal = Double.MAX_VALUE;
+            for (BlockPos p : BlockPos.betweenClosed(arch.offset(-3, -3, -3), arch.offset(3, 3, 3))) {
+                BlockState st = this.level().getBlockState(p);
+                if (st.is(ExampleMod.BLOOD_SEAL.get()) && p.distSqr(arch) < seal) {
+                    seal = p.distSqr(arch);
+                    archFacing = st.getValue(com.hogwartsmagic.block.BloodSealBlock.FACING);
+                }
+            }
+        }
+        if (archFacing == null) { pastArchNow = false; return; }
+        pastArchNow = InferiusRules.pastArchPlane(this.getX() - (arch.getX() + 0.5D), this.getY() - arch.getY(),
+                this.getZ() - (arch.getZ() + 0.5D), archFacing.getStepX(), archFacing.getStepZ());
+        if (pastArchNow) {
+            super.setTarget(null);
+            returnNow = true;
+            this.getNavigation().stop();
         }
     }
 
@@ -358,6 +392,7 @@ public class InferiusEntity extends Monster {
             double sx = Math.cos(yaw) * 1.1D * latchSide;
             double sz = Math.sin(yaw) * 1.1D * latchSide;
             this.getNavigation().stop();
+            super.setTarget(null);
             this.setPos(boat.getX() + sx, boat.getY() - 0.3D, boat.getZ() + sz);
             this.setDeltaMovement(boat.getDeltaMovement());
             this.fallDistance = 0.0F;

@@ -827,12 +827,15 @@ public final class SeaCaveGameTests {
         });
     }
 
-    /** Fire on the shore holds the Inferi off; the island top stays clear and the rock is not burned. */
+    /** Fire on the shore holds the Inferi off; the dock cell stays clear and a flammable control block beyond the fire stays unburnt. */
     @GameTest(template = EMPTY9, batch = "inferi_fire", timeoutTicks = 320)
     public static void fireHoldsShoreWithoutBlockingDock(GameTestHelper helper) {
         inferiusArena(helper, false);
         net.minecraft.server.level.ServerPlayer player = islandPlayer(helper, 3);
-        BlockPos dock = new BlockPos(ARENA_MID, 4, ARENA_MID);
+        BlockPos control = new BlockPos(ARENA_MID, 3, ARENA_MID); // the island centre, two blocks inside the fire ring
+        helper.setBlock(control, net.minecraft.world.level.block.Blocks.OAK_PLANKS);
+        com.hogwartsmagic.locket.CaveLayout layout = com.hogwartsmagic.locket.CaveLayout.fromMarkers(helper.absolutePos(control),
+                java.util.List.of(new com.hogwartsmagic.locket.CaveLayout.Marker("dock_island", 0, helper.absolutePos(control.above()))));
         com.hogwartsmagic.entity.InferiusEntity inferius = lakeInferius(helper, player);
         double[] closest = {Double.MAX_VALUE};
         helper.onEachTick(() -> {
@@ -851,15 +854,10 @@ public final class SeaCaveGameTests {
         });
         helper.runAfterDelay(300, () -> {
             helper.assertTrue(closest[0] > 2.0D, "closest approach " + closest[0] + " should stay outside melee range");
-            helper.assertTrue(helper.getBlockState(dock).isAir(), "the dock cell stays clear, is " + helper.getBlockState(dock));
-            for (int x = 0; x <= 8; x++) {
-                for (int z = 0; z <= 8; z++) {
-                    if (ring(x, z) <= 1) {
-                        helper.assertTrue(helper.getBlockState(new BlockPos(x, 3, z)).is(net.minecraft.world.level.block.Blocks.DEEPSLATE),
-                                "the island rock is not burned at " + x + "," + z);
-                    }
-                }
-            }
+            helper.assertTrue(helper.getLevel().getBlockState(layout.dockIsland()).isAir(),
+                    "the layout dockIsland cell stays clear, is " + helper.getLevel().getBlockState(layout.dockIsland()));
+            helper.assertTrue(helper.getBlockState(control).is(net.minecraft.world.level.block.Blocks.OAK_PLANKS),
+                    "the flammable control block beyond the fire is unburnt, is " + helper.getBlockState(control));
             helper.succeed();
         });
     }
@@ -914,6 +912,91 @@ public final class SeaCaveGameTests {
                 boat.discard();
                 helper.succeed();
             }
+        });
+    }
+
+    /** A latched Inferius never punches the rider off: after 100 ticks aboard the rider is still mounted and took only latch damage. */
+    @GameTest(template = EMPTY9, batch = "inferi_latch_hold", timeoutTicks = 400)
+    public static void latchedInferiusKeepsTheRiderMounted(GameTestHelper helper) {
+        waterArena(helper);
+        com.hogwartsmagic.entity.CaveBoatEntity boat = com.hogwartsmagic.entity.CaveBoatEntity.rise(helper.getLevel(), crossingLayout(helper, 0));
+        net.minecraft.world.entity.animal.Pig rider = helper.spawnWithNoFreeWill(EntityType.PIG, new BlockPos(4, 3, 4));
+        com.hogwartsmagic.entity.InferiusEntity[] inferius = {null};
+        int[] stage = {0};
+        long[] since = {0L};
+        long[] lastHit = {-100L};
+        int[] mobHits = {0};
+        helper.onEachTick(() -> {
+            if (stage[0] == 0 && boat.riseTicks() == 0) {
+                // Only a player's click starts the trip; the pig takes the seat the same tick.
+                net.minecraft.server.level.ServerPlayer starter = helper.makeMockServerPlayerInLevel();
+                mount(boat, starter);
+                starter.stopRiding();
+                rider.startRiding(boat, true);
+                inferius[0] = helper.spawn(com.hogwartsmagic.entity.ModEntities.INFERIUS.get(), new BlockPos(3, 1, 3));
+                inferius[0].bindToCave(helper.absolutePos(new BlockPos(4, 2, 4)));
+                stage[0] = 1;
+            } else if (stage[0] >= 1) {
+                if (rider.hurtTime > 8 && helper.getTick() - lastHit[0] > 5L && rider.getLastDamageSource() != null
+                        && rider.getLastDamageSource().getEntity() instanceof com.hogwartsmagic.entity.InferiusEntity) {
+                    mobHits[0]++; // the arena's barrier wall may also pinch the pig (in-wall damage); only Inferius hits count
+                    lastHit[0] = helper.getTick();
+                }
+                if (stage[0] == 2) {
+                    inferius[0].setTarget(rider); // refused while latched, like a target goal re-acquiring the rider
+                }
+                if (stage[0] == 1 && inferius[0].isLatched()) {
+                    stage[0] = 2;
+                    since[0] = helper.getTick();
+                } else if (stage[0] == 2) {
+                    inferius[0].doHurtTarget(rider); // a melee swing is refused while latched
+                    helper.assertTrue(inferius[0].isLatched() && boat.getPassengers().contains(rider),
+                            "still latched and mounted at tick " + helper.getTick());
+                    if (helper.getTick() - since[0] >= 100L) {
+                        helper.assertTrue(mobHits[0] >= 1 && mobHits[0] <= 3,
+                                "only latch damage from the Inferius (one per 40 ticks), hits " + mobHits[0]);
+                        inferius[0].discard();
+                        rider.discard();
+                        boat.discard();
+                        helper.succeed();
+                    }
+                }
+            }
+        });
+    }
+
+    /** Past the arch (outside the seal plane) a cave Inferius drops its target and will not take another; inside it keeps hunting. */
+    @GameTest(template = EMPTY9, batch = "inferi_arch", timeoutTicks = 120)
+    public static void inferiusTurnsBackPastTheArch(GameTestHelper helper) {
+        for (int x = 0; x <= 8; x++) {
+            for (int z = 0; z <= 8; z++) {
+                helper.setBlock(new BlockPos(x, 0, z), net.minecraft.world.level.block.Blocks.DEEPSLATE);
+            }
+        }
+        BlockPos basinRel = new BlockPos(4, 1, 1);
+        BlockPos archRel = new BlockPos(4, 2, 7);
+        helper.setBlock(basinRel, ExampleMod.DESPAIR_BASIN.get());
+        helper.setBlock(archRel.east(), ExampleMod.BLOOD_SEAL.get().defaultBlockState().setValue(BloodSealBlock.FACING, Direction.SOUTH));
+        BlockPos basinAbs = helper.absolutePos(basinRel);
+        ((com.hogwartsmagic.block.entity.DespairBasinBlockEntity) helper.getBlockEntity(basinRel)).setLayoutDirectly(
+                new com.hogwartsmagic.locket.CaveLayout(2, basinAbs, java.util.List.of(helper.absolutePos(archRel)), basinAbs, basinAbs, basinAbs,
+                        java.util.List.of(), basinAbs.getY() - 1, 20, 12, 12));
+        net.minecraft.world.entity.animal.Pig bait = helper.spawnWithNoFreeWill(EntityType.PIG, new BlockPos(4, 1, 4));
+        com.hogwartsmagic.entity.InferiusEntity outside = helper.spawnWithNoFreeWill(com.hogwartsmagic.entity.ModEntities.INFERIUS.get(), new BlockPos(1, 1, 8));
+        com.hogwartsmagic.entity.InferiusEntity inside = helper.spawnWithNoFreeWill(com.hogwartsmagic.entity.ModEntities.INFERIUS.get(), new BlockPos(7, 1, 6));
+        for (com.hogwartsmagic.entity.InferiusEntity e : new com.hogwartsmagic.entity.InferiusEntity[] {outside, inside}) {
+            e.bindToCave(basinAbs);
+            e.setTarget(bait);
+        }
+        helper.runAfterDelay(30, () -> {
+            helper.assertTrue(outside.getTarget() == null, "past the arch the Inferius dropped its target");
+            outside.setTarget(bait);
+            helper.assertTrue(outside.getTarget() == null, "and refuses a new one");
+            helper.assertTrue(inside.getTarget() == bait, "inside the arch the Inferius keeps hunting");
+            outside.discard();
+            inside.discard();
+            bait.discard();
+            helper.succeed();
         });
     }
 }

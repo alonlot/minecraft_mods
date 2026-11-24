@@ -39,4 +39,18 @@ class InferiusRulesTest {
         assertEquals(1f, InferiusRules.LATCH_DAMAGE, 1e-6);
         assertEquals(40, InferiusRules.LATCH_DAMAGE_INTERVAL);
     }
+    @Test void pastArchPlaneIsTheOutsideOfTheSealOnly() {
+        // seal faces +z (outside): fx=0, fz=1
+        assertTrue(InferiusRules.pastArchPlane(0, 0, 1.0, 0, 1));
+        assertFalse(InferiusRules.pastArchPlane(0, 0, 0.5, 0, 1));
+        assertFalse(InferiusRules.pastArchPlane(0, 0, -4.0, 0, 1));
+        assertFalse(InferiusRules.pastArchPlane(9, 0, 0.0, 0, 1)); // sideways along the plane is not past it
+        // facing -x: fx=-1
+        assertTrue(InferiusRules.pastArchPlane(-2, 1, 0, -1, 0));
+        assertFalse(InferiusRules.pastArchPlane(2, 1, 0, -1, 0));
+        // the height window is +-3
+        assertTrue(InferiusRules.pastArchPlane(0, 3.0, 5, 0, 1));
+        assertFalse(InferiusRules.pastArchPlane(0, 3.5, 5, 0, 1));
+        assertFalse(InferiusRules.pastArchPlane(0, -4.0, 5, 0, 1));
+    }
 }

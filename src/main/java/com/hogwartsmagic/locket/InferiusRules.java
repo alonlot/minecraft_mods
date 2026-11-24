@@ -41,4 +41,12 @@ public final class InferiusRules {
     public static boolean latchReleasedWhenRiderGone(boolean riderPresent, boolean hit, boolean burning) {
         return !riderPresent || hit || burning;
     }
+
+    /**
+     * True when a point is on the outside of the arch plane: within 3 blocks of the arch marker's height and more than
+     * half a block past it along the seal's outward direction (fx, fz). The offsets are point minus arch marker centre.
+     */
+    public static boolean pastArchPlane(double dx, double dy, double dz, int fx, int fz) {
+        return Math.abs(dy) <= 3.0 && dx * fx + dz * fz > 0.5;
+    }
 }

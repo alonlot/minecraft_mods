@@ -90,6 +90,16 @@ public final class LocketCaves {
         return count;
     }
 
+    /**
+     * Water with solid rock somewhere above it: the cave lake under the stack, not open sea at the same height
+     * (OCEAN_FLOOR counts only solid blocks, so open seabed water sits above it). The layout stays pure and is
+     * told only this.
+     */
+    public static boolean isCoveredWater(net.minecraft.world.level.Level level, BlockPos pos) {
+        return level.getFluidState(pos).is(FluidTags.WATER)
+                && pos.getY() < level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR, pos.getX(), pos.getZ());
+    }
+
     /** The nearest Basin of Despair whose cave contains pos, searching loaded chunks only. */
     public static Optional<DespairBasinBlockEntity> findBasinFor(ServerLevel level, BlockPos pos) {
         int r = CaveGeometry.SEARCH_RADIUS;
@@ -149,7 +159,7 @@ public final class LocketCaves {
         if (found.isEmpty()) {
             return;
         }
-        if (!found.get().layout().inLake(hit.getBlockPos(), true)) {
+        if (!found.get().layout().inLake(hit.getBlockPos(), isCoveredWater(level, hit.getBlockPos()))) {
             return; // the antechamber pool is not the lake
         }
         e.setCanceled(true);

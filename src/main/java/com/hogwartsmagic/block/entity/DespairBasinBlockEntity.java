@@ -200,7 +200,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
     /** In the black lake proper; the antechamber pool and the tunnel are not the lake. */
     private boolean inLake(ServerPlayer p) {
         BlockPos at = p.blockPosition();
-        return layout().inLake(at, p.level().getFluidState(at).is(FluidTags.WATER));
+        return layout().inLake(at, LocketCaves.isCoveredWater(p.level(), at));
     }
 
     private int idleGuardians(ServerLevel level) {
@@ -348,7 +348,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
             }
             for (int y = center.getY() + 3; y >= center.getY() - 8; y--) {
                 BlockPos pos = new BlockPos(x, y, z);
-                boolean water = level.getFluidState(pos).is(FluidTags.WATER);
+                boolean water = LocketCaves.isCoveredWater(level, pos);
                 if (!l.inLake(pos, water)) {
                     continue;
                 }

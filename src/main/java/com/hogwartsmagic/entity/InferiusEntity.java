@@ -157,7 +157,7 @@ public class InferiusEntity extends Monster {
                 for (int y = self.getBlockY() + 2; y >= self.getBlockY() - 6; y--) {
                     BlockPos p = new BlockPos(x, y, z);
                     if (!self.level().getFluidState(p).is(FluidTags.WATER)) continue;
-                    if (layout.inLake(p, true)) {
+                    if (layout.inLake(p, com.hogwartsmagic.locket.LocketCaves.isCoveredWater(self.level(), p))) {
                         target = Vec3.atBottomCenterOf(p);
                         return true;
                     }

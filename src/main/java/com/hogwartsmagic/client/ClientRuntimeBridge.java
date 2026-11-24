@@ -41,6 +41,8 @@ public final class ClientRuntimeBridge {
             case "syncDarkMagic" -> DarkMagicClientState.accept(((SpellPackets.SyncDarkMagicPacket) payload).darkness());
             case "openFlooScreen" -> openFlooScreen((SpellPackets.OpenFlooScreenPacket) payload);
             case "openFlooNamingScreen" -> openFlooNamingScreen((SpellPackets.OpenFlooNamingScreenPacket) payload);
+            case "openOwlPost" -> net.minecraft.client.Minecraft.getInstance().setScreen(
+                    new OwlPostScreen((com.hogwartsmagic.owlpost.OwlPostNet.OpenScreenPacket) payload));
             case "openHogwartsInviteScreen" -> openHogwartsInviteScreen((SpellPackets.OpenHogwartsInviteScreenPacket) payload);
             case "openHogwartsGuideScreen" -> openHogwartsGuideScreen();
             case "openAdvancedPotionsScreen" -> openAdvancedPotionsScreen();

@@ -527,10 +527,6 @@ public class ModEvents {
             event.setCanceled(true);
             return;
         }
-        if (handlePerchMail(event)) {
-            event.setCanceled(true);
-            return;
-        }
         if (handleWardInteraction(event)) {
             event.setCanceled(true);
             return;
@@ -2278,26 +2274,6 @@ public class ModEvents {
             return true;
         }
         return false;
-    }
-
-    private static boolean handlePerchMail(PlayerInteractEvent.RightClickBlock event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) {
-            return false;
-        }
-        if (!(event.getLevel().getBlockEntity(event.getPos()) instanceof com.hogwartsmagic.block.entity.OwlPerchBlockEntity perch)) {
-            return false;
-        }
-        ItemStack held = event.getItemStack();
-        if (!held.is(Items.WRITTEN_BOOK)) {
-            return false;
-        }
-        if (perch.queueMail(held, player)) {
-            held.shrink(1);
-            player.displayClientMessage(Component.translatable("message.hogwartsmagic.perch.queued"), true);
-        } else {
-            player.displayClientMessage(Component.translatable("message.hogwartsmagic.perch.busy"), true);
-        }
-        return true;
     }
 
     private static void tickPendingFlooTravel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {

@@ -2,6 +2,10 @@ package com.hogwartsmagic.block;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.entity.OwlPerchBlockEntity;
+import com.hogwartsmagic.owlpost.OwlPost;
+import com.hogwartsmagic.owlpost.OwlPostData;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.server.level.ServerLevel;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -66,60 +70,73 @@ public class OwlPerchBlock extends BaseEntityBlock {
         if (!(level.getBlockEntity(pos) instanceof OwlPerchBlockEntity perch)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
+        // The route tag (adds this perch to its list) and a named name tag (names the perch, ModEvents) do their own
+        // thing. SKIP, not PASS_TO_DEFAULT: that ran useWithoutItem below, which always succeeds, so the tag's own
+        // useOn never ran and a perch could not be added to a route without sneaking.
         if (stack.is(ExampleMod.OWL_ROUTE_TAG.get())
                 || (stack.is(net.minecraft.world.item.Items.NAME_TAG)
                 && stack.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME))) {
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (stack.isEmpty()) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
-        if (stack.isEmpty() || !perch.canAcceptMail(stack)) {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-        }
-        if (!level.isClientSide) {
-            if (!perch.queueMail(stack, player)) {
-                if (player instanceof ServerPlayer serverPlayer) {
-                    serverPlayer.displayClientMessage(Component.translatable("message.hogwartsmagic.perch.busy"), true);
-                }
-            } else {
-                if (!player.getAbilities().instabuild) {
-                    stack.shrink(1);
-                }
-                if (player instanceof ServerPlayer serverPlayer) {
-                    serverPlayer.displayClientMessage(Component.translatable("message.hogwartsmagic.perch.queued"), true);
-                }
-            }
+        if (player instanceof ServerPlayer serverPlayer) {
+            OwlPost.openSendScreen(serverPlayer, perch);
         }
         return ItemInteractionResult.sidedSuccess(level.isClientSide);
     }
 
-    /** Mail waiting on the perch drops when it is broken instead of vanishing with the block entity. */
+    /** Whatever the perch holds drops when it is broken, and it leaves the owl post's list of perches. */
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof OwlPerchBlockEntity perch) {
-            net.minecraft.world.Containers.dropContents(level, pos, perch);
+        if (!state.is(newState.getBlock())) {
+            if (level.getBlockEntity(pos) instanceof OwlPerchBlockEntity perch) {
+                net.minecraft.world.Containers.dropContents(level, pos, perch);
+            }
+            if (level instanceof ServerLevel serverLevel) {
+                OwlPostData.get(serverLevel.getServer()).removePerch(GlobalPos.of(level.dimension(), pos));
+            }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
+    /**
+     * Empty hand: take what owls brought (the inbox), or else take back a parcel still waiting to go, or else hear
+     * how the perch stands. Sneaking: choose where hoppers feeding this perch send to.
+     */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (!level.isClientSide && level.getBlockEntity(pos) instanceof OwlPerchBlockEntity perch) {
-            if (perch.hasQueuedMail()) {
-                ItemStack stack = perch.takeStoredItem(player);
-                if (!stack.isEmpty()) {
-                    if (!player.addItem(stack)) {
-                        player.drop(stack, false);
-                    }
-                    if (player instanceof ServerPlayer serverPlayer) {
-                        serverPlayer.displayClientMessage(Component.translatable("message.hogwartsmagic.perch.took_mail"), true);
-                    }
-                    return InteractionResult.sidedSuccess(false);
+        if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)
+                || !(level.getBlockEntity(pos) instanceof OwlPerchBlockEntity perch)) {
+            return InteractionResult.sidedSuccess(level.isClientSide);
+        }
+        if (player.isShiftKeyDown()) {
+            OwlPost.openDefaultScreen(serverPlayer, perch);
+            return InteractionResult.SUCCESS;
+        }
+        if (perch.hasInbox()) {
+            int stacks = 0;
+            for (ItemStack stack : perch.takeInbox()) {
+                stacks++;
+                if (!player.addItem(stack)) {
+                    player.drop(stack, false);
                 }
             }
-            Component message = perch.getStatusMessage(player);
-            if (player instanceof ServerPlayer serverPlayer) {
-                serverPlayer.displayClientMessage(message, true);
-            }
+            serverPlayer.displayClientMessage(Component.translatableWithFallback("message.hogwartsmagic.owl_post.took_inbox",
+                    "You take %s parcel(s) off the perch.", stacks), true);
+            return InteractionResult.SUCCESS;
         }
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        if (perch.hasOutbox()) {
+            ItemStack stack = perch.takeOutbox();
+            if (!player.addItem(stack)) {
+                player.drop(stack, false);
+            }
+            serverPlayer.displayClientMessage(Component.translatableWithFallback("message.hogwartsmagic.owl_post.took_back",
+                    "You take the parcel back."), true);
+            return InteractionResult.SUCCESS;
+        }
+        serverPlayer.displayClientMessage(OwlPost.statusMessage(serverLevel, perch), false);
+        return InteractionResult.SUCCESS;
     }
 }

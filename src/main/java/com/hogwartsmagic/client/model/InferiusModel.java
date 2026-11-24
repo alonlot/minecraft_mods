@@ -34,6 +34,8 @@ public class InferiusModel extends HierarchicalModel<InferiusEntity> {
     /** RISE length in ms; the idle sway is held off until the corpse is up. */
     private static final long RISE_MS = 1500L;
 
+    private static final long RISE_HANDS_MS = 2200L;
+
     private final Vector3f animationCache = new Vector3f();
     private final ModelPart root;
     private final ModelPart head;
@@ -98,6 +100,7 @@ public class InferiusModel extends HierarchicalModel<InferiusEntity> {
 
         this.animateWalk(InferiusAnimations.WALK, limbSwing, limbSwingAmount, 1.5F, 2.5F);
         this.animate(entity.riseAnimation, InferiusAnimations.RISE, ageInTicks);
+        this.animate(entity.handsRiseAnimation, InferiusAnimations.RISE_HANDS, ageInTicks);
         this.animate(entity.grabAnimation, InferiusAnimations.GRAB, ageInTicks);
         this.animate(entity.recoilAnimation, InferiusAnimations.RECOIL, ageInTicks);
 
@@ -105,7 +108,9 @@ public class InferiusModel extends HierarchicalModel<InferiusEntity> {
         // drifts back into its loll instead of snapping to it. It waits for
         // the rise to finish: swaying while still half in the ground looks wrong.
         boolean rising = entity.riseAnimation.isStarted()
-                && entity.riseAnimation.getAccumulatedTime() < RISE_MS;
+                && entity.riseAnimation.getAccumulatedTime() < RISE_MS
+                || entity.handsRiseAnimation.isStarted()
+                && entity.handsRiseAnimation.getAccumulatedTime() < RISE_HANDS_MS;
         float sway = 1.0F - Mth.clamp(limbSwingAmount * 2.5F, 0.0F, 1.0F);
         if (!rising && sway > 0.0F) {
             long swayMs = (long) (ageInTicks * 50.0F);

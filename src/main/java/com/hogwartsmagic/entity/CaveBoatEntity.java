@@ -209,6 +209,11 @@ public class CaveBoatEntity extends Entity {
         this.emptyTicks = 0;
     }
 
+    /** True while a version-2 skiff is underway with someone aboard: the only time an Inferius may cling to it. */
+    public boolean isSailingWithRider() {
+        return isV2() && this.next >= 0 && riseTicks() == 0 && !this.getPassengers().isEmpty();
+    }
+
     public int latchedCount() {
         this.latched.removeIf(i -> !i.isAlive() || i.isRemoved());
         return this.latched.size();

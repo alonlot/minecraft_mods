@@ -393,7 +393,8 @@ public class DespairBasinBlockEntity extends BlockEntity {
         // A spawn that finds no water stays owed and is retried; after the grace period it counts as attempted
         // so a lake with no usable water cannot make the ambush unwinnable.
         for (int i = 0, tries = owedSpawns; i < tries; i++) {
-            BlockPos at = findWater(level, worldPosition, layout().islandRadius() + 1, layout().islandRadius() + 5, 10);
+            BlockPos at = findWater(level, worldPosition, layout().islandRadius() + 1,
+                    layout().islandRadius() + com.hogwartsmagic.locket.InferiusRules.SHORE_SPAWN_BAND, 14);
             InferiusEntity e = at == null ? null : spawnInferius(level, at, true, trigger);
             if (e != null) {
                 ambushMobs.add(e.getUUID());
@@ -457,7 +458,11 @@ public class DespairBasinBlockEntity extends BlockEntity {
             e.setTarget(target);
         }
         level.addFreshEntity(e);
-        e.startRise();
+        if (ambush) {
+            e.startRiseHandsFirst();
+        } else {
+            e.startRise();
+        }
         return e;
     }
 

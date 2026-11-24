@@ -19,4 +19,24 @@ class InferiusRulesTest {
         assertFalse(InferiusRules.isGrabReady(150, 100));
         assertTrue(InferiusRules.isGrabReady(200, 100));
     }
+    @Test void landPullWeakerThanWater() {
+        assertEquals(0.02, InferiusRules.LAND_PULL_PER_TICK, 1e-9);
+        assertTrue(InferiusRules.LAND_PULL_PER_TICK > 0);
+        assertTrue(InferiusRules.LAND_PULL_PER_TICK < InferiusRules.WATER_PULL_PER_TICK);
+    }
+    @Test void pastArchMeansTurnBack() {
+        assertTrue(InferiusRules.pastArch(30.5, 30.0));
+        assertFalse(InferiusRules.pastArch(30.0, 30.0));
+        assertFalse(InferiusRules.pastArch(12.0, 30.0));
+    }
+    @Test void latchReleasedWhenRiderGone() {
+        assertTrue(InferiusRules.latchReleasedWhenRiderGone(false, false, false));
+        assertTrue(InferiusRules.latchReleasedWhenRiderGone(true, true, false));
+        assertTrue(InferiusRules.latchReleasedWhenRiderGone(true, false, true));
+        assertFalse(InferiusRules.latchReleasedWhenRiderGone(true, false, false));
+    }
+    @Test void latchHurtsOnAnInterval() {
+        assertEquals(1f, InferiusRules.LATCH_DAMAGE, 1e-6);
+        assertEquals(40, InferiusRules.LATCH_DAMAGE_INTERVAL);
+    }
 }

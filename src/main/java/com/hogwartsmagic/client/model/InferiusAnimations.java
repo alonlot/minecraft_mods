@@ -70,6 +70,40 @@ public class InferiusAnimations {
         ))
         .build();
 
+    /**
+     * The ambush rise: the corpse stays sunk, shoulders under, and only the raised hands clear the water for the
+     * first second; then the head and chest come up and the arms fall to the rest pose.
+     */
+    public static final AnimationDefinition RISE_HANDS = AnimationDefinition.Builder.withLength(2.2F)
+        .addAnimation("root", new AnimationChannel(AnimationChannel.Targets.POSITION,
+            new Keyframe(0.0F, KeyframeAnimations.posVec(0.0F, -26.0F, 0.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(1.0F, KeyframeAnimations.posVec(0.0F, -25.0F, 0.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(1.5F, KeyframeAnimations.posVec(0.0F, -10.0F, 0.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(1.9F, KeyframeAnimations.posVec(0.0F, -1.5F, 0.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(2.2F, KeyframeAnimations.posVec(0.0F, 0.0F, 0.0F), AnimationChannel.Interpolations.CATMULLROM)
+        ))
+        .addAnimation("body", new AnimationChannel(AnimationChannel.Targets.ROTATION,
+            new Keyframe(0.0F, KeyframeAnimations.degreeVec(40.0F, 0.0F, 0.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(1.0F, KeyframeAnimations.degreeVec(40.0F, 0.0F, 3.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(1.6F, KeyframeAnimations.degreeVec(20.0F, 0.0F, -3.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(2.2F, KeyframeAnimations.degreeVec(0.0F, 0.0F, 0.0F), AnimationChannel.Interpolations.CATMULLROM)
+        ))
+        .addAnimation("left_arm", new AnimationChannel(AnimationChannel.Targets.ROTATION,
+            new Keyframe(0.0F, KeyframeAnimations.degreeVec(-190.0F, 0.0F, -10.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(0.5F, KeyframeAnimations.degreeVec(-175.0F, 0.0F, -18.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(1.0F, KeyframeAnimations.degreeVec(-195.0F, 0.0F, -8.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(1.6F, KeyframeAnimations.degreeVec(-110.0F, 0.0F, 6.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(2.2F, KeyframeAnimations.degreeVec(0.0F, 0.0F, 0.0F), AnimationChannel.Interpolations.CATMULLROM)
+        ))
+        .addAnimation("right_arm", new AnimationChannel(AnimationChannel.Targets.ROTATION,
+            new Keyframe(0.0F, KeyframeAnimations.degreeVec(-180.0F, 0.0F, 10.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(0.5F, KeyframeAnimations.degreeVec(-195.0F, 0.0F, 14.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(1.0F, KeyframeAnimations.degreeVec(-175.0F, 0.0F, 6.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(1.6F, KeyframeAnimations.degreeVec(-105.0F, 0.0F, -6.0F), AnimationChannel.Interpolations.CATMULLROM),
+            new Keyframe(2.2F, KeyframeAnimations.degreeVec(0.0F, 0.0F, 0.0F), AnimationChannel.Interpolations.CATMULLROM)
+        ))
+        .build();
+
     public static final AnimationDefinition GRAB = AnimationDefinition.Builder.withLength(0.6F)
         .addAnimation("body", new AnimationChannel(AnimationChannel.Targets.ROTATION,
             new Keyframe(0.0F, KeyframeAnimations.degreeVec(0.0F, 0.0F, 0.0F), AnimationChannel.Interpolations.CATMULLROM),

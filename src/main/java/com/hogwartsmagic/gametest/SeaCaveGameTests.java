@@ -717,4 +717,182 @@ public final class SeaCaveGameTests {
                 "water above the lake surface is not the lake");
         helper.succeed();
     }
+
+    // ---- the Inferi on the island -------------------------------------------------------------
+    //
+    // A compact 9x9 arena (not the 80x90x80 template): floor y=0, a 2-deep pool (water y=1..2) round an island whose
+    // rings rise one block at a time (slope: top y=1, 2, 3) or stand sheer (wall top y=4, two above the waterline).
+    // Real AI, real pathing; the target is set directly because a mock player is not picked by target goals.
+
+    private static final int ARENA_MID = 4;
+
+    private static int ring(int x, int z) {
+        return Math.max(Math.abs(x - ARENA_MID), Math.abs(z - ARENA_MID));
+    }
+
+    private static void inferiusArena(GameTestHelper helper, boolean sheer) {
+        for (int x = 0; x <= 8; x++) {
+            for (int z = 0; z <= 8; z++) {
+                int d = ring(x, z);
+                helper.setBlock(new BlockPos(x, 0, z), net.minecraft.world.level.block.Blocks.DEEPSLATE);
+                int top = sheer ? (d <= 2 ? 4 : 0) : (d <= 1 ? 3 : d == 2 ? 2 : d == 3 ? 1 : 0);
+                for (int y = 1; y <= 6; y++) {
+                    helper.setBlock(new BlockPos(x, y, z), y <= top ? net.minecraft.world.level.block.Blocks.DEEPSLATE
+                            : y <= 2 ? net.minecraft.world.level.block.Blocks.WATER : net.minecraft.world.level.block.Blocks.AIR);
+                }
+            }
+        }
+    }
+
+    private static net.minecraft.server.level.ServerPlayer islandPlayer(GameTestHelper helper, int topY) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        Vec3 at = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(ARENA_MID, topY + 1, ARENA_MID)));
+        player.setPos(at.x, at.y, at.z);
+        player.setGameMode(GameType.SURVIVAL);
+        player.setHealth(player.getMaxHealth());
+        return player;
+    }
+
+    private static com.hogwartsmagic.entity.InferiusEntity lakeInferius(GameTestHelper helper, net.minecraft.world.entity.player.Player target) {
+        com.hogwartsmagic.entity.InferiusEntity e = helper.spawn(com.hogwartsmagic.entity.ModEntities.INFERIUS.get(), new BlockPos(ARENA_MID, 1, 0));
+        e.setTarget(target);
+        return e;
+    }
+
+    private static double flatDistTo(net.minecraft.world.entity.Entity a, net.minecraft.world.entity.Entity b) {
+        return Math.hypot(a.getX() - b.getX(), a.getZ() - b.getZ());
+    }
+
+    /** Spawned in the lake with a player on the island top, the Inferius must walk out of the water and reach melee range. */
+    @GameTest(template = EMPTY9, batch = "inferi_reach_a", timeoutTicks = 420)
+    public static void inferiusReachesIslandFromLake(GameTestHelper helper) {
+        inferiusArena(helper, false);
+        net.minecraft.server.level.ServerPlayer player = islandPlayer(helper, 3);
+        com.hogwartsmagic.entity.InferiusEntity inferius = lakeInferius(helper, player);
+        helper.onEachTick(() -> {
+            if (!inferius.isAlive()) {
+                helper.fail("the Inferius died");
+                return;
+            }
+            inferius.setTarget(player);
+            if (flatDistTo(inferius, player) <= 2.0D && Math.abs(inferius.getY() - player.getY()) < 1.5D && !inferius.isInWater()) {
+                System.out.println("[inferi-reach] slope reached in " + helper.getTick() + " ticks");
+                helper.succeed();
+            }
+        });
+        helper.runAfterDelay(400, () -> helper.fail("the Inferius never reached the island top; at "
+                + inferius.position() + " inWater " + inferius.isInWater() + " dist " + flatDistTo(inferius, player)));
+    }
+
+    /** The control: the same arena with a sheer wall must keep the Inferius out, which is what made the old cave fail. */
+    @GameTest(template = EMPTY9, batch = "inferi_reach_b", timeoutTicks = 420)
+    public static void inferiusCannotReachSheerIsland(GameTestHelper helper) {
+        inferiusArena(helper, true);
+        net.minecraft.server.level.ServerPlayer player = islandPlayer(helper, 4);
+        com.hogwartsmagic.entity.InferiusEntity inferius = lakeInferius(helper, player);
+        double[] closest = {Double.MAX_VALUE};
+        helper.onEachTick(() -> {
+            inferius.setTarget(player);
+            if (inferius.isAlive()) {
+                closest[0] = Math.min(closest[0], flatDistTo(inferius, player));
+                helper.assertFalse(!inferius.isInWater() && inferius.getY() > helper.absolutePos(new BlockPos(0, 4, 0)).getY(),
+                        "the Inferius climbed the sheer wall");
+            }
+        });
+        helper.runAfterDelay(400, () -> {
+            System.out.println("[inferi-reach] sheer closest approach " + closest[0]);
+            helper.assertTrue(closest[0] > 2.0D, "closest approach " + closest[0] + " should stay outside melee range");
+            helper.succeed();
+        });
+    }
+
+    /** Fire on the shore holds the Inferi off; the island top stays clear and the rock is not burned. */
+    @GameTest(template = EMPTY9, batch = "inferi_fire", timeoutTicks = 320)
+    public static void fireHoldsShoreWithoutBlockingDock(GameTestHelper helper) {
+        inferiusArena(helper, false);
+        net.minecraft.server.level.ServerPlayer player = islandPlayer(helper, 3);
+        BlockPos dock = new BlockPos(ARENA_MID, 4, ARENA_MID);
+        com.hogwartsmagic.entity.InferiusEntity inferius = lakeInferius(helper, player);
+        double[] closest = {Double.MAX_VALUE};
+        helper.onEachTick(() -> {
+            // Fire only on the ring-2 shore, one block above its top, topped up so it does not age out.
+            for (int x = 0; x <= 8; x++) {
+                for (int z = 0; z <= 8; z++) {
+                    if (ring(x, z) == 2) {
+                        helper.setBlock(new BlockPos(x, 3, z), net.minecraft.world.level.block.Blocks.FIRE);
+                    }
+                }
+            }
+            inferius.setTarget(player);
+            if (inferius.isAlive()) {
+                closest[0] = Math.min(closest[0], flatDistTo(inferius, player));
+            }
+        });
+        helper.runAfterDelay(300, () -> {
+            helper.assertTrue(closest[0] > 2.0D, "closest approach " + closest[0] + " should stay outside melee range");
+            helper.assertTrue(helper.getBlockState(dock).isAir(), "the dock cell stays clear, is " + helper.getBlockState(dock));
+            for (int x = 0; x <= 8; x++) {
+                for (int z = 0; z <= 8; z++) {
+                    if (ring(x, z) <= 1) {
+                        helper.assertTrue(helper.getBlockState(new BlockPos(x, 3, z)).is(net.minecraft.world.level.block.Blocks.DEEPSLATE),
+                                "the island rock is not burned at " + x + "," + z);
+                    }
+                }
+            }
+            helper.succeed();
+        });
+    }
+
+    /** On land the grab drags the victim toward the nearest lake water, slowly. */
+    @GameTest(template = EMPTY9, batch = "inferi_land", timeoutTicks = 100)
+    public static void landGrabDragsTowardTheLake(GameTestHelper helper) {
+        inferiusArena(helper, false);
+        net.minecraft.world.entity.animal.Pig pig = helper.spawnWithNoFreeWill(EntityType.PIG, new BlockPos(ARENA_MID, 3, 2));
+        com.hogwartsmagic.entity.InferiusEntity inferius = helper.spawnWithNoFreeWill(com.hogwartsmagic.entity.ModEntities.INFERIUS.get(), new BlockPos(ARENA_MID, 4, 3));
+        double startZ = pig.getZ();
+        helper.runAfterDelay(2, () -> inferius.doHurtTarget(pig));
+        helper.runAfterDelay(60, () -> {
+            helper.assertTrue(pig.isAlive(), "the pig survived");
+            System.out.println("[inferi-land] pig moved " + (pig.getZ() - startZ) + " in z toward the lake");
+            helper.assertTrue(pig.getZ() < startZ - 0.2D, "the land grab drags toward the water, z moved " + (pig.getZ() - startZ));
+            helper.succeed();
+        });
+    }
+
+    /** A cave Inferius clings to a moving skiff, hurts the rider, and a hit knocks it off. */
+    @GameTest(template = EMPTY9, batch = "inferi_latch", timeoutTicks = 400)
+    public static void inferiusLatchesToSkiffAndHitKnocksItOff(GameTestHelper helper) {
+        waterArena(helper);
+        com.hogwartsmagic.entity.CaveBoatEntity boat = com.hogwartsmagic.entity.CaveBoatEntity.rise(helper.getLevel(), crossingLayout(helper, 0));
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(GameType.SURVIVAL);
+        player.setHealth(player.getMaxHealth());
+        com.hogwartsmagic.entity.InferiusEntity[] inferius = {null};
+        float[] health = {0f};
+        int[] stage = {0};
+        helper.onEachTick(() -> {
+            if (stage[0] == 0 && boat.riseTicks() == 0) {
+                mount(boat, player);
+                health[0] = player.getHealth();
+                inferius[0] = helper.spawn(com.hogwartsmagic.entity.ModEntities.INFERIUS.get(), new BlockPos(3, 1, 3));
+                inferius[0].bindToCave(helper.absolutePos(new BlockPos(4, 2, 4)));
+                stage[0] = 1;
+            } else if (stage[0] == 1) {
+                if (inferius[0].isLatched()) {
+                    helper.assertTrue(boat.latchedCount() == 1, "the skiff counts one latched Inferius");
+                    System.out.println("[inferi-latch] latched at tick " + helper.getTick());
+                    stage[0] = 2;
+                }
+            } else if (stage[0] == 2 && player.getHealth() < health[0]) {
+                System.out.println("[inferi-latch] rider hurt at tick " + helper.getTick());
+                inferius[0].hurt(helper.getLevel().damageSources().generic(), 1.0F);
+                stage[0] = 3;
+            } else if (stage[0] == 3 && !inferius[0].isLatched()) {
+                helper.assertTrue(boat.latchedCount() == 0, "the skiff is free again");
+                inferius[0].discard();
+                boat.discard();
+                helper.succeed();
+            }
+        });
+    }
 }

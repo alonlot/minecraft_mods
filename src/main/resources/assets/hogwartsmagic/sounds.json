@@ -4627,5 +4627,14 @@
         "name": "hogwartsmagic:cast/impact_crunch3"
       }
     ]
+  },
+  "despair.whisper": {
+    "subtitle": "subtitles.hogwartsmagic.despair.whisper",
+    "sounds": [
+      {"name": "hogwartsmagic:despair/whisper1"},
+      {"name": "hogwartsmagic:despair/whisper2"},
+      {"name": "hogwartsmagic:despair/whisper3"},
+      {"name": "hogwartsmagic:despair/whisper4"}
+    ]
   }
 }

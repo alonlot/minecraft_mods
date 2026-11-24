@@ -28,14 +28,6 @@ public final class DespairRules {
                     new DrinkEffect("mining_fatigue", 600, 1), new DrinkEffect("hunger", 600, 1)));
     private static final float[] DAMAGE = {0f, 0f, 2f, 3f, 4f, 4f};
 
-    private static final String[] WHISPERS = {
-            "The cold reaches in and finds every regret you kept.",
-            "Nobody is coming. Nobody was ever coming.",
-            "You failed them. You will fail them again.",
-            "The dark is patient, and it knows exactly where you are soft.",
-            "Every kindness you gave was only ever a way of hiding from yourself.",
-            "Water... there must be water somewhere..."};
-
     private DespairRules() {}
 
     private static int index(int drinkNumber) {
@@ -55,7 +47,22 @@ public final class DespairRules {
         return !drinkerAlive || !drinkerOnIsland || now - lastDrink > REFILL_TIMEOUT_TICKS;
     }
 
-    public static int whisperCount() { return WHISPERS.length; }
+    /** How long the screen effect lasts, refreshed by every cup. */
+    public static final int DESPAIR_TICKS = 600;
+    /** Number of whisper recordings the basin can play. */
+    public static final int WHISPER_VARIANTS = 4;
 
-    public static String whisper(int index) { return WHISPERS[Math.floorMod(index, WHISPERS.length)]; }
+    /** The screen's despair stage after a cup: 0 (first cup) to 5 (sixth). */
+    public static int stageFor(int drinkNumber) { return index(drinkNumber); }
+
+    /** Ticks the drinker is forced to their knees: only after the fifth and sixth cup. */
+    public static int kneelTicks(int drinkNumber) {
+        return index(drinkNumber) >= 5 ? 80 : index(drinkNumber) == 4 ? 50 : 0;
+    }
+
+    /** How many whispers play around the drinker after a cup. */
+    public static int whisperSounds(int drinkNumber) { return 1 + (index(drinkNumber) + 1) / 2; }
+
+    /** Camera shake strength after a cup (0.15 per stage). */
+    public static float shakeStrength(int drinkNumber) { return 0.15f * stageFor(drinkNumber); }
 }

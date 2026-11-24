@@ -210,6 +210,8 @@ public class ExampleMod
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> BASILISK_PETRIFICATION = MOB_EFFECTS.register("basilisk_petrification",
             com.hogwartsmagic.spell.BasiliskPetrificationEffect::new);
 
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> DESPAIR = MOB_EFFECTS.register("despair",
+            com.hogwartsmagic.spell.DespairEffect::new);
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> BASILISK_GAZE = MOB_EFFECTS.register("basilisk_gaze",
             com.hogwartsmagic.spell.BasiliskGazeEffect::new);
 

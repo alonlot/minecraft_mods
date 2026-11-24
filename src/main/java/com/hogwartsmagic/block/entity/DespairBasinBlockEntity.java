@@ -131,11 +131,37 @@ public class DespairBasinBlockEntity extends BlockEntity {
             p.invulnerableTime = 0;
             p.hurt(level.damageSources().magic(), dmg);
         }
-        p.displayClientMessage(Component.literal(DespairRules.whisper(drinks - 1))
-                .withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC), false);
+        feelDespair(level, p);
         level.playSound(null, worldPosition, SoundEvents.GENERIC_DRINK, SoundSource.BLOCKS, 1f, 0.6f);
         setStage(BasinStage.DRINKING); // drops the level, and shows the Locket once the sixth cup is drunk
         setChanged();
+    }
+
+    /**
+     * The cup is felt on screen, not read: the hidden DESPAIR effect (amplifier = stage, refreshed per cup) drives the
+     * client overlay, a small shake reaches the drinker, whispers play to the drinker alone, and the last cups
+     * bring them to their knees (the client dips the view; the legs are held by maximum slowness).
+     */
+    private void feelDespair(ServerLevel level, ServerPlayer p) {
+        int stage = DespairRules.stageFor(drinks);
+        p.addEffect(new MobEffectInstance(ExampleMod.DESPAIR.getHolder().get(), DespairRules.DESPAIR_TICKS, stage,
+                false, false, false));
+        if (stage > 0) {
+            com.hogwartsmagic.fx.Fx.shake(level, p.position(), DespairRules.shakeStrength(drinks), 2f, 20 + 6 * stage);
+        }
+        for (int i = 0; i < DespairRules.whisperSounds(drinks); i++) {
+            // Near the drinker head, a little different each time; only this player is sent the sound.
+            double a = level.random.nextDouble() * Math.PI * 2;
+            p.connection.send(new net.minecraft.network.protocol.game.ClientboundSoundPacket(
+                    net.minecraft.core.Holder.direct(com.hogwartsmagic.ModSounds.DESPAIR_WHISPER.get()),
+                    SoundSource.AMBIENT, p.getX() + Math.cos(a) * 1.5, p.getEyeY(), p.getZ() + Math.sin(a) * 1.5,
+                    0.5f + 0.1f * stage, 0.8f + level.random.nextFloat() * 0.3f, level.random.nextLong()));
+        }
+        int kneel = DespairRules.kneelTicks(drinks);
+        if (kneel > 0) {
+            p.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, kneel, 255,
+                    false, false, false));
+        }
     }
 
     /**

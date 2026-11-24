@@ -1,3 +1,17 @@
 {
-  "parent": "hogwartsmagic:block/crystal_goblet"
+  "parent": "hogwartsmagic:block/crystal_goblet",
+  "overrides": [
+    {
+      "predicate": {
+        "hogwartsmagic:goblet_fill": 1
+      },
+      "model": "hogwartsmagic:item/crystal_goblet_potion"
+    },
+    {
+      "predicate": {
+        "hogwartsmagic:goblet_fill": 2
+      },
+      "model": "hogwartsmagic:item/crystal_goblet_water"
+    }
+  ]
 }

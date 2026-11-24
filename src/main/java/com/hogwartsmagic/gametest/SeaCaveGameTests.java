@@ -507,4 +507,85 @@ public final class SeaCaveGameTests {
                 "the dock and path roles are present, found " + roles);
         helper.succeed();
     }
+
+    // ---- the goblet and the basin --------------------------------------------------------------
+    //
+    // A mock player cannot run the item-use animation, so these call dip and CaveGobletItem.drinkFrom (what
+    // finishUsingItem does on the server) directly. Everything happens inside one test tick so the basin never
+    // ticks with its mock drinker absent from the player list.
+
+    private static final BlockPos GOBLET_BASIN = new BlockPos(1, 1, 1);
+
+    private static com.hogwartsmagic.block.entity.DespairBasinBlockEntity gobletBasin(GameTestHelper helper, boolean v2) {
+        helper.setBlock(GOBLET_BASIN, ExampleMod.DESPAIR_BASIN.get());
+        com.hogwartsmagic.block.entity.DespairBasinBlockEntity be =
+                (com.hogwartsmagic.block.entity.DespairBasinBlockEntity) helper.getBlockEntity(GOBLET_BASIN);
+        if (v2) {
+            BlockPos at = helper.absolutePos(GOBLET_BASIN);
+            be.setLayoutDirectly(new com.hogwartsmagic.locket.CaveLayout(2, at, java.util.List.of(), at, at, at,
+                    java.util.List.of(), at.getY() - 1, 12, 12, 12));
+        }
+        return be;
+    }
+
+    private static net.minecraft.server.level.ServerPlayer onIsland(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        Vec3 at = Vec3.atBottomCenterOf(helper.absolutePos(GOBLET_BASIN.above()));
+        player.setPos(at.x, at.y, at.z);
+        player.setHealth(player.getMaxHealth());
+        return player;
+    }
+
+    private static int basinLevel(GameTestHelper helper) {
+        return helper.getBlockState(GOBLET_BASIN).getValue(com.hogwartsmagic.block.DespairBasinBlock.LEVEL);
+    }
+
+    @GameTest(template = EMPTY, batch = "goblet_a", timeoutTicks = 60)
+    public static void legacyBasinAcceptsGoblet(GameTestHelper helper) {
+        com.hogwartsmagic.block.entity.DespairBasinBlockEntity basin = gobletBasin(helper, false);
+        helper.assertTrue(basin.layout().version() == 1, "no markers around the basin means the legacy layout");
+        net.minecraft.server.level.ServerPlayer player = onIsland(helper);
+        net.minecraft.world.item.ItemStack goblet = new net.minecraft.world.item.ItemStack(ExampleMod.CRYSTAL_GOBLET_ITEM.get());
+        helper.assertTrue(com.hogwartsmagic.item.CaveGobletItem.fillOf(goblet) == com.hogwartsmagic.locket.GobletFill.EMPTY, "a new goblet is empty");
+        helper.assertTrue(basin.dip(player, goblet), "the legacy basin accepts a dip");
+        helper.assertTrue(com.hogwartsmagic.item.CaveGobletItem.fillOf(goblet) == com.hogwartsmagic.locket.GobletFill.POTION, "the dipped goblet holds the potion");
+        helper.assertTrue(basin.drinks() == 0 && basinLevel(helper) == 6, "dipping alone does not lower the basin");
+        com.hogwartsmagic.item.CaveGobletItem.drinkFrom(goblet, helper.getLevel(), player);
+        helper.assertTrue(basin.drinks() == 1, "one cup drunk, drinks " + basin.drinks());
+        helper.assertTrue(basinLevel(helper) == 5, "the basin drops one level, is " + basinLevel(helper));
+        helper.assertTrue(com.hogwartsmagic.item.CaveGobletItem.fillOf(goblet) == com.hogwartsmagic.locket.GobletFill.EMPTY, "drinking empties the goblet");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = "goblet_b", timeoutTicks = 60)
+    public static void sixCupsShowLocket(GameTestHelper helper) {
+        com.hogwartsmagic.block.entity.DespairBasinBlockEntity basin = gobletBasin(helper, true);
+        net.minecraft.server.level.ServerPlayer player = onIsland(helper);
+        net.minecraft.server.level.ServerPlayer other = onIsland(helper);
+        helper.assertFalse(player.getUUID().equals(other.getUUID()), "two different players");
+        net.minecraft.world.item.ItemStack goblet = new net.minecraft.world.item.ItemStack(ExampleMod.CRYSTAL_GOBLET_ITEM.get());
+        net.minecraft.world.item.ItemStack otherGoblet = new net.minecraft.world.item.ItemStack(ExampleMod.CRYSTAL_GOBLET_ITEM.get());
+        for (int cup = 1; cup <= 6; cup++) {
+            basin.forgetLastDrinkForTest(); // the spacing rule would otherwise need 20 ticks between cups
+            helper.assertTrue(basin.dip(player, goblet), "dip " + cup + " is accepted");
+            if (cup == 3) {
+                helper.assertFalse(basin.dip(other, otherGoblet), "a second player is refused mid-run");
+                helper.assertTrue(com.hogwartsmagic.item.CaveGobletItem.fillOf(otherGoblet) == com.hogwartsmagic.locket.GobletFill.EMPTY, "the refused goblet stays empty");
+            }
+            player.setHealth(player.getMaxHealth());
+            com.hogwartsmagic.item.CaveGobletItem.drinkFrom(goblet, helper.getLevel(), player);
+            helper.assertTrue(basinLevel(helper) == 6 - cup, "after cup " + cup + " the level is " + basinLevel(helper));
+        }
+        BlockState state = helper.getBlockState(GOBLET_BASIN);
+        helper.assertTrue(basinLevel(helper) == 0, "six cups leave the basin dry");
+        helper.assertTrue(state.getValue(com.hogwartsmagic.block.DespairBasinBlock.LOCKET), "the Locket shows on the dry floor");
+        basin.forgetLastDrinkForTest();
+        helper.assertFalse(basin.dip(player, goblet), "a dry basin takes no seventh cup");
+        basin.takeLocket(other);
+        helper.assertTrue(helper.getBlockState(GOBLET_BASIN).getValue(com.hogwartsmagic.block.DespairBasinBlock.LOCKET), "another player cannot take the Locket");
+        basin.takeLocket(player);
+        helper.assertTrue(helper.getBlockState(GOBLET_BASIN).getValue(com.hogwartsmagic.block.DespairBasinBlock.STAGE) == com.hogwartsmagic.locket.BasinStage.LOOTED, "the drinker takes it");
+        helper.assertTrue(player.getInventory().contains(new net.minecraft.world.item.ItemStack(ExampleMod.SLYTHERINS_LOCKET.get())), "the Locket is in the drinker's pack");
+        helper.succeed();
+    }
 }

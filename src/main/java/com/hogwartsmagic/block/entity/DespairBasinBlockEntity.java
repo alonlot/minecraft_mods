@@ -8,7 +8,10 @@ import com.hogwartsmagic.locket.AmbushSchedule;
 import com.hogwartsmagic.locket.BasinStage;
 import com.hogwartsmagic.locket.CaveGeometry;
 import com.hogwartsmagic.locket.CaveLayout;
+import com.hogwartsmagic.item.CaveGobletItem;
 import com.hogwartsmagic.locket.DespairRules;
+import com.hogwartsmagic.locket.GobletFill;
+import com.hogwartsmagic.locket.GobletRules;
 import com.hogwartsmagic.locket.LocketCaves;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -77,42 +80,49 @@ public class DespairBasinBlockEntity extends BlockEntity {
         return ambushActive;
     }
 
-    public void onUse(ServerPlayer p) {
-        if (!(this.level instanceof ServerLevel level)) {
-            return;
+    /**
+     * A goblet dipped into the basin. Fills the goblet with a cup of the potion and claims the basin for this
+     * player; refused when someone else is mid-run, the basin is empty or looted, the player is off the island, or
+     * the last cup was too recent. Returns whether the goblet was filled.
+     */
+    public boolean dip(ServerPlayer p, ItemStack goblet) {
+        if (!(this.level instanceof ServerLevel level) || !(goblet.getItem() instanceof CaveGobletItem)) {
+            return false;
         }
-        BasinStage stage = getBlockState().getValue(DespairBasinBlock.STAGE);
-        if (stage == BasinStage.LOOTED || !layout().onIsland(p.blockPosition())) {
-            return;
+        if (getBlockState().getValue(DespairBasinBlock.STAGE) == BasinStage.LOOTED || !layout().onIsland(p.blockPosition())) {
+            return false;
         }
-        if (drinks >= DespairRules.DRINKS_TO_EMPTY) { // locket waiting in the empty basin
-            if (!p.getUUID().equals(drinker)) {
+        if (CaveGobletItem.fillOf(goblet) != GobletFill.EMPTY) {
+            return false;
+        }
+        if (!GobletRules.mayDip(drinker, p.getUUID(), drinks)) {
+            if (drinks < DespairRules.DRINKS_TO_EMPTY) {
                 p.displayClientMessage(Component.translatable("message.hogwartsmagic.basin_in_use"), true);
-                return;
             }
-            p.getInventory().placeItemBackInInventory(new ItemStack(ExampleMod.SLYTHERINS_LOCKET.get()));
-            ExampleMod.UNQUENCHABLE_THIRST.getHolder().ifPresent(h -> p.addEffect(
-                    new MobEffectInstance(h, DespairRules.THIRST_DURATION_TICKS, 0, false, false, true)));
-            setStage(BasinStage.LOOTED);
-            drinker = null;
-            drinks = 0;
-            LocketCaves.recordLooted(level, worldPosition);
-            p.displayClientMessage(Component.translatable("message.hogwartsmagic.locket_taken")
-                    .withStyle(ChatFormatting.DARK_GREEN), false);
-            setChanged();
-            return;
-        }
-        if (drinker != null && !drinker.equals(p.getUUID())) {
-            p.displayClientMessage(Component.translatable("message.hogwartsmagic.basin_in_use"), true);
-            return;
+            return false;
         }
         long now = level.getGameTime();
         if (drinker != null && drinks > 0 && now - lastDrink < DespairRules.MIN_TICKS_BETWEEN_DRINKS) {
-            return;
+            return false;
         }
         drinker = p.getUUID();
-        drinks++;
         lastDrink = now;
+        CaveGobletItem.setFill(goblet, GobletFill.POTION);
+        CaveGobletItem.setHome(goblet, worldPosition);
+        level.playSound(null, worldPosition, SoundEvents.BOTTLE_FILL, SoundSource.BLOCKS, 1f, 0.6f);
+        setChanged();
+        return true;
+    }
+
+    /** One cup drunk by the player who dipped it: its effects and damage (never lethal alone), and the basin drops a level. */
+    public void drink(ServerPlayer p) {
+        if (!(this.level instanceof ServerLevel level) || !p.getUUID().equals(drinker)
+                || drinks >= DespairRules.DRINKS_TO_EMPTY
+                || getBlockState().getValue(DespairBasinBlock.STAGE) == BasinStage.LOOTED) {
+            return;
+        }
+        drinks++;
+        lastDrink = level.getGameTime();
         for (DespairRules.DrinkEffect e : DespairRules.effectsFor(drinks)) {
             BuiltInRegistries.MOB_EFFECT.getHolder(ResourceLocation.withDefaultNamespace(e.effectId()))
                     .ifPresent(h -> p.addEffect(new MobEffectInstance(h, e.ticks(), e.amplifier())));
@@ -125,7 +135,41 @@ public class DespairBasinBlockEntity extends BlockEntity {
         p.displayClientMessage(Component.literal(DespairRules.whisper(drinks - 1))
                 .withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC), false);
         level.playSound(null, worldPosition, SoundEvents.GENERIC_DRINK, SoundSource.BLOCKS, 1f, 0.6f);
-        setStage(BasinStage.DRINKING); // also shows the Locket once the sixth drink is taken
+        setStage(BasinStage.DRINKING); // drops the level, and shows the Locket once the sixth cup is drunk
+        setChanged();
+    }
+
+    /** Test hook: forgets the last cup so the next dip is not held back by the spacing rule. */
+    public void forgetLastDrinkForTest() {
+        lastDrink = -100000;
+    }
+
+    public int drinks() {
+        return drinks;
+    }
+
+    /** An empty hand lifts the Locket from the dry basin, if this player is the one who drank it dry. */
+    public void takeLocket(ServerPlayer p) {
+        if (!(this.level instanceof ServerLevel level)) {
+            return;
+        }
+        BasinStage stage = getBlockState().getValue(DespairBasinBlock.STAGE);
+        if (stage == BasinStage.LOOTED || drinks < DespairRules.DRINKS_TO_EMPTY || !layout().onIsland(p.blockPosition())) {
+            return;
+        }
+        if (!p.getUUID().equals(drinker)) {
+            p.displayClientMessage(Component.translatable("message.hogwartsmagic.basin_in_use"), true);
+            return;
+        }
+        p.getInventory().placeItemBackInInventory(new ItemStack(ExampleMod.SLYTHERINS_LOCKET.get()));
+        ExampleMod.UNQUENCHABLE_THIRST.getHolder().ifPresent(h -> p.addEffect(
+                new MobEffectInstance(h, DespairRules.THIRST_DURATION_TICKS, 0, false, false, true)));
+        setStage(BasinStage.LOOTED);
+        drinker = null;
+        drinks = 0;
+        LocketCaves.recordLooted(level, worldPosition);
+        p.displayClientMessage(Component.translatable("message.hogwartsmagic.locket_taken")
+                .withStyle(ChatFormatting.DARK_GREEN), false);
         setChanged();
     }
 
@@ -133,8 +177,10 @@ public class DespairBasinBlockEntity extends BlockEntity {
         if (this.level == null) {
             return;
         }
+        boolean looted = s == BasinStage.LOOTED;
         BlockState state = getBlockState().setValue(DespairBasinBlock.STAGE, s)
-                .setValue(DespairBasinBlock.LOCKET, s == BasinStage.DRINKING && drinks >= DespairRules.DRINKS_TO_EMPTY);
+                .setValue(DespairBasinBlock.LOCKET, s == BasinStage.DRINKING && drinks >= DespairRules.DRINKS_TO_EMPTY)
+                .setValue(DespairBasinBlock.LEVEL, looted ? 0 : Math.max(0, DespairRules.DRINKS_TO_EMPTY - drinks));
         this.level.setBlock(worldPosition, state, Block.UPDATE_CLIENTS);
     }
 

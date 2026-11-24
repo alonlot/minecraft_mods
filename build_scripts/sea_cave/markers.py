@@ -55,7 +55,7 @@ def _standing(blocks, near, r=6):
 def apply(blocks):
     out = []
     bx, by, bz = F.BASIN
-    blocks[(bx, by, bz)] = (BASIN, {'stage': 'full', 'locket': 'false'}, None)
+    blocks[(bx, by, bz)] = (BASIN, {'stage': 'full', 'locket': 'false', 'level': '6'}, None)
     blocks[F.GOBLET] = (GOBLET, None, None)
     _put_marker(blocks, out, 'basin', 0, (bx, by + 2, bz))
 

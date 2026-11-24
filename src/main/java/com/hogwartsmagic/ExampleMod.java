@@ -106,6 +106,19 @@ public class ExampleMod
                     .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.BOOL)
                     .build());
 
+    /** What the cave goblet holds: absent reads as empty. */
+    public static final RegistryObject<net.minecraft.core.component.DataComponentType<com.hogwartsmagic.locket.GobletFill>> GOBLET_FILL =
+            DATA_COMPONENTS.register("goblet_fill", () -> net.minecraft.core.component.DataComponentType.<com.hogwartsmagic.locket.GobletFill>builder()
+                    .persistent(com.hogwartsmagic.locket.GobletFill.CODEC)
+                    .networkSynchronized(com.hogwartsmagic.locket.GobletFill.STREAM_CODEC)
+                    .build());
+    /** The basin a cave goblet belongs to; it crumbles back beside it when it leaves the cave. */
+    public static final RegistryObject<net.minecraft.core.component.DataComponentType<net.minecraft.core.BlockPos>> GOBLET_HOME =
+            DATA_COMPONENTS.register("goblet_home", () -> net.minecraft.core.component.DataComponentType.<net.minecraft.core.BlockPos>builder()
+                    .persistent(net.minecraft.core.BlockPos.CODEC)
+                    .networkSynchronized(net.minecraft.core.BlockPos.STREAM_CODEC)
+                    .build());
+
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.MagicBookLootModifier>> MAGIC_BOOK_LOOT_MODIFIER =
             LOOT_MODIFIER_SERIALIZERS.register("magic_books", () -> com.hogwartsmagic.loot.MagicBookLootModifier.CODEC);
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.SortingHatLootModifier>> SORTING_HAT_LOOT_MODIFIER =
@@ -654,7 +667,7 @@ public class ExampleMod
     public static final RegistryObject<Item> CAVE_RING_ITEM = ITEMS.register("cave_ring", () -> new BlockItem(CAVE_RING.get(), new Item.Properties()));
     public static final RegistryObject<Item> BLOOD_SEAL_ITEM = ITEMS.register("blood_seal", () -> new BlockItem(BLOOD_SEAL.get(), new Item.Properties()));
     public static final RegistryObject<Item> DESPAIR_BASIN_ITEM = ITEMS.register("despair_basin", () -> new BlockItem(DESPAIR_BASIN.get(), new Item.Properties()));
-    public static final RegistryObject<Item> CRYSTAL_GOBLET_ITEM = ITEMS.register("crystal_goblet", () -> new BlockItem(CRYSTAL_GOBLET.get(), new Item.Properties()));
+    public static final RegistryObject<Item> CRYSTAL_GOBLET_ITEM = ITEMS.register("crystal_goblet", () -> new com.hogwartsmagic.item.CaveGobletItem(new Item.Properties()));
     public static final RegistryObject<Item> STATUE_HEART_ITEM = ITEMS.register("statue_heart", () -> new BlockItem(STATUE_HEART.get(), new Item.Properties()));
     public static final RegistryObject<Item> GRYFFINDOR_BANNER_BLOCK_ITEM = ITEMS.register("gryffindor_banner_block", () -> new BlockItem(GRYFFINDOR_BANNER_BLOCK.get(), new Item.Properties()));
     public static final RegistryObject<Item> RAVENCLAW_BANNER_BLOCK_ITEM = ITEMS.register("ravenclaw_banner_block", () -> new BlockItem(RAVENCLAW_BANNER_BLOCK.get(), new Item.Properties()));

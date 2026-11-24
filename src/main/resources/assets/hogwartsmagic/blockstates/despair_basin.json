@@ -1,22 +1,71 @@
 {
-  "variants": {
-    "locket=false,stage=full": {
-      "model": "hogwartsmagic:block/despair_basin_full"
+  "multipart": [
+    {
+      "apply": {
+        "model": "hogwartsmagic:block/despair_basin_looted"
+      }
     },
-    "locket=true,stage=full": {
-      "model": "hogwartsmagic:block/despair_basin_full"
+    {
+      "when": {
+        "level": "1",
+        "stage": "full|drinking"
+      },
+      "apply": {
+        "model": "hogwartsmagic:block/despair_basin_liquid_1"
+      }
     },
-    "locket=false,stage=drinking": {
-      "model": "hogwartsmagic:block/despair_basin_full"
+    {
+      "when": {
+        "level": "2",
+        "stage": "full|drinking"
+      },
+      "apply": {
+        "model": "hogwartsmagic:block/despair_basin_liquid_2"
+      }
     },
-    "locket=true,stage=drinking": {
-      "model": "hogwartsmagic:block/despair_basin_locket"
+    {
+      "when": {
+        "level": "3",
+        "stage": "full|drinking"
+      },
+      "apply": {
+        "model": "hogwartsmagic:block/despair_basin_liquid_3"
+      }
     },
-    "locket=false,stage=looted": {
-      "model": "hogwartsmagic:block/despair_basin_looted"
+    {
+      "when": {
+        "level": "4",
+        "stage": "full|drinking"
+      },
+      "apply": {
+        "model": "hogwartsmagic:block/despair_basin_liquid_4"
+      }
     },
-    "locket=true,stage=looted": {
-      "model": "hogwartsmagic:block/despair_basin_locket"
+    {
+      "when": {
+        "level": "5",
+        "stage": "full|drinking"
+      },
+      "apply": {
+        "model": "hogwartsmagic:block/despair_basin_liquid_5"
+      }
+    },
+    {
+      "when": {
+        "level": "6",
+        "stage": "full|drinking"
+      },
+      "apply": {
+        "model": "hogwartsmagic:block/despair_basin_liquid_6"
+      }
+    },
+    {
+      "when": {
+        "locket": "true"
+      },
+      "apply": {
+        "model": "hogwartsmagic:block/despair_basin_locket_piece"
+      }
     }
-  }
+  ]
 }

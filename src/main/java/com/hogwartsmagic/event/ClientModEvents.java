@@ -860,6 +860,9 @@ public class ClientModEvents {
             ItemBlockRenderTypes.setRenderLayer(ExampleMod.FINE_WOOD_SAPLING.get(), RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ExampleMod.FINE_WOOD_LEAVES.get(), RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ExampleMod.HORCRUX.get(), RenderType.cutout());
+            net.minecraft.client.renderer.item.ItemProperties.register(ExampleMod.CRYSTAL_GOBLET_ITEM.get(),
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "goblet_fill"),
+                    (stack, level, entity, seed) -> (float) com.hogwartsmagic.item.CaveGobletItem.fillOf(stack).ordinal());
             net.minecraft.client.renderer.item.ItemProperties.register(ExampleMod.SNEAKOSCOPE_ITEM.get(),
                     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "spinning"),
                     (stack, level, entity, seed) -> com.hogwartsmagic.item.SneakoscopeItem.isSpinning(stack) ? 1.0f : 0.0f);

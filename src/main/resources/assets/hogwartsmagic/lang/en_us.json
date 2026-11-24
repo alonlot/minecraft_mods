@@ -292,6 +292,8 @@
   "block.hogwartsmagic.crystal_goblet": "Crystal Goblet",
   "message.hogwartsmagic.locket_taken": "You lift Slytherin's Locket from the empty basin. Your throat burns with thirst.",
   "message.hogwartsmagic.basin_in_use": "Someone else is drinking.",
+  "message.hogwartsmagic.goblet_crumbles": "The goblet cannot leave the cave. It crumbles to dust.",
+  "item.hogwartsmagic.crystal_goblet": "Crystal Goblet",
   "message.hogwartsmagic.thirst_cured": "You drink the black water...",
   "message.hogwartsmagic.water_stirs": "The water stirs...",
   "gui.hogwartsmagic.recipe_book": "Book",

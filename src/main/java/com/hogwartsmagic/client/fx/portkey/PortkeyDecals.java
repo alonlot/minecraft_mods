@@ -43,8 +43,23 @@ final class PortkeyDecals {
     /** Lift off the face, so it never fights the block for depth. */
     private static final float LIFT = 0.012f;
 
-    /** One mark: its centre, when it was made, and the top faces it lies on (x, z of each block; y of the face). */
-    private record Decal(Vec3 centre, double start, int[] blocks, float y) {
+    /**
+     * One mark: its centre, when it was made, the face height, and the top faces it lies on (x, z of each block) with
+     * their light. The faces are found once the ground there is loaded: after a dimension change the arrival comes
+     * before the chunk does.
+     */
+    private static final class Decal {
+        final Vec3 centre;
+        final float y;
+        double start;
+        int[] blocks;
+        int[] light;
+
+        Decal(Vec3 centre, double start) {
+            this.centre = centre;
+            this.start = start;
+            this.y = (float) centre.y;
+        }
     }
 
     private static final List<Decal> DECALS = new ArrayList<>();
@@ -59,10 +74,23 @@ final class PortkeyDecals {
         if (level == null || !FxConfig.get(FxConfig.LINGERING_MARKS)) {
             return;
         }
+        if (DECALS.size() >= PortkeyTimeline.MAX_DECALS) {
+            DECALS.remove(0);
+        }
+        DECALS.add(new Decal(landing, now));
+    }
+
+    /** Find the faces a decal lies on, once its ground is loaded. False while it is not. */
+    private static boolean resolve(ClientLevel level, Decal d, double now) {
+        if (d.blocks != null) {
+            return true;
+        }
+        Vec3 landing = d.centre;
         BlockPos feet = BlockPos.containing(landing.x, landing.y + 0.01, landing.z);
         BlockPos ground = feet.below();
-        // The face height: the top of whatever the feet stand on (a full block, a slab, a path).
-        float y = (float) landing.y;
+        if (!level.isLoaded(ground.offset(-HALF, 0, -HALF)) || !level.isLoaded(ground.offset(HALF, 0, HALF))) {
+            return false;
+        }
         List<Integer> faces = new ArrayList<>();
         for (int dx = -HALF; dx <= HALF; dx++) {
             for (int dz = -HALF; dz <= HALF; dz++) {
@@ -81,13 +109,17 @@ final class PortkeyDecals {
             }
         }
         int[] blocks = new int[faces.size()];
+        int[] light = new int[faces.size() / 2];
         for (int i = 0; i < blocks.length; i++) {
             blocks[i] = faces.get(i);
         }
-        if (DECALS.size() >= PortkeyTimeline.MAX_DECALS) {
-            DECALS.remove(0);
+        for (int i = 0; i < light.length; i++) {
+            light[i] = LevelRenderer.getLightColor(level, new BlockPos(blocks[i * 2], feet.getY(), blocks[i * 2 + 1]));
         }
-        DECALS.add(new Decal(landing, now, blocks, y));
+        d.light = light;
+        d.blocks = blocks;
+        d.start = now; // the mark is made when it can be seen
+        return true;
     }
 
     static void clear() {
@@ -100,13 +132,17 @@ final class PortkeyDecals {
             return;
         }
         DECALS.removeIf(d -> now - d.start > PortkeyTimeline.DECAL_SCUFF_TICKS || now < d.start - 5.0);
-        if (DECALS.isEmpty() || !FxConfig.get(FxConfig.LINGERING_MARKS)) {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (DECALS.isEmpty() || level == null || !FxConfig.get(FxConfig.LINGERING_MARKS)) {
             return;
+        }
+        for (Decal d : DECALS) {
+            resolve(level, d, now);
         }
         float cull = PortkeyTimeline.DECAL_CULL;
         VertexConsumer scuff = buffer.getBuffer(SCUFF_TYPE);
         for (Decal d : DECALS) {
-            if (d.centre.distanceToSqr(camera) > cull * cull) {
+            if (d.blocks == null || d.centre.distanceToSqr(camera) > cull * cull) {
                 continue;
             }
             float age = (float) (now - d.start);
@@ -120,7 +156,8 @@ final class PortkeyDecals {
         VertexConsumer ring = buffer.getBuffer(RING_TYPE);
         for (Decal d : DECALS) {
             float age = (float) (now - d.start);
-            if (age > PortkeyTimeline.DECAL_GLOW_TICKS || d.centre.distanceToSqr(camera) > cull * cull) {
+            if (d.blocks == null || age > PortkeyTimeline.DECAL_GLOW_TICKS
+                    || d.centre.distanceToSqr(camera) > cull * cull) {
                 continue;
             }
             float f = age / PortkeyTimeline.DECAL_GLOW_TICKS;
@@ -146,16 +183,10 @@ final class PortkeyDecals {
         float y = (float) (d.y - camera.y) + LIFT;
         float cos = (float) Math.cos(turn);
         float sin = (float) Math.sin(turn);
-        int light = LightTexture.FULL_BRIGHT;
         for (int i = 0; i < d.blocks.length; i += 2) {
             int bx = d.blocks[i];
             int bz = d.blocks[i + 1];
-            if (!premultiply) {
-                Minecraft mc = Minecraft.getInstance();
-                if (mc.level != null) {
-                    light = LevelRenderer.getLightColor(mc.level, new BlockPos(bx, (int) Math.floor(d.y), bz));
-                }
-            }
+            int light = premultiply ? LightTexture.FULL_BRIGHT : d.light[i / 2];
             float x0 = bx, x1 = bx + 1, z0 = bz, z1 = bz + 1;
             corner(vc, m, camera, d, size, cos, sin, x0, y, z0, cr, cg, cb, a, light);
             corner(vc, m, camera, d, size, cos, sin, x0, y, z1, cr, cg, cb, a, light);

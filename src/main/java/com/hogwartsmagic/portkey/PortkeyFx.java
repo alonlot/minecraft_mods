@@ -26,8 +26,9 @@ public final class PortkeyFx {
         Fx.sendAbout(holder, FxKinds.PORTKEY_CHARGE, NEAR, PortkeyRules.CHARGE_TICKS, old ? 1.0f : 0.0f);
     }
 
-    public static void cancel(ServerPlayer holder) {
-        Fx.sendAbout(holder, FxKinds.PORTKEY_CANCEL, NEAR);
+    /** The charge let go: to the level it charged in, at the holder's last spot there (they may have left it). */
+    public static void cancel(ServerLevel origin, Vec3 at, ServerPlayer holder) {
+        Fx.send(origin, FxKinds.PORTKEY_CANCEL, at, NEAR, holder.getId());
     }
 
     /** The implosion at the holder's feet, and the ground trembling round it. */

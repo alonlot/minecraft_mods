@@ -3,6 +3,8 @@ package com.hogwartsmagic.client.fx.portkey;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.client.ModRenderTypes;
 import com.hogwartsmagic.client.SpellFx;
+import com.hogwartsmagic.portkey.OldPortkeyItem;
+import com.hogwartsmagic.portkey.PortkeyData;
 import com.hogwartsmagic.portkey.PortkeyItem;
 import com.hogwartsmagic.portkey.PortkeyTimeline;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -55,11 +57,15 @@ public final class PortkeyHand {
 
     @SubscribeEvent(priority = EventPriority.LOW)
     public static void onRenderHand(RenderHandEvent event) {
-        if (!PortkeyClient.handActive()) {
-            return;
-        }
         ItemStack stack = event.getItemStack();
         if (!(stack.getItem() instanceof PortkeyItem)) {
+            return;
+        }
+        boolean spentOld = stack.getItem() instanceof OldPortkeyItem && PortkeyData.spent(stack);
+        if (!PortkeyClient.handActive()) {
+            if (spentOld) {
+                event.setCanceled(true); // already crumbled away; the server takes the stack in a moment
+            }
             return;
         }
         Minecraft mc = Minecraft.getInstance();

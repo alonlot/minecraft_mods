@@ -93,7 +93,7 @@ vec3 world(vec2 centre, vec2 aspect) {
     vec2 d = (texCoord - centre) * aspect;
     float r = length(d);
     float rn = r / EDGE;
-    float a = atan(d.y, d.x);
+    float a = atan(d.y, d.x + 1.0e-6); // never atan(0, 0) on the centre pixel
     a += Twist * (1.0 - smoothstep(0.0, 1.0, rn));
     r *= 1.0 - Pull * (1.0 - clamp(rn, 0.0, 1.0));
     vec2 dir = vec2(cos(a), sin(a));
@@ -129,7 +129,7 @@ vec3 tunnel(vec2 centre, vec2 aspect) {
     vec2 d = (texCoord - centre) * aspect;
     float r = length(d);
     float rn = r / EDGE;
-    float a = atan(d.y, d.x);
+    float a = atan(d.y, d.x + 1.0e-6); // never atan(0, 0) on the centre pixel
     float z = 0.35 / max(r, 0.02);
     float u = fract(a / TAU + Spin / TAU + 0.08 * z);
     float v = z + PkTime * 2.2;

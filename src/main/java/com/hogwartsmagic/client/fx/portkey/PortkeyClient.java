@@ -69,8 +69,6 @@ public final class PortkeyClient {
     private static final double JUMP = 16.0;
     /** The trip is over this many ticks after the exit began (the landing roll has settled). */
     private static final float TRIP_END = 30.0f;
-    /** The first-person boot sinks away over this many ticks after an Old Portkey crumbles. */
-    private static final float CRUMBLE_SHOW = 12.0f;
     private static final double TICK_NANOS = 50_000_000.0;
 
     /** Something that happened in the world, drawn by PortkeyWorldFx. {@code end} is when a charge was let go. */
@@ -112,6 +110,8 @@ public final class PortkeyClient {
     private static boolean landed;
     private static boolean noLanding;
     private static boolean crossDim;
+    /** Whether we hold the boot on this trip (a traveller taken along watches their own Portkey stay dark). */
+    private static boolean holderTrip;
     private static float rollAtExit;
     private static int maxTicks = PortkeyRules.TRANSIT_MAX_TICKS;
     private static Vec3 transitFrom;
@@ -196,21 +196,24 @@ public final class PortkeyClient {
         return !noLanding;
     }
 
-    /** How far our crumbling Old Portkey has gone (0..1), or 0. */
+    /**
+     * How far our crumbling Old Portkey has gone (0..1), or 0. It starts CRUMBLE_AT ticks into our own exit (so the
+     * boot is gone before the server takes it from the hand), or when the server says so, whichever is first.
+     */
     public static float crumbleOf(float partial) {
         if (crumbleStart < 0.0) {
             return 0.0f;
         }
-        return PortkeyTimeline.clamp01((float) (now() - crumbleStart) / CRUMBLE_SHOW);
+        return PortkeyTimeline.clamp01((float) (now() - crumbleStart) / PortkeyTimeline.CRUMBLE_TICKS);
     }
 
     /** Whether the first-person boot is ours to draw (a charge, a trip, a crumble). */
     static boolean handActive() {
-        if (crumbleStart >= 0.0) {
+        if (crumbleStart >= 0.0 && crumbleOf(0.0f) < 1.0f) {
             return true;
         }
         if (hookStart >= 0.0) {
-            return exitStart < 0.0 || now() - exitStart < PortkeyTimeline.LANDING_FOV_TICKS + 10.0f;
+            return holderTrip && (exitStart < 0.0 || now() - exitStart < PortkeyTimeline.LANDING_FOV_TICKS + 10.0f);
         }
         return chargeStart >= 0.0;
     }
@@ -221,6 +224,9 @@ public final class PortkeyClient {
         if (mc.player != null && entityId == mc.player.getId()) {
             double n = now();
             if (hookStart >= 0.0) {
+                if (!holderTrip) {
+                    return 0.0f; // taken along: our own Portkey, if any, stays dark
+                }
                 if (exitStart < 0.0) {
                     return 1.0f;
                 }
@@ -362,6 +368,7 @@ public final class PortkeyClient {
         if (self(e) && hookStart < 0.0) {
             chargeStart = now();
             cancelStart = -1.0;
+            crumbleStart = -1.0;
             old = isOld;
         }
         PortkeySounds.startCharge(e.entityId());
@@ -384,6 +391,7 @@ public final class PortkeyClient {
         EVENTS.removeIf(w -> w.entityId == e.entityId() && "charge".equals(w.kind));
         if (self(e)) {
             hookMoment();
+            holderTrip = true;
             return; // the holder is inside the implosion: their screen carries it
         }
         if (hookStart >= 0.0 && exitStart < 0.0) {
@@ -403,6 +411,7 @@ public final class PortkeyClient {
         if (!wasHooked) {
             hookMoment();
         }
+        holderTrip = e.param(2, 0.0f) > 0.5f;
         LocalPlayer player = Minecraft.getInstance().player;
         transitFrom = player == null ? e.pos() : player.position();
         transitDim = player == null ? null : player.level().dimension();
@@ -467,8 +476,8 @@ public final class PortkeyClient {
     private static void onCrumble(FxClient.FxEvent e) {
         PortkeyWorldFx.crumbs(e);
         PortkeySounds.crumble(e.pos());
-        if (self(e)) {
-            crumbleStart = now();
+        if (self(e) && crumbleStart < 0.0) {
+            crumbleStart = now(); // our own exit had not got there yet
         }
     }
 
@@ -511,9 +520,6 @@ public final class PortkeyClient {
             pendingPop = null;
         }
         tickTrip(mc, n);
-        if (crumbleStart >= 0.0 && n - crumbleStart > CRUMBLE_SHOW + 2.0) {
-            crumbleStart = -1.0;
-        }
         if (mc.level != null && !EVENTS.isEmpty()) {
             double g = mc.level.getGameTime();
             EVENTS.removeIf(e -> expired(e, g));
@@ -566,6 +572,9 @@ public final class PortkeyClient {
                     && !(mc.screen instanceof ReceivingLevelScreen);
             float since = arrivedAt < 0.0 ? 0.0f : (float) (n - arrivedAt);
             if (PortkeyTimeline.exitReady(h, arrived, sectionReady, since) || h >= maxTicks) {
+                if (!arrived) {
+                    noLanding = true; // timed out where we stood: no thump at a spot we never left
+                }
                 beginExit();
             } else {
                 int beat = (int) (h / PortkeyTimeline.TRANSIT_SHAKE_EVERY);
@@ -581,6 +590,9 @@ public final class PortkeyClient {
             return;
         }
         float x = (float) (n - exitStart);
+        if (old && holderTrip && !noLanding && crumbleStart < 0.0 && x >= PortkeyTimeline.CRUMBLE_AT) {
+            crumbleStart = exitStart + PortkeyTimeline.CRUMBLE_AT; // the Old Portkey falls apart in the hand
+        }
         if (!landed && x >= PortkeyTimeline.LANDING_AT) {
             landed = true;
             if (!noLanding) {
@@ -617,6 +629,7 @@ public final class PortkeyClient {
         landed = false;
         noLanding = false;
         crossDim = false;
+        holderTrip = false;
         rollAtExit = 0.0f;
         transitFrom = null;
         transitDim = null;
@@ -772,6 +785,7 @@ public final class PortkeyClient {
             chargeStart = hookStart - PortkeyRules.CHARGE_TICKS;
             transitFrom = p;
             transitDim = player.level().dimension();
+            holderTrip = true;
             markArrived();
             PortkeySounds.startWind();
             beginExit();

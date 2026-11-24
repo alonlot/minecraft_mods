@@ -42,6 +42,9 @@ final class PortkeySounds {
     private static final Map<Integer, ChargeSound> CHARGES = new HashMap<>();
     private static WindLoop wind;
     private static int windMissing;
+    /** Restarts of the wind on this trip; a channel that never opens is given up on after a few. */
+    private static int windRestarts;
+    private static final int MAX_WIND_RESTARTS = 4;
 
     private PortkeySounds() {
     }
@@ -75,6 +78,11 @@ final class PortkeySounds {
     }
 
     static void startWind() {
+        windRestarts = 0;
+        playWind();
+    }
+
+    private static void playWind() {
         if (wind != null) {
             wind.end();
         }
@@ -114,14 +122,19 @@ final class PortkeySounds {
             }
             return;
         }
+        if (windRestarts > MAX_WIND_RESTARTS) {
+            return;
+        }
         if (wind == null || wind.isStopped()) {
-            startWind();
+            windRestarts++;
+            playWind();
             return;
         }
         if (mc.getSoundManager().isActive(wind)) {
             windMissing = 0;
         } else if (++windMissing > WIND_LOST_TICKS) {
-            startWind();
+            windRestarts++; // a dimension change stopped every sound: bring the wind back
+            playWind();
         }
     }
 

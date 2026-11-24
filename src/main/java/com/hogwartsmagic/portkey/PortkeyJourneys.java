@@ -22,6 +22,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
+import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -69,7 +70,8 @@ public final class PortkeyJourneys {
     private record Traveller(Entity entity, Vec3 hold) {
     }
 
-    private record Crumble(ServerPlayer holder, int dueTick) {
+    /** A spent Old Portkey's holder (by id: they may have died and respawned since) and the tick it crumbles at. */
+    private record Crumble(UUID holder, int dueTick) {
     }
 
     private static final class Journey {
@@ -83,6 +85,8 @@ public final class PortkeyJourneys {
         final List<Traveller> travellers = new ArrayList<>();
         int age;
         boolean hooked;
+        /** Where the holder last stood in the origin level (for a cancel sent after they died or left it). */
+        Vec3 lastPos;
         int transitAge;
 
         Journey(ServerPlayer holder, InteractionHand hand, boolean requireUse, boolean old, ItemStack stack,
@@ -94,6 +98,7 @@ public final class PortkeyJourneys {
             this.old = old;
             this.stack = stack;
             this.request = request;
+            this.lastPos = holder.position();
         }
     }
 
@@ -128,6 +133,11 @@ public final class PortkeyJourneys {
                 return false;
             }
             request = PortkeyLanding.Request.old(from, holder.blockPosition(), holder.getRandom());
+            if (request.poll() == PortkeyLanding.Request.Status.FAILED) {
+                request.release();
+                tell(holder, "nowhere"); // every spot it weighed was sea or river: no charge for nothing
+                return false;
+            }
         } else {
             if (PortkeyRules.cooldownLeft(from.getGameTime(), PortkeyData.readyAt(stack)) > 0L
                     || holder.getCooldowns().isOnCooldown(stack.getItem())) {
@@ -201,9 +211,12 @@ public final class PortkeyJourneys {
             Iterator<Map.Entry<UUID, Crumble>> it = CRUMBLES.entrySet().iterator();
             while (it.hasNext()) {
                 Crumble c = it.next().getValue();
-                if (now >= c.dueTick || c.holder.hasDisconnected()) {
+                ServerPlayer holder = event.getServer().getPlayerList().getPlayer(c.holder);
+                if (holder == null) {
+                    it.remove(); // logged out: the logout already crumbled it
+                } else if (now >= c.dueTick) {
                     it.remove();
-                    crumble(c.holder);
+                    crumble(holder);
                 }
             }
         }
@@ -219,6 +232,7 @@ public final class PortkeyJourneys {
             cancel(journey);
             return;
         }
+        journey.lastPos = holder.position();
         journey.request.poll(); // the far end loads while the boot charges
         journey.age++;
         if (journey.age >= PortkeyRules.CHARGE_TICKS) {
@@ -226,13 +240,14 @@ public final class PortkeyJourneys {
         }
     }
 
-    /** The charge stops before the hook: no journey, no cooldown, the hum powers down. */
+    /**
+     * The charge stops before the hook: no journey, no cooldown, the hum powers down. Told to the origin level at the
+     * holder's last spot, so a holder who died or left the dimension still lets go on every screen there.
+     */
     private static void cancel(Journey journey) {
         JOURNEYS.remove(journey.holder.getUUID());
         journey.request.release();
-        if (journey.holder.isAlive() && !journey.holder.isRemoved()) {
-            PortkeyFx.cancel(journey.holder);
-        }
+        PortkeyFx.cancel(journey.origin, journey.lastPos, journey.holder);
     }
 
     private static void hook(Journey journey) {
@@ -307,6 +322,9 @@ public final class PortkeyJourneys {
             boolean lost = t.entity.isRemoved() || !t.entity.isAlive() || t.entity.level() != journey.origin;
             if (lost) {
                 TRAVELLING.remove(t.entity.getUUID());
+                if (t.entity instanceof ServerPlayer sp && !sp.hasDisconnected()) {
+                    PortkeyFx.abort(sp); // killed, fell out of the world or moved away: their tunnel ends now
+                }
             }
             return lost;
         });
@@ -343,7 +361,6 @@ public final class PortkeyJourneys {
         ServerPlayer holder = journey.holder;
         float yaw = journey.old ? holder.getYRot() : journey.request.yaw();
         JOURNEYS.remove(holder.getUUID());
-        journey.request.release();
         if (journey.old) {
             PortkeyData.markSpent(journey.stack);
         }
@@ -373,9 +390,10 @@ public final class PortkeyJourneys {
             pet.teleportTo(target, spot.x, spot.y, spot.z, Set.of(), yaw, 0.0f);
             count++;
         }
+        journey.request.release(); // only now: the pets' spots read the blocks round the landing
         PortkeyFx.arrive(target, land, count);
         if (journey.old) {
-            CRUMBLES.put(holder.getUUID(), new Crumble(holder,
+            CRUMBLES.put(holder.getUUID(), new Crumble(holder.getUUID(),
                     holder.server.getTickCount() + PortkeyRules.OLD_CRUMBLE_DELAY_TICKS));
         }
     }
@@ -411,8 +429,8 @@ public final class PortkeyJourneys {
             PortkeyData.setReadyAt(journey.stack, 0L);
             journey.holder.getCooldowns().removeCooldown(journey.stack.getItem());
         }
-        if (!journey.hooked && journey.holder.isAlive() && !journey.holder.isRemoved()) {
-            PortkeyFx.cancel(journey.holder);
+        if (!journey.hooked) {
+            PortkeyFx.cancel(journey.origin, journey.lastPos, journey.holder);
         }
         if (message != null && !journey.holder.hasDisconnected()) {
             tell(journey.holder, message);
@@ -458,6 +476,19 @@ public final class PortkeyJourneys {
         }
     }
 
+    /** Being hurt while the boot charges breaks the charge (no cooldown), as letting go does. */
+    @SubscribeEvent
+    public static void onDamage(LivingDamageEvent event) {
+        if (JOURNEYS.isEmpty() || event.getEntity().level().isClientSide() || event.getAmount() <= 0.0f) {
+            return;
+        }
+        Journey journey = JOURNEYS.get(event.getEntity().getUUID());
+        if (journey != null && !journey.hooked) {
+            journey.holder.stopUsingItem();
+            cancel(journey);
+        }
+    }
+
     @SubscribeEvent
     public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         UUID id = event.getEntity().getUUID();
@@ -483,7 +514,10 @@ public final class PortkeyJourneys {
         JOURNEYS.clear();
         TRAVELLING.clear();
         for (Crumble c : CRUMBLES.values()) {
-            crumble(c.holder);
+            ServerPlayer holder = event.getServer().getPlayerList().getPlayer(c.holder);
+            if (holder != null) {
+                crumble(holder);
+            }
         }
         CRUMBLES.clear();
     }

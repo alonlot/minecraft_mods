@@ -136,6 +136,21 @@ public final class PortkeyGameTests {
         });
     }
 
+    @GameTest(template = ROOM, timeoutTicks = 30)
+    public static void hitCancelsCharge(GameTestHelper helper) {
+        floor(helper);
+        ServerPlayer holder = player(helper, 1.5, 2, 1.5);
+        ItemStack stack = portkey(helper, holder, 6, 2, 6);
+        helper.assertTrue(PortkeyJourneys.begin(holder, InteractionHand.MAIN_HAND, false), "the charge should start");
+        // fellOutOfWorld: a mock player is still spawn-invulnerable to ordinary blows.
+        helper.runAfterDelay(10, () -> holder.hurt(helper.getLevel().damageSources().fellOutOfWorld(), 1.0f));
+        helper.runAfterDelay(11, () -> {
+            helper.assertFalse(PortkeyJourneys.hasJourney(holder.getUUID()), "a blow breaks the charge");
+            helper.assertTrue(PortkeyData.readyAt(stack) == 0L, "a broken charge costs no cooldown");
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = ROOM, timeoutTicks = LANDED + 20)
     public static void obstructedBoundSpotLandsBeside(GameTestHelper helper) {
         floor(helper);

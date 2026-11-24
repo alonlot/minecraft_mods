@@ -64,5 +64,5 @@ def blood_seal():
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     concealed_rock().save(os.path.join(OUT, "concealed_rock.png"))
-    blood_seal().save(os.path.join(OUT, "blood_seal.png"))
-    print("wrote concealed_rock.png and blood_seal.png")
+    # blood_seal.png now comes from generate_blood_arch_textures.py
+    print("wrote concealed_rock.png")

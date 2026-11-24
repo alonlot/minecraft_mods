@@ -103,8 +103,17 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (state.getValue(OPEN) || state.getValue(STAGE) != 0) {
-            return InteractionResult.PASS; // open, or already melting: no second toll
+        if (state.getValue(OPEN)) {
+            return InteractionResult.PASS;
+        }
+        if (state.getValue(STAGE) != 0) {
+            // Already melting: no second toll. But if the melt tick was lost (a /setblock, a re-placed
+            // structure), nothing would ever finish it, so re-arm it from the current stage.
+            if (!level.isClientSide && !meltPending((ServerLevel) level, pos)) {
+                meltArch(level, pos, state.getValue(STAGE));
+                return InteractionResult.CONSUME;
+            }
+            return InteractionResult.PASS;
         }
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
@@ -141,6 +150,16 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
             }
         }
         return seals;
+    }
+
+    /** True when any seal of the arch still has a scheduled tick to carry the melt on. */
+    private boolean meltPending(ServerLevel level, BlockPos pos) {
+        for (BlockPos p : arch(level, pos)) {
+            if (level.getBlockTicks().hasScheduledTick(p, this)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Puts the whole connected arch at one stage; 3 also opens it. The clicked block carries the schedule. */
@@ -195,7 +214,7 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
         double x = pos.getX() + 0.5 + out.getStepX() * 0.52 + (out.getStepX() == 0 ? random.nextDouble() - 0.5 : 0);
         double z = pos.getZ() + 0.5 + out.getStepZ() * 0.52 + (out.getStepZ() == 0 ? random.nextDouble() - 0.5 : 0);
         double y = top ? pos.getY() + 1.0 : pos.getY() + random.nextDouble();
-        level.addParticle(new DustParticleOptions(new Vector3f(0.55f, 0f, 0f), 0.8f), x, y, z, 0, -0.08, 0);
+        level.addParticle(net.minecraft.core.particles.ParticleTypes.DRIPPING_DRIPSTONE_LAVA, x, y, z, 0, 0, 0);
     }
 
     @Override

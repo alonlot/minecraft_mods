@@ -72,4 +72,32 @@ public final class SeaCaveGameTests {
             helper.succeed();
         });
     }
+
+    /** Two connected seals: clicking one carries the other to stage 3 as well. */
+    @GameTest(template = EMPTY, timeoutTicks = 60)
+    public static void bloodArchMeltsEveryConnectedSeal(GameTestHelper helper) {
+        placeSeal(helper);
+        helper.setBlock(SEAL.above(), ExampleMod.BLOOD_SEAL.get().defaultBlockState().setValue(BloodSealBlock.FACING, Direction.WEST));
+        rightClickFromOutside(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        helper.runAfterDelay(20, () -> {
+            helper.assertTrue(helper.getBlockState(SEAL.above()).getValue(BloodSealBlock.STAGE) == 3, "the neighbouring seal follows to stage 3");
+            helper.assertTrue(seal(helper).getValue(BloodSealBlock.STAGE) == 3, "the clicked seal reaches stage 3");
+            helper.succeed();
+        });
+    }
+
+    /** A melt whose scheduled tick was lost must not strand the only way in: a click re-arms it, free of toll. */
+    @GameTest(template = EMPTY, timeoutTicks = 60)
+    public static void stuckMeltIsRearmedByAClickWithoutToll(GameTestHelper helper) {
+        helper.setBlock(SEAL, ExampleMod.BLOOD_SEAL.get().defaultBlockState()
+                .setValue(BloodSealBlock.FACING, Direction.WEST).setValue(BloodSealBlock.STAGE, 1));
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        float before = player.getHealth();
+        rightClickFromOutside(helper, player);
+        helper.assertTrue(player.getHealth() == before, "re-arming a stuck melt costs nothing");
+        helper.runAfterDelay(20, () -> {
+            helper.assertTrue(seal(helper).getValue(BloodSealBlock.STAGE) == 3, "the stuck arch reaches stage 3, is " + seal(helper).getValue(BloodSealBlock.STAGE));
+            helper.succeed();
+        });
+    }
 }

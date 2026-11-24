@@ -39,7 +39,7 @@ public class CaveRingBlockEntity extends BlockEntity {
     /** The water surface cell the chain runs down to (the cell under the shore dock); null until known. */
     @Nullable
     private BlockPos chainEnd;
-    /** Where the skiff rises, kept so the haul can finish even if the basin is unloaded meanwhile. */
+    /** Transient cache of the basin's scanned (version 2) layout; never saved. */
     @Nullable
     private CaveLayout layout;
 
@@ -85,6 +85,7 @@ public class CaveRingBlockEntity extends BlockEntity {
             return;
         }
         if (boatNear(server, l)) {
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.boat_already_here"), true);
             return;
         }
         haulTicks = 1;
@@ -100,7 +101,8 @@ public class CaveRingBlockEntity extends BlockEntity {
     private CaveLayout resolveLayout() {
         if (layout == null && level instanceof ServerLevel server) {
             Optional<DespairBasinBlockEntity> basin = LocketCaves.findBasinFor(server, worldPosition);
-            if (basin.isPresent()) {
+            // Only a scanned (version 2) layout counts; a legacy one means the markers are not read yet.
+            if (basin.isPresent() && basin.get().layout().version() >= 2) {
                 layout = basin.get().layout();
                 chainEnd = layout.dockShore().below();
                 setChanged();
@@ -164,9 +166,6 @@ public class CaveRingBlockEntity extends BlockEntity {
         if (chainEnd != null) {
             tag.putLong("ChainEnd", chainEnd.asLong());
         }
-        if (layout != null) {
-            tag.put("Layout", layout.save());
-        }
     }
 
     @Override
@@ -175,7 +174,7 @@ public class CaveRingBlockEntity extends BlockEntity {
         revealTicks = tag.getInt("Reveal");
         haulTicks = tag.getInt("Haul");
         chainEnd = tag.contains("ChainEnd") ? BlockPos.of(tag.getLong("ChainEnd")) : null;
-        layout = tag.contains("Layout") ? CaveLayout.load(tag.getCompound("Layout"), worldPosition) : null;
+        layout = null; // never persisted: re-resolved from the basin on first use
     }
 
     /** The client needs only what the chain renderer draws. */

@@ -111,6 +111,18 @@ public final class SeaCaveGameTests {
      * and a basin block whose layout is set directly (no template, no marker scan).
      */
     private static com.hogwartsmagic.block.entity.CaveRingBlockEntity ringArena(GameTestHelper helper) {
+        return ringArena(helper, true);
+    }
+
+    private static com.hogwartsmagic.locket.CaveLayout arenaLayout(GameTestHelper helper) {
+        BlockPos ring = helper.absolutePos(RING.above());
+        BlockPos dockShore = helper.absolutePos(WATER.above());
+        BlockPos dockIsland = helper.absolutePos(WATER.above().east(2));
+        return new com.hogwartsmagic.locket.CaveLayout(2, helper.absolutePos(new BlockPos(1, 1, 2)), java.util.List.of(), ring,
+                dockShore, dockIsland, java.util.List.of(), helper.absolutePos(WATER).getY(), 12, 12, 12);
+    }
+
+    private static com.hogwartsmagic.block.entity.CaveRingBlockEntity ringArena(GameTestHelper helper, boolean scanned) {
         helper.setBlock(RING, ExampleMod.CAVE_RING.get());
         for (BlockPos wall : new BlockPos[]{WATER.east(), WATER.south(), WATER.north(), WATER.west(), WATER.below()}) {
             helper.setBlock(wall, net.minecraft.world.level.block.Blocks.BARRIER);
@@ -118,21 +130,19 @@ public final class SeaCaveGameTests {
         helper.setBlock(WATER, net.minecraft.world.level.block.Blocks.WATER);
         BlockPos basinPos = new BlockPos(1, 1, 2);
         helper.setBlock(basinPos, ExampleMod.DESPAIR_BASIN.get());
-        BlockPos ring = helper.absolutePos(RING.above());
-        BlockPos dockShore = helper.absolutePos(WATER.above());
-        BlockPos dockIsland = helper.absolutePos(WATER.above().east(2));
-        ((com.hogwartsmagic.block.entity.DespairBasinBlockEntity) helper.getBlockEntity(basinPos)).setLayoutDirectly(
-                new com.hogwartsmagic.locket.CaveLayout(2, helper.absolutePos(basinPos), java.util.List.of(), ring,
-                        dockShore, dockIsland, java.util.List.of(), helper.absolutePos(WATER).getY(), 12, 12, 12));
+        if (scanned) {
+            ((com.hogwartsmagic.block.entity.DespairBasinBlockEntity) helper.getBlockEntity(basinPos))
+                    .setLayoutDirectly(arenaLayout(helper));
+        }
         return (com.hogwartsmagic.block.entity.CaveRingBlockEntity) helper.getBlockEntity(RING);
     }
 
     private static java.util.List<com.hogwartsmagic.entity.CaveBoatEntity> skiffs(GameTestHelper helper) {
         return helper.getLevel().getEntitiesOfClass(com.hogwartsmagic.entity.CaveBoatEntity.class,
-                new net.minecraft.world.phys.AABB(helper.absolutePos(WATER)).inflate(8.0D));
+                new net.minecraft.world.phys.AABB(helper.absolutePos(WATER)).inflate(1.5D));
     }
 
-    @GameTest(template = EMPTY, timeoutTicks = 200)
+    @GameTest(template = EMPTY, batch = "ring_pull", timeoutTicks = 200)
     public static void pullingRingRaisesSkiff(GameTestHelper helper) {
         com.hogwartsmagic.block.entity.CaveRingBlockEntity ring = ringArena(helper);
         net.minecraft.server.level.ServerPlayer player =
@@ -162,6 +172,32 @@ public final class SeaCaveGameTests {
         });
         helper.runAfterDelay(150, () -> {
             helper.assertTrue(skiffs(helper).size() == 1, "still exactly one skiff after a second pull");
+            skiffs(helper).forEach(net.minecraft.world.entity.Entity::discard);
+            helper.succeed();
+        });
+    }
+
+    /** A ring touched before the basin has scanned its markers must not remember the legacy layout. */
+    @GameTest(template = EMPTY, batch = "ring_legacy", timeoutTicks = 200)
+    public static void ringTouchedBeforeScanDoesNotKeepLegacyLayout(GameTestHelper helper) {
+        com.hogwartsmagic.block.entity.CaveRingBlockEntity ring = ringArena(helper, false);
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        ring.reveal(200);
+        helper.assertTrue(ring.chainEnd() == null, "no chain end from a legacy layout");
+        ring.pull(player);
+        helper.assertTrue(ring.haulTicks() == 0, "the first pull is refused while the layout is unscanned");
+        helper.runAfterDelay(10, () -> {
+            ((com.hogwartsmagic.block.entity.DespairBasinBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 2)))
+                    .setLayoutDirectly(arenaLayout(helper));
+            ring.pull(player);
+            helper.assertTrue(ring.haulTicks() > 0, "once the layout is v2 the pull starts the haul");
+            helper.assertTrue(helper.absolutePos(WATER).below().equals(ring.chainEnd().below()), "chain ends at the shore dock water");
+        });
+        helper.runAfterDelay(90, () -> {
+            java.util.List<com.hogwartsmagic.entity.CaveBoatEntity> boats = skiffs(helper);
+            helper.assertTrue(boats.size() == 1, "one skiff at the shore dock, found " + boats.size());
+            helper.assertTrue(Math.abs(boats.get(0).getX() - (helper.absolutePos(WATER).getX() + 0.5D)) < 0.01D, "skiff at dockShore");
+            boats.forEach(net.minecraft.world.entity.Entity::discard);
             helper.succeed();
         });
     }

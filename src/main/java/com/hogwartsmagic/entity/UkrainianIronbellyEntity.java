@@ -161,7 +161,7 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
 
     private void takeNest(BlockPos pos) {
         this.nest = pos;
-        restrictTo(pos, (int) com.hogwartsmagic.dragon.DragonEggRules.NEST_RADIUS);
+        // No restrictTo: vanilla target goals refuse targets outside the restriction circle. The leash is ReturnToNestGoal.
     }
 
     public boolean isCowering() {

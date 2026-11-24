@@ -1,0 +1,6 @@
+{
+  "parent": "hogwartsmagic:block/dragon_egg",
+  "textures": {
+    "egg": "hogwartsmagic:block/horntail_egg"
+  }
+}

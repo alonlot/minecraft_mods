@@ -310,6 +310,15 @@ public class ModVillagers {
             sells(event, 3, 18, 6, one(ExampleMod.CURSED_GALLEON), 4, 15);
             sells(event, 4, 26, 8, one(ExampleMod.CENTAUR_TALISMAN), 2, 20);
             sells(event, 5, 40, 10, one(ExampleMod.POLYJUICE_POTION), 2, 30);
+            // Dragon nests: one level-5 listing, Horntail or Ironbelly egg at random. A single
+            // listing keeps the polyjuice offer too (the baked shopkeepers roll two level-5 offers).
+            event.getTrades().get(5).add((entity, random) -> {
+                boolean iron = random.nextBoolean();
+                return new MerchantOffer(
+                        new ItemCost(iron ? ExampleMod.IRONBELLY_EGG_ITEM.get() : ExampleMod.HORNTAIL_EGG_ITEM.get(), 1),
+                        new ItemStack(Items.EMERALD, com.hogwartsmagic.dragon.DragonEggRules.priceEmeralds(iron)),
+                        2, 30, 0.05f);
+            });
         }
     }
 }

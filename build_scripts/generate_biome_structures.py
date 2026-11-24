@@ -1075,18 +1075,13 @@ def polar(x, z, c):
     return math.hypot(dx, dz), math.atan2(dz, dx)
 
 
-def egg(b, x, y, z, speckled):
-    """A dragon egg: a full block with a wall post on top, so it narrows toward the crown.
+def egg(b, x, y, z, kind='horntail'):
+    """A dragon egg: one real egg block (hogwartsmagic:horntail_egg or ironbelly_egg).
 
-    Tuff is the grey, speckled egg; gilded blackstone is a dark one flecked with gold. Either way the
-    taper is what reads -- a cube on a cube is a pillar, a cube under a post is an egg.
+    The block carries its own egg shape, so there is no wall post on top any more; an egg taken from
+    the nest is an egg item, and breaking one sets every dragon within 64 blocks on the thief.
     """
-    if speckled:
-        put(b, (x, y, z), 'minecraft:tuff')
-        put(b, (x, y + 1, z), 'minecraft:tuff_wall')
-    else:
-        put(b, (x, y, z), 'minecraft:gilded_blackstone')
-        put(b, (x, y + 1, z), 'minecraft:blackstone_wall')
+    put(b, (x, y, z), 'hogwartsmagic:%s_egg' % kind)
 
 
 def ember(b, x, y, z):
@@ -1184,9 +1179,8 @@ def lair_bowl(b):
     # The clutch, a little north of centre, on the warm magma.
     # Mostly the pale speckled kind: the bowl floor is near black, and a dark egg on it vanished
     # entirely in the first render. One gold-flecked egg is the odd one out, at the back.
-    for ex, ez, speckled in ((16, 16, True), (18, 17, True), (17, 14, False), (19, 15, True),
-                             (15, 14, True)):
-        egg(b, ex, G + 1, ez, speckled)
+    for ex, ez in ((16, 16), (18, 17), (17, 14), (19, 15), (15, 14)):
+        egg(b, ex, G + 1, ez)
     # Scraped-up rock heaped against the eggs, the way a hen pulls nesting material in close.
     for sx, sz in ((14, 15), (20, 17), (16, 13), (18, 13), (17, 17)):
         slab(b, (sx, G + 1, sz), 'minecraft:polished_blackstone_slab')
@@ -1514,7 +1508,7 @@ def egg_sledge(b):
             put(b, (x, G + 5, z), 'minecraft:dark_oak_log', {'axis': 'z'})
 
     put(b, (23, G + 2, 12), 'minecraft:hay_block', {'axis': 'y'})
-    egg(b, 23, G + 3, 12, True)
+    egg(b, 23, G + 3, 12)
     # Tow chains off the front of the sledge to a stake.
     for x in (27, 28):
         b[(x, G + 1, 12)] = ('minecraft:chain', {'axis': 'x', 'waterlogged': 'false'}, None)
@@ -5977,6 +5971,143 @@ def audit_yeti_cave(blocks, entities):
     return problems
 
 
+# --- Dragon nests -----------------------------------------------------------------------------------
+# The Ironbelly nest on the cold peaks: a rocky scrape with a clutch of pale metallic eggs and a wild
+# (unchained, anchorless) Ironbelly standing over it. The lair and camp eggs are real egg blocks now
+# (see egg() above); audit_dragon_eggs keeps every clutch honest.
+NEST_SINK = 3
+NEST_G = NEST_SINK + 1
+NEST_W = 29
+NEST_C = (14, 14)
+SCREE = [('minecraft:stone', 6), ('minecraft:andesite', 3), ('minecraft:cobblestone', 1)]
+NEST_EGGS = ((13, 11), (15, 11), (14, 10), (12, 12))
+# (block, expected egg count) per build that may hold eggs.
+EGG_CLUTCHES = {'horntail_nest': ('hogwartsmagic:horntail_egg', 5),
+                'dragon_poacher_camp': ('hogwartsmagic:horntail_egg', 1),
+                'ironbelly_nest': ('hogwartsmagic:ironbelly_egg', 4)}
+
+
+def nest_footprint(x, z):
+    r, _ = polar(x, z, NEST_C)
+    return r <= 11.5 + 2.5 * vnoise(x, z, 4, 1701)
+
+
+def ironbelly_nest():
+    """Ironbelly nest: a scraped hollow on the peak, ringed with boulders, with four pale eggs in it.
+
+    The ground stays inside the peaks own stone (stone, andesite, cobble in coherent patches, snow
+    drifts on the outer ring). The dish where the dragon stands is one row below the surrounding
+    ground, and everything above it up to five rows is carved with cave_air so a mountainside never
+    sits inside the dragon. Boulder clumps close the rim except for gaps east and south.
+    """
+    b = {}
+    G = NEST_G
+    cx, cz = NEST_C
+    for x in range(NEST_W):
+        for z in range(NEST_W):
+            if not nest_footprint(x, z):
+                continue
+            r, ang = polar(x, z, NEST_C)
+            for y in range(G - 1):                              # the plug narrows with depth
+                if r <= 12.5 - (G - 2 - y) * 2.5:
+                    put(b, (x, y, z), tex(SCREE, x, y, z, 1702))
+            patch = vnoise(x, z, 5, 1703)
+            top = 'minecraft:andesite' if patch < 0.33 else tex(SCREE, x, G - 1, z, 1704)
+            if r > 7 and vnoise(x, z, 5, 1705) > 0.45:
+                top = 'minecraft:snow_block'
+            if r <= 6.5:
+                put(b, (x, G - 2, z), top)                      # the dish, one row down
+                put(b, (x, G - 1, z), 'minecraft:cave_air')
+            else:
+                put(b, (x, G - 1, z), top)
+            if r <= 9.5:
+                for y in range(G, G + 6):
+                    put(b, (x, y, z), 'minecraft:cave_air')
+    # The clutch bed: tuff, so the pale eggs read against it.
+    for x in range(NEST_W):
+        for z in range(NEST_W):
+            if math.hypot(x - 13.5, z - 11.5) <= 3.2 and (x, G - 2, z) in b:
+                put(b, (x, G - 2, z), 'minecraft:tuff')
+    # Boulder clumps on the rim at r ~8, open to the east (ang ~ 0) and south (ang ~ pi/2).
+    for k in range(10):
+        a = k * math.tau / 10 + 0.3
+        ang = math.atan2(math.sin(a), math.cos(a))
+        if abs(ang) < 0.55 or abs(ang - math.pi / 2) < 0.55:
+            continue
+        bx, bz = cx + 8.0 * math.cos(a), cz + 8.0 * math.sin(a)
+        height = 3 + int(noise(k, 0, 0, 1706) * 1.99)
+        for x in range(int(bx) - 3, int(bx) + 4):
+            for z in range(int(bz) - 3, int(bz) + 4):
+                d = math.hypot(x - bx, z - bz)
+                if d > 2.2 or not nest_footprint(x, z):
+                    continue
+                h = height if d < 1.0 else max(2, height - 1 - int(d - 1.0))
+                for y in range(G - 2, G + h):
+                    put(b, (x, y, z), tex(SCREE, x, y, z, 1707))
+    # Four parallel claw gouges, scraped south out of the dish.
+    for x in (11, 12, 13, 14):
+        for z in range(20, 24):
+            if (x, G - 1, z) in b:
+                put(b, (x, G - 1, z), 'minecraft:gravel')
+    # Its last meal, outside the west rim.
+    put(b, (4, G, 15), 'minecraft:bone_block', {'axis': 'x'})
+    put(b, (5, G, 17), 'minecraft:bone_block', {'axis': 'z'})
+    put(b, (4, G, 17), 'minecraft:bone_block', {'axis': 'y'})
+    # The clutch, with slabs of stone scraped up against it.
+    for ex, ez in NEST_EGGS:
+        egg(b, ex, G - 1, ez, 'ironbelly')
+    for sx, sz in ((11, 11), (17, 11), (13, 9), (15, 9), (14, 12)):
+        slab(b, (sx, G - 1, sz), 'minecraft:stone_slab')
+    # The wild Ironbelly: free, no anchor (so it takes this spot as its nest), standing south of the
+    # clutch and facing out of the dish.
+    return b, [entity(14.5, float(G - 1), 17.5, 'hogwartsmagic:ukrainian_ironbelly',
+                      {'PersistenceRequired': ('byte', 1), 'Chained': ('byte', 0),
+                       'Rotation': ('list', 'float', [('float', 0.0), ('float', 0.0)])})]
+
+
+def audit_dragon_eggs(name, blocks):
+    """Every egg is a real egg block, standing on something, with nothing above it, in the right count."""
+    problems = []
+    eggs = {p: v[0] for p, v in blocks.items() if v[0].endswith('_egg') and v[0].startswith('hogwartsmagic:')}
+    if name not in EGG_CLUTCHES:
+        return ['%s holds dragon eggs but is not in EGG_CLUTCHES' % name] if eggs else []
+    kind, count = EGG_CLUTCHES[name]
+    found = [p for p, v in eggs.items() if v == kind]
+    if len(eggs) != count or len(found) != count:
+        problems.append('%s should hold %d %s but holds %d eggs (%d of that kind)'
+                        % (name, count, kind, len(eggs), len(found)))
+    for (x, y, z) in eggs:
+        below = blocks.get((x, y - 1, z), ('minecraft:air',))[0]
+        if below in NOT_SUPPORT or below in ('minecraft:cave_air', 'minecraft:snow'):
+            problems.append('egg at %s stands on %s' % ((x, y, z), below))
+        above = blocks.get((x, y + 1, z), ('minecraft:air',))[0]
+        if above not in ('minecraft:air', 'minecraft:cave_air'):
+            problems.append('egg at %s has %s above it' % ((x, y, z), above))
+    return problems
+
+
+def audit_ironbelly_nest(blocks, entities):
+    """One wild Ironbelly (unchained, anchorless, persistent) with the eggs five to ten blocks away."""
+    problems = []
+    dragons = [e for e in entities if e['nbt'][1]['id'][1] == 'hogwartsmagic:ukrainian_ironbelly']
+    if len(entities) != 1 or len(dragons) != 1:
+        return ['the nest should bake exactly one Ironbelly, found %d entities' % len(entities)]
+    tags = dragons[0]['nbt'][1]
+    if tags.get('Chained') != ('byte', 0):
+        problems.append('the nest Ironbelly must have Chained:0b')
+    if tags.get('PersistenceRequired') != ('byte', 1):
+        problems.append('the nest Ironbelly must have PersistenceRequired:1b')
+    if 'Anchor' in tags:
+        problems.append('the nest Ironbelly must have no Anchor')
+    dx, _, dz = [v[1] for v in dragons[0]['pos'][2]]
+    for (x, y, z), v in blocks.items():
+        if v[0] == 'hogwartsmagic:ironbelly_egg':
+            d = math.hypot(x + 0.5 - dx, z + 0.5 - dz)
+            if not 5 <= d <= 10:
+                problems.append('egg at %s is %.1f blocks from the dragon (want 5 to 10)' % ((x, y, z), d))
+    return problems
+
+
 BUILDS = {
     'fen_gibbet': fen_gibbet,
     'fen_prison': fen_prison,
@@ -5999,6 +6130,7 @@ BUILDS = {
     'cursed_tomb': cursed_tomb,
     'cursebreaker_dig': cursebreaker_dig,
     'yeti_cave': yeti_cave,
+    'ironbelly_nest': ironbelly_nest,  # Dragon nests
 }
 
 # Builds whose empty space is water rather than air. Anything waterloggable inside one has to say so,
@@ -6120,6 +6252,7 @@ ENTITY_BOX = {'hogwartsmagic:hungarian_horntail': (3.0, 3.2), 'hogwartsmagic:dem
               'hogwartsmagic:troll': (1.75, 3.25), 'hogwartsmagic:giant': (2.2, 5.5),
               'hogwartsmagic:acromantula': (1.6, 1.2), 'hogwartsmagic:sphinx': (1.4, 2.5),
               'hogwartsmagic:inferius': (0.6, 1.95), 'hogwartsmagic:yeti': (1.7, 2.9)}      # times its SpiderScale, if it has one
+ENTITY_BOX['hogwartsmagic:ukrainian_ironbelly'] = (3.6, 3.8)  # Dragon nests
 
 
 def audit_entity_room(blocks, entities):
@@ -6315,6 +6448,9 @@ if __name__ == '__main__':
             problems += audit_cursed_tomb(blocks)
         if name == 'yeti_cave':
             problems += audit_yeti_cave(blocks, entities)
+        problems += audit_dragon_eggs(name, blocks)  # Dragon nests
+        if name == 'ironbelly_nest':
+            problems += audit_ironbelly_nest(blocks, entities)
         path = os.path.join(OUT, name + '.nbt')
         write_nbt(path, build_template(blocks, entities))
         kinds = len({v[0] for v in blocks.values()})

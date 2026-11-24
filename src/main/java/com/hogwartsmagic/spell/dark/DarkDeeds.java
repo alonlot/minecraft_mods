@@ -71,6 +71,20 @@ public final class DarkDeeds {
     }
 
     /**
+     * A forged Horcrux is gone (destroyed, spent on a rebirth, or found missing): the piece of soul it anchored is
+     * back, so the +30 it added comes off again, and it never leaves the soul Lost. Lost's -1 heart otherwise outlived
+     * the Horcrux by hours of decay, which read as the Horcrux's own heart cost never coming back.
+     */
+    public static void onHorcruxLost(ServerPlayer player) {
+        float stored = DarkMagicData.getStored(player);
+        float after = Math.min(stored - DarkRules.HORCRUX_BONUS, DarkRules.tierLowerBound(DarkRules.LOST) - 1.0f);
+        after = Math.max(DarkRules.MIN_DARKNESS, after);
+        if (after < stored) {
+            DarkMagicData.set(player, after);
+        }
+    }
+
+    /**
      * From HealSpell.apply after the heal. wasHurt was read before any cleanse or heal. Redeems 1 point when a player
      * healed another hurt living thing of their own will, at most once per window of play; a heal that would lighten
      * nothing (Clean, or at the Horcrux floor) does not spend the window.

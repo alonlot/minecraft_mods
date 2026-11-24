@@ -281,6 +281,14 @@ public class HorcruxBlockEntity extends BlockEntity {
         }
         suppressForcedBreakEffects = true;
         boolean hostileBreak = ownerUuid != null && breaker != null && !ownerUuid.equals(breaker.getUUID());
+        // An owner in the game gets their heart back now, wherever they are (offline ones on their next login).
+        net.minecraft.server.level.ServerPlayer owner = ownerUuid == null ? null
+                : level.getServer().getPlayerList().getPlayer(ownerUuid);
+        if (active && owner != null && worldPosition.equals(com.hogwartsmagic.util.HorcruxData.getBoundPos(owner))
+                && level == com.hogwartsmagic.util.HorcruxData.getBoundLevel(owner)
+                && !com.hogwartsmagic.util.HorcruxData.isPendingRebirth(owner)) {
+            com.hogwartsmagic.util.HorcruxData.releaseForgedHorcrux(owner);
+        }
         Vec3 heart = heartPos();
         Fx.send(level, FxKinds.HORCRUX_SHATTER, heart, 64.0, -1, 1.0f);
         Fx.shake(level, heart, 1.1f, 12.0f, 20);

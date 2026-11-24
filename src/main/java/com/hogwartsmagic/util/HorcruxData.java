@@ -88,6 +88,19 @@ public final class HorcruxData {
         saveModData(player, modData);
     }
 
+    /**
+     * A forged Horcrux is gone: its heart comes back, the binding goes, and so does the darkness forging it added
+     * (DarkDeeds.onHorcruxLost). Safe to call for a rite that never finished: then only the cost and binding go.
+     */
+    public static void releaseForgedHorcrux(ServerPlayer player) {
+        boolean forged = hasActiveHorcrux(player) && !isRitualActive(player);
+        restoreSacrifice(player);
+        clearBinding(player);
+        if (forged) {
+            com.hogwartsmagic.spell.dark.DarkDeeds.onHorcruxLost(player);
+        }
+    }
+
     public static double getHealthCost(Player player) {
         return getModData(player).getDouble(HORCRUX_HEALTH_COST);
     }
@@ -257,21 +270,28 @@ public final class HorcruxData {
     }
 
     public static void reconcileMissingHorcrux(ServerPlayer player) {
-        if (getHealthCost(player) <= 0.0D || isPendingRebirth(player)) {
+        reconcileMissingHorcrux(player, false);
+    }
+
+    /**
+     * Gives back what a vanished Horcrux took. Every tick it only looks when the vessel's chunk is already loaded;
+     * on login ({@code forceLoad}) it loads it once, so a vessel destroyed while its owner was away or offline is
+     * still noticed. A rite in progress is left to ModEvents.tickHorcruxRitual.
+     */
+    public static void reconcileMissingHorcrux(ServerPlayer player, boolean forceLoad) {
+        if (getHealthCost(player) <= 0.0D || isPendingRebirth(player) || isRitualActive(player)) {
             return;
         }
-        // Runs every tick: never force-load the Horcrux's chunk (possibly in another dimension) just to look at it.
         ServerLevel boundLevel = getBoundLevel(player);
         BlockPos boundPos = getBoundPos(player);
-        if (boundLevel != null && boundPos != null && !boundLevel.isLoaded(boundPos)) {
+        if (!forceLoad && boundLevel != null && boundPos != null && !boundLevel.isLoaded(boundPos)) {
             return;
         }
         HorcruxBlockEntity horcrux = getOwnedHorcrux(player);
-        if (horcrux != null) {
+        if (horcrux != null && horcrux.isActive()) {
             return;
         }
-        restoreSacrifice(player);
-        clearBinding(player);
+        releaseForgedHorcrux(player);
     }
 
     public static void copyPersistent(Player original, Player clone) {

@@ -565,6 +565,8 @@ public class ModEvents {
             com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(player);
             com.hogwartsmagic.spell.mastery.MasteryAwards.awardExistingRanks(player);
             HousePerks.applyHouseAttributes(player);
+            // A Horcrux destroyed while its owner was away or offline: look once, loading its chunk if need be.
+            HorcruxData.reconcileMissingHorcrux(player, true);
             HorcruxData.applyMaxHealthPenalty(player);
             // Dark Magic: after the house and Horcrux modifiers, so the Lost health cost clamps against the full max.
             com.hogwartsmagic.spell.dark.DarkMagicData.sync(player);
@@ -664,7 +666,9 @@ public class ModEvents {
         }
 
         if (horcrux == null) {
+            // The vessel went while the soul was flying to it: nothing to be reborn through, and nothing left to pay.
             HorcruxData.clearPendingRebirth(player);
+            HorcruxData.releaseForgedHorcrux(player);
             return;
         }
 
@@ -672,9 +676,8 @@ public class ModEvents {
         BlockPos targetPos = horcrux.getBlockPos().above();
         player.teleportTo(targetLevel, targetPos.getX() + 0.5D, targetPos.getY(), targetPos.getZ() + 0.5D, player.getYRot(), player.getXRot());
         horcrux.shatter(targetLevel);
-        HorcruxData.restoreSacrifice(player);
-        HorcruxData.clearBinding(player);
         HorcruxData.clearPendingRebirth(player);
+        HorcruxData.releaseForgedHorcrux(player);
 
         player.setHealth(Math.max(4.0F, player.getMaxHealth() * 0.3F));
         int debuffTicks = Config.getHorcruxRebirthDebuffTicks();
@@ -2024,10 +2027,11 @@ public class ModEvents {
             cancelApparitionChannel(player, wand);
             return;
         }
-        BlockPos exit = fireplacePos.above();
-        double x = exit.getX() + 0.5;
-        double y = exit.getY();
-        double z = exit.getZ() + 0.5;
+        BlockPos exit = fireplacePos;
+        Vec3 spot = com.hogwartsmagic.block.FlooFireplaceBlock.standingSpot(fireplacePos);
+        double x = spot.x;
+        double y = spot.y;
+        double z = spot.z;
         if (com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(level).isWardedAt(exit)
                 || !level.noCollision(player.getDimensions(player.getPose()).makeBoundingBox(x, y, z))) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
@@ -2260,7 +2264,8 @@ public class ModEvents {
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.perch.named", perch.getPerchName()), true);
             return true;
         }
-        if (event.getLevel().getBlockEntity(event.getPos()) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity fireplace) {
+        if (event.getLevel().getBlockEntity(com.hogwartsmagic.block.FlooFireplaceBlock.resolveHearth(event.getLevel(), event.getPos()))
+                instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity fireplace) {
             // Same owner protection as the naming screen (SetFlooNamePacket): a name tag must not take someone else's fireplace.
             java.util.UUID owner = fireplace.getOwner();
             if (owner != null && !owner.equals(player.getUUID()) && !player.hasPermissions(2)) {
@@ -2334,9 +2339,7 @@ public class ModEvents {
                 || !source.getLinkedPositions().contains(destinationPos)
                 // Never land inside blocks: something built over the destination hearth fizzles the trip.
                 || !serverLevel.noCollision(player, player.getBoundingBox().move(
-                        destinationPos.getX() + 0.5 - player.getX(),
-                        destinationPos.getY() + 1.0 - player.getY(),
-                        destinationPos.getZ() + 0.5 - player.getZ()))) {
+                        com.hogwartsmagic.block.FlooFireplaceBlock.standingSpot(destinationPos).subtract(player.position())))) {
             serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
                     com.hogwartsmagic.ModSounds.FLOO_FIZZLE.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
             com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.FLOO_FIZZLE, player.getX(), player.getY(), player.getZ(), 0);
@@ -2348,8 +2351,9 @@ public class ModEvents {
             return;
         }
 
-        BlockPos exitPos = destinationPos.above();
-        player.teleportTo(exitPos.getX() + 0.5, exitPos.getY(), exitPos.getZ() + 0.5);
+        // Arrive standing in the destination fireplace, on its hearth.
+        Vec3 exit = com.hogwartsmagic.block.FlooFireplaceBlock.standingSpot(destinationPos);
+        player.teleportTo(exit.x, exit.y, exit.z);
         com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         com.hogwartsmagic.assignment.AssignmentEvents.onFlooTravel(player);
         com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.FLOO_ARRIVE, player.getX(), player.getY(), player.getZ(), 0);

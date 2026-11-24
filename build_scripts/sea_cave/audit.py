@@ -659,6 +659,8 @@ def rock_view(blocks):
     for p, v in blocks.items():
         if v[0] in _AS_AIR:
             out[p] = (F.CAVE_AIR, None, None)
+        elif v[0] == 'hogwartsmagic:cave_ring':
+            out[p] = ('minecraft:deepslate', None, None)    # set in the floor: rock to the audits
         elif v[0] in _AS_SEA:
             continue           # unlisted: the world's own sea
         else:

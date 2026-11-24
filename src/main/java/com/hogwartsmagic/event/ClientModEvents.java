@@ -1218,6 +1218,8 @@ public class ClientModEvents {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(ExampleMod.CAVE_RING_BLOCK_ENTITY.get(),
+                com.hogwartsmagic.client.renderer.CaveChainRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.GRINGOTTS_VAULT_DOOR_BLOCK_ENTITY.get(),
                 com.hogwartsmagic.client.GringottsVaultDoorRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.DIAGON_ARCHWAY_BLOCK_ENTITY.get(),

@@ -97,6 +97,30 @@ public class CaveBoatEntity extends Entity {
         level.playSound(null, boat.blockPosition(), SoundEvents.BOAT_PADDLE_WATER, SoundSource.NEUTRAL, 1.0F, 1.0F);
     }
 
+    /**
+     * Raises the boat for a version-2 cave: at the shore dock, bound for the island dock, both from the layout
+     * (so it works at any template rotation). Does nothing if a boat is already within 8 blocks. Returns the boat
+     * or null.
+     */
+    @Nullable
+    public static CaveBoatEntity rise(ServerLevel level, com.hogwartsmagic.locket.CaveLayout layout) {
+        BlockPos shore = layout.dockShore().below();
+        if (!level.getEntitiesOfClass(CaveBoatEntity.class, new AABB(layout.dockShore()).inflate(8.0D)).isEmpty()) {
+            return null;
+        }
+        BlockPos island = layout.dockIsland().below();
+        CaveBoatEntity boat = new CaveBoatEntity(ModEntities.CAVE_BOAT.get(), level);
+        boat.dockA = shore;
+        boat.dockB = island;
+        boat.moveTo(shore.getX() + 0.5D, shore.getY() + FLOAT_OFFSET, shore.getZ() + 0.5D,
+                yawToward(shore.getX() + 0.5D, shore.getZ() + 0.5D, island.getX() + 0.5D, island.getZ() + 0.5D), 0.0F);
+        level.addFreshEntity(boat);
+        level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SPLASH), boat.getX(), shore.getY() + 1.0D, boat.getZ(),
+                30, 0.6D, 0.2D, 0.6D, 0.1D);
+        level.playSound(null, boat.blockPosition(), SoundEvents.CHAIN_BREAK, SoundSource.NEUTRAL, 1.0F, 0.8F);
+        return boat;
+    }
+
     private static void chainSlack(ServerLevel level, BlockPos chainPos) {
         Player nearest = level.getNearestPlayer(chainPos.getX() + 0.5D, chainPos.getY() + 0.5D,
                 chainPos.getZ() + 0.5D, 6.0D, false);

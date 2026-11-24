@@ -67,6 +67,12 @@ public class DespairBasinBlockEntity extends BlockEntity {
         return layout != null ? layout : CaveLayout.legacy(worldPosition);
     }
 
+    /** Sets the layout directly, skipping the marker scan. For tests, which build a tiny cave by hand. */
+    public void setLayoutDirectly(CaveLayout l) {
+        this.layout = l;
+        setChanged();
+    }
+
     public boolean isAmbushActive() {
         return ambushActive;
     }

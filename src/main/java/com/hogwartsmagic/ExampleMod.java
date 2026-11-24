@@ -495,6 +495,15 @@ public class ExampleMod
             () -> new com.hogwartsmagic.block.HiddenChainBlock(BlockBehaviour.Properties.of()
                     .sound(net.minecraft.world.level.block.SoundType.CHAIN)
                     .strength(-1.0f, 3600000.0f).noLootTable().noOcclusion()));
+    public static final RegistryObject<Block> CAVE_RING = BLOCKS.register("cave_ring",
+            () -> new com.hogwartsmagic.block.CaveRingBlock(BlockBehaviour.Properties.of()
+                    .mapColor(net.minecraft.world.level.material.MapColor.DEEPSLATE)
+                    .sound(net.minecraft.world.level.block.SoundType.DEEPSLATE)
+                    .strength(-1.0f, 3600000.0f).noLootTable()));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.CaveRingBlockEntity>> CAVE_RING_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("cave_ring", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.CaveRingBlockEntity::new, CAVE_RING.get()
+            ).build(null));
     public static final RegistryObject<Block> BLOOD_SEAL = BLOCKS.register("blood_seal",
             () -> new com.hogwartsmagic.block.BloodSealBlock(BlockBehaviour.Properties.of()
                     .mapColor(net.minecraft.world.level.material.MapColor.COLOR_BLACK)
@@ -642,6 +651,7 @@ public class ExampleMod
     public static final RegistryObject<Item> CURSED_GLYPH_ITEM = ITEMS.register("cursed_glyph", () -> new BlockItem(CURSED_GLYPH.get(), new Item.Properties()));
     public static final RegistryObject<Item> CONCEALED_SANDSTONE_ITEM = ITEMS.register("concealed_sandstone", () -> new BlockItem(CONCEALED_SANDSTONE.get(), new Item.Properties()));
     public static final RegistryObject<Item> HIDDEN_CHAIN_ITEM = ITEMS.register("hidden_chain", () -> new BlockItem(HIDDEN_CHAIN.get(), new Item.Properties()));
+    public static final RegistryObject<Item> CAVE_RING_ITEM = ITEMS.register("cave_ring", () -> new BlockItem(CAVE_RING.get(), new Item.Properties()));
     public static final RegistryObject<Item> BLOOD_SEAL_ITEM = ITEMS.register("blood_seal", () -> new BlockItem(BLOOD_SEAL.get(), new Item.Properties()));
     public static final RegistryObject<Item> DESPAIR_BASIN_ITEM = ITEMS.register("despair_basin", () -> new BlockItem(DESPAIR_BASIN.get(), new Item.Properties()));
     public static final RegistryObject<Item> CRYSTAL_GOBLET_ITEM = ITEMS.register("crystal_goblet", () -> new BlockItem(CRYSTAL_GOBLET.get(), new Item.Properties()));
@@ -1170,6 +1180,7 @@ public class ExampleMod
                 output.accept(CURSED_GLYPH_ITEM.get());
                 output.accept(CONCEALED_SANDSTONE_ITEM.get());
                 output.accept(HIDDEN_CHAIN_ITEM.get());
+                output.accept(CAVE_RING_ITEM.get());
                 output.accept(BLOOD_SEAL_ITEM.get());
                 output.accept(DESPAIR_BASIN_ITEM.get());
                 output.accept(CRYSTAL_GOBLET_ITEM.get());

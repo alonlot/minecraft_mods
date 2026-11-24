@@ -100,4 +100,69 @@ public final class SeaCaveGameTests {
             helper.succeed();
         });
     }
+
+    // ---- the iron ring and its chain ------------------------------------------------------------
+
+    private static final BlockPos RING = new BlockPos(0, 1, 1);
+    private static final BlockPos WATER = new BlockPos(2, 1, 1);
+
+    /**
+     * A tiny arena by hand: a ring in the floor, one source of water two blocks away walled in with barriers,
+     * and a basin block whose layout is set directly (no template, no marker scan).
+     */
+    private static com.hogwartsmagic.block.entity.CaveRingBlockEntity ringArena(GameTestHelper helper) {
+        helper.setBlock(RING, ExampleMod.CAVE_RING.get());
+        for (BlockPos wall : new BlockPos[]{WATER.east(), WATER.south(), WATER.north(), WATER.west(), WATER.below()}) {
+            helper.setBlock(wall, net.minecraft.world.level.block.Blocks.BARRIER);
+        }
+        helper.setBlock(WATER, net.minecraft.world.level.block.Blocks.WATER);
+        BlockPos basinPos = new BlockPos(1, 1, 2);
+        helper.setBlock(basinPos, ExampleMod.DESPAIR_BASIN.get());
+        BlockPos ring = helper.absolutePos(RING.above());
+        BlockPos dockShore = helper.absolutePos(WATER.above());
+        BlockPos dockIsland = helper.absolutePos(WATER.above().east(2));
+        ((com.hogwartsmagic.block.entity.DespairBasinBlockEntity) helper.getBlockEntity(basinPos)).setLayoutDirectly(
+                new com.hogwartsmagic.locket.CaveLayout(2, helper.absolutePos(basinPos), java.util.List.of(), ring,
+                        dockShore, dockIsland, java.util.List.of(), helper.absolutePos(WATER).getY(), 12, 12, 12));
+        return (com.hogwartsmagic.block.entity.CaveRingBlockEntity) helper.getBlockEntity(RING);
+    }
+
+    private static java.util.List<com.hogwartsmagic.entity.CaveBoatEntity> skiffs(GameTestHelper helper) {
+        return helper.getLevel().getEntitiesOfClass(com.hogwartsmagic.entity.CaveBoatEntity.class,
+                new net.minecraft.world.phys.AABB(helper.absolutePos(WATER)).inflate(8.0D));
+    }
+
+    @GameTest(template = EMPTY, timeoutTicks = 200)
+    public static void pullingRingRaisesSkiff(GameTestHelper helper) {
+        com.hogwartsmagic.block.entity.CaveRingBlockEntity ring = ringArena(helper);
+        net.minecraft.server.level.ServerPlayer player =
+                (net.minecraft.server.level.ServerPlayer) helper.makeMockServerPlayerInLevel();
+        ring.pull(player);
+        helper.assertTrue(ring.haulTicks() == 0, "pulling a hidden chain does nothing");
+        ring.reveal(200);
+        helper.assertTrue(ring.revealed(), "reveal shows the chain");
+        ring.pull(player);
+        helper.assertTrue(ring.haulTicks() > 0, "pulling a revealed chain starts the haul");
+        ring.pull(player);
+        helper.runAfterDelay(30, () -> {
+            helper.assertTrue(skiffs(helper).isEmpty(), "no skiff while the chain is still being hauled");
+            helper.assertTrue(ring.haulTicks() > 0, "still hauling at tick 30");
+            ring.pull(player); // a second pull mid-haul does nothing
+        });
+        helper.runAfterDelay(75, () -> {
+            helper.assertTrue(skiffs(helper).size() == 1, "exactly one skiff after the haul, found " + skiffs(helper).size());
+            net.minecraft.world.entity.Entity boat = skiffs(helper).get(0);
+            BlockPos dock = helper.absolutePos(WATER);
+            helper.assertTrue(Math.abs(boat.getX() - (dock.getX() + 0.5D)) < 0.01D
+                    && Math.abs(boat.getZ() - (dock.getZ() + 0.5D)) < 0.01D, "the skiff is at the shore dock");
+            helper.assertFalse(ring.revealed(), "the chain is spent and hidden again");
+            ring.reveal(200);
+            ring.pull(player); // a second pull with the skiff there does nothing
+            helper.assertTrue(ring.haulTicks() == 0, "no haul while a skiff is at the dock");
+        });
+        helper.runAfterDelay(150, () -> {
+            helper.assertTrue(skiffs(helper).size() == 1, "still exactly one skiff after a second pull");
+            helper.succeed();
+        });
+    }
 }

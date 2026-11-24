@@ -7,7 +7,7 @@ Markers are `hogwartsmagic:cave_waypoint` blocks (invisible, no collision) with 
 and they turn with the template, so the cave works at any rotation. Roles:
     basin        two above the basin (head height over it): the anchor
     arch         in the passage just past the blood arch, at the passage roof
-    ring         where the iron ring goes on the shore (Task 7 puts the ring block here)
+    ring         the standing cell on the shore; the iron ring block is set in the rock floor right under it
     dock_shore   above the water where the skiff rises, by the ring
     path 0..n    above the lake, the skiff's crossing in order
     dock_island  above the water where the skiff grounds on the island
@@ -22,6 +22,7 @@ WAYPOINT = 'hogwartsmagic:cave_waypoint'
 BASIN = 'hogwartsmagic:despair_basin'
 GOBLET = 'hogwartsmagic:crystal_goblet'
 SEAL = 'hogwartsmagic:blood_seal'
+RING = 'hogwartsmagic:cave_ring'
 
 
 def _put_marker(blocks, out, role, index, pos):
@@ -67,7 +68,13 @@ def apply(blocks):
                 blocks[(F.ARCH_X, y, z)] = (SEAL, {'facing': 'west', 'open': 'false'}, None)
     _put_marker(blocks, out, 'arch', 0, (F.ARCH_X + 1, F.ARCH_FEET + 2, (z0 + z1) // 2))
 
-    _put_marker(blocks, out, 'ring', 0, _standing(blocks, F.RING))
+    rx, ry, rz = _standing(blocks, F.RING)
+    _put_marker(blocks, out, 'ring', 0, (rx, ry, rz))
+    # the ring itself lies set in the shore floor, in the rock cell under the marker
+    under = blocks.get((rx, ry - 1, rz))
+    if under is None or under[0] in (F.CAVE_AIR, F.WATER):
+        raise ValueError('no rock under the ring marker at %s' % ((rx, ry, rz),))
+    blocks[(rx, ry - 1, rz)] = (RING, None, None)
     sx, sy, sz = F.SKIFF[0]
     _put_marker(blocks, out, 'dock_shore', 0, (sx, sy + 1, sz))
     pts = F.SKIFF[1:-1]

@@ -70,6 +70,13 @@ public final class LocketCaves {
                     continue;
                 }
                 for (BlockEntity be : List.copyOf(chunk.getBlockEntities().values())) {
+                    if (be instanceof com.hogwartsmagic.block.entity.CaveRingBlockEntity ring) {
+                        if (be.getBlockPos().distToCenterSqr(center) <= r2) {
+                            ring.reveal(com.hogwartsmagic.block.entity.CaveRingBlockEntity.TOUCH_REVEAL_TICKS);
+                            count++;
+                        }
+                        continue;
+                    }
                     if (!(be instanceof CaveMarkerBlockEntity)) {
                         continue;
                     }

@@ -162,8 +162,8 @@ public final class HiddenHouseGameTests {
                         && c.getLootTable().location().toString().equals(HOUSE_LOOT),
                 "the chest should carry the house loot table");
         for (BlockPos p : house) {
-            helper.assertFalse(helper.getBlockEntity(p) instanceof HiddenHouseBlockEntity, "still hidden at " + p);
             BlockPos abs = helper.absolutePos(p);
+            helper.assertFalse(helper.getLevel().getBlockEntity(abs) instanceof HiddenHouseBlockEntity, "still hidden at " + p);
             helper.assertFalse(helper.getLevel().getBlockTicks().hasScheduledTick(abs, helper.getBlockState(p).getBlock()),
                     "a scheduled tick would close it again at " + p);
         }

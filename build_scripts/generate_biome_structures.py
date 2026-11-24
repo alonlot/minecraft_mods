@@ -6205,14 +6205,22 @@ def house_interior(b):
     for z in range(8, 11):
         for y in range(2, 5):
             put(b, (5, y, z), 'minecraft:bookshelf')
-    b[(7, 2, 4)] = ('minecraft:lectern', {'facing': 'south', 'has_book': 'true', 'powered': 'false'}, None)
+    b[(7, 2, 4)] = ('minecraft:lectern', {'facing': 'south', 'has_book': 'false', 'powered': 'false'}, None)
     b[(12, 2, 4)] = ('minecraft:barrel', {'facing': 'up', 'open': 'false'}, None)
     b[(9, 5, 4)] = ('minecraft:candle', {'candles': '3', 'lit': 'true', 'waterlogged': 'false'}, None)
     b[(10, 5, 4)] = ('minecraft:candle', {'candles': '2', 'lit': 'true', 'waterlogged': 'false'}, None)
     put(b, (8, 5, 4), 'minecraft:potted_fern')
     # Brewing by the fire.
+    # The stand redraws its has_bottle states from its own inventory, so the potions are stored with it.
+    def potion(slot, kind):
+        return ('compound', {'Slot': ('byte', slot), 'id': ('string', 'minecraft:potion'), 'count': ('int', 1),
+                             'components': ('compound', {'minecraft:potion_contents': (
+                                 'compound', {'potion': ('string', kind)})})})
     b[(12, 2, 9)] = ('minecraft:brewing_stand', {'has_bottle_0': 'true', 'has_bottle_1': 'false',
-                                                'has_bottle_2': 'true'}, None)
+                                                'has_bottle_2': 'true'},
+                     {'id': 'minecraft:brewing_stand',
+                      'Items': ('list', 'compound', [potion(0, 'minecraft:healing'),
+                                                     potion(2, 'minecraft:night_vision')])})
     # Fireside armchairs.
     for z in (6, 8):
         b[(11, 2, z)] = ('hogwartsmagic:common_room_armchair', {'facing': 'east'}, None)

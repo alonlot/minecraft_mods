@@ -47,6 +47,7 @@ import net.minecraft.world.phys.Vec3;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * The Hungarian Horntail — a boss-tier wyvern dragon modelled on the Goblet of Fire Triwizard dragon.
@@ -226,8 +227,37 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 24.0F));
         this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
 
+        // Dragon nests: a stolen egg outranks everything else it might want to bite.
+        this.targetSelector.addGoal(0, new com.hogwartsmagic.dragon.EggThiefTargetGoal(this));
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
+    }
+
+    // --- Dragon nests: the grudge against whoever took an egg ---
+    @javax.annotation.Nullable
+    private UUID eggThief;
+    private long eggGrudgeUntil;
+
+    /** Someone stole an egg close by: this dragon now hunts them, and roars if it can. */
+    public void swearVengeance(net.minecraft.server.level.ServerPlayer thief) {
+        this.eggThief = thief.getUUID();
+        this.eggGrudgeUntil = com.hogwartsmagic.dragon.DragonEggRules.grudgeExpiry(this.level().getGameTime());
+        this.setTarget(thief);
+        if (!(this instanceof UkrainianIronbellyEntity) && !isBusy() && !isAerial()) {
+            beginRoar();
+        }
+    }
+
+    @javax.annotation.Nullable
+    public UUID eggThief() { return this.eggThief; }
+
+    public long eggGrudgeUntil() { return this.eggGrudgeUntil; }
+
+    public void renewEggGrudge(long until) { this.eggGrudgeUntil = until; }
+
+    public void forgiveEggThief() {
+        this.eggThief = null;
+        this.eggGrudgeUntil = 0L;
     }
 
     // A heavy animal does not snap its head around; it swings it.
@@ -1250,6 +1280,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         super.addAdditionalSaveData(tag);
         tag.putBoolean("Raging", isRaging());
         tag.putBoolean("HasRoared", hasRoared);
+        if (this.eggThief != null) tag.putUUID("EggThief", this.eggThief);
+        tag.putLong("EggGrudgeUntil", this.eggGrudgeUntil);
     }
 
     @Override
@@ -1257,6 +1289,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         super.readAdditionalSaveData(tag);
         if (tag.contains("Raging")) this.entityData.set(DATA_RAGING, tag.getBoolean("Raging"));
         if (tag.contains("HasRoared")) this.hasRoared = tag.getBoolean("HasRoared");
+        this.eggThief = tag.hasUUID("EggThief") ? tag.getUUID("EggThief") : null;
+        this.eggGrudgeUntil = tag.getLong("EggGrudgeUntil");
     }
 
     @Override

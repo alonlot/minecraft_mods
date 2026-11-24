@@ -1111,6 +1111,22 @@ public class ExampleMod
                     net.minecraft.world.item.Tiers.IRON,
                     com.hogwartsmagic.item.MerpersonSpearItem.properties(net.minecraft.world.item.Tiers.IRON)));
 
+    // --- Dragon nests ---
+    public static final RegistryObject<Block> HORNTAIL_EGG = BLOCKS.register("horntail_egg",
+            () -> new com.hogwartsmagic.block.DragonNestEggBlock(BlockBehaviour.Properties.of()
+                    .mapColor(net.minecraft.world.level.material.MapColor.COLOR_GRAY)
+                    .sound(net.minecraft.world.level.block.SoundType.STONE)
+                    .strength(3.0f, 1200.0f).requiresCorrectToolForDrops().noOcclusion()
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)));
+    public static final RegistryObject<Block> IRONBELLY_EGG = BLOCKS.register("ironbelly_egg",
+            () -> new com.hogwartsmagic.block.DragonNestEggBlock(BlockBehaviour.Properties.of()
+                    .mapColor(net.minecraft.world.level.material.MapColor.METAL)
+                    .sound(net.minecraft.world.level.block.SoundType.METAL)
+                    .strength(3.0f, 1200.0f).requiresCorrectToolForDrops().noOcclusion()
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)));
+    public static final RegistryObject<Item> HORNTAIL_EGG_ITEM = ITEMS.register("horntail_egg", () -> new BlockItem(HORNTAIL_EGG.get(), new Item.Properties()));
+    public static final RegistryObject<Item> IRONBELLY_EGG_ITEM = ITEMS.register("ironbelly_egg", () -> new BlockItem(IRONBELLY_EGG.get(), new Item.Properties()));
+
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
             .title(net.minecraft.network.chat.Component.translatable("itemGroup.hogwartsmagic.main_tab"))
             .withTabsBefore(CreativeModeTabs.COMBAT)
@@ -1286,6 +1302,9 @@ public class ExampleMod
                 for (com.hogwartsmagic.spell.SpellType spell : com.hogwartsmagic.spell.SpellType.values()) {
                     output.accept(com.hogwartsmagic.item.AssignmentItem.create(spell));
                 }
+                // Dragon nests
+                output.accept(HORNTAIL_EGG_ITEM.get());
+                output.accept(IRONBELLY_EGG_ITEM.get());
             }).build());
 
     public ExampleMod()

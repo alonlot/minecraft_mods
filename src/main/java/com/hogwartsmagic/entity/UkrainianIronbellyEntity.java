@@ -92,6 +92,9 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
 
     @Nullable
     private BlockPos anchor;
+    /** Dragon nests: where a wild Ironbelly was first found, and where it returns after a hunt. */
+    @Nullable
+    private BlockPos nest;
     private int cowerTicks;
     private int lastHeardTick = -1000;
     @Nullable
@@ -145,6 +148,20 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
                                 || recentlyHeard())));
         // Loose, it roams between targets instead of standing over an anchor it no longer has.
         this.goalSelector.addGoal(6, new RoamWhenFreeGoal(this));
+        // Dragon nests: a stolen egg outranks everything, and a wild one walks home afterwards.
+        this.targetSelector.addGoal(0, new com.hogwartsmagic.dragon.EggThiefTargetGoal(this));
+        this.goalSelector.addGoal(5, new ReturnToNestGoal(this));
+    }
+
+    /** The nest this wild Ironbelly keeps, or null (Gringotts' one never has one). */
+    @Nullable
+    public BlockPos nest() {
+        return this.nest;
+    }
+
+    private void takeNest(BlockPos pos) {
+        this.nest = pos;
+        restrictTo(pos, (int) com.hogwartsmagic.dragon.DragonEggRules.NEST_RADIUS);
     }
 
     public boolean isCowering() {
@@ -299,6 +316,10 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
             return;
         }
 
+        if (com.hogwartsmagic.dragon.DragonEggRules.adoptsNest(isChained(), this.anchor != null, this.nest != null)) {
+            takeNest(blockPosition().immutable());
+        }
+
         if (this.cowerTicks > 0 && --this.cowerTicks == 0) {
             this.entityData.set(DATA_COWERING, Boolean.FALSE);
         }
@@ -346,6 +367,9 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         }
         tag.putBoolean("Chained", isChained());
         tag.putInt("Cower", this.cowerTicks);
+        if (this.nest != null) {
+            tag.putLong("Nest", this.nest.asLong());
+        }
     }
 
     @Override
@@ -360,6 +384,9 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         }
         this.cowerTicks = tag.getInt("Cower");
         this.entityData.set(DATA_COWERING, this.cowerTicks > 0);
+        if (tag.contains("Nest")) {
+            takeNest(BlockPos.of(tag.getLong("Nest")));
+        }
     }
 
     /**
@@ -591,6 +618,36 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         @Override
         public void start() {
             this.dragon.getNavigation().moveTo(this.to.x, this.to.y, this.to.z, 0.6D);
+        }
+    }
+
+    /** After a hunt, a wild Ironbelly that has strayed from its clutch walks back to it. */
+    private static final class ReturnToNestGoal extends net.minecraft.world.entity.ai.goal.Goal {
+
+        private final UkrainianIronbellyEntity dragon;
+
+        ReturnToNestGoal(UkrainianIronbellyEntity dragon) {
+            this.dragon = dragon;
+            setFlags(java.util.EnumSet.of(Flag.MOVE));
+        }
+
+        @Override
+        public boolean canUse() {
+            BlockPos nest = this.dragon.nest;
+            return nest != null && !this.dragon.isCowering() && !this.dragon.recentlyHeard()
+                    && com.hogwartsmagic.dragon.DragonEggRules.shouldReturnHome(
+                            this.dragon.getTarget() != null, this.dragon.distanceToSqr(Vec3.atCenterOf(nest)));
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return !this.dragon.getNavigation().isDone() && this.dragon.getTarget() == null;
+        }
+
+        @Override
+        public void start() {
+            BlockPos nest = this.dragon.nest;
+            this.dragon.getNavigation().moveTo(nest.getX() + 0.5D, nest.getY(), nest.getZ() + 0.5D, 0.6D);
         }
     }
 }

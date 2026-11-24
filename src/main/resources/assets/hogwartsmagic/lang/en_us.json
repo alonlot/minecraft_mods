@@ -2071,5 +2071,9 @@
   "message.hogwartsmagic.headmaster_stair.wrong": "The gargoyle does not move.",
   "message.hogwartsmagic.headmaster_stair.leaving": "The stair rises to take you down.",
   "message.hogwartsmagic.headmaster_stair.hint": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand.",
-  "message.hogwartsmagic.headmaster_stair.hint_sweets": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand. (The Headmaster is fond of a Sherbet Lemon.)"
+  "message.hogwartsmagic.headmaster_stair.hint_sweets": "A stone gargoyle guards the Headmaster's office. Say the password in chat, or aloud with your wand in hand. (The Headmaster is fond of a Sherbet Lemon.)",
+  "block.hogwartsmagic.horntail_egg": "Horntail Egg",
+  "block.hogwartsmagic.ironbelly_egg": "Ironbelly Egg",
+  "block.hogwartsmagic.dragon_egg.tooltip": "Long cold, and heavy as stone. Knockturn Alley pays for these.",
+  "block.hogwartsmagic.dragon_egg.stolen": "Somewhere close, a dragon has your scent."
 }

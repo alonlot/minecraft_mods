@@ -115,7 +115,7 @@ public final class HideoutGameTests {
         helper.getLevel().destroyBlock(helper.absolutePos(cup), false);
         helper.runAfterDelay(HideoutRules.REWARD_DELAY_TICKS + 5, () -> {
             helper.assertTrue(souls(helper, cup, 6) == 0, "an unbound cup frees no soul");
-            helper.assertTrue(!(helper.getBlockEntity(cup) instanceof ChestBlockEntity), "an unbound cup pays nothing");
+            helper.assertTrue(!(helper.getLevel().getBlockEntity(helper.absolutePos(cup)) instanceof ChestBlockEntity), "an unbound cup pays nothing");
             helper.succeed();
             LOGGER.info("HIDEOUT-GAMETEST PASS unboundCupFreesNothing");
         });
@@ -140,24 +140,29 @@ public final class HideoutGameTests {
         wizard.addTag(HideoutRules.LEADER_TAG);
         wizard.setRaidLeader(true);
         wizard.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.WHITE_BANNER));
-        Vec3 at = helper.absoluteVec(new Vec3(4.5, 1, 4.5));
+        Vec3 at = helper.absoluteVec(new Vec3(0.5, 1, 0.5));
         wizard.moveTo(at.x, at.y, at.z);
         helper.getLevel().addFreshEntity(wizard);
-        BlockPos home = helper.absolutePos(new BlockPos(4, 1, 4));
+        BlockPos home = helper.absolutePos(new BlockPos(0, 1, 0));
+        for (int x = 0; x < 9; x++) {
+            for (int z = 0; z < 9; z++) {
+                helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
+            }
+        }
         try {
             helper.assertTrue(wizard.getMaxHealth() == 80.0F && wizard.getHealth() == 80.0F, "80 health");
             helper.assertTrue(wizard.getArmorValue() == 8, "armour 8, got " + wizard.getArmorValue());
             helper.assertTrue(wizard.getCustomName() != null
                     && HideoutRules.LEADER_NAMES.contains(wizard.getCustomName().getString()), "named");
             helper.assertTrue(!wizard.isRaidLeader() && wizard.getItemBySlot(EquipmentSlot.HEAD).isEmpty(), "no raid-leader banner");
-            helper.assertTrue(wizard.hasRestriction() && wizard.getRestrictCenter().equals(home)
-                    && (int) wizard.getRestrictRadius() == 9, "restricted to home");
+            helper.assertTrue(!wizard.hasRestriction(), "no restriction circle: it would stop him retaliating");
+            helper.assertTrue(BlockPos.of(wizard.getPersistentData().getLong(HideoutRules.HOME_KEY)).equals(home), "home stored");
             helper.assertTrue(goals(wizard) == 1, "exactly one guard goal");
             wizard.setHealth(30.0F);
             HideoutLeader.prepare(wizard);
             helper.assertTrue(wizard.getHealth() == 30.0F, "a reload must not heal him");
             helper.assertTrue(goals(wizard) == 1, "still exactly one guard goal");
-            Vec3 far = helper.absoluteVec(new Vec3(4.5, 1, 4.5)).add(12, 0, 0);
+            Vec3 far = helper.absoluteVec(new Vec3(8.5, 1, 8.5));   // 11.3 blocks from home, inside the template
             wizard.moveTo(far.x, far.y, far.z);
         } catch (RuntimeException e) {
             wizard.discard();

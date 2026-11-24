@@ -12,7 +12,8 @@ public class FlooPowderItem extends Item {
 
     @Override
     public InteractionResult useOn(UseOnContext context) {
-        if (!(context.getLevel().getBlockEntity(context.getClickedPos()) instanceof FlooFireplaceBlockEntity fireplace)) {
+        if (!(context.getLevel().getBlockEntity(com.hogwartsmagic.block.FlooFireplaceBlock.resolveHearth(context.getLevel(), context.getClickedPos()))
+                instanceof FlooFireplaceBlockEntity fireplace)) {
             return InteractionResult.PASS;
         }
         if (!context.getLevel().isClientSide && context.getPlayer() != null) {

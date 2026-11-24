@@ -20,12 +20,14 @@ public class FlooBindingTokenItem extends Item {
 
     @Override
     public InteractionResult useOn(UseOnContext context) {
-        if (!(context.getLevel().getBlockEntity(context.getClickedPos()) instanceof FlooFireplaceBlockEntity fireplace)) {
+        // Any cell of the fireplace counts as the fireplace; links and names always live on the hearth.
+        BlockPos clickedPos = com.hogwartsmagic.block.FlooFireplaceBlock.resolveHearth(context.getLevel(), context.getClickedPos());
+        if (!(context.getLevel().getBlockEntity(clickedPos) instanceof FlooFireplaceBlockEntity fireplace)) {
             return InteractionResult.PASS;
         }
         if (!fireplace.isNamed()) {
             if (!context.getLevel().isClientSide && context.getPlayer() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                SpellPackets.CHANNEL.send(new SpellPackets.OpenFlooNamingScreenPacket(context.getClickedPos(), fireplace.getFireplaceName()),
+                SpellPackets.CHANNEL.send(new SpellPackets.OpenFlooNamingScreenPacket(clickedPos, fireplace.getFireplaceName()),
                         net.minecraftforge.network.PacketDistributor.PLAYER.with(serverPlayer));
             }
             return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
@@ -37,7 +39,7 @@ public class FlooBindingTokenItem extends Item {
         ItemStack stack = context.getItemInHand();
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         if (!tag.contains("FirstFireplace")) {
-            tag.putLong("FirstFireplace", context.getClickedPos().asLong());
+            tag.putLong("FirstFireplace", clickedPos.asLong());
             stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
             if (!context.getLevel().isClientSide && context.getPlayer() != null) {
                 context.getPlayer().displayClientMessage(Component.translatable("message.hogwartsmagic.floo.first_set")
@@ -47,7 +49,7 @@ public class FlooBindingTokenItem extends Item {
         }
 
         BlockPos firstPos = BlockPos.of(tag.getLong("FirstFireplace"));
-        if (firstPos.equals(context.getClickedPos())) {
+        if (firstPos.equals(clickedPos)) {
             return InteractionResult.SUCCESS;
         }
 
@@ -60,7 +62,7 @@ public class FlooBindingTokenItem extends Item {
             return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
         }
         if (context.getLevel().getBlockEntity(firstPos) instanceof FlooFireplaceBlockEntity firstFireplace) {
-            firstFireplace.addLink(context.getClickedPos(), context.getPlayer());
+            firstFireplace.addLink(clickedPos, context.getPlayer());
             fireplace.addLink(firstPos, context.getPlayer());
             tag.remove("FirstFireplace");
             stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));

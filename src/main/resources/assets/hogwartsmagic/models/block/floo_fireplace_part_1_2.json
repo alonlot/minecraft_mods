@@ -1,0 +1,518 @@
+{
+ "parent": "block/block",
+ "render_type": "minecraft:cutout",
+ "textures": {
+  "stone": "hogwartsmagic:block/decor/fireplace_stone",
+  "soot": "hogwartsmagic:block/decor/fireplace_soot",
+  "wood": "minecraft:block/dark_oak_planks",
+  "iron": "hogwartsmagic:block/decor/iron",
+  "log": "minecraft:block/dark_oak_log",
+  "log_end": "minecraft:block/dark_oak_log_top",
+  "pot": "hogwartsmagic:block/decor/floo_pot",
+  "wax": "hogwartsmagic:block/decor/candle_wax",
+  "particle": "hogwartsmagic:block/decor/fireplace_stone"
+ },
+ "elements": [
+  {
+   "from": [
+    0,
+    0,
+    0
+   ],
+   "to": [
+    16,
+    2,
+    3
+   ],
+   "faces": {
+    "north": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      14,
+      16,
+      16
+     ],
+     "cullface": "north"
+    },
+    "south": {
+     "texture": "#soot",
+     "uv": [
+      0,
+      14,
+      16,
+      16
+     ]
+    },
+    "up": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      0,
+      16,
+      3
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    2,
+    0
+   ],
+   "to": [
+    16,
+    16,
+    3
+   ],
+   "faces": {
+    "north": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      0,
+      16,
+      14
+     ],
+     "cullface": "north"
+    },
+    "south": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      0,
+      16,
+      14
+     ]
+    },
+    "up": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      0,
+      16,
+      3
+     ],
+     "cullface": "up"
+    },
+    "down": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      13,
+      16,
+      16
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    2,
+    3
+   ],
+   "to": [
+    16,
+    7,
+    15
+   ],
+   "faces": {
+    "north": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      9,
+      16,
+      14
+     ]
+    },
+    "south": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      9,
+      16,
+      14
+     ]
+    },
+    "up": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      3,
+      16,
+      15
+     ]
+    },
+    "down": {
+     "texture": "#soot",
+     "uv": [
+      0,
+      1,
+      16,
+      13
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    5,
+    1,
+    15
+   ],
+   "to": [
+    11,
+    7,
+    16
+   ],
+   "faces": {
+    "north": {
+     "texture": "#stone",
+     "uv": [
+      5,
+      9,
+      11,
+      15
+     ]
+    },
+    "south": {
+     "texture": "#stone",
+     "uv": [
+      5,
+      9,
+      11,
+      15
+     ],
+     "cullface": "south"
+    },
+    "east": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      9,
+      1,
+      15
+     ]
+    },
+    "west": {
+     "texture": "#stone",
+     "uv": [
+      15,
+      9,
+      16,
+      15
+     ]
+    },
+    "up": {
+     "texture": "#stone",
+     "uv": [
+      5,
+      15,
+      11,
+      16
+     ]
+    },
+    "down": {
+     "texture": "#stone",
+     "uv": [
+      5,
+      0,
+      11,
+      1
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    7,
+    3
+   ],
+   "to": [
+    16,
+    8,
+    16
+   ],
+   "faces": {
+    "north": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      8,
+      16,
+      9
+     ]
+    },
+    "south": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      8,
+      16,
+      9
+     ],
+     "cullface": "south"
+    },
+    "up": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      3,
+      16,
+      16
+     ]
+    },
+    "down": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      0,
+      16,
+      13
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    8,
+    1
+   ],
+   "to": [
+    16,
+    10,
+    17
+   ],
+   "faces": {
+    "north": {
+     "texture": "#wood",
+     "uv": [
+      0,
+      6,
+      16,
+      8
+     ]
+    },
+    "south": {
+     "texture": "#wood",
+     "uv": [
+      0,
+      6,
+      16,
+      8
+     ]
+    },
+    "up": {
+     "texture": "#wood",
+     "uv": [
+      0,
+      0,
+      16,
+      16
+     ]
+    },
+    "down": {
+     "texture": "#wood",
+     "uv": [
+      0,
+      0,
+      16,
+      16
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    10,
+    3
+   ],
+   "to": [
+    16,
+    16,
+    6
+   ],
+   "faces": {
+    "north": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      0,
+      16,
+      6
+     ]
+    },
+    "south": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      0,
+      16,
+      6
+     ]
+    },
+    "up": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      3,
+      16,
+      6
+     ],
+     "cullface": "up"
+    },
+    "down": {
+     "texture": "#stone",
+     "uv": [
+      0,
+      10,
+      16,
+      13
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    5.5,
+    10,
+    8.5
+   ],
+   "to": [
+    10.5,
+    14.5,
+    13.5
+   ],
+   "faces": {
+    "north": {
+     "texture": "#pot",
+     "uv": [
+      5.5,
+      3.5,
+      10.5,
+      8
+     ]
+    },
+    "south": {
+     "texture": "#pot",
+     "uv": [
+      5.5,
+      3.5,
+      10.5,
+      8
+     ]
+    },
+    "east": {
+     "texture": "#pot",
+     "uv": [
+      5.5,
+      3.5,
+      10.5,
+      8
+     ]
+    },
+    "west": {
+     "texture": "#pot",
+     "uv": [
+      5.5,
+      3.5,
+      10.5,
+      8
+     ]
+    },
+    "up": {
+     "texture": "#pot",
+     "uv": [
+      5.5,
+      5.5,
+      10.5,
+      10.5
+     ]
+    },
+    "down": {
+     "texture": "#pot",
+     "uv": [
+      5.5,
+      5.5,
+      10.5,
+      10.5
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    5,
+    14.5,
+    8
+   ],
+   "to": [
+    11,
+    15.5,
+    14
+   ],
+   "faces": {
+    "north": {
+     "texture": "#pot",
+     "uv": [
+      5,
+      2.5,
+      11,
+      3.5
+     ]
+    },
+    "south": {
+     "texture": "#pot",
+     "uv": [
+      5,
+      2.5,
+      11,
+      3.5
+     ]
+    },
+    "east": {
+     "texture": "#pot",
+     "uv": [
+      5,
+      2.5,
+      11,
+      3.5
+     ]
+    },
+    "west": {
+     "texture": "#pot",
+     "uv": [
+      5,
+      2.5,
+      11,
+      3.5
+     ]
+    },
+    "up": {
+     "texture": "#pot",
+     "uv": [
+      5,
+      5,
+      11,
+      11
+     ]
+    },
+    "down": {
+     "texture": "#pot",
+     "uv": [
+      5,
+      5,
+      11,
+      11
+     ]
+    }
+   }
+  }
+ ]
+}

@@ -4627,5 +4627,53 @@
         "name": "hogwartsmagic:cast/impact_crunch3"
       }
     ]
+  },
+  "gnome.giggle": {
+    "subtitle": "subtitles.hogwartsmagic.gnome.giggle",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:gnome/giggle1",
+        "stream": false
+      },
+      {
+        "name": "hogwartsmagic:gnome/giggle2",
+        "stream": false
+      },
+      {
+        "name": "hogwartsmagic:gnome/giggle3",
+        "stream": false
+      }
+    ]
+  },
+  "gnome.squeak": {
+    "subtitle": "subtitles.hogwartsmagic.gnome.squeak",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:gnome/squeak1",
+        "stream": false
+      },
+      {
+        "name": "hogwartsmagic:gnome/squeak2",
+        "stream": false
+      }
+    ]
+  },
+  "gnome.bite": {
+    "subtitle": "subtitles.hogwartsmagic.gnome.bite",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:gnome/bite",
+        "stream": false
+      }
+    ]
+  },
+  "gnome.wail": {
+    "subtitle": "subtitles.hogwartsmagic.gnome.wail",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:gnome/wail",
+        "stream": false
+      }
+    ]
   }
 }

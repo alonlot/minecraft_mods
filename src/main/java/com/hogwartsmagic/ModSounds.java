@@ -571,6 +571,12 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> CAST_RELEASE_PUNCH = register("cast.release_punch");
     public static final RegistryObject<SoundEvent> CAST_IMPACT_CRUNCH = register("cast.impact_crunch");
 
+    // Garden gnomes
+    public static final RegistryObject<SoundEvent> GNOME_GIGGLE = register("gnome.giggle");
+    public static final RegistryObject<SoundEvent> GNOME_SQUEAK = register("gnome.squeak");
+    public static final RegistryObject<SoundEvent> GNOME_BITE = register("gnome.bite");
+    public static final RegistryObject<SoundEvent> GNOME_WAIL = register("gnome.wail");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

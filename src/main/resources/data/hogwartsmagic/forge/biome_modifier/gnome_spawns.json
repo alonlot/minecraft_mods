@@ -1,0 +1,12 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": "#hogwartsmagic:has_gnome",
+  "spawners": [
+    {
+      "type": "hogwartsmagic:gnome",
+      "weight": 6,
+      "minCount": 2,
+      "maxCount": 4
+    }
+  ]
+}

@@ -1203,6 +1203,9 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.LivingStatueModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.SnakeModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.SnakeModel::createBodyLayer);
+        // Garden gnomes
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.GnomeModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.GnomeModel::createBodyLayer);
     }
 
     @SubscribeEvent
@@ -1335,6 +1338,8 @@ public class ClientModEvents {
                 });
         event.registerEntityRenderer(ModEntities.MEMORY_BLOCK.get(), com.hogwartsmagic.client.MemoryBlockRenderer::new);
         event.registerEntityRenderer(ModEntities.MEMORY_TAPE.get(), com.hogwartsmagic.client.MemoryTapeRenderer::new);
+        // Garden gnomes
+        event.registerEntityRenderer(ModEntities.GNOME.get(), com.hogwartsmagic.client.renderer.GnomeRenderer::new);
     }
 
 }

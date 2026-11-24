@@ -1156,6 +1156,8 @@ public class ClientModEvents {
         event.registerLayerDefinition(BroomModel.LAYER_LOCATION, BroomModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.GringottsCartModel.LAYER,
                 com.hogwartsmagic.client.model.GringottsCartModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.CaveSkiffModel.LAYER,
+                com.hogwartsmagic.client.model.CaveSkiffModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.TRAINING_LAYER, com.hogwartsmagic.client.BroomModelV2::createTrainingLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.NIMBUS_LAYER, com.hogwartsmagic.client.BroomModelV2::createNimbusLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.FIREBOLT_LAYER, com.hogwartsmagic.client.BroomModelV2::createFireboltLayer);

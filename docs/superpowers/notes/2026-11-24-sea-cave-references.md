@@ -316,3 +316,54 @@ near-vertical wall in section, but not straight in plan.
 Failure modes after round 2: no change from round 1 above the sea. Under the sea the flank is now
 plausible as a slope, but uniform. **Perfect primitive?** Not above the sea. The underwater flank is
 the closest thing to one (a rough, uneven-outlined frustum), and it sits below the waterline.
+
+## Pass 2: strata and big features (gate check)
+
+Built by `build_scripts/sea_cave/strata.py` and `features.py` on the pass 1 shape. Audits all pass
+(the ten from pass 1 plus `palette_contrast`). Time-boxed by the controller to two render rounds
+and N/E/S/W + one textured cutaway + one flat cutaway; the ten eye-level standpoints move to the
+in-game shots (flat headlamp drafts of all ten exist as `sea_cave_p2_flat_01..10_*`).
+
+**Strata.** One stone per bed of `frame.BEDS` (2..6 thick), neighbouring beds always different
+stones, so each band is one bed. Bed height = y + floor(dip) + a whole-block warp (rounded broad
+noise, depth-1 peaks smoothed, neighbours held 1 apart), so beds keep their thickness and, where the
+warp is zero, sit exactly on the beds shape.py steps the outline with. Stones and Rec.601 luma
+(side/top) from the 1.21 jar: deepslate 80/88, cobbled deepslate 78, basalt 73/82, smooth basalt 73,
+blackstone 38/39, tuff 108. Blackstone only between smooth basalt and cobbled deepslate (<= 40).
+Stack: mid-grey beds told apart by texture, dark blackstone partings at 51..53 and 80..82 (both on
+recessed very soft beds), one 2-thick tuff bed at 66..68. Cavern: quiet mid-greys with one dark
+parting at 21..23 (the bed with most wall and least floor or ceiling).
+
+**Features** (features.py): west overhang (bed 14 juts 1..3 over the west notch, z 38..55); west
+fallen slab of that bed on the apron; vault slab (basalt, in the lake under the vault); north-west
+slab repainted smooth basalt (the bed of its ceiling scar); south ledge (bed 5 from the cavern's
+south wall, x 20..32); shoulder gendarme (joint cut down the shoulder's west end, corner raised
+2..4); mouth balcony (pass 1 left a 3-thick lip of the leaning east wall in front of the mouth
+ledge, y 23..30 - the ledge looked at a wall; cut back, kept > 4.5 from the descent).
+
+Iterations: (a) first sequence: one blackstone belt round the body and a blackstone summit cap -
+read as a painted belt and a hat; (b) several thin partings, no cap - better; (c) tuff 3-thick just
+above the sea - read as a painted tide line round the foot, moved to 66..68; fractional warp
+speckled every flat top with the next band (dark blotches seen from above) - warp made whole-block;
+dark beds in the cavern blotched its flat floors and ceiling panels - only one kept, at wall height.
+
+| View | What I saw |
+|---|---|
+| North (`sea_cave_p2_n`) | Spire with a dark parting high up, the tuff line under the shoulder tops, a dark parting round the body; bands bend gently and run on round corners; the stump and needle carry the same bands. |
+| East (`_e`) | Needle separate, the same dark parting crossing it at the body's height; the bands are continuous across stack and needle. |
+| South (`_s`) | Shoulder now has a tooth (gendarme); the dark parting at 51..53 sits in its groove under a jutting bed; cleft below. Still more massif than column from due south. |
+| West (`_w`) | Spire and shoulder; partings step with the outline. The overhang does not read in the unlit viewer. |
+| Textured cutaway (`_cutz`) | Bands continue straight through the cut face; framing is far and the cavern is small in it - interior read owed to in-game shots. |
+| Flat cutaway z 44 (`_flat_cut_z44_north`) | Bands continuous from the cavern walls up through the stack; the cavern's dark parting and the stack's partings are the same tilted set; island and lake below. |
+
+Six failure modes: (1) density n/a; (2) proportion unchanged from pass 1; (3) focal point the spire;
+(4) no scatter - every feature is placed by name; (5) one-block contrast: none - `palette_contrast`
+fails a block-by-block mix (proven: random mixes, 2- and 3-grain blotches and 1-block stripes all
+fail) and the build passes; (6) regularity: partings are evenly continuous belts by nature; the
+blackstone lines are the loudest thing on the rock and from some angles still read as drawn on.
+**Believable?** From a stranger's eye: layered dark rock with a few strong partings - mostly yes;
+the two blackstone lines are at the 40-luma limit and are the first thing you notice. **Perfect
+primitive?** None added; the island remains a stepped mound (pass 1).
+
+Owed to in-game: all ten standpoints, overhang and ledges under real light, the cavern interior,
+whether the blackstone partings look painted at night.

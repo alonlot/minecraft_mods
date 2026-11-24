@@ -14,7 +14,8 @@ SEA_Y = 42
 # The cavern lake's top water block, well below the sea: the cave is a sealed pocket under the bed.
 LAKE_Y = 10
 
-STONE = 'minecraft:deepslate'
+# Placeholder for rock whose stone the strata decide (strata.block_at); never written to a template.
+STONE = 'sea_cave:rock'
 CAVE_AIR = 'minecraft:cave_air'
 WATER = 'minecraft:water'
 

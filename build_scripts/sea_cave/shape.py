@@ -8,7 +8,7 @@ inside is carved from a list of named features: cleft, flooded tunnel, antechamb
 passage, the descent, the mouth and ledge, and the cavern with its lake, island, slab, ledges and
 shore ramp. All coordinates come from frame.py.
 
-    solid(x, y, z) -> bool          rock written as STONE
+    solid(x, y, z) -> bool          rock (frame.STONE, painted by strata.py)
     carved(x, y, z) -> 'air' | 'water' | None
 """
 

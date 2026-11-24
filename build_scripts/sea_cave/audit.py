@@ -497,10 +497,111 @@ def rock_cover(blocks, descent=None, cavern=None):
     return out
 
 
+MIN_BANDS = 3
+
+
+def palette_contrast(blocks, fallen=()):
+    """The rock is banded, not mixed. Bands are told apart by stone (strata.py makes neighbouring
+    beds different stones). Fails when:
+    - a rock cell has more than 2 of its 6 rock neighbours in a different band, except along a band
+      boundary: a tilted boundary is a staircase, and a stair corner has 3 (one per axis: above,
+      and one side in x and one in z); more, or 3 with both sides of one axis, is a speck or a mix;
+    - a rock cell has another band on both sides along x or along z (a one-block fin);
+    - a column holds a run of 1 between two other bands (a one-block stripe);
+    - two touching bands differ by more than strata.MAX_STEP in luma, side or top face;
+    - a solid cell's stone is not in strata.LUMA, or fewer than MIN_BANDS stones are used.
+    `fallen` cells (fallen slabs, which lie across the beds by nature) are left out of the banding
+    checks, but their contacts still have to pass the luma step."""
+    from . import strata
+    table = strata.LUMA
+    rock, loose, pairs = {}, {}, {}
+    alien = {}
+    for p, v in blocks.items():
+        b = v[0]
+        if b in SOLID_SKIP or b == VOID:
+            continue
+        if b in table:
+            if p in fallen:
+                loose[p] = b
+            else:
+                rock[p] = b
+        else:
+            alien[b] = alien.get(b, 0) + 1
+    out = []
+    if alien:
+        out.append('palette_contrast: solid stones with no luma in strata.LUMA: %s'
+                   % ', '.join('%s x%d' % kv for kv in sorted(alien.items())))
+    used = set(rock.values())
+    for p, b in loose.items():
+        for d in N6:
+            o = rock.get((p[0] + d[0], p[1] + d[1], p[2] + d[2]))
+            if o is not None and o != b:
+                pairs.setdefault(tuple(sorted((b, o))), p)
+    if len(used) < MIN_BANDS:
+        out.append('palette_contrast: the rock is %d stone(s) (%s), not banded: no strata'
+                   % (len(used), ', '.join(sorted(used))))
+    specks = []
+    for p, b in rock.items():
+        diff, opposed = 0, False
+        for i in (0, 2, 4):
+            both = 0
+            for d in (N6[i], N6[i + 1]):
+                n = (p[0] + d[0], p[1] + d[1], p[2] + d[2])
+                o = rock.get(n)
+                if o is not None and o != b:
+                    diff += 1
+                    both += 1
+                    key = tuple(sorted((b, o)))
+                    if key not in pairs:
+                        pairs[key] = n
+            if both == 2 and i != 2:
+                opposed = True          # the vertical case is the stripe check below
+        if diff > 2 and opposed or diff > 3:
+            specks.append((p, b, diff))
+    if specks:
+        out.append('palette_contrast: %d rock cells have more than 2 neighbours in another band '
+                   'off a band boundary, e.g. %s %s with %d' % ((len(specks),) + specks[0]))
+    fins = [(p, b) for p, b in rock.items()
+            if any(rock.get((p[0] + dx, p[1], p[2] + dz)) not in (None, b)
+                   and rock.get((p[0] - dx, p[1], p[2] - dz)) not in (None, b)
+                   for dx, dz in ((1, 0), (0, 1)))]
+    if fins:
+        out.append('palette_contrast: %d one-block fins (another band on both sides along x or z), '
+                   'e.g. %s %s' % ((len(fins),) + fins[0]))
+    # A bed boundary is a gently tilted staircase: wherever the band changes sideways it also changes
+    # straight above or below the same cell. A boundary standing on end (other band beside, the
+    # same band above and below, inside the rock) is a blotch, not a bed.
+    upright = []
+    for (x, y, z), b in rock.items():
+        lo, hi = rock.get((x, y - 1, z)), rock.get((x, y + 1, z))
+        if lo != b or hi != b:
+            continue
+        if any(rock.get((x + dx, y, z + dz)) not in (None, b) for dx, dz in N4):
+            upright.append(((x, y, z), b))
+    if upright:
+        out.append('palette_contrast: %d cells on a band boundary standing on end (a blotch, not a '
+                   'bed), e.g. %s %s' % ((len(upright),) + upright[0]))
+    thin = []
+    for (x, y, z), b in rock.items():
+        lo, hi = rock.get((x, y - 1, z)), rock.get((x, y + 1, z))
+        if lo is not None and hi is not None and lo != b and hi != b:
+            thin.append(((x, y, z), b))
+    if thin:
+        out.append('palette_contrast: %d one-block stripes in a column, e.g. %s %s'
+                   % ((len(thin),) + thin[0]))
+    for (a, b), at in sorted(pairs.items()):
+        ds = abs(table[a][0] - table[b][0])
+        dt = abs(table[a][1] - table[b][1])
+        if max(ds, dt) > strata.MAX_STEP:
+            out.append('palette_contrast: %s touches %s (e.g. at %s): luma differs %.1f side, '
+                       '%.1f top, over %g' % (a, b, at, ds, dt, strata.MAX_STEP))
+    return out
+
+
 def problems(blocks, extra=None):
     if extra is None:
-        from . import shape
-        extra = shape.feature_cells()
+        from . import features, shape
+        extra = dict(shape.feature_cells(), fallen=set(features.FALLEN))
     out = []
     out += cleft_open(blocks)
     out += watertight(blocks)
@@ -512,4 +613,5 @@ def problems(blocks, extra=None):
     out += route_walkable(blocks)
     out += no_primitive(blocks)
     out += rock_cover(blocks, extra.get('descent'), extra.get('cavern'))
+    out += palette_contrast(blocks, extra.get('fallen', ()))
     return out

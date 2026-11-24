@@ -279,3 +279,40 @@ unchanged. **Would a person believe it was shaped?** From the north-west, ENE, e
 west, yes. From due south at sea level it is still more massif than column. **Perfect primitive?**
 None above the seabed. Under water the flank is no longer a uniform-slope frustum. The east face is a
 near-vertical wall in section, but not straight in plan.
+
+### Pass 1, review fixes round 2
+
+- **Plumb wall under the east waterline.** It could not be fixed by trimming the platform alone.
+  The rim must sink below local 10 within 6 of its edge, and the edge must stay 2 inside the frame.
+  With a fall of at most 6 a block, any rock at sea level has to stand at x <= 65 (and z <= 65). The
+  note's descent loop ran out to x 65, so it needed rock to x 70. The loop is pulled 3..5 west:
+  (58,43,31) (59,41,34) (59,39,39) (58,37,43) halfway, (59,35,47) (60,33,49) (59,31,52) (56,29,52)
+  (54,27,48), and the mouth is now (53,26,46). With it, the cavern's east wall moves 3 west (x 52..55),
+  the mouth ledge moves to x 50..52 and the shore ramp shifts 2..3 west ((51,26,47) (50,23,50) (48,20,54)
+  (46,17,58) (44,14,60) (42,12,61)). The body's east corner and the platform stop at x 64..65, the
+  platform's east edge wanders 63.5..65 along z, and the needle moves to (60, 60, 63). It still stands
+  apart above y 36 (3..4 blocks of water to the platform) and drops into the sea without a wave notch,
+  which used to pinch it. Under the sea the flank now falls 4.5..5.5 a block from the foot to the rim
+  skirt. New audit `column_drop`: no step over 6 between neighbouring columns below the sea outside
+  the cleft mouth. On the round-1 build it failed with 192 steps, worst 34 at (71,52) next to (72,52).
+- **Floating pieces.** The stump lost its wave notch (it cut the stump through) and now stands on the
+  apron. Boulders are seated half-buried on the seabed where they lie. Any boulder whose spot is near
+  the rim or on a steep flank is dropped (5 of 13 kept, all on the west and north-west apron). Crumbs
+  of 8 blocks or fewer left hanging by the carving are removed. New audit `connected`: every solid
+  piece is 6-connected to rock on the template floor. On the round-1 build it failed with 3 loose
+  pieces: 63 at the stump, 39 at the north boulder, 2 by the cleft.
+- **footprint_rim margin.** It now measures against the template as written. A structure void in the
+  far top corner keeps the template at its full 80 x 90 x 80 frame, so the 2-block margin is real
+  (the void places nothing).
+
+| View (round 2, `sea_cave_p1_r2_*`) | What I saw |
+|---|---|
+| Under water east (`_rim_e`) | No plumb wall. The east flank falls in steps of 4..6 to the skirt, rough-faced. |
+| Under water south-east / south-west (`_rim_se`, `_rim_sw`) | A broad mound whose flank climbs at a near-even 4.5..5.5 a block from the skirt, so it reads as a rough frustum from below. With a fall limit of 6 there is no room to vary it more inside the frame. Only visible from under the sea. |
+| East at sea level (`_esea`), east (`_e`), needle (`_needle`) | The needle is now thinner and taller-looking, clearly separate from the main foot. The spire's north-east face is one face. The east platform ends a few blocks sooner. |
+| Stump (`_stump`) | Seated on the apron and partly awash. No longer floating. |
+| South-east (`_se`) | Main mass, needle in front, platform between. |
+
+Failure modes after round 2: no change from round 1 above the sea. Under the sea the flank is now
+plausible as a slope, but uniform. **Perfect primitive?** Not above the sea. The underwater flank is
+the closest thing to one (a rough, uneven-outlined frustum), and it sits below the waterline.

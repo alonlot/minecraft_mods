@@ -154,7 +154,7 @@ def _plan(uvs):
 
 # body: narrow at the south-west tip, broad at the north-east end that holds the spire and the
 # descent; the cleft's recess on the south-east face at u -18..-15
-BODY = _plan([(25.5, -1), (26, 3), (24.5, 6), (24, 13), (19, 15), (17, 17), (11, 16),
+BODY = _plan([(25.5, -1), (25.5, 1.5), (23.5, 4), (20.5, 7), (17, 10), (13.5, 13.5), (11, 16),
               (10, 13.5), (4, 13), (3, 14), (-3, 13.5), (-4, 11.5), (-9, 11), (-10, 11.5), (-13, 10.5),
               (-13.5, 12.6), (-15.3, 12.4), (-15.6, 9.5), (-18.4, 9.3), (-18.6, 11.2),
               (-20, 10.8), (-23.5, 9.5), (-24.5, 5), (-28.5, 3), (-28.5, -1.5),
@@ -176,11 +176,11 @@ SHOULDER = [(27, 40), (33, 40), (33, 42), (37, 42), (37, 47), (35, 47), (35, 51)
             (26, 49), (26, 44), (27, 44)]
 # Drawn in x, z: it has to stop 9 blocks short of the frame's east edge so the seabed rim can sink
 # below the natural sea floor before the template ends.
-BENCH = [(58, 19), (64, 18), (67.5, 22), (69.5, 28), (69.5, 33), (70.5, 37.5), (70.5, 44), (71, 49),
-         (71, 55), (68.5, 59.5), (63.5, 61), (57, 58), (52, 54), (49, 48.5), (54, 42.5), (60, 34),
-         (59, 28)]
+BENCH = [(58, 19), (62.5, 19.5), (64.5, 24), (63.5, 29), (65, 33), (63.5, 37), (65, 41),
+         (65, 46), (65, 49.5), (63, 53), (60, 55.5), (56, 56), (52, 54), (49, 48.5), (54, 42.5),
+         (60, 34), (59, 28)]
 # the satellite needle, pulled 4 west of the note's x 72 for the same reason
-NEEDLE = [(65, 65), (68, 64), (71, 65), (71.5, 68), (69, 70), (66, 69.5), (64.5, 67.5)]
+NEEDLE = [(57, 61), (60, 60), (63, 61), (63.5, 63.5), (61.5, 65.5), (58.5, 65), (57, 63.5)]
 STUMP = [(15, 19), (19, 18), (22, 20), (21.5, 24), (18, 26), (14, 24)]
 
 # Top of the body along the blade, before the beds snap it: low at the south-west tip, the saddle
@@ -236,7 +236,7 @@ def _tilted(y_top, high, fall, slope, rough, seed):
 
 def _needle_top(x, z, d):
     # a tilted top, high on its north-west corner
-    return dip(x, z) + F.NEEDLE[1] + 0.99 - 0.6 * max(0.0, (x - 69) + (z - 67.5))
+    return dip(x, z) + F.NEEDLE[1] + 0.99 - 0.6 * max(0.0, (x - 60.5) + (z - 63))
 
 
 def _stump_top(x, z, d):
@@ -276,9 +276,9 @@ MASSES = [
     dict(name='bench', poly=BENCH, ref=42, lean=(0.0, 0.0), taper=0.0, side=None, recess=0.6,
          top=_bench_top, notch=False, seed=606, shared=0.55, band=0.4),
     dict(name='needle', poly=NEEDLE, ref=40, lean=(0.05, 0.04), taper=0.07, side=None, recess=0.4,
-         top=_needle_top, notch=True, seed=707, shared=0.35, band=0.25),
+         top=_needle_top, notch=False, seed=707, shared=0.35, band=0.25),
     dict(name='stump', poly=STUMP, ref=40, lean=(0.0, 0.0), taper=0.05, side=None, recess=0.5,
-         top=_stump_top, notch=True, seed=808, shared=0.5, band=0.3),
+         top=_stump_top, notch=False, seed=808, shared=0.5, band=0.3),
 ]
 for _m in MASSES:
     _m['centre'] = xz_to_uv(sum(p[0] for p in _m['poly']) / len(_m['poly']),
@@ -365,7 +365,7 @@ BOULDERS = [
 
 
 def _boulder(x, y, z):
-    for bx, by, bz, rx, ry, rz in BOULDERS:
+    for bx, by, bz, rx, ry, rz in _cache().boulders:
         dx, dy, dz = abs(x - bx) / rx, abs(y - by) / ry, abs(z - bz) / rz
         if dx > 1.6 or dy > 1.6 or dz > 1.6:
             continue
@@ -378,8 +378,8 @@ def _boulder(x, y, z):
 # --- interior features --------------------------------------------------------------------------
 
 CAVERN = [(15, 31), (17, 28), (21, 26), (26, 27), (31, 25), (37, 26), (43, 27), (48, 29),
-          (52, 31), (55, 35), (55, 40), (57, 43), (58, 47), (55, 49), (55, 54), (53, 59),
-          (49, 63), (44, 64), (37, 63), (31, 64), (26, 63), (21, 62), (17, 60), (15, 57),
+          (51, 31), (53, 35), (52.5, 40), (54, 43), (55, 47), (52, 49.5), (52, 54), (51, 59),
+          (48, 63), (44, 64), (37, 63), (31, 64), (26, 63), (21, 62), (17, 60), (15, 57),
           (14, 52), (15, 46), (13, 40), (14, 35)]
 LAKE = [(17, 31), (20, 30), (24, 31), (30, 30), (36, 30), (42, 31), (47, 33), (50, 37),
         (51, 42), (49, 47), (47, 51), (45, 55), (42, 57), (37, 58), (31, 57), (26, 59),
@@ -695,7 +695,7 @@ def _build():
     for x, z in cav_cols:
         dw = c.cav(x, z) - 1.3 * sn(x, z, 3.5, 80)
         cl = min(_ceiling_panel(x, z), int(19 + 2.6 * dw + 1.2 * sn(x, z, 3, 90)))
-        if math.hypot(x - 55, z - 46) <= 4.5:
+        if math.hypot(x - 52, z - 46) <= 4.5:
             cl = max(cl, 30)
         (sx0, sx1), _, (sz0, sz1) = F.FALLEN_SLAB
         if sx0 <= x <= sx1 and sz0 <= z <= sz1:
@@ -722,7 +722,7 @@ def _build():
     # where a ledge or the shore ramp is cut along them.
     cut_along = set(ramp_top)
     for x, z in cav_cols:
-        if math.hypot(x - 55, z - 46) <= 3.5:
+        if math.hypot(x - 52, z - 46) <= 3.5:
             cut_along.add((x, z))
     cavern = set()
     for x, z in cav_cols:
@@ -751,6 +751,17 @@ def _build():
     # ---- seabed, apron and the cap over the cavern -----------------------------------------
     c.carve = carve
     c.base = _seabed(c)
+    # boulders are seated on the seabed where they fall, half buried; any whose spot lies outside
+    # the footprint is dropped
+    c.boulders = []
+    for bx, by, bz, rx, ry, rz in BOULDERS:
+        if (bx, bz) not in c.base or c.rim_dist[(bx, bz)] <= 7:
+            continue
+        f0 = c.base[(bx, bz)]
+        ring = [c.base.get((bx + dx, bz + dz), -99) for dx in range(-3, 4) for dz in range(-3, 4)]
+        if min(ring) < f0 - 2:
+            continue                  # on a steep flank it would stand proud as a pillar
+        c.boulders.append((bx, f0 + 0.4 * ry, bz, rx, ry, rz))
     si = [m['name'] for m in MASSES].index('spire')
     c.spire_face = {}
     for x in range(51, 59):
@@ -785,9 +796,9 @@ def _seabed(c):
                 f = f_apron + (f_edge - f_apron) * smooth(t * 1.15)
             # the needle's own foot, lower, with a channel between it and the main foot
             dn = -needle(x, z)
-            fn = 35.0 - 1.1 * max(0.0, dn) + 0.8 * sn(x, z, 2, 124)
+            fn = 37.0 - 1.1 * max(0.0, dn) + 0.6 * sn(x, z, 2, 124)
             if dn < 6 and d_out > 1.0:
-                f = min(f, 34.5 + 0.8 * sn(x, z, 2, 125)) if dn < 4.5 else f
+                f = min(f, 36.0) if dn < 4.5 else f
             f = max(f, fn)
             # keep the sea open in front of the cleft
             if 33 <= x <= 43 and 58 <= z <= 70:
@@ -853,11 +864,13 @@ def _seabed(c):
     for (x, z) in foot:
         d = math.sqrt(min((x - a) ** 2 + (z - b) ** 2 for a, b in rim_edge))
         if d <= 6.0:
-            lim = 2.0 + 1.1 * d + 1.0 * vn(x, z, 3, 131)        # at most 9.6 within 6 of the rim
+            lim = 2.0 + 1.3 * d + 0.5 * vn(x, z, 3, 131)        # at most 10 within 6 of the rim
         else:
             # then a flank whose steepness wanders, so it is not a frustum
-            lim = (9.6 + (1.8 + 3.6 * vn(x, z, 7, 132)) * (d - 6.0)
-                   + 2.0 * sn(x, z, 2.5, 133) * min(1.0, (d - 6.0) / 3.0))
+            # then a flank of 4.5..5.5 a block, steep enough to reach the stack's foot from the
+            # rim and never more than 6 between neighbours
+            lim = (9.8 + (4.5 + 1.0 * vn(x, z, 7, 132)) * (d - 6.0)
+                   + 0.5 * sn(x, z, 2.5, 133) * min(1.0, (d - 6.0) / 3.0))
         out[(x, z)] = int(math.floor(min(base[(x, z)], lim)))
         if d <= 6.0:
             out[(x, z)] = min(out[(x, z)], 10)
@@ -925,7 +938,7 @@ def envelope(x, y, z):
             return True
     if _flake(x, y, z):
         return True
-    if 36 <= y <= 45 and _boulder(x, y, z):
+    if 20 <= y <= 45 and _boulder(x, y, z):
         return True
     return False
 

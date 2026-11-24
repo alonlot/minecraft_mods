@@ -12,6 +12,7 @@ from collections import deque
 from . import frame as F
 
 SOLID_SKIP = (F.CAVE_AIR, F.WATER, 'minecraft:air')
+VOID = 'minecraft:structure_void'
 
 
 def _kind(blocks, p):
@@ -26,6 +27,8 @@ def _kind(blocks, p):
         return 'air'
     if v[0] == F.WATER:
         return 'water'
+    if v[0] == VOID:
+        return None          # a structure void places nothing: the world shows through
     return 'solid'
 
 
@@ -123,19 +126,22 @@ def footprint_rim(blocks, margin=2, band=6.0, low=10):
     """Nothing listed within `margin` of the frame edge, and nothing solid above y `low` within
     `band` of the footprint's rim (the edge of the set of columns the template lists at all), so the
     template sinks into the natural sea floor instead of ending in a square cliff."""
+    size = [max(p[i] for p in blocks) + 1 for i in range(3)]       # the template as written
     cols = {}
     for (x, y, z), v in blocks.items():
+        if v[0] == VOID:
+            continue
         top = cols.get((x, z), -1)
         if v[0] not in SOLID_SKIP and y > top:
             cols[(x, z)] = y
         elif (x, z) not in cols:
             cols[(x, z)] = -1
     out = []
-    near = [q for q in cols if min(q[0], q[1], F.SIZE[0] - 1 - q[0], F.SIZE[2] - 1 - q[1]) < margin]
+    near = [q for q in cols if min(q[0], q[1], size[0] - 1 - q[0], size[2] - 1 - q[1]) < margin]
     if near:
         out.append('footprint_rim: %d listed columns within %d of the frame edge, e.g. %s'
                    % (len(near), margin, near[0]))
-    rim = [(x, z) for x in range(-1, F.SIZE[0] + 1) for z in range(-1, F.SIZE[2] + 1)
+    rim = [(x, z) for x in range(-1, size[0] + 1) for z in range(-1, size[2] + 1)
            if (x, z) not in cols and any((x + dx, z + dz) in cols for dx, dz in N4)]
     high = []
     for (x, z), top in cols.items():
@@ -196,6 +202,63 @@ def _island_dry(blocks):
                 seen.add(n)
                 q.append(n)
     return seen
+
+
+def column_drop(blocks, limit=6):
+    """Under the sea the rock surface never drops more than `limit` between neighbouring columns
+    (outside the cleft mouth): no plumb underwater walls. A column's surface is its highest solid
+    at or below the sea's top water block; columns the template leaves to the world are skipped."""
+    tops = {}
+    cols = {(x, z) for (x, y, z), v in blocks.items() if v[0] != VOID}
+    (cx0, cx1), _, (cz0, cz1) = F.CLEFT_ZONE
+    for (x, z) in cols:
+        if cx0 <= x <= cx1 and cz0 <= z <= cz1:
+            continue
+        for y in range(F.SEA_Y, -1, -1):
+            if _kind(blocks, (x, y, z)) == 'solid':
+                tops[(x, z)] = y
+                break
+    bad = []
+    for (x, z), t in tops.items():
+        for dx, dz in ((1, 0), (0, 1)):
+            u = tops.get((x + dx, z + dz))
+            if u is not None and abs(u - t) > limit:
+                bad.append((abs(u - t), (x, z), t, (x + dx, z + dz), u))
+    if bad:
+        bad.sort(reverse=True)
+        return ['column_drop: %d underwater steps over %d blocks, worst %d: %s top %d next to %s top %d'
+                % ((len(bad), limit) + bad[0])]
+    return []
+
+
+def connected(blocks):
+    """Every piece of rock is joined (6-connected) to rock standing on the template floor: nothing
+    floats, nothing hangs cut off by the notch."""
+    solid = {p for p, v in blocks.items() if v[0] not in SOLID_SKIP and v[0] != VOID}
+    seen = set()
+    loose = []
+    for s0 in solid:
+        if s0 in seen:
+            continue
+        comp, q, grounded = [s0], [s0], s0[1] == 0
+        seen.add(s0)
+        while q:
+            x, y, z = q.pop()
+            for d in N6:
+                n = (x + d[0], y + d[1], z + d[2])
+                if n in solid and n not in seen:
+                    seen.add(n)
+                    comp.append(n)
+                    q.append(n)
+                    if n[1] == 0:
+                        grounded = True
+        if not grounded:
+            loose.append(comp)
+    if loose:
+        loose.sort(key=len, reverse=True)
+        desc = ', '.join('%d at %s' % (len(c), min(c, key=lambda p: p[1])) for c in loose[:4])
+        return ['connected: %d loose pieces of rock not joined to the ground: %s' % (len(loose), desc)]
+    return []
 
 
 def island_steps(blocks):
@@ -442,6 +505,8 @@ def problems(blocks, extra=None):
     out += cleft_open(blocks)
     out += watertight(blocks)
     out += footprint_rim(blocks)
+    out += column_drop(blocks)
+    out += connected(blocks)
     out += island_steps(blocks)
     out += island_isolated(blocks)
     out += route_walkable(blocks)

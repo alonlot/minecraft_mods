@@ -41,7 +41,7 @@ CLEFT_LEAN = 'west'
 SUMMIT = (54, 87, 30)
 SHOULDER = (32, 68, 46)
 WATERLINE_CENTROID = (45, 42, 40)
-NEEDLE = (68, 60, 67)          # note says x 72; pulled west to keep the rim inside the frame
+NEEDLE = (60, 60, 63)          # note: (72, 60, 67); pulled in so its foot can slope into the sea floor
 STUMP = (18, 48, 22)
 
 CLEFT_X = (37, 39)          # 3 wide at the waterline
@@ -61,16 +61,18 @@ ARCH_Z = (32, 34)
 ARCH_FEET = 45
 
 # (x, feet y, z) through the eastern flank, then the mouth.
-DESCENT = [(52, 45, 33), (55, 45, 33), (59, 43, 31), (63, 41, 34), (64, 39, 39), (62, 37, 43),
-           (63, 35, 47), (65, 33, 51), (64, 31, 55), (61, 29, 52), (58, 27, 48), (56, 26, 46)]
-DESCENT_HALFWAY = (62, 37, 43)
+# The note's loop ran out to x 65; it is pulled 3..5 west so the east flank can fall away under the
+# sea in steps of at most 6 and still sink below local 10 before the template ends.
+DESCENT = [(52, 45, 33), (55, 45, 33), (58, 43, 31), (59, 41, 34), (59, 39, 39), (58, 37, 43),
+           (59, 35, 47), (60, 33, 49), (59, 31, 52), (56, 29, 52), (54, 27, 48), (53, 26, 46)]
+DESCENT_HALFWAY = (58, 37, 43)
 # The last two legs run into the cavern wall by design; everything before them keeps 4 blocks of rock.
 DESCENT_TAIL_FROM = 9
-MOUTH = (56, 26, 46)
-MOUTH_LEDGE = ((53, 55), 25, (45, 47))      # x range, solid top, z range
+MOUTH = (53, 26, 46)
+MOUTH_LEDGE = ((50, 52), 25, (45, 47))      # x range, solid top, z range
 
 # Shore ramp (x, feet y, z), never over the water.
-SHORE_PATH = [(54, 26, 47), (53, 23, 50), (51, 20, 54), (48, 17, 58), (45, 14, 60), (42, 12, 61)]
+SHORE_PATH = [(51, 26, 47), (50, 23, 50), (48, 20, 54), (46, 17, 58), (44, 14, 60), (42, 12, 61)]
 RING = (41, 12, 62)
 DOCK = (40, 10, 57)
 SKIFF = [(40, 10, 57), (39, 10, 52), (35, 10, 48), (32, 10, 45)]
@@ -81,7 +83,7 @@ ISLAND_TOP = (24, 14, 41)                   # solid top 14, feet 15
 BASIN = (24, 15, 41)
 GOBLET = (25, 15, 42)
 
-CAVERN_BOX = ((10, 60), (0, 36), (24, 66))   # x, y, z: where cavern cells can be
+CAVERN_BOX = ((10, 58), (0, 36), (24, 66))   # x, y, z: where cavern cells can be
 VAULT = (36, 35, 40)                        # highest cavern air
 FALLEN_SLAB = ((16, 22), (9, 12), (31, 34))    # note: x 13..19; the west wall moved east
 NORTH_LEDGE = ((20, 40), 18, (27, 29))      # x range, solid top, z range

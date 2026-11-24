@@ -1,0 +1,398 @@
+{
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "particle": "hogwartsmagic:block/horcrux_stone",
+    "stone": "hogwartsmagic:block/horcrux_stone",
+    "top": "hogwartsmagic:block/horcrux_stone_top",
+    "carved": "hogwartsmagic:block/horcrux_carved",
+    "metal": "hogwartsmagic:block/horcrux_metal",
+    "serpent": "hogwartsmagic:block/horcrux_serpent_glow",
+    "runes": "hogwartsmagic:block/horcrux_rune_glow"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        2
+      ],
+      "to": [
+        14,
+        2,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone"
+        },
+        "south": {
+          "texture": "#stone"
+        },
+        "east": {
+          "texture": "#stone"
+        },
+        "west": {
+          "texture": "#stone"
+        },
+        "up": {
+          "texture": "#top"
+        },
+        "down": {
+          "texture": "#stone",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        2,
+        3
+      ],
+      "to": [
+        13,
+        4,
+        13
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone"
+        },
+        "south": {
+          "texture": "#stone"
+        },
+        "east": {
+          "texture": "#stone"
+        },
+        "west": {
+          "texture": "#stone"
+        },
+        "up": {
+          "texture": "#top"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        4,
+        5
+      ],
+      "to": [
+        11,
+        10,
+        11
+      ],
+      "faces": {
+        "north": {
+          "texture": "#carved"
+        },
+        "south": {
+          "texture": "#carved"
+        },
+        "east": {
+          "texture": "#carved"
+        },
+        "west": {
+          "texture": "#carved"
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        10,
+        4
+      ],
+      "to": [
+        12,
+        11,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#metal"
+        },
+        "south": {
+          "texture": "#metal"
+        },
+        "east": {
+          "texture": "#metal"
+        },
+        "west": {
+          "texture": "#metal"
+        },
+        "up": {
+          "texture": "#metal"
+        },
+        "down": {
+          "texture": "#metal"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        11,
+        5
+      ],
+      "to": [
+        11,
+        12,
+        11
+      ],
+      "faces": {
+        "north": {
+          "texture": "#metal"
+        },
+        "south": {
+          "texture": "#metal"
+        },
+        "east": {
+          "texture": "#metal"
+        },
+        "west": {
+          "texture": "#metal"
+        },
+        "up": {
+          "texture": "#stone"
+        }
+      }
+    },
+    {
+      "from": [
+        7.5,
+        11,
+        4.5
+      ],
+      "to": [
+        8.5,
+        14,
+        5.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#metal"
+        },
+        "south": {
+          "texture": "#metal"
+        },
+        "east": {
+          "texture": "#metal"
+        },
+        "west": {
+          "texture": "#metal"
+        },
+        "up": {
+          "texture": "#metal"
+        },
+        "down": {
+          "texture": "#metal"
+        }
+      },
+      "rotation": {
+        "angle": 22.5,
+        "axis": "x",
+        "origin": [
+          8,
+          11,
+          5
+        ]
+      }
+    },
+    {
+      "from": [
+        7.5,
+        11,
+        10.5
+      ],
+      "to": [
+        8.5,
+        14,
+        11.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#metal"
+        },
+        "south": {
+          "texture": "#metal"
+        },
+        "east": {
+          "texture": "#metal"
+        },
+        "west": {
+          "texture": "#metal"
+        },
+        "up": {
+          "texture": "#metal"
+        },
+        "down": {
+          "texture": "#metal"
+        }
+      },
+      "rotation": {
+        "angle": -22.5,
+        "axis": "x",
+        "origin": [
+          8,
+          11,
+          11
+        ]
+      }
+    },
+    {
+      "from": [
+        4.5,
+        11,
+        7.5
+      ],
+      "to": [
+        5.5,
+        14,
+        8.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#metal"
+        },
+        "south": {
+          "texture": "#metal"
+        },
+        "east": {
+          "texture": "#metal"
+        },
+        "west": {
+          "texture": "#metal"
+        },
+        "up": {
+          "texture": "#metal"
+        },
+        "down": {
+          "texture": "#metal"
+        }
+      },
+      "rotation": {
+        "angle": -22.5,
+        "axis": "z",
+        "origin": [
+          5,
+          11,
+          8
+        ]
+      }
+    },
+    {
+      "from": [
+        10.5,
+        11,
+        7.5
+      ],
+      "to": [
+        11.5,
+        14,
+        8.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#metal"
+        },
+        "south": {
+          "texture": "#metal"
+        },
+        "east": {
+          "texture": "#metal"
+        },
+        "west": {
+          "texture": "#metal"
+        },
+        "up": {
+          "texture": "#metal"
+        },
+        "down": {
+          "texture": "#metal"
+        }
+      },
+      "rotation": {
+        "angle": 22.5,
+        "axis": "z",
+        "origin": [
+          11,
+          11,
+          8
+        ]
+      }
+    },
+    {
+      "from": [
+        4.99,
+        4,
+        4.99
+      ],
+      "to": [
+        11.01,
+        10,
+        11.01
+      ],
+      "faces": {
+        "north": {
+          "texture": "#serpent",
+          "forge_data": {
+            "block_light": 15,
+            "sky_light": 15,
+            "ambient_occlusion": false
+          }
+        },
+        "south": {
+          "texture": "#serpent",
+          "forge_data": {
+            "block_light": 15,
+            "sky_light": 15,
+            "ambient_occlusion": false
+          }
+        },
+        "east": {
+          "texture": "#serpent",
+          "forge_data": {
+            "block_light": 15,
+            "sky_light": 15,
+            "ambient_occlusion": false
+          }
+        },
+        "west": {
+          "texture": "#serpent",
+          "forge_data": {
+            "block_light": 15,
+            "sky_light": 15,
+            "ambient_occlusion": false
+          }
+        }
+      },
+      "shade": false
+    },
+    {
+      "from": [
+        3,
+        4.01,
+        3
+      ],
+      "to": [
+        13,
+        4.01,
+        13
+      ],
+      "faces": {
+        "up": {
+          "texture": "#runes",
+          "forge_data": {
+            "block_light": 15,
+            "sky_light": 15,
+            "ambient_occlusion": false
+          }
+        }
+      },
+      "shade": false
+    }
+  ]
+}

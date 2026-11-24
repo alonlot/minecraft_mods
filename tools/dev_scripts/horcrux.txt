@@ -1,0 +1,62 @@
+# Horcrux review: the dormant vessel by night and day, the rite (crimson heart, rite circle, a feed pulse with
+# its tether), the bound heart, the bind's implosion, slam and pillar, and a shatter with the soul streaking out.
+# Run it in its own flat world (HOGWARTSMAGIC_DEV_WORLD=horcrux_demo): the surface is y -60.
+# The rite moments are replayed locally with `fx`, so their sounds (played by the server) are not heard here.
+wait 40
+cmd time set 18000
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd gamerule sendCommandFeedback false
+cmd gamerule announceAdvancements false
+cmd weather clear
+cmd kill @e[type=!player]
+cmd clear @s
+cmd fill -8 -61 -8 8 -61 8 minecraft:deepslate_tiles
+cmd setblock 0 -60 0 hogwartsmagic:horcrux
+gui off
+camera first
+cmd tp @s 0.5 -60 3.2 180 28
+wait 60
+shot horcrux_01_dormant_night
+cmd time set 6000
+wait 10
+shot horcrux_02_dormant_day
+cmd tp @s 2.6 -60 2.6 135 24
+wait 10
+shot horcrux_03_dormant_day_corner
+cmd time set 18000
+cmd setblock 0 -60 0 hogwartsmagic:horcrux[lit=true]{Primed:1b,RitualPulses:3}
+cmd tp @s 0.5 -60 3.6 180 22
+wait 30
+shot horcrux_04_rite
+camera back
+cmd tp @s 0.5 -60 3.6 160 15
+wait 10
+fx horcrux_feed 0.5 -58.95 0.5 3 6
+wait 6
+shot horcrux_05_feed
+wait 30
+camera first
+cmd data merge block 0 -60 0 {Active:1b,Primed:0b,RitualPulses:0}
+cmd tp @s 0.5 -60 4.5 180 15
+wait 30
+shot horcrux_06_bound
+fx horcrux_bound 0.5 -58.95 0.5
+wait 25
+shot horcrux_07_bind_implode
+wait 19
+shot horcrux_08_bind_slam
+wait 8
+cmd tp @s 0.5 -60 7.5 180 -12
+wait 1
+shot horcrux_09_bind_pillar
+wait 70
+cmd tp @s 0.5 -60 4.5 180 10
+wait 10
+fx horcrux_shatter 0.5 -58.95 0.5 1
+wait 9
+shot horcrux_10_shatter
+wait 12
+shot horcrux_11_soul_escapes
+wait 40
+quit

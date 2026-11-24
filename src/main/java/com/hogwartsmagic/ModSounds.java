@@ -328,6 +328,11 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> HORCRUX_SHATTER = register("horcrux.shatter");
     public static final RegistryObject<SoundEvent> HORCRUX_BREAK = register("horcrux.break");
     public static final RegistryObject<SoundEvent> HORCRUX_SCREAM = register("horcrux.scream");
+    public static final RegistryObject<SoundEvent> HORCRUX_HEARTBEAT = register("horcrux.heartbeat");
+    public static final RegistryObject<SoundEvent> HORCRUX_FEED = register("horcrux.feed");
+    public static final RegistryObject<SoundEvent> HORCRUX_WHISPER = register("horcrux.whisper");
+    public static final RegistryObject<SoundEvent> HORCRUX_ABORT = register("horcrux.abort");
+    public static final RegistryObject<SoundEvent> HORCRUX_REBIRTH = register("horcrux.rebirth");
 
     public static final RegistryObject<SoundEvent> PENSIEVE_SWALLOW = register("pensieve.swallow");
     public static final RegistryObject<SoundEvent> PENSIEVE_FALL = register("pensieve.fall");

@@ -99,13 +99,18 @@ public class HorcruxSoulEntity extends Entity {
             moveTo(getX() + velocity.x, getY() + velocity.y, getZ() + velocity.z, getYRot(), getXRot());
         }
         if (level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SQUID_INK), getX(), getY() + 0.9, getZ(),
-                    3, 0.14, 0.2, 0.14, 0.01);
-            serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SOUL), getX(), getY() + 1.0, getZ(),
-                    2, 0.12, 0.15, 0.12, 0.005);
+            // The torn soul trails black smoke and the vessel's green light behind it.
+            serverLevel.sendParticles(com.hogwartsmagic.util.MagicParticles.SMOKE_DARK, getX(), getY() + 0.9, getZ(),
+                    3, 0.16, 0.3, 0.16, 0.01);
+            serverLevel.sendParticles(new com.hogwartsmagic.spell.vfx.SpellVfxOptions(
+                            com.hogwartsmagic.spell.vfx.SpellVfxOptions.Kind.MOTE,
+                            com.hogwartsmagic.block.entity.HorcruxBlockEntity.SOUL_GREEN, 0.05f, 24),
+                    getX(), getY() + 1.0, getZ(), 2, 0.14, 0.25, 0.14, 0.005);
             if (tickCount % 2 == 0) {
-                serverLevel.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.DRAGON_BREATH), getX(), getY() + 0.7, getZ(),
-                        1, 0.08, 0.08, 0.08, 0.01);
+                serverLevel.sendParticles(new com.hogwartsmagic.spell.vfx.SpellVfxOptions(
+                                com.hogwartsmagic.spell.vfx.SpellVfxOptions.Kind.GLOW,
+                                com.hogwartsmagic.block.entity.HorcruxBlockEntity.SOUL_GREEN, 0.1f, 14),
+                        getX(), getY() + 1.1, getZ(), 1, 0.05, 0.1, 0.05, 0.0);
             }
         }
 

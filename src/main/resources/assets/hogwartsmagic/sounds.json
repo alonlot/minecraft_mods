@@ -1792,6 +1792,51 @@
       }
     ]
   },
+  "horcrux.heartbeat": {
+    "subtitle": "subtitles.hogwartsmagic.horcrux.heartbeat",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horcrux/heartbeat",
+        "stream": false
+      }
+    ]
+  },
+  "horcrux.feed": {
+    "subtitle": "subtitles.hogwartsmagic.horcrux.feed",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horcrux/feed",
+        "stream": false
+      }
+    ]
+  },
+  "horcrux.whisper": {
+    "subtitle": "subtitles.hogwartsmagic.horcrux.whisper",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horcrux/whisper",
+        "stream": false
+      }
+    ]
+  },
+  "horcrux.abort": {
+    "subtitle": "subtitles.hogwartsmagic.horcrux.abort",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horcrux/abort",
+        "stream": false
+      }
+    ]
+  },
+  "horcrux.rebirth": {
+    "subtitle": "subtitles.hogwartsmagic.horcrux.rebirth",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horcrux/rebirth",
+        "stream": false
+      }
+    ]
+  },
   "inferius.ambient": {
     "subtitle": "subtitles.hogwartsmagic.inferius.ambient",
     "sounds": [

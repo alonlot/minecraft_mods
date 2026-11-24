@@ -83,11 +83,12 @@ class CaveLayoutTest {
                 assertEquals(base.inCave(plain), r.inCave(turned), "cave " + rot + " " + java.util.Arrays.toString(q));
                 assertEquals(base.inLake(plain, true), r.inLake(turned, true), "lake " + rot + " " + java.util.Arrays.toString(q));
             }
-            assertTrue(r.onIsland(at(0, 0, -8, rot)));
-            assertTrue(r.onIsland(at(0, 0, -9, rot)));
+            assertTrue(r.onIsland(at(0, 0, -6, rot)));
+            assertFalse(r.onIsland(at(0, 0, -9, rot)));
             assertFalse(r.onIsland(at(0, 0, -12, rot)));
         }
-        assertTrue(base.onIsland(BASIN.offset(0, 0, -8)));
+        assertTrue(base.onIsland(BASIN.offset(0, 0, -6)));
+        assertEquals(6, base.islandRadius());
         assertFalse(base.onIsland(BASIN.offset(0, 5, 0)));
     }
 
@@ -99,6 +100,11 @@ class CaveLayoutTest {
         assertTrue(l.inLake(new BlockPos(below.getX(), l.lakeSurfaceY(), below.getZ()), true));
         assertFalse(l.inLake(new BlockPos(below.getX(), l.lakeSurfaceY() + 1, below.getZ()), true));
         assertFalse(l.inLake(BASIN.offset(500, -5, 0), true)); // outside the cave
+        assertTrue(l.inLake(BASIN.offset(-2, -3, -17), true)); // between the docks
+        assertFalse(l.inLake(BASIN.offset(36, -3, 0), true)); // open sea, same level, inside the cave box
+        assertFalse(l.inLake(BASIN.offset(0, -3, -38), true));
+        assertFalse(l.inLake(BASIN.offset(8, -10, 8), true)); // below the lake floor
+        assertTrue(l.inLake(BASIN.offset(8, -9, 8), true));
     }
 
     @Test void saveLoadRoundTrip() {

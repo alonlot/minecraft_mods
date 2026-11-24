@@ -148,14 +148,15 @@ public class InferiusEntity extends Monster {
             if (self.caveBasin == null || self.getTarget() != null || self.isInWater()) return false;
             if (cooldown-- > 0) return false;
             cooldown = 40 + self.random.nextInt(40);
+            CaveLayout layout = self.level().hasChunkAt(self.caveBasin)
+                    && self.level().getBlockEntity(self.caveBasin) instanceof com.hogwartsmagic.block.entity.DespairBasinBlockEntity basin
+                    ? basin.layout() : CaveLayout.legacy(self.caveBasin);
             for (int t = 0; t < 12; t++) {
                 int x = self.getBlockX() + self.random.nextInt(17) - 8;
                 int z = self.getBlockZ() + self.random.nextInt(17) - 8;
                 for (int y = self.getBlockY() + 2; y >= self.getBlockY() - 6; y--) {
                     BlockPos p = new BlockPos(x, y, z);
                     if (!self.level().getFluidState(p).is(FluidTags.WATER)) continue;
-                    var layout = self.level().getBlockEntity(self.caveBasin) instanceof com.hogwartsmagic.block.entity.DespairBasinBlockEntity basin
-                            ? basin.layout() : CaveLayout.legacy(self.caveBasin);
                     if (layout.inLake(p, true)) {
                         target = Vec3.atBottomCenterOf(p);
                         return true;

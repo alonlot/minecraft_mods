@@ -19,8 +19,11 @@ public record CaveLayout(int version, BlockPos basin, List<BlockPos> arches, Blo
 
     /** How far past the outermost marker the cave still counts as the cave. */
     private static final int MARGIN = 12;
-    private static final int ISLAND_PAD = 2;
     private static final int ISLAND_DY = 4;
+    private static final int ISLAND_TRIM = 2;
+    private static final int ISLAND_MIN = 5;
+    private static final int LAKE_PAD = 4;
+    private static final int LAKE_DEPTH = 8;
 
     public CaveLayout {
         arches = List.copyOf(arches);
@@ -74,7 +77,7 @@ public record CaveLayout(int version, BlockPos basin, List<BlockPos> arches, Blo
         if (version == 1) {
             return CaveGeometry.ISLAND_RADIUS;
         }
-        return (int) Math.ceil(horizontalDistance(dockIsland, basin)) + ISLAND_PAD;
+        return Math.max(ISLAND_MIN, (int) Math.ceil(horizontalDistance(dockIsland, basin)) - ISLAND_TRIM);
     }
 
     public boolean inCave(BlockPos p) {
@@ -98,12 +101,26 @@ public record CaveLayout(int version, BlockPos basin, List<BlockPos> arches, Blo
         return dx * dx + dz * dz <= r * r && Math.abs(dy) <= ISLAND_DY;
     }
 
-    /** The black lake proper: water at or below the lake surface inside the cave bounds (version 2). */
+    /** Horizontal reach of the lake around the basin (version 2): out to the shore dock, plus a little. */
+    public int lakeRadius() {
+        if (dockShore.equals(basin)) {
+            return radius;
+        }
+        return (int) Math.ceil(horizontalDistance(dockShore, basin)) + LAKE_PAD;
+    }
+
+    /** The black lake proper (version 2): water between the lake floor and surface, near the basin, never the open sea. */
     public boolean inLake(BlockPos p, boolean isWater) {
         if (version == 1) {
             return CaveGeometry.inLake(p.getX() - basin.getX(), p.getY() - basin.getY(), p.getZ() - basin.getZ());
         }
-        return isWater && p.getY() <= lakeSurfaceY && inCave(p);
+        if (!isWater || p.getY() > lakeSurfaceY || p.getY() < lakeSurfaceY - LAKE_DEPTH || !inCave(p)) {
+            return false;
+        }
+        double dx = p.getX() - basin.getX();
+        double dz = p.getZ() - basin.getZ();
+        int r = lakeRadius();
+        return dx * dx + dz * dz <= (double) r * r;
     }
 
     private static double horizontalDistance(BlockPos a, BlockPos b) {

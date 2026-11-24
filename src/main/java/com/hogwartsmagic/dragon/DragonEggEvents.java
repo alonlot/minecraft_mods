@@ -24,9 +24,9 @@ public final class DragonEggEvents {
     private DragonEggEvents() {
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
     public static void onEggBroken(BlockEvent.BreakEvent event) {
-        if (!(event.getLevel() instanceof ServerLevel level)
+        if (event.isCanceled() || !(event.getLevel() instanceof ServerLevel level)
                 || !event.getState().is(DragonNestEggBlock.DRAGON_EGGS)
                 || !(event.getPlayer() instanceof ServerPlayer thief)
                 || !DragonEggRules.raisesGrudge(thief.isCreative(), thief.isSpectator())) {

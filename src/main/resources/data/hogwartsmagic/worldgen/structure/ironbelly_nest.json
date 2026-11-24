@@ -2,6 +2,7 @@
   "type": "minecraft:jigsaw",
   "biomes": "#hogwartsmagic:has_structure/ironbelly_nest",
   "step": "surface_structures",
+  "spawn_overrides": {},
   "terrain_adaptation": "beard_thin",
   "start_pool": "hogwartsmagic:ironbelly_nest",
   "size": 1,

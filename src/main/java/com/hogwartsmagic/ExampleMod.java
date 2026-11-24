@@ -482,7 +482,7 @@ public class ExampleMod
     public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.HorcruxBlockEntity>> HORCRUX_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("horcrux", () -> BlockEntityType.Builder.of(
                     com.hogwartsmagic.block.entity.HorcruxBlockEntity::new,
-                    HORCRUX.get()
+                    HORCRUX.get(), ExampleMod.CURSED_CUP.get()
             ).build(null));
 
     // Locket cave dressing (hidden until Revelio, plus the blood-sealed entrance).
@@ -966,6 +966,13 @@ public class ExampleMod
                     com.hogwartsmagic.pensieve.PensieveBlockEntity::new,
                     PENSIEVE.get()
             ).build(null));
+
+    // Dark wizard hideouts: the cursed golden cup. A Horcrux that shares HorcruxBlockEntity (baked Active, no
+    // owner); no BlockItem, a placed cup would be inert. Hardness 30 is about six seconds with a diamond pickaxe.
+    public static final RegistryObject<Block> CURSED_CUP = BLOCKS.register("cursed_cup",
+            () -> new com.hogwartsmagic.block.CursedCupBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.GOLD_BLOCK)
+                    .strength(30.0f, 1200.0f).requiresCorrectToolForDrops().noOcclusion().noLootTable()
+                    .lightLevel(state -> 6)));
 
     public static final RegistryObject<Item> TROLL_SPAWN_EGG = ITEMS.register("troll_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.TROLL, 0x777365, 0x3F6A2E, new Item.Properties()));

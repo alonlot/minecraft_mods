@@ -2120,5 +2120,8 @@
   "subtitles.hogwartsmagic.portkey.pop_depart": "Portkey whisks away",
   "subtitles.hogwartsmagic.portkey.pop_arrive": "Portkey arrives",
   "subtitles.hogwartsmagic.portkey.crumble": "Old Portkey crumbles",
-  "subtitles.hogwartsmagic.portkey.bind": "Portkey binds"
+  "subtitles.hogwartsmagic.portkey.bind": "Portkey binds",
+  "block.hogwartsmagic.cursed_cup": "Cursed Golden Cup",
+  "message.hogwartsmagic.cursed_cup.status": "The little golden cup is warm, and something inside it is watching you.",
+  "message.hogwartsmagic.cursed_cup.freed": "A shriek tears out of the cup, and something that was once a man flees through the stone."
 }

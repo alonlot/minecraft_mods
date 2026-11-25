@@ -4808,5 +4808,21 @@
         "stream": false
       }
     ]
+  },
+  "cosy.rain_window_loop": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cosy/rain_window_loop",
+        "stream": false
+      }
+    ]
+  },
+  "cosy.hearth_crackle_loop": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cosy/hearth_crackle_loop",
+        "stream": false
+      }
+    ]
   }
 }

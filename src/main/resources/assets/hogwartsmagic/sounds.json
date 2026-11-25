@@ -4842,5 +4842,35 @@
       {"name": "hogwartsmagic:despair/whisper3"},
       {"name": "hogwartsmagic:despair/whisper4"}
     ]
+  },
+  "card.lid_pop": {
+    "subtitle": "subtitles.hogwartsmagic.card.lid_pop",
+    "sounds": [
+      {"name": "hogwartsmagic:card/lid_pop", "stream": false}
+    ]
+  },
+  "card.shimmer": {
+    "subtitle": "subtitles.hogwartsmagic.card.shimmer",
+    "sounds": [
+      {"name": "hogwartsmagic:card/shimmer", "stream": false}
+    ]
+  },
+  "card.legendary_chime": {
+    "subtitle": "subtitles.hogwartsmagic.card.legendary_chime",
+    "sounds": [
+      {"name": "hogwartsmagic:card/legendary_chime", "stream": false}
+    ]
+  },
+  "card.walk_out": {
+    "subtitle": "subtitles.hogwartsmagic.card.walk_out",
+    "sounds": [
+      {"name": "hogwartsmagic:card/walk_out", "stream": false}
+    ]
+  },
+  "card.puff": {
+    "subtitle": "subtitles.hogwartsmagic.card.puff",
+    "sounds": [
+      {"name": "hogwartsmagic:card/puff", "stream": false}
+    ]
   }
 }

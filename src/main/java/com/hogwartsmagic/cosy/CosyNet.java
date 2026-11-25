@@ -11,7 +11,7 @@ import net.minecraftforge.network.SimpleChannel;
 import java.util.ArrayList;
 import java.util.List;
 
-/** The cosy pack's one packet, server to client: open the card album screen. */
+/** The cosy pack's packets, server to client: open the card album screen, and reveal a freshly opened card. */
 public final class CosyNet {
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":cosy_food")
@@ -25,6 +25,32 @@ public final class CosyNet {
         CHANNEL.messageBuilder(OpenAlbumPacket.class)
                 .encoder(OpenAlbumPacket::encode).decoder(OpenAlbumPacket::decode)
                 .consumerMainThread(OpenAlbumPacket::handle).add();
+        CHANNEL.messageBuilder(CardRevealPacket.class)
+                .encoder(CardRevealPacket::encode).decoder(CardRevealPacket::decode)
+                .consumerMainThread(CardRevealPacket::handle).add();
+    }
+
+    /**
+     * A Chocolate Frog box was opened and rolled this card: play the reveal. Server to client; the client queues it
+     * (one reveal at a time) and ignores an id that is not a real card.
+     */
+    public record CardRevealPacket(int cardId) {
+        void encode(FriendlyByteBuf buf) {
+            buf.writeVarInt(this.cardId);
+        }
+
+        static CardRevealPacket decode(FriendlyByteBuf buf) {
+            return new CardRevealPacket(buf.readVarInt());
+        }
+
+        static void handle(CardRevealPacket p, CustomPayloadEvent.Context ctx) {
+            // The client class is named only inside the lambda and only after the dist check, so a dedicated server
+            // never loads it.
+            if (ctx.getSender() == null && FMLEnvironment.dist == Dist.CLIENT) {
+                ctx.enqueueWork(() -> com.hogwartsmagic.cosy.client.card.CardRevealClient.offer(p.cardId()));
+            }
+            ctx.setPacketHandled(true);
+        }
     }
 
     /** The ids the album holds, for the screen to draw. */

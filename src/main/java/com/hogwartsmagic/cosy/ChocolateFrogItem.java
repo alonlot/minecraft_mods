@@ -1,6 +1,7 @@
 package com.hogwartsmagic.cosy;
 
 import com.hogwartsmagic.entity.ModEntities;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -10,6 +11,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.network.PacketDistributor;
 
 /**
  * A box of Chocolate Frog. Using it opens it: you always get a random Famous Wizard Card (into the pack, or at
@@ -28,11 +30,16 @@ public class ChocolateFrogItem extends Item {
         }
         // The card first: shrinking the last box empties the held slot, which Inventory.add would then fill, and the
         // caller clears the held slot of an emptied stack again, so the card would vanish.
-        giveOrDrop(player, WizardCardItem.create(WizardCards.roll(level.random)));
+        WizardCards.Card card = WizardCards.roll(level.random);
+        giveOrDrop(player, WizardCardItem.create(card));
         if (!player.getAbilities().instabuild) {
             box.shrink(1);
         }
         spawnFrog(level, player);
+        // Tell that player's client which card it was, so it can play the reveal (the box, the lid, the card rising).
+        if (player instanceof ServerPlayer sp && sp.connection != null) {
+            CosyNet.CHANNEL.send(new CosyNet.CardRevealPacket(card.id()), PacketDistributor.PLAYER.with(sp));
+        }
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BOOK_PAGE_TURN,
                 SoundSource.PLAYERS, 0.8F, 1.1F);
         return InteractionResultHolder.sidedSuccess(box, false);

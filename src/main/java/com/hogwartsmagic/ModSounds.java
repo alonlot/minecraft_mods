@@ -602,6 +602,12 @@ public class ModSounds {
     /** The cooking pot bubbling while it cooks (sounds/cosy/pot_bubble_loop.ogg, 8.5 s, loops seamlessly). */
     public static final RegistryObject<SoundEvent> COSY_POT_BUBBLE_LOOP = register("cosy.pot_bubble_loop");
     public static final RegistryObject<SoundEvent> DESPAIR_WHISPER = register("despair.whisper");
+    // ---- Living Famous Wizard Cards (placeholder OGGs until the ElevenLabs takes land) ----
+    public static final RegistryObject<SoundEvent> CARD_LID_POP = register("card.lid_pop");
+    public static final RegistryObject<SoundEvent> CARD_SHIMMER = register("card.shimmer");
+    public static final RegistryObject<SoundEvent> CARD_LEGENDARY_CHIME = register("card.legendary_chime");
+    public static final RegistryObject<SoundEvent> CARD_WALK_OUT = register("card.walk_out");
+    public static final RegistryObject<SoundEvent> CARD_PUFF = register("card.puff");
 
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);

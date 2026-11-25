@@ -2185,7 +2185,9 @@
   "message.hogwartsmagic.card_album.added": "%s new card(s) added to the album",
   "gui.hogwartsmagic.card_album.title": "Card Album",
   "gui.hogwartsmagic.card_album.count": "%s / %s",
-  "gui.hogwartsmagic.card_album.hint": "Use the album to add cards from your pack. Duplicates stay with you.",
+  "gui.hogwartsmagic.card_album.hint": "Use the album to add cards from your pack. Click a card to see it large. Duplicates stay with you.",
+  "gui.hogwartsmagic.card_reveal.hint": "Click to put it away",
+  "gui.hogwartsmagic.card_reveal.back": "Click to go back",
   "gui.hogwartsmagic.card_album.missing": "A card you have not found yet",
   "card.hogwartsmagic.rarity.0": "Common",
   "card.hogwartsmagic.rarity.1": "Rare",
@@ -2268,5 +2270,10 @@
   "message.hogwartsmagic.pot.done": "The dish is done. Take it with an empty hand.",
   "message.hogwartsmagic.pot.full": "The pot is full.",
   "message.hogwartsmagic.pot.empty": "The pot is empty.",
-  "message.hogwartsmagic.pot.cold": "The pot is cold: stand it on a lit stove, campfire or hearth."
+  "message.hogwartsmagic.pot.cold": "The pot is cold: stand it on a lit stove, campfire or hearth.",
+  "subtitles.hogwartsmagic.card.lid_pop": "Chocolate Frog box pops open",
+  "subtitles.hogwartsmagic.card.shimmer": "Card shimmers",
+  "subtitles.hogwartsmagic.card.legendary_chime": "Legendary chime",
+  "subtitles.hogwartsmagic.card.walk_out": "Wizard walks out of the portrait",
+  "subtitles.hogwartsmagic.card.puff": "Puff"
 }

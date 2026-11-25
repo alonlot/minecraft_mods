@@ -42,6 +42,8 @@ import java.util.List;
 @GameTestHolder(ExampleMod.MODID)
 public final class CosyFoodGameTests {
     private static final String EMPTY9 = "hogwartsmagic:gametest/empty9";
+    // Every test here runs in its own batches ("cosy_food", and "cosy_food_dementor" for the aura, which reaches nine
+    // blocks), so adding them never moves other tests next to each other or onto each other's leftovers.
 
     private CosyFoodGameTests() {
     }
@@ -68,7 +70,7 @@ public final class CosyFoodGameTests {
 
     // ---------------------------------------------------------------- B1: chocolate
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void chocolateCuresDementorEffects(GameTestHelper h) {
         stonePad(h);
         ServerPlayer p = survivor(h);
@@ -85,7 +87,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 60)
+    @GameTest(template = EMPTY9, timeoutTicks = 60, batch = "cosy_food_dementor")
     public static void courageBlocksDementorAura(GameTestHelper h) {
         stonePad(h);
         ServerPlayer brave = survivor(h);
@@ -120,7 +122,7 @@ public final class CosyFoodGameTests {
         return h.getLevel().getEntitiesOfClass(ChocolateFrogEntity.class, p.getBoundingBox().inflate(6.0));
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void openingFrogGivesCardAndFrog(GameTestHelper h) {
         stonePad(h);
         ServerPlayer p = survivor(h);
@@ -135,7 +137,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void frogVanishesAfterLife(GameTestHelper h) {
         stonePad(h);
         ChocolateFrogEntity frog = h.spawn(ModEntities.CHOCOLATE_FROG.get(), new Vec3(4.5, 2, 4.5));
@@ -146,7 +148,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void frogHopsAwayFromThePlayer(GameTestHelper h) {
         stonePad(h);
         ServerPlayer p = survivor(h);
@@ -161,7 +163,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void catchingFrogFeeds(GameTestHelper h) {
         stonePad(h);
         ServerPlayer p = survivor(h);
@@ -176,7 +178,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void frogCardDropsWhenInventoryFull(GameTestHelper h) {
         stonePad(h);
         ServerPlayer p = survivor(h);
@@ -196,7 +198,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void albumTakesNewCardsAndKeepsDuplicates(GameTestHelper h) {
         stonePad(h);
         ServerPlayer p = survivor(h);
@@ -221,7 +223,7 @@ public final class CosyFoodGameTests {
 
     // ---------------------------------------------------------------- B3: beans
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void eatingBeanUsesOne(GameTestHelper h) {
         stonePad(h);
         ServerPlayer p = survivor(h);
@@ -239,7 +241,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void lastBeanEmptiesBox(GameTestHelper h) {
         stonePad(h);
         ServerPlayer p = survivor(h);
@@ -252,7 +254,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void everyBeanEffectResolves(GameTestHelper h) {
         for (com.hogwartsmagic.cosy.BeanTable.Outcome o : com.hogwartsmagic.cosy.BeanTable.ALL) {
             if (o.effect() != null) {
@@ -289,7 +291,7 @@ public final class CosyFoodGameTests {
         return h.getLevel().getBlockState(h.absolutePos(KEG)).getValue(ButterbeerKegBlock.FILL);
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void kegBrewsAndPours(GameTestHelper h) {
         stonePad(h);
         h.setBlock(KEG, CosyFood.BUTTERBEER_KEG.get());
@@ -324,7 +326,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void honeyBottleReturned(GameTestHelper h) {
         stonePad(h);
         h.setBlock(KEG, CosyFood.BUTTERBEER_KEG.get());
@@ -342,7 +344,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void butterbeerWarmsAndReturnsTankard(GameTestHelper h) {
         stonePad(h);
         ServerPlayer p = survivor(h);
@@ -359,7 +361,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void agedKegReadyWithoutAnyone(GameTestHelper h) {
         stonePad(h);
         h.setBlock(KEG, CosyFood.BUTTERBEER_KEG.get());
@@ -426,7 +428,7 @@ public final class CosyFoodGameTests {
         useOn(h, p, POT, new ItemStack(ExampleMod.HARRY_POTTER_WAND.get()));
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void wandPotCooksPasties(GameTestHelper h) {
         ServerPlayer p = potWithPasty(h, true);
         h.assertTrue(pot(h).contents().size() == 5, "five ingredients in, got " + pot(h).contents().size());
@@ -442,7 +444,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void potOnStoneDoesNotCook(GameTestHelper h) {
         ServerPlayer p = potWithPasty(h, false);
         wand(h, p);
@@ -453,7 +455,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void potKeepsProgressWhenHeatRemoved(GameTestHelper h) {
         ServerPlayer p = potWithPasty(h, true);
         wand(h, p);
@@ -469,7 +471,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void handStirringCooksForThreeSeconds(GameTestHelper h) {
         ServerPlayer p = potWithPasty(h, true);
         emptyHandOn(h, p, POT);
@@ -478,7 +480,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void sneakingTakesIngredientsBack(GameTestHelper h) {
         ServerPlayer p = potWithPasty(h, true);
         wand(h, p);
@@ -492,7 +494,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void brokenPotDropsIngredients(GameTestHelper h) {
         stonePad(h);
         h.setBlock(POT, CosyKitchen.COOKING_POT.get());
@@ -509,7 +511,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void containersComeBackFromThePot(GameTestHelper h) {
         stonePad(h);
         h.setBlock(HEAT, Blocks.CAMPFIRE);
@@ -528,7 +530,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void allSixPotRecipesLoad(GameTestHelper h) {
         var recipes = h.getLevel().getRecipeManager().getAllRecipesFor(CosyKitchen.POT_COOKING_TYPE.get());
         h.assertTrue(recipes.size() == 6, "six pot recipes parsed, got " + recipes.size());
@@ -540,7 +542,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void stoveFuelLights(GameTestHelper h) {
         stonePad(h);
         h.setBlock(HEAT, CosyKitchen.ENCHANTED_STOVE.get());
@@ -555,7 +557,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void stoveHoldsEightCoalsAndBurnsOut(GameTestHelper h) {
         stonePad(h);
         h.setBlock(HEAT, CosyKitchen.ENCHANTED_STOVE.get());
@@ -580,7 +582,7 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void heatSourceTagKnowsItsMembers(GameTestHelper h) {
         h.assertTrue(CosyKitchen.isHeat(Blocks.CAMPFIRE.defaultBlockState()), "a lit campfire is heat");
         h.assertTrue(!CosyKitchen.isHeat(Blocks.CAMPFIRE.defaultBlockState()

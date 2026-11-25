@@ -7,7 +7,10 @@ import com.hogwartsmagic.cosy.FoodRules;
 import com.hogwartsmagic.cosy.WizardCards;
 import com.hogwartsmagic.entity.DementorEntity;
 import com.hogwartsmagic.entity.ModEntities;
+import com.hogwartsmagic.cosy.ButterbeerKegBlock;
+import com.hogwartsmagic.cosy.ButterbeerKegBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,6 +22,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.gametest.GameTestHolder;
 
@@ -250,6 +255,120 @@ public final class CosyFoodGameTests {
                         o.flavourKey() + " names a missing effect " + o.effect());
             }
         }
+        h.succeed();
+    }
+
+    // ---------------------------------------------------------------- B4: butterbeer keg
+
+    private static final BlockPos KEG = new BlockPos(4, 2, 4);
+
+    /** Right-click the keg at {@link #KEG} with whatever is in the main hand (the real path: state.useItemOn). */
+    private static void click(GameTestHelper h, ServerPlayer p) {
+        BlockPos abs = h.absolutePos(KEG);
+        BlockState state = h.getLevel().getBlockState(abs);
+        state.useItemOn(p.getItemInHand(InteractionHand.MAIN_HAND), h.getLevel(), p, InteractionHand.MAIN_HAND,
+                new BlockHitResult(abs.getCenter(), Direction.NORTH, abs, false));
+    }
+
+    private static int count(ServerPlayer p, net.minecraft.world.item.Item item) {
+        int n = 0;
+        for (ItemStack s : p.getInventory().items) {
+            if (s.is(item)) {
+                n += s.getCount();
+            }
+        }
+        return n;
+    }
+
+    private static int fillAt(GameTestHelper h) {
+        return h.getLevel().getBlockState(h.absolutePos(KEG)).getValue(ButterbeerKegBlock.FILL);
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void kegBrewsAndPours(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(KEG, CosyFood.BUTTERBEER_KEG.get());
+        ServerPlayer p = survivor(h);
+        h.assertTrue(fillAt(h) == 0, "an empty keg");
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.SUGAR));
+        click(h, p);
+        h.assertTrue(fillAt(h) == 1, "one ingredient in");
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.HONEY_BOTTLE));
+        click(h, p);
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.WHEAT));
+        click(h, p);
+        h.assertTrue(fillAt(h) == 2, "all three in: aging, got fill " + fillAt(h));
+
+        // A tankard now does nothing: it is not ready.
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(CosyFood.TANKARD.get(), 9));
+        click(h, p);
+        h.assertTrue(count(p, CosyFood.BUTTERBEER.get()) == 0, "nothing poured while aging");
+
+        ButterbeerKegBlockEntity be = (ButterbeerKegBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(KEG));
+        be.setBrewStartForTest(h.getLevel().getGameTime() - 6000);
+        for (int i = 0; i < 8; i++) {
+            click(h, p);
+        }
+        h.assertTrue(count(p, CosyFood.BUTTERBEER.get()) == 8, "eight servings poured, got " + count(p, CosyFood.BUTTERBEER.get()));
+        h.assertTrue(p.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 1, "one tankard left");
+        h.assertTrue(fillAt(h) == 0, "the keg is empty again");
+        click(h, p); // the ninth
+        h.assertTrue(count(p, CosyFood.BUTTERBEER.get()) == 8, "nothing more to pour");
+        h.assertTrue(p.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 1, "the tankard is kept");
+        h.assertTrue(fillAt(h) == 0, "still empty");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void honeyBottleReturned(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(KEG, CosyFood.BUTTERBEER_KEG.get());
+        ServerPlayer p = survivor(h);
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.HONEY_BOTTLE));
+        click(h, p);
+        h.assertTrue(p.getItemInHand(InteractionHand.MAIN_HAND).is(Items.GLASS_BOTTLE), "a glass bottle replaces the honey bottle");
+        // A stack of two leaves one honey bottle and puts the glass bottle in the pack. A fresh keg first.
+        h.setBlock(KEG, Blocks.AIR);
+        h.setBlock(KEG, CosyFood.BUTTERBEER_KEG.get());
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.HONEY_BOTTLE, 2));
+        click(h, p);
+        h.assertTrue(p.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 1, "one honey bottle left");
+        h.assertTrue(count(p, Items.GLASS_BOTTLE) >= 1, "the empty bottle went to the pack");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void butterbeerWarmsAndReturnsTankard(GameTestHelper h) {
+        stonePad(h);
+        ServerPlayer p = survivor(h);
+        ItemStack beer = new ItemStack(CosyFood.BUTTERBEER.get());
+        ItemStack left = beer.finishUsingItem(h.getLevel(), p);
+        h.assertTrue(left.is(CosyFood.TANKARD.get()), "the tankard comes back");
+        // Warmed belongs to the home pack: when it is registered the drink gives it, when it is not nothing breaks.
+        var warmed = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getHolder(
+                com.hogwartsmagic.cosy.ButterbeerItem.WARMED_ID);
+        if (warmed.isPresent()) {
+            h.assertTrue(p.hasEffect(warmed.get()), "Warmed from the drink");
+            h.assertTrue(p.getEffect(warmed.get()).getDuration() > 3000, "for about three minutes");
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void agedKegReadyWithoutAnyone(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(KEG, CosyFood.BUTTERBEER_KEG.get());
+        ServerPlayer p = survivor(h);
+        for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[]{Items.SUGAR, Items.HONEY_BOTTLE, Items.WHEAT}) {
+            p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(i));
+            click(h, p);
+        }
+        ButterbeerKegBlockEntity be = (ButterbeerKegBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(KEG));
+        be.setBrewStartForTest(h.getLevel().getGameTime() - 6000);
+        // The scheduled/random tick path: the block updates its own state, as it does in a loaded chunk.
+        BlockState state = h.getLevel().getBlockState(h.absolutePos(KEG));
+        state.tick(h.getLevel(), h.absolutePos(KEG), h.getLevel().random);
+        h.assertTrue(fillAt(h) == 3, "the aged keg shows ready, got " + fillAt(h));
         h.succeed();
     }
 }

@@ -124,6 +124,79 @@ BEANS = {
     "sardine": "Sardine. Your stomach turns.",
 }
 
+
+# ---- block model helpers ----------------------------------------------------------------------------
+def auto_uv(face, frm, to):
+    """Blockbench-style box UV (in 0..16) for one face of an axis-aligned box, so a 16 px texture tiles in block scale."""
+    fx, fy, fz = frm
+    tx, ty, tz = to
+    if face == "north":
+        return [16 - tx, 16 - ty, 16 - fx, 16 - fy]
+    if face == "south":
+        return [fx, 16 - ty, tx, 16 - fy]
+    if face == "east":
+        return [16 - tz, 16 - ty, 16 - fz, 16 - fy]
+    if face == "west":
+        return [fz, 16 - ty, tz, 16 - fy]
+    if face == "up":
+        return [fx, fz, tx, tz]
+    return [fx, 16 - tz, tx, 16 - fz]  # down
+
+
+def box(frm, to, tex, faces=("north", "south", "east", "west", "up", "down"), end_tex=None, uv=None, tint=None):
+    """One model element. `tex` is the texture variable for the long faces, `end_tex` for east/west if given."""
+    el = {"from": list(frm), "to": list(to), "faces": {}}
+    for f in faces:
+        t = end_tex if (end_tex and f in ("east", "west")) else tex
+        face = {"uv": (uv or {}).get(f) or auto_uv(f, frm, to), "texture": "#" + t}
+        if f in ("up", "down") or True:
+            face["cullface"] = None
+            del face["cullface"]
+        el["faces"][f] = face
+    return el
+
+
+def write_block_model(name, textures, elements, parent="minecraft:block/block"):
+    write_json(os.path.join(ASSETS, "models", "block", name + ".json"),
+               {"parent": parent, "textures": textures, "elements": elements})
+
+
+def facing_blockstate(name, model_for):
+    """A blockstate with one variant per facing (and any extra state key/value pairs model_for returns)."""
+    variants = {}
+    for facing, rot in (("north", 0), ("east", 90), ("south", 180), ("west", 270)):
+        for key, model in model_for(facing):
+            variants[(f"facing={facing}," + key) if key else f"facing={facing}"] = {"model": model, **({"y": rot} if rot else {})}
+    write_json(os.path.join(ASSETS, "blockstates", name + ".json"), {"variants": variants})
+
+
+def keg_models():
+    wood = "wood"
+    elements = [
+        box([0, 2, 2], [16, 11, 14], wood, end_tex="end"),
+        box([0, 0, 3], [16, 2, 13], wood, end_tex="end"),
+        box([0, 11, 3], [16, 13, 13], wood, end_tex="end"),
+        box([1, 0.5, 1.5], [3, 12.5, 14.5], "iron"),
+        box([13, 0.5, 1.5], [15, 12.5, 14.5], "iron"),
+        box([7, 4.5, 0.2], [9, 6.5, 2], "tap"),
+        box([7.5, 2.5, 0.4], [8.5, 4.5, 1.4], "tap"),
+        {"from": [10.5, 3, 1.6], "to": [12.5, 10, 2.0],
+         "faces": {"north": {"uv": [0, 0, 16, 16], "texture": "#gauge"}}},
+    ]
+    for level in range(4):
+        write_block_model(f"butterbeer_keg_{level}", {
+            "wood": f"{MOD}:block/food_keg_wood", "end": f"{MOD}:block/food_keg_end",
+            "iron": f"{MOD}:block/food_keg_iron", "tap": f"{MOD}:block/food_keg_tap",
+            "gauge": f"{MOD}:block/food_keg_gauge_{level}", "particle": f"{MOD}:block/food_keg_wood"}, elements)
+    facing_blockstate("butterbeer_keg", lambda f: [(f"fill={n}", f"{MOD}:block/butterbeer_keg_{n}") for n in range(4)])
+    write_json(os.path.join(ASSETS, "models", "item", "butterbeer_keg.json"), {"parent": f"{MOD}:block/butterbeer_keg_0"})
+    block_loot("butterbeer_keg")
+    write_json(os.path.join(DATA, "recipe", "butterbeer_keg.json"), {
+        "type": "minecraft:crafting_shapeless", "category": "misc",
+        "ingredients": [{"item": "minecraft:barrel"}, {"item": "minecraft:iron_ingot"}, {"item": "minecraft:copper_ingot"}],
+        "result": {"id": f"{MOD}:butterbeer_keg", "count": 1}})
+
+
 # ------------------------------------------------------------------------------------------------
 LANG = {}
 
@@ -204,6 +277,17 @@ def build():
     lang("item.hogwartsmagic.bertie_botts_beans.left", "Beans left: %s")
     for key, text in BEANS.items():
         lang(f"bean.hogwartsmagic.{key}", text)
+    # ---- B4 ----
+    keg_models()
+    lang("block.hogwartsmagic.butterbeer_keg", "Butterbeer Keg")
+    lang("message.hogwartsmagic.keg.needs", "The keg still wants: %s")
+    lang("message.hogwartsmagic.keg.added", "Added to the keg.")
+    lang("message.hogwartsmagic.keg.brewing", "The batch is complete. It needs a little while to age.")
+    lang("message.hogwartsmagic.keg.not_ready", "The butterbeer is still ageing: %s left.")
+    lang("message.hogwartsmagic.keg.ready", "Ready to pour: %s servings. Bring an empty tankard.")
+    lang("message.hogwartsmagic.keg.empty", "The keg is empty.")
+    lang("message.hogwartsmagic.keg.busy", "The keg is full; wait for the batch.")
+    lang("message.hogwartsmagic.keg.has_that", "The keg already has that.")
     write_lang()
 
 

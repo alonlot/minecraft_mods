@@ -2221,5 +2221,14 @@
   "bean.hogwartsmagic.bogey": "Bogey. Who thought of that one?",
   "bean.hogwartsmagic.fizzing_whizbee": "Fizzing whizbee. Your feet leave the ground!",
   "bean.hogwartsmagic.burp": "Burp-berry. Excuse you.",
-  "bean.hogwartsmagic.sardine": "Sardine. Your stomach turns."
+  "bean.hogwartsmagic.sardine": "Sardine. Your stomach turns.",
+  "block.hogwartsmagic.butterbeer_keg": "Butterbeer Keg",
+  "message.hogwartsmagic.keg.needs": "The keg still wants: %s",
+  "message.hogwartsmagic.keg.added": "Added to the keg.",
+  "message.hogwartsmagic.keg.brewing": "The batch is complete. It needs a little while to age.",
+  "message.hogwartsmagic.keg.not_ready": "The butterbeer is still ageing: %s left.",
+  "message.hogwartsmagic.keg.ready": "Ready to pour: %s servings. Bring an empty tankard.",
+  "message.hogwartsmagic.keg.empty": "The keg is empty.",
+  "message.hogwartsmagic.keg.busy": "The keg is full; wait for the batch.",
+  "message.hogwartsmagic.keg.has_that": "The keg already has that."
 }

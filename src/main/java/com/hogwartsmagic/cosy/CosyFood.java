@@ -7,8 +7,13 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.RegistryObject;
 
@@ -109,6 +114,24 @@ public final class CosyFood {
     public static final RegistryObject<Item> BERTIE_BOTTS_BEANS = item("bertie_botts_beans",
             () -> new BertieBottsItem(new Item.Properties().stacksTo(1).food(
                     new FoodProperties.Builder().nutrition(1).saturationModifier(0.1f).alwaysEdible().fast().build())));
+
+    // ---- Butterbeer -------------------------------------------------------------------------------
+
+    /** A barrel on its side with a tap: sugar, honey and wheat age into eight tankards of butterbeer. */
+    public static final RegistryObject<Block> BUTTERBEER_KEG = ExampleMod.BLOCKS.register("butterbeer_keg",
+            () -> new ButterbeerKegBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.BARREL).strength(2.0f)));
+
+    public static final RegistryObject<Item> BUTTERBEER_KEG_ITEM = item("butterbeer_keg",
+            () -> new BlockItem(BUTTERBEER_KEG.get(), new Item.Properties()));
+
+    public static final RegistryObject<BlockEntityType<ButterbeerKegBlockEntity>> BUTTERBEER_KEG_BLOCK_ENTITY =
+            ExampleMod.BLOCK_ENTITY_TYPES.register("butterbeer_keg",
+                    () -> BlockEntityType.Builder.of(ButterbeerKegBlockEntity::new, BUTTERBEER_KEG.get()).build(null));
+
+    /** A drink from the keg: food 4, Warmed for three minutes, and the tankard comes back. */
+    public static final RegistryObject<Item> BUTTERBEER = item("tankard_of_butterbeer",
+            () -> new ButterbeerItem(new Item.Properties().stacksTo(1).food(
+                    new FoodProperties.Builder().nutrition(4).saturationModifier(0.3f).alwaysEdible().build())));
 
     /** Loads this class so every entry is queued on the deferred registers before they attach. */
     public static void init() {

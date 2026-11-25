@@ -1,0 +1,76 @@
+{
+  "textures": {
+    "stone": "hogwartsmagic:block/despair_basin_stone",
+    "rim": "hogwartsmagic:block/despair_basin_rim",
+    "floor": "hogwartsmagic:block/despair_basin_floor",
+    "liquid": "hogwartsmagic:block/despair_basin_liquid",
+    "locket": "hogwartsmagic:block/despair_basin_locket",
+    "particle": "hogwartsmagic:block/despair_basin_stone"
+  },
+  "elements": [
+    {
+      "from": [
+        6,
+        2,
+        6
+      ],
+      "to": [
+        10,
+        3,
+        10
+      ],
+      "faces": {
+        "north": {
+          "texture": "#locket"
+        },
+        "south": {
+          "texture": "#locket"
+        },
+        "east": {
+          "texture": "#locket"
+        },
+        "west": {
+          "texture": "#locket"
+        },
+        "up": {
+          "texture": "#locket"
+        },
+        "down": {
+          "texture": "#locket"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        3,
+        7
+      ],
+      "to": [
+        9,
+        4,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#locket"
+        },
+        "south": {
+          "texture": "#locket"
+        },
+        "east": {
+          "texture": "#locket"
+        },
+        "west": {
+          "texture": "#locket"
+        },
+        "up": {
+          "texture": "#locket"
+        },
+        "down": {
+          "texture": "#locket"
+        }
+      }
+    }
+  ]
+}

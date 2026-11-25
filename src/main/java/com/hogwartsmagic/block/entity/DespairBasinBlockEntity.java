@@ -7,11 +7,16 @@ import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.locket.AmbushSchedule;
 import com.hogwartsmagic.locket.BasinStage;
 import com.hogwartsmagic.locket.CaveGeometry;
+import com.hogwartsmagic.locket.CaveLayout;
+import com.hogwartsmagic.item.CaveGobletItem;
 import com.hogwartsmagic.locket.DespairRules;
+import com.hogwartsmagic.locket.GobletFill;
+import com.hogwartsmagic.locket.GobletRules;
 import com.hogwartsmagic.locket.LocketCaves;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -30,10 +35,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -50,52 +58,70 @@ public class DespairBasinBlockEntity extends BlockEntity {
     private long lastWarning = -100000;
     private int owedSpawns;
     private static final int AMBUSH_GRACE_TICKS = 200;
+    /** Null until the first successful scan (or a load of a saved layout); version-1 answers meanwhile. */
+    @Nullable private CaveLayout layout;
 
     public DespairBasinBlockEntity(BlockPos pos, BlockState state) {
         super(ExampleMod.DESPAIR_BASIN_BLOCK_ENTITY.get(), pos, state);
+    }
+
+    /** This cave's layout; a version-1 (old constants) layout until the waypoints have been scanned. */
+    public CaveLayout layout() {
+        return layout != null ? layout : CaveLayout.legacy(worldPosition);
+    }
+
+    /** Sets the layout directly, skipping the marker scan. TEST ONLY: never call this from gameplay code. */
+    public void setLayoutDirectly(CaveLayout l) {
+        this.layout = l;
+        setChanged();
     }
 
     public boolean isAmbushActive() {
         return ambushActive;
     }
 
-    public void onUse(ServerPlayer p) {
-        if (!(this.level instanceof ServerLevel level)) {
-            return;
+    /**
+     * A goblet dipped into the basin. Fills the goblet with a cup of the potion and claims the basin for this
+     * player; refused when someone else is mid-run, the basin is empty or looted, the player is off the island, or
+     * the last cup was too recent. Returns whether the goblet was filled.
+     */
+    public boolean dip(ServerPlayer p, ItemStack goblet) {
+        if (!(this.level instanceof ServerLevel level) || !(goblet.getItem() instanceof CaveGobletItem)) {
+            return false;
         }
-        BasinStage stage = getBlockState().getValue(DespairBasinBlock.STAGE);
-        BlockPos d = p.blockPosition().subtract(worldPosition);
-        if (stage == BasinStage.LOOTED || !CaveGeometry.onIsland(d.getX(), d.getY(), d.getZ())) {
-            return;
+        if (getBlockState().getValue(DespairBasinBlock.STAGE) == BasinStage.LOOTED || !layout().onIsland(p.blockPosition())) {
+            return false;
         }
-        if (drinks >= DespairRules.DRINKS_TO_EMPTY) { // locket waiting in the empty basin
-            if (!p.getUUID().equals(drinker)) {
+        if (CaveGobletItem.fillOf(goblet) != GobletFill.EMPTY) {
+            return false;
+        }
+        if (!GobletRules.mayDip(drinker, p.getUUID(), drinks)) {
+            if (drinks < DespairRules.DRINKS_TO_EMPTY) {
                 p.displayClientMessage(Component.translatable("message.hogwartsmagic.basin_in_use"), true);
-                return;
             }
-            p.getInventory().placeItemBackInInventory(new ItemStack(ExampleMod.SLYTHERINS_LOCKET.get()));
-            ExampleMod.UNQUENCHABLE_THIRST.getHolder().ifPresent(h -> p.addEffect(
-                    new MobEffectInstance(h, DespairRules.THIRST_DURATION_TICKS, 0, false, false, true)));
-            setStage(BasinStage.LOOTED);
-            drinker = null;
-            drinks = 0;
-            LocketCaves.recordLooted(level, worldPosition);
-            p.displayClientMessage(Component.translatable("message.hogwartsmagic.locket_taken")
-                    .withStyle(ChatFormatting.DARK_GREEN), false);
-            setChanged();
-            return;
-        }
-        if (drinker != null && !drinker.equals(p.getUUID())) {
-            p.displayClientMessage(Component.translatable("message.hogwartsmagic.basin_in_use"), true);
-            return;
+            return false;
         }
         long now = level.getGameTime();
         if (drinker != null && drinks > 0 && now - lastDrink < DespairRules.MIN_TICKS_BETWEEN_DRINKS) {
-            return;
+            return false;
         }
         drinker = p.getUUID();
-        drinks++;
         lastDrink = now;
+        CaveGobletItem.setFill(goblet, GobletFill.POTION);
+        level.playSound(null, worldPosition, SoundEvents.BOTTLE_FILL, SoundSource.BLOCKS, 1f, 0.6f);
+        setChanged();
+        return true;
+    }
+
+    /** One cup drunk by the player who dipped it: its effects and damage (never lethal alone), and the basin drops a level. */
+    public void drink(ServerPlayer p) {
+        if (!(this.level instanceof ServerLevel level) || !p.getUUID().equals(drinker)
+                || drinks >= DespairRules.DRINKS_TO_EMPTY
+                || getBlockState().getValue(DespairBasinBlock.STAGE) == BasinStage.LOOTED) {
+            return;
+        }
+        drinks++;
+        lastDrink = level.getGameTime();
         for (DespairRules.DrinkEffect e : DespairRules.effectsFor(drinks)) {
             BuiltInRegistries.MOB_EFFECT.getHolder(ResourceLocation.withDefaultNamespace(e.effectId()))
                     .ifPresent(h -> p.addEffect(new MobEffectInstance(h, e.ticks(), e.amplifier())));
@@ -105,10 +131,120 @@ public class DespairBasinBlockEntity extends BlockEntity {
             p.invulnerableTime = 0;
             p.hurt(level.damageSources().magic(), dmg);
         }
-        p.displayClientMessage(Component.literal(DespairRules.whisper(drinks - 1))
-                .withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC), false);
+        feelDespair(level, p);
         level.playSound(null, worldPosition, SoundEvents.GENERIC_DRINK, SoundSource.BLOCKS, 1f, 0.6f);
-        setStage(BasinStage.DRINKING); // also shows the Locket once the sixth drink is taken
+        setStage(BasinStage.DRINKING); // drops the level, and shows the Locket once the sixth cup is drunk
+        setChanged();
+    }
+
+    /**
+     * The cup is felt on screen, not read: the hidden DESPAIR effect (amplifier = stage, refreshed per cup) drives the
+     * client overlay, a small shake reaches the drinker, whispers play to the drinker alone, and the last cups
+     * bring them to their knees (a hidden marker effect makes the drinker client crouch and hold still).
+     */
+    private void feelDespair(ServerLevel level, ServerPlayer p) {
+        int stage = DespairRules.stageFor(drinks);
+        p.addEffect(new MobEffectInstance(ExampleMod.DESPAIR.getHolder().get(), DespairRules.DESPAIR_TICKS, stage,
+                false, false, false));
+        if (stage > 0) {
+            com.hogwartsmagic.fx.Fx.sendTo(p, com.hogwartsmagic.fx.FxKinds.SHAKE, p.getX(), p.getY(), p.getZ(), -1,
+                    DespairRules.shakeStrength(drinks), 2f, 20 + 6 * stage, 1.0f); // the drinker alone
+        }
+        for (int i = 0; i < DespairRules.whisperSounds(drinks); i++) {
+            // Near the drinker head, a little different each time; only this player is sent the sound.
+            double a = level.random.nextDouble() * Math.PI * 2;
+            p.connection.send(new net.minecraft.network.protocol.game.ClientboundSoundPacket(
+                    net.minecraft.core.Holder.direct(com.hogwartsmagic.ModSounds.DESPAIR_WHISPER.get()),
+                    SoundSource.AMBIENT, p.getX() + Math.cos(a) * 1.5, p.getEyeY(), p.getZ() + Math.sin(a) * 1.5,
+                    0.5f + 0.1f * stage, 0.8f + level.random.nextFloat() * 0.3f, level.random.nextLong()));
+        }
+        int kneel = DespairRules.kneelTicks(drinks);
+        if (kneel > 0) {
+            // The marker the drinker client reads: it holds the knees down (crouch + no walking) for exactly this long.
+            p.addEffect(new MobEffectInstance(ExampleMod.DESPAIR_KNEEL.getHolder().get(), kneel, 0,
+                    false, false, false));
+        }
+    }
+
+    /**
+     * The cave has exactly one goblet and nothing may lose it: when no goblet block stands near the basin, no goblet
+     * item lies in the cave and nobody in the cave carries one, a new goblet block is set beside the basin.
+     * Returns whether one was placed. Never loads a chunk.
+     */
+    public boolean restoreGoblet(ServerLevel level) {
+        for (BlockPos at : BlockPos.betweenClosed(worldPosition.offset(-3, -3, -3), worldPosition.offset(3, 3, 3))) {
+            if (level.hasChunkAt(at) && level.getBlockState(at).is(ExampleMod.CRYSTAL_GOBLET.get())) {
+                return false;
+            }
+        }
+        CaveLayout l = layout();
+        int r = l.radius();
+        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(
+                worldPosition.getX() - r, worldPosition.getY() - l.down(), worldPosition.getZ() - r,
+                worldPosition.getX() + r + 1, worldPosition.getY() + l.up() + 1, worldPosition.getZ() + r + 1);
+        if (!level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, box,
+                e -> e.getItem().getItem() instanceof CaveGobletItem).isEmpty()) {
+            return false;
+        }
+        for (ServerPlayer p : level.players()) {
+            if (l.inCave(p.blockPosition()) && p.getInventory().hasAnyMatching(st -> st.getItem() instanceof CaveGobletItem)) {
+                return false;
+            }
+        }
+        BlockPos best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                BlockPos at = worldPosition.offset(dx, 0, dz);
+                double dist = at.distSqr(worldPosition);
+                if (dist == 0 || dist >= bestDist || !level.hasChunkAt(at)) {
+                    continue;
+                }
+                if (level.getBlockState(at).isAir() && level.getFluidState(at).isEmpty()
+                        && level.getBlockState(at.below()).isFaceSturdy(level, at.below(), net.minecraft.core.Direction.UP)) {
+                    best = at;
+                    bestDist = dist;
+                }
+            }
+        }
+        if (best == null) {
+            return false;
+        }
+        level.setBlock(best, ExampleMod.CRYSTAL_GOBLET.get().defaultBlockState(), Block.UPDATE_ALL);
+        return true;
+    }
+
+    /** Test hook: forgets the last cup so the next dip is not held back by the spacing rule. */
+    public void forgetLastDrinkForTest() {
+        lastDrink = -100000;
+    }
+
+    public int drinks() {
+        return drinks;
+    }
+
+    /** Any right-click lifts the Locket from the dry basin, if this player is the one who drank it dry. */
+    public void takeLocket(ServerPlayer p) {
+        if (!(this.level instanceof ServerLevel level)) {
+            return;
+        }
+        BasinStage stage = getBlockState().getValue(DespairBasinBlock.STAGE);
+        if (stage == BasinStage.LOOTED || drinks < DespairRules.DRINKS_TO_EMPTY || !layout().onIsland(p.blockPosition())) {
+            return;
+        }
+        if (!p.getUUID().equals(drinker)) {
+            p.displayClientMessage(Component.translatable("message.hogwartsmagic.basin_in_use"), true);
+            return;
+        }
+        p.getInventory().placeItemBackInInventory(new ItemStack(ExampleMod.SLYTHERINS_LOCKET.get()));
+        ExampleMod.UNQUENCHABLE_THIRST.getHolder().ifPresent(h -> p.addEffect(
+                new MobEffectInstance(h, DespairRules.THIRST_DURATION_TICKS, 0, false, false, true)));
+        setStage(BasinStage.LOOTED);
+        drinker = null;
+        drinks = 0;
+        LocketCaves.recordLooted(level, worldPosition);
+        p.displayClientMessage(Component.translatable("message.hogwartsmagic.locket_taken")
+                .withStyle(ChatFormatting.DARK_GREEN), false);
         setChanged();
     }
 
@@ -116,8 +252,10 @@ public class DespairBasinBlockEntity extends BlockEntity {
         if (this.level == null) {
             return;
         }
+        boolean looted = s == BasinStage.LOOTED;
         BlockState state = getBlockState().setValue(DespairBasinBlock.STAGE, s)
-                .setValue(DespairBasinBlock.LOCKET, s == BasinStage.DRINKING && drinks >= DespairRules.DRINKS_TO_EMPTY);
+                .setValue(DespairBasinBlock.LOCKET, s == BasinStage.DRINKING && drinks >= DespairRules.DRINKS_TO_EMPTY)
+                .setValue(DespairBasinBlock.LEVEL, looted ? 0 : Math.max(0, DespairRules.DRINKS_TO_EMPTY - drinks));
         this.level.setBlock(worldPosition, state, Block.UPDATE_CLIENTS);
     }
 
@@ -126,12 +264,14 @@ public class DespairBasinBlockEntity extends BlockEntity {
             return;
         }
         long now = level.getGameTime();
+        if (be.layout == null && now % 20 == 0) {
+            be.scanLayout(level);
+        }
         // Refill. Once the Locket shows, the basin only waits for the drinker to take it (no timeout).
         if (be.drinker != null) {
             ServerPlayer p = level.getServer().getPlayerList().getPlayer(be.drinker);
             boolean alive = p != null && p.isAlive() && p.level() == level;
-            BlockPos d = alive ? p.blockPosition().subtract(pos) : BlockPos.ZERO;
-            boolean onIsland = alive && CaveGeometry.onIsland(d.getX(), d.getY(), d.getZ());
+            boolean onIsland = alive && be.layout().onIsland(p.blockPosition());
             boolean timedOut = be.drinks < DespairRules.DRINKS_TO_EMPTY
                     && DespairRules.shouldRefill(now, be.lastDrink, onIsland, alive);
             boolean leftWithLocketShowing = be.drinks >= DespairRules.DRINKS_TO_EMPTY && !onIsland;
@@ -143,6 +283,9 @@ public class DespairBasinBlockEntity extends BlockEntity {
                 level.playSound(null, pos, SoundEvents.BREWING_STAND_BREW, SoundSource.BLOCKS, 1f, 0.5f);
             }
         }
+        if (now % 100 == 0 && be.drinker == null && state.getValue(DespairBasinBlock.STAGE) != BasinStage.LOOTED) {
+            be.restoreGoblet(level);
+        }
         if (now % 10 == 0) {
             be.checkLake(level, now);
         }
@@ -151,22 +294,52 @@ public class DespairBasinBlockEntity extends BlockEntity {
         }
     }
 
+    /**
+     * Reads the waypoint markers within SEARCH_RADIUS once, and saves the layout. Waits until every chunk in
+     * range is loaded so a half-loaded cave is never mistaken for an old one; a cave with no markers at all
+     * is version 1 and is saved as such. On servers with a view distance below about 5 chunks around the basin
+     * this may never complete, and the cave then keeps running on the legacy layout.
+     */
+    private void scanLayout(ServerLevel level) {
+        int r = CaveGeometry.SEARCH_RADIUS;
+        int minCx = SectionPos.blockToSectionCoord(worldPosition.getX() - r);
+        int maxCx = SectionPos.blockToSectionCoord(worldPosition.getX() + r);
+        int minCz = SectionPos.blockToSectionCoord(worldPosition.getZ() - r);
+        int maxCz = SectionPos.blockToSectionCoord(worldPosition.getZ() + r);
+        List<CaveLayout.Marker> found = new ArrayList<>();
+        for (int cx = minCx; cx <= maxCx; cx++) {
+            for (int cz = minCz; cz <= maxCz; cz++) {
+                LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
+                if (chunk == null) {
+                    return; // try again in a second
+                }
+                for (BlockEntity be : List.copyOf(chunk.getBlockEntities().values())) {
+                    if (be instanceof CaveWaypointBlockEntity w && w.getBlockPos().distSqr(worldPosition) <= (double) r * r) {
+                        found.add(new CaveLayout.Marker(w.role(), w.index(), w.getBlockPos()));
+                    }
+                }
+            }
+        }
+        layout = CaveLayout.fromMarkers(worldPosition, found);
+        setChanged();
+    }
+
     private boolean inCave(ServerPlayer p) {
-        BlockPos d = p.blockPosition().subtract(worldPosition);
-        return CaveGeometry.inCave(d.getX(), d.getY(), d.getZ());
+        return layout().inCave(p.blockPosition());
     }
 
     /** In the black lake proper; the antechamber pool and the tunnel are not the lake. */
     private boolean inLake(ServerPlayer p) {
-        BlockPos d = p.blockPosition().subtract(worldPosition);
-        return CaveGeometry.inLake(d.getX(), d.getY(), d.getZ());
+        BlockPos at = p.blockPosition();
+        return layout().inLake(at, LocketCaves.isCoveredWater(p.level(), at));
     }
 
     private int idleGuardians(ServerLevel level) {
-        int r = CaveGeometry.CAVE_RADIUS;
+        CaveLayout l = layout();
+        int r = l.radius();
         net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(
-                worldPosition.getX() - r, worldPosition.getY() - CaveGeometry.CAVE_DOWN, worldPosition.getZ() - r,
-                worldPosition.getX() + r + 1, worldPosition.getY() + CaveGeometry.CAVE_UP + 1, worldPosition.getZ() + r + 1);
+                worldPosition.getX() - r, worldPosition.getY() - l.down(), worldPosition.getZ() - r,
+                worldPosition.getX() + r + 1, worldPosition.getY() + l.up() + 1, worldPosition.getZ() + r + 1);
         return level.getEntitiesOfClass(InferiusEntity.class, box,
                 e -> e.isAlive() && worldPosition.equals(e.caveBasin())).size();
     }
@@ -221,7 +394,8 @@ public class DespairBasinBlockEntity extends BlockEntity {
         // A spawn that finds no water stays owed and is retried; after the grace period it counts as attempted
         // so a lake with no usable water cannot make the ambush unwinnable.
         for (int i = 0, tries = owedSpawns; i < tries; i++) {
-            BlockPos at = findWater(level, worldPosition, CaveGeometry.ISLAND_RADIUS + 1, CaveGeometry.ISLAND_RADIUS + 5, 10);
+            BlockPos at = findWater(level, worldPosition, layout().islandRadius() + 1,
+                    layout().islandRadius() + com.hogwartsmagic.locket.InferiusRules.SHORE_SPAWN_BAND, 14);
             InferiusEntity e = at == null ? null : spawnInferius(level, at, true, trigger);
             if (e != null) {
                 ambushMobs.add(e.getUUID());
@@ -285,7 +459,11 @@ public class DespairBasinBlockEntity extends BlockEntity {
             e.setTarget(target);
         }
         level.addFreshEntity(e);
-        e.startRise();
+        if (ambush) {
+            e.startRiseHandsFirst();
+        } else {
+            e.startRise();
+        }
         return e;
     }
 
@@ -295,23 +473,22 @@ public class DespairBasinBlockEntity extends BlockEntity {
      */
     @Nullable
     private BlockPos findWater(ServerLevel level, BlockPos center, int minR, int maxR, int tries) {
-        int islandSq = CaveGeometry.ISLAND_RADIUS * CaveGeometry.ISLAND_RADIUS;
+        CaveLayout l = layout();
         for (int t = 0; t < tries; t++) {
             double angle = level.random.nextDouble() * Math.PI * 2;
             double r = minR + level.random.nextDouble() * (maxR - minR);
             int x = center.getX() + (int) Math.round(Math.cos(angle) * r);
             int z = center.getZ() + (int) Math.round(Math.sin(angle) * r);
-            int dx = x - worldPosition.getX();
-            int dz = z - worldPosition.getZ();
-            if (dx * dx + dz * dz <= islandSq || !level.hasChunkAt(new BlockPos(x, center.getY(), z))) {
+            if (l.onIsland(new BlockPos(x, worldPosition.getY(), z)) || !level.hasChunkAt(new BlockPos(x, center.getY(), z))) {
                 continue;
             }
             for (int y = center.getY() + 3; y >= center.getY() - 8; y--) {
                 BlockPos pos = new BlockPos(x, y, z);
-                if (!CaveGeometry.inLake(dx, y - worldPosition.getY(), dz)) {
+                boolean water = LocketCaves.isCoveredWater(level, pos);
+                if (!l.inLake(pos, water)) {
                     continue;
                 }
-                if (level.getFluidState(pos).is(FluidTags.WATER)) {
+                if (water) {
                     if (roomAbove(level, pos.above()) && roomAbove(level, pos.above(2))) {
                         return pos;
                     }
@@ -340,6 +517,9 @@ public class DespairBasinBlockEntity extends BlockEntity {
         tag.putInt("AmbushSpawned", ambushSpawned);
         tag.putInt("OwedSpawns", owedSpawns);
         tag.putLong("LastWarning", lastWarning);
+        if (layout != null) {
+            tag.put("Layout", layout.save());
+        }
         if (ambushTrigger != null) {
             tag.putUUID("AmbushTrigger", ambushTrigger);
         }
@@ -360,6 +540,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
         ambushTicks = tag.getInt("AmbushTicks");
         ambushSpawned = tag.getInt("AmbushSpawned");
         owedSpawns = tag.getInt("OwedSpawns");
+        layout = tag.contains("Layout") ? CaveLayout.load(tag.getCompound("Layout"), worldPosition) : null;
         lastWarning = tag.contains("LastWarning") ? tag.getLong("LastWarning") : -100000;
         ambushTrigger = tag.hasUUID("AmbushTrigger") ? tag.getUUID("AmbushTrigger") : null;
         ambushMobs.clear();

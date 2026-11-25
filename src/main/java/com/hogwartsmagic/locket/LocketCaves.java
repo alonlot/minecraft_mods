@@ -70,6 +70,13 @@ public final class LocketCaves {
                     continue;
                 }
                 for (BlockEntity be : List.copyOf(chunk.getBlockEntities().values())) {
+                    if (be instanceof com.hogwartsmagic.block.entity.CaveRingBlockEntity ring) {
+                        if (be.getBlockPos().distToCenterSqr(center) <= r2) {
+                            ring.reveal(com.hogwartsmagic.block.entity.CaveRingBlockEntity.TOUCH_REVEAL_TICKS);
+                            count++;
+                        }
+                        continue;
+                    }
                     if (!(be instanceof CaveMarkerBlockEntity)) {
                         continue;
                     }
@@ -90,9 +97,19 @@ public final class LocketCaves {
         return count;
     }
 
+    /**
+     * Water with solid rock somewhere above it: the cave lake under the stack, not open sea at the same height
+     * (OCEAN_FLOOR counts only solid blocks, so open seabed water sits above it). The layout stays pure and is
+     * told only this.
+     */
+    public static boolean isCoveredWater(net.minecraft.world.level.Level level, BlockPos pos) {
+        return level.getFluidState(pos).is(FluidTags.WATER)
+                && pos.getY() < level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR, pos.getX(), pos.getZ());
+    }
+
     /** The nearest Basin of Despair whose cave contains pos, searching loaded chunks only. */
     public static Optional<DespairBasinBlockEntity> findBasinFor(ServerLevel level, BlockPos pos) {
-        int r = CaveGeometry.CAVE_RADIUS;
+        int r = CaveGeometry.SEARCH_RADIUS;
         int minCx = SectionPos.blockToSectionCoord(pos.getX() - r);
         int maxCx = SectionPos.blockToSectionCoord(pos.getX() + r);
         int minCz = SectionPos.blockToSectionCoord(pos.getZ() - r);
@@ -109,9 +126,8 @@ public final class LocketCaves {
                     if (!(be instanceof DespairBasinBlockEntity basin)) {
                         continue;
                     }
-                    BlockPos d = pos.subtract(be.getBlockPos());
                     double dist = pos.distSqr(be.getBlockPos());
-                    if (CaveGeometry.inCave(d.getX(), d.getY(), d.getZ()) && dist < bestDist) {
+                    if (basin.layout().inCave(pos) && dist < bestDist) {
                         best = basin;
                         bestDist = dist;
                     }
@@ -150,8 +166,7 @@ public final class LocketCaves {
         if (found.isEmpty()) {
             return;
         }
-        BlockPos wd = hit.getBlockPos().subtract(found.get().getBlockPos());
-        if (!CaveGeometry.inLake(wd.getX(), wd.getY(), wd.getZ())) {
+        if (!found.get().layout().inLake(hit.getBlockPos(), isCoveredWater(level, hit.getBlockPos()))) {
             return; // the antechamber pool is not the lake
         }
         e.setCanceled(true);
@@ -160,9 +175,49 @@ public final class LocketCaves {
         if (player.containerMenu != player.inventoryMenu) {
             player.containerMenu.sendAllDataToRemote();
         }
-        if (cureThirst(player) && !found.get().isAmbushActive()) {
+        slakeThirst(player, found.get());
+    }
+
+    /** Whether p carries Unquenchable Thirst. */
+    public static boolean isThirsty(net.minecraft.world.entity.LivingEntity p) {
+        var thirst = ExampleMod.UNQUENCHABLE_THIRST.getHolder().orElse(null);
+        return thirst != null && p.hasEffect(thirst);
+    }
+
+    /** Whether pos is cave lake water of this basin's cave (the antechamber pool and open sea are not). */
+    public static boolean isLakeWater(ServerLevel level, DespairBasinBlockEntity basin, BlockPos pos) {
+        return basin.layout().inLake(pos, isCoveredWater(level, pos));
+    }
+
+    /** The thirst is cured by the lake's black water, and the water wakes: start the ambush if it is not already on. */
+    public static void slakeThirst(ServerPlayer player, DespairBasinBlockEntity basin) {
+        if (cureThirst(player) && !basin.isAmbushActive()) { // already awake from the dip, or the bottle path
+            basin.startAmbush(player);
+        }
+    }
+
+    /**
+     * An empty goblet dipped at pos. Fills with lake water only where the water is the cave lake; any other water
+     * (the antechamber pool, open sea, a placed bucket) is refused with a message and nothing changes.
+     * Returns whether the goblet was filled.
+     */
+    public static boolean dipGoblet(ServerLevel level, ServerPlayer player, net.minecraft.world.item.ItemStack goblet, BlockPos pos) {
+        if (!level.getFluidState(pos).is(FluidTags.WATER)
+                || com.hogwartsmagic.item.CaveGobletItem.fillOf(goblet) != GobletFill.EMPTY) {
+            return false;
+        }
+        Optional<DespairBasinBlockEntity> found = findBasinFor(level, pos);
+        if (found.isEmpty() || !isLakeWater(level, found.get(), pos)) {
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.goblet_refuses_water"), true);
+            return false;
+        }
+        com.hogwartsmagic.item.CaveGobletItem.setFill(goblet, GobletFill.WATER);
+        level.playSound(null, player.blockPosition(), SoundEvents.BUCKET_FILL, SoundSource.PLAYERS, 0.8f, 0.7f);
+        // The moment the goblet touches the lake, the lake wakes.
+        if (isThirsty(player) && !found.get().isAmbushActive()) {
             found.get().startAmbush(player);
         }
+        return true;
     }
 
     /** Dropped Horcrux items (the Locket) neither burn, explode nor despawn. */

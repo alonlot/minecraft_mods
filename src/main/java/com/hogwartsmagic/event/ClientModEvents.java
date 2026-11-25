@@ -872,6 +872,9 @@ public class ClientModEvents {
             ItemBlockRenderTypes.setRenderLayer(ExampleMod.FINE_WOOD_SAPLING.get(), RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ExampleMod.FINE_WOOD_LEAVES.get(), RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ExampleMod.HORCRUX.get(), RenderType.cutout());
+            net.minecraft.client.renderer.item.ItemProperties.register(ExampleMod.CRYSTAL_GOBLET_ITEM.get(),
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "goblet_fill"),
+                    (stack, level, entity, seed) -> (float) com.hogwartsmagic.item.CaveGobletItem.fillOf(stack).ordinal());
             net.minecraft.client.renderer.item.ItemProperties.register(ExampleMod.SNEAKOSCOPE_ITEM.get(),
                     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "spinning"),
                     (stack, level, entity, seed) -> com.hogwartsmagic.item.SneakoscopeItem.isSpinning(stack) ? 1.0f : 0.0f);
@@ -1168,6 +1171,8 @@ public class ClientModEvents {
         event.registerLayerDefinition(BroomModel.LAYER_LOCATION, BroomModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.GringottsCartModel.LAYER,
                 com.hogwartsmagic.client.model.GringottsCartModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.CaveSkiffModel.LAYER,
+                com.hogwartsmagic.client.model.CaveSkiffModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.TRAINING_LAYER, com.hogwartsmagic.client.BroomModelV2::createTrainingLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.NIMBUS_LAYER, com.hogwartsmagic.client.BroomModelV2::createNimbusLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.FIREBOLT_LAYER, com.hogwartsmagic.client.BroomModelV2::createFireboltLayer);
@@ -1242,6 +1247,8 @@ public class ClientModEvents {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(ExampleMod.CAVE_RING_BLOCK_ENTITY.get(),
+                com.hogwartsmagic.client.renderer.CaveChainRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.GRINGOTTS_VAULT_DOOR_BLOCK_ENTITY.get(),
                 com.hogwartsmagic.client.GringottsVaultDoorRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.DIAGON_ARCHWAY_BLOCK_ENTITY.get(),

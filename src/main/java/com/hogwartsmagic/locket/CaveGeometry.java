@@ -7,6 +7,8 @@ public final class CaveGeometry {
     public static final int CAVE_RADIUS = 34;
     public static final int CAVE_DOWN = 14;
     public static final int CAVE_UP = 26;
+    /** How far from a basin its waypoint markers and cave bounds are searched: the larger of the old and new radii. */
+    public static final int SEARCH_RADIUS = 48;
 
     /** The lake is the cavern ellipse (radii 24 x 20 around the basin) with a block of margin each way. */
     public static final int LAKE_RADIUS_X = 25;

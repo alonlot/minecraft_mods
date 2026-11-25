@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:crystal_goblet"
+        }
+      ]
+    }
+  ],
+  "random_sequence": "hogwartsmagic:blocks/crystal_goblet"
+}

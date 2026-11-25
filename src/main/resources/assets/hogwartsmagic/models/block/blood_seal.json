@@ -1,4 +1,3 @@
 {
-  "parent": "block/cube_all",
-  "textures": { "all": "hogwartsmagic:block/blood_seal" }
+  "parent": "hogwartsmagic:block/blood_seal_s0_p0"
 }

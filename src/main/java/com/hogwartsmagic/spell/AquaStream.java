@@ -312,6 +312,9 @@ public final class AquaStream {
     private static void flow(ServerLevel level, ServerPlayer player, Stream stream, long now) {
         for (Drop drop : stream.drops) {
             Drop.Hit hit = drop.step(level, player);
+            if (!drop.gone && spoils(level, player, drop, hit)) {
+                continue;
+            }
             if (hit != null) {
                 land(level, player, stream, hit, now);
             } else if (!drop.gone) {
@@ -320,6 +323,46 @@ public final class AquaStream {
             }
         }
         stream.drops.removeIf(d -> d.gone);
+    }
+
+    /** Conjured water comes this close to a player with Unquenchable Thirst and is gone. */
+    public static final double THIRST_REACH = 3.0;
+
+    /**
+     * Conjured water cannot slake the cave's thirst: a drop that comes within {@link #THIRST_REACH} blocks of a
+     * thirsty player (other than its own caster), or lands on a player holding a goblet, vanishes in a puff and a
+     * soft hiss. Returns whether it did (the drop is then marked gone). Only players near the drop are looked at.
+     */
+    public static boolean spoils(ServerLevel level, @Nullable Entity caster, Drop drop, @Nullable Drop.Hit hit) {
+        Vec3 at = hit != null ? hit.at() : drop.pos;
+        boolean spoiled = hit != null && hit.target() instanceof ServerPlayer holder && holdsGoblet(holder);
+        if (!spoiled) {
+            AABB near = new AABB(at, at).inflate(THIRST_REACH);
+            for (ServerPlayer p : level.players()) {
+                if (p != caster && p.isAlive() && near.contains(p.getX(), p.getY() + p.getBbHeight() * 0.5, p.getZ())
+                        && p.position().add(0.0, p.getBbHeight() * 0.5, 0.0).distanceToSqr(at) <= THIRST_REACH * THIRST_REACH
+                        && com.hogwartsmagic.locket.LocketCaves.isThirsty(p)) {
+                    spoiled = true;
+                    break;
+                }
+            }
+        }
+        if (!spoiled) {
+            return false;
+        }
+        drop.landed = true;
+        drop.gone = true;
+        if (level.getGameTime() % 3 == 0) {
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD, at.x, at.y, at.z, 3, 0.15, 0.15, 0.15, 0.01);
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, at.x, at.y, at.z, 1, 0.1, 0.1, 0.1, 0.01);
+            level.playSound(null, at.x, at.y, at.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.25f, 1.6f);
+        }
+        return true;
+    }
+
+    private static boolean holdsGoblet(ServerPlayer p) {
+        return p.getMainHandItem().getItem() instanceof com.hogwartsmagic.item.CaveGobletItem
+                || p.getOffhandItem().getItem() instanceof com.hogwartsmagic.item.CaveGobletItem;
     }
 
     /** One drop's worth of water landing. */

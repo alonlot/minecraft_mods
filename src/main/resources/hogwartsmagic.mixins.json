@@ -31,6 +31,7 @@
     "client.PossessionTurnMixin",
     "client.PossessionSendPositionMixin",
     "client.BasiliskGazeGuiMixin",
+    "client.DespairGuiMixin",
     "client.PensieveCameraMixin",
     "client.PensieveGuiMixin",
     "client.PensieveLevelRendererMixin",

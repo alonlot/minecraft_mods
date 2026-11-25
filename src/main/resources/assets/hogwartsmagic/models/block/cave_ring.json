@@ -1,0 +1,41 @@
+{
+  "textures": {
+    "rock": "minecraft:block/deepslate",
+    "particle": "minecraft:block/deepslate",
+    "top": "hogwartsmagic:block/cave_ring_top"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rock"
+        },
+        "up": {
+          "texture": "#top"
+        },
+        "north": {
+          "texture": "#rock"
+        },
+        "south": {
+          "texture": "#rock"
+        },
+        "west": {
+          "texture": "#rock"
+        },
+        "east": {
+          "texture": "#rock"
+        }
+      }
+    }
+  ]
+}

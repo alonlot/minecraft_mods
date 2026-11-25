@@ -1,7 +1,6 @@
 package com.hogwartsmagic.item;
 
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.locket.DespairRules;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -23,8 +22,10 @@ public class SlytherinsLocketItem extends Item {
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity holder, int slot, boolean selected) {
         if (!level.isClientSide && holder instanceof ServerPlayer p && level.random.nextInt(WHISPER_CHANCE) == 0) {
-            p.displayClientMessage(Component.literal(DespairRules.whisper(level.random.nextInt(DespairRules.whisperCount())))
-                    .withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC), false);
+            // Heard by the carrier alone, close to the ear.
+            p.connection.send(new net.minecraft.network.protocol.game.ClientboundSoundPacket(
+                    net.minecraft.core.Holder.direct(com.hogwartsmagic.ModSounds.DESPAIR_WHISPER.get()),
+                    net.minecraft.sounds.SoundSource.AMBIENT, p.getX(), p.getEyeY(), p.getZ(), 0.6f, 0.9f, level.random.nextLong()));
         }
     }
 

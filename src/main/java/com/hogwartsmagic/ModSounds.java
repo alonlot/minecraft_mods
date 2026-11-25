@@ -601,6 +601,7 @@ public class ModSounds {
     // ---- Cosy food ----
     /** The cooking pot bubbling while it cooks (sounds/cosy/pot_bubble_loop.ogg, 8.5 s, loops seamlessly). */
     public static final RegistryObject<SoundEvent> COSY_POT_BUBBLE_LOOP = register("cosy.pot_bubble_loop");
+    public static final RegistryObject<SoundEvent> DESPAIR_WHISPER = register("despair.whisper");
 
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);

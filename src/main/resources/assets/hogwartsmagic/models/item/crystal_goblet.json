@@ -1,3 +1,4 @@
 {
-  "parent": "hogwartsmagic:block/crystal_goblet"
+  "parent": "hogwartsmagic:block/crystal_goblet",
+  "display": {}
 }

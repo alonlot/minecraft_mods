@@ -65,7 +65,7 @@ public final class DespairOverlay {
             for (int i = 0; i < 6; i++) {
                 int a = smear * (6 - i) / 6;
                 g.fill(0, i * 3, w, i * 3 + 3, (a << 24) | GREEN_DEEP);
-                            }
+            }
         }
     }
 }

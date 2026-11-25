@@ -24,11 +24,6 @@ class InferiusRulesTest {
         assertTrue(InferiusRules.LAND_PULL_PER_TICK > 0);
         assertTrue(InferiusRules.LAND_PULL_PER_TICK < InferiusRules.WATER_PULL_PER_TICK);
     }
-    @Test void pastArchMeansTurnBack() {
-        assertTrue(InferiusRules.pastArch(30.5, 30.0));
-        assertFalse(InferiusRules.pastArch(30.0, 30.0));
-        assertFalse(InferiusRules.pastArch(12.0, 30.0));
-    }
     @Test void latchReleasedWhenRiderGone() {
         assertTrue(InferiusRules.latchReleasedWhenRiderGone(false, false, false));
         assertTrue(InferiusRules.latchReleasedWhenRiderGone(true, true, false));

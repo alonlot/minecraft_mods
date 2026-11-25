@@ -5752,7 +5752,7 @@ BUILDS = {
     'envoy_camp': envoy_camp,
     'death_eater_camp': death_eater_camp,
     'hogwarts_ruin_camp': hogwarts_ruin_camp,
-    'locket_cave': sea_cave.build,
+    'locket_sea_cave': sea_cave.build,
     'cursed_tomb': cursed_tomb,
     'cursebreaker_dig': cursebreaker_dig,
     'yeti_cave': yeti_cave,
@@ -6066,7 +6066,7 @@ if __name__ == '__main__':
             problems += audit_chamber_seal(blocks, size)
         if name == 'fen_prison':
             problems += audit_submerged(blocks)
-        if name == 'locket_cave':
+        if name == 'locket_sea_cave':
             problems += sea_cave.audit.problems(blocks)
         if name == 'cursed_tomb':
             problems += audit_cursed_tomb(blocks)

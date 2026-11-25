@@ -12,6 +12,9 @@ import java.util.List;
  * (they turn with the template, so the cave works at any rotation). Version 1 is a cave from before the
  * markers existed and answers exactly as {@link CaveGeometry} does; version 2 answers from the markers.
  * Pure: water is passed in, never looked up.
+ *
+ * Note: the basin scan waits for every chunk within SEARCH_RADIUS to load. On a server whose view distance around
+ * the basin is below about 5 chunks the scan may never complete, and that cave keeps running on the legacy layout.
  */
 public record CaveLayout(int version, BlockPos basin, List<BlockPos> arches, BlockPos ring, BlockPos dockShore,
                          BlockPos dockIsland, List<BlockPos> path, int lakeSurfaceY, int radius, int down, int up) {

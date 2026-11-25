@@ -14,10 +14,12 @@ import java.util.function.Consumer;
  */
 public class DespairEffect extends MobEffect {
     /** Shared by the despair effects: never shown in the inventory or on the HUD. */
-    static final IClientMobEffectExtensions HIDDEN = new IClientMobEffectExtensions() {
-        @Override public boolean isVisibleInInventory(MobEffectInstance instance) { return false; }
-        @Override public boolean isVisibleInGui(MobEffectInstance instance) { return false; }
-    };
+    static IClientMobEffectExtensions hidden() {
+        return new IClientMobEffectExtensions() {
+            @Override public boolean isVisibleInInventory(MobEffectInstance instance) { return false; }
+            @Override public boolean isVisibleInGui(MobEffectInstance instance) { return false; }
+        };
+    }
 
     public DespairEffect() {
         super(MobEffectCategory.HARMFUL, 0x1E3A2A);
@@ -25,6 +27,6 @@ public class DespairEffect extends MobEffect {
 
     @Override
     public void initializeClient(Consumer<IClientMobEffectExtensions> consumer) {
-        consumer.accept(HIDDEN);
+        consumer.accept(hidden());
     }
 }

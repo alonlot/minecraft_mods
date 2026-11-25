@@ -141,7 +141,14 @@ public class CaveRingBlockEntity extends BlockEntity {
             if (haulTicks > HAUL_TICKS) {
                 haulTicks = 0;
                 revealTicks = 0;
-                CaveBoatEntity.rise(server, l);
+                if (CaveBoatEntity.rise(server, l) == null) {
+                    Component why = Component.translatable("message.hogwartsmagic.cave_boat_blocked");
+                    for (net.minecraft.server.level.ServerPlayer near : server.players()) {
+                        if (near.distanceToSqr(worldPosition.getX() + 0.5D, worldPosition.getY(), worldPosition.getZ() + 0.5D) < 48.0D * 48.0D) {
+                            near.displayClientMessage(why, true);
+                        }
+                    }
+                }
             }
             sync();
             return;

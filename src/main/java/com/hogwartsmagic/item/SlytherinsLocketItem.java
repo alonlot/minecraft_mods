@@ -1,7 +1,6 @@
 package com.hogwartsmagic.item;
 
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.locket.DespairRules;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;

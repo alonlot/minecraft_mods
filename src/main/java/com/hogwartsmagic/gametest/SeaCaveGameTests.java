@@ -492,8 +492,8 @@ public final class SeaCaveGameTests {
     @GameTest(template = EMPTY, batch = "skiff_f", timeoutTicks = 60)
     public static void templateWaypointNbtLoadsIntoBlockEntities(GameTestHelper helper) {
         net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate template = helper.getLevel().getStructureManager()
-                .get(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("hogwartsmagic", "locket_cave")).orElse(null);
-        helper.assertTrue(template != null, "the locket_cave template exists");
+                .get(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("hogwartsmagic", "locket_sea_cave")).orElse(null);
+        helper.assertTrue(template != null, "the locket_sea_cave template exists");
         java.util.List<net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo> infos =
                 template.filterBlocks(BlockPos.ZERO, new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings(),
                         ExampleMod.CAVE_WAYPOINT.get());
@@ -591,6 +591,56 @@ public final class SeaCaveGameTests {
         basin.takeLocket(player);
         helper.assertTrue(helper.getBlockState(GOBLET_BASIN).getValue(com.hogwartsmagic.block.DespairBasinBlock.STAGE) == com.hogwartsmagic.locket.BasinStage.LOOTED, "the drinker takes it");
         helper.assertTrue(player.getInventory().contains(new net.minecraft.world.item.ItemStack(ExampleMod.SLYTHERINS_LOCKET.get())), "the Locket is in the drinker's pack");
+        helper.succeed();
+    }
+
+    /** After the sixth cup the drinker holds an empty goblet; a right-click with it on the dry basin takes the Locket. */
+    @GameTest(template = EMPTY, batch = "goblet_g", timeoutTicks = 60)
+    public static void emptyGobletClickTakesLocket(GameTestHelper helper) {
+        com.hogwartsmagic.block.entity.DespairBasinBlockEntity basin = gobletBasin(helper, true);
+        net.minecraft.server.level.ServerPlayer player = onIsland(helper);
+        net.minecraft.world.item.ItemStack goblet = new net.minecraft.world.item.ItemStack(ExampleMod.CRYSTAL_GOBLET_ITEM.get());
+        for (int cup = 1; cup <= 6; cup++) {
+            basin.forgetLastDrinkForTest();
+            helper.assertTrue(basin.dip(player, goblet), "dip " + cup);
+            player.setHealth(player.getMaxHealth());
+            com.hogwartsmagic.item.CaveGobletItem.drinkFrom(goblet, helper.getLevel(), player);
+        }
+        helper.assertTrue(basinLevel(helper) == 0, "six cups leave the basin dry");
+        helper.assertTrue(com.hogwartsmagic.item.CaveGobletItem.fillOf(goblet) == com.hogwartsmagic.locket.GobletFill.EMPTY, "the drinker holds an empty goblet");
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, goblet);
+        BlockPos abs = helper.absolutePos(GOBLET_BASIN);
+        net.minecraft.world.phys.BlockHitResult hit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(abs), net.minecraft.core.Direction.UP, abs, false);
+        helper.getBlockState(GOBLET_BASIN).useItemOn(goblet, helper.getLevel(), player, net.minecraft.world.InteractionHand.MAIN_HAND, hit);
+        helper.assertTrue(helper.getBlockState(GOBLET_BASIN).getValue(com.hogwartsmagic.block.DespairBasinBlock.STAGE) == com.hogwartsmagic.locket.BasinStage.LOOTED,
+                "a click with the empty goblet takes the Locket");
+        helper.assertTrue(player.getInventory().contains(new net.minecraft.world.item.ItemStack(ExampleMod.SLYTHERINS_LOCKET.get())), "the Locket is in the pack");
+        helper.succeed();
+    }
+
+    /** The decorative goblet (Diagon Alley) is a plain block item, and outside a cave a click passes and breaking drops it. */
+    @GameTest(template = EMPTY, batch = "goblet_h", timeoutTicks = 60)
+    public static void decorativeGobletIsPlainOutsideCaves(GameTestHelper helper) {
+        helper.assertTrue(ExampleMod.CRYSTAL_GOBLET.get().asItem() != net.minecraft.world.item.Items.AIR, "the goblet block has an item");
+        gobletFloor(helper);
+        // basins left behind by other tests would make this look like a cave
+        net.minecraft.server.level.ServerLevel lvl = helper.getLevel();
+        BlockPos centre = helper.absolutePos(BlockPos.ZERO);
+        for (BlockPos p : BlockPos.betweenClosed(centre.offset(-60, -10, -60), centre.offset(60, 30, 60))) {
+            if (lvl.getBlockState(p).is(ExampleMod.DESPAIR_BASIN.get())) {
+                lvl.removeBlock(p.immutable(), false);
+            }
+        }
+        helper.setBlock(new BlockPos(1, 1, 1), ExampleMod.CRYSTAL_GOBLET.get());
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        BlockPos abs = helper.absolutePos(new BlockPos(1, 1, 1));
+        net.minecraft.world.phys.BlockHitResult hit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(abs), net.minecraft.core.Direction.UP, abs, false);
+        net.minecraft.world.InteractionResult r = helper.getBlockState(new BlockPos(1, 1, 1)).useWithoutItem(helper.getLevel(), player, hit);
+        helper.assertTrue(r == net.minecraft.world.InteractionResult.PASS, "no basin around: the click passes, got " + r);
+        helper.assertTrue(helper.getBlockState(new BlockPos(1, 1, 1)).is(ExampleMod.CRYSTAL_GOBLET.get()), "the goblet stays");
+        java.util.List<net.minecraft.world.item.ItemStack> drops = net.minecraft.world.level.block.Block.getDrops(
+                helper.getBlockState(new BlockPos(1, 1, 1)), helper.getLevel(), abs, null);
+        helper.assertTrue(drops.size() == 1 && drops.get(0).is(ExampleMod.CRYSTAL_GOBLET.get().asItem()), "breaking drops the plain goblet: " + drops);
         helper.succeed();
     }
 

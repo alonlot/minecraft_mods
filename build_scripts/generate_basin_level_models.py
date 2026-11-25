@@ -2,7 +2,6 @@
 
 Basin: the frame is the existing despair_basin_looted model; despair_basin_liquid_1..6 are one liquid slab each,
 its top dropping with the level; despair_basin_locket_piece is the Locket alone, shown at level 0 until taken.
-Goblet: crystal_goblet_potion / crystal_goblet_water add a liquid slab inside the bowl of the empty model.
 
 Run from the repo root: python build_scripts/generate_basin_level_models.py
 """
@@ -39,20 +38,7 @@ def main():
     pieces = [e for e in locket_full['elements'] if e['faces']['north']['texture'] == '#locket']
     save(os.path.join(BLOCK, 'despair_basin_locket_piece.json'), {'textures': textures, 'elements': pieces})
 
-    goblet = load('crystal_goblet')
-    for fill, tex in (('potion', 'hogwartsmagic:block/despair_basin_liquid'),
-                      ('water', 'minecraft:block/light_blue_stained_glass')):
-        m = json.loads(json.dumps(goblet))
-        m['textures']['fill'] = tex
-        m['elements'].append(slab([5.5, 6, 5.5], [10.5, 9, 10.5], '#fill'))
-        save(os.path.join(BLOCK, 'crystal_goblet_%s.json' % fill), m)
-        save(os.path.join(ROOT, 'item', 'crystal_goblet_%s.json' % fill), {'parent': 'hogwartsmagic:block/crystal_goblet_%s' % fill})
-    save(os.path.join(ROOT, 'item', 'crystal_goblet.json'), {
-        'parent': 'hogwartsmagic:block/crystal_goblet',
-        'overrides': [
-            {'predicate': {'hogwartsmagic:goblet_fill': 1}, 'model': 'hogwartsmagic:item/crystal_goblet_potion'},
-            {'predicate': {'hogwartsmagic:goblet_fill': 2}, 'model': 'hogwartsmagic:item/crystal_goblet_water'},
-        ]})
+    # the goblet item models (cave_goblet + fills) are hand-textured now; this script no longer writes them
 
     # multipart: the frame always; liquid by level while not looted; the Locket piece while it shows
     parts = [{'apply': {'model': 'hogwartsmagic:block/despair_basin_looted'}}]

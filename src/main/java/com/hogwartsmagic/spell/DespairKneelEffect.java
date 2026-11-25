@@ -14,6 +14,6 @@ public class DespairKneelEffect extends MobEffect {
 
     @Override
     public void initializeClient(Consumer<IClientMobEffectExtensions> consumer) {
-        consumer.accept(DespairEffect.HIDDEN);
+        consumer.accept(DespairEffect.hidden());
     }
 }

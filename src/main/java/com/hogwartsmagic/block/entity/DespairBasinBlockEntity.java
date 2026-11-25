@@ -70,7 +70,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
         return layout != null ? layout : CaveLayout.legacy(worldPosition);
     }
 
-    /** Sets the layout directly, skipping the marker scan. For tests, which build a tiny cave by hand. */
+    /** Sets the layout directly, skipping the marker scan. TEST ONLY: never call this from gameplay code. */
     public void setLayoutDirectly(CaveLayout l) {
         this.layout = l;
         setChanged();
@@ -223,7 +223,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
         return drinks;
     }
 
-    /** An empty hand lifts the Locket from the dry basin, if this player is the one who drank it dry. */
+    /** Any right-click lifts the Locket from the dry basin, if this player is the one who drank it dry. */
     public void takeLocket(ServerPlayer p) {
         if (!(this.level instanceof ServerLevel level)) {
             return;
@@ -297,7 +297,8 @@ public class DespairBasinBlockEntity extends BlockEntity {
     /**
      * Reads the waypoint markers within SEARCH_RADIUS once, and saves the layout. Waits until every chunk in
      * range is loaded so a half-loaded cave is never mistaken for an old one; a cave with no markers at all
-     * is version 1 and is saved as such.
+     * is version 1 and is saved as such. On servers with a view distance below about 5 chunks around the basin
+     * this may never complete, and the cave then keeps running on the legacy layout.
      */
     private void scanLayout(ServerLevel level) {
         int r = CaveGeometry.SEARCH_RADIUS;

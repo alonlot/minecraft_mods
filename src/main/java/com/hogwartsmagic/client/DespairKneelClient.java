@@ -25,7 +25,9 @@ public final class DespairKneelClient {
             return;
         }
         Input input = event.getInput();
-        input.shiftKeyDown = true;
+        if (!player.isPassenger()) { // crouching would dismount a rider
+            input.shiftKeyDown = true;
+        }
         input.leftImpulse = 0.0F;
         input.forwardImpulse = 0.0F;
         input.up = false;

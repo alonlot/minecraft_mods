@@ -190,7 +190,7 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int stage = state.getValue(STAGE);
         if (!state.getValue(OPEN) && stage != 0) {
-            meltArch(level, pos, stage + 1); // melting: stage 1 -> 2 -> 3
+            meltArch(level, pos, Math.min(3, stage + 1)); // melting: stage 1 -> 2 -> 3
             return;
         }
         if (!state.getValue(OPEN)) {

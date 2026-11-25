@@ -32,11 +32,6 @@ public final class InferiusRules {
         return now - lastGrab >= GRAB_COOLDOWN;
     }
 
-    /** True when a cave-bound Inferius has strayed farther from the basin than the nearest arch: turn back. */
-    public static boolean pastArch(double distFromBasin, double archDist) {
-        return distFromBasin > archDist;
-    }
-
     /** A latched Inferius lets go when the rider is gone, it was hit, or it is burning. */
     public static boolean latchReleasedWhenRiderGone(boolean riderPresent, boolean hit, boolean burning) {
         return !riderPresent || hit || burning;

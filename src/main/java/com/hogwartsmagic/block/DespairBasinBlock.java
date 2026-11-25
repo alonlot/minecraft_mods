@@ -86,6 +86,14 @@ public class DespairBasinBlock extends BaseEntityBlock {
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit) {
+        if (state.getValue(LOCKET) && state.getValue(LEVEL) == 0) {
+            // the Locket waits on the dry floor: whatever the hand holds (the empty goblet, anything), the click takes it
+            if (!level.isClientSide && player instanceof ServerPlayer serverPlayer
+                    && level.getBlockEntity(pos) instanceof DespairBasinBlockEntity be) {
+                be.takeLocket(serverPlayer);
+            }
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        }
         if (!(stack.getItem() instanceof com.hogwartsmagic.item.CaveGobletItem)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
@@ -99,10 +107,10 @@ public class DespairBasinBlock extends BaseEntityBlock {
         return ItemInteractionResult.sidedSuccess(level.isClientSide);
     }
 
-    /** An empty hand lifts the Locket from the dry basin. */
+    /** An empty hand lifts the Locket from the dry basin (a held item goes through useItemOn). */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && serverPlayer.getMainHandItem().isEmpty()
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer
                 && level.getBlockEntity(pos) instanceof DespairBasinBlockEntity be) {
             be.takeLocket(serverPlayer);
         }

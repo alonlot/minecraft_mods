@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "WWW"
+  ],
+  "key": {
+    "W": {
+      "item": "minecraft:blue_wool"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:ravenclaw_rug",
+    "count": 3
+  }
+}

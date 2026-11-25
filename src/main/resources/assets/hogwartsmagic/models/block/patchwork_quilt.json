@@ -1,0 +1,41 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "quilt": "hogwartsmagic:block/decor/patchwork_quilt",
+    "particle": "hogwartsmagic:block/decor/patchwork_quilt"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        1,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#quilt"
+        },
+        "south": {
+          "texture": "#quilt"
+        },
+        "east": {
+          "texture": "#quilt"
+        },
+        "west": {
+          "texture": "#quilt"
+        },
+        "up": {
+          "texture": "#quilt"
+        },
+        "down": {
+          "texture": "#quilt"
+        }
+      }
+    }
+  ]
+}

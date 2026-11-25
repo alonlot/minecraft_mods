@@ -3,9 +3,13 @@ package com.hogwartsmagic.gametest;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.decor.FloatingCandleBlock;
 import com.hogwartsmagic.block.decor.ModDecorations;
+import com.hogwartsmagic.block.decor.QuiltBlock;
+import com.hogwartsmagic.block.decor.RugBlock;
+import com.hogwartsmagic.block.decor.SofaBlock;
 import com.hogwartsmagic.cosy.CosyHome;
 import com.hogwartsmagic.cosy.CosyHomeEvents;
 import com.hogwartsmagic.cosy.FloatingCandleBlockEntity;
+import com.hogwartsmagic.cosy.SofaPart;
 import com.hogwartsmagic.cosy.HearthBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -14,9 +18,11 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -162,6 +168,101 @@ public final class CosyHomeGameTests {
         BlockState relit = h.getLevel().getBlockState(abs);
         h.assertTrue(relit.getValue(FloatingCandleBlock.LIT), "a second click lights them again");
         h.assertTrue(relit.getLightEmission(h.getLevel(), abs) == 14, "relit candles give light 14");
+        h.succeed();
+    }
+
+    // ---------------------------------------------------------------------------------- furniture
+
+    private static BlockState sofa(Direction facing) {
+        return ModDecorations.SOFA.get().defaultBlockState().setValue(SofaBlock.FACING, facing);
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void sofaMiddleBetweenTwo(GameTestHelper h) {
+        stonePad(h);
+        for (int x = 3; x <= 5; x++) {
+            h.setBlock(new BlockPos(x, 2, 4), sofa(Direction.NORTH));
+        }
+        SofaPart west = h.getBlockState(new BlockPos(3, 2, 4)).getValue(SofaBlock.PART);
+        SofaPart middle = h.getBlockState(new BlockPos(4, 2, 4)).getValue(SofaBlock.PART);
+        SofaPart east = h.getBlockState(new BlockPos(5, 2, 4)).getValue(SofaBlock.PART);
+        h.assertTrue(middle == SofaPart.MIDDLE, "the centre sofa should be MIDDLE, was " + middle);
+        // Facing north, the sitter's left is west: the west end has the left arm.
+        h.assertTrue(west == SofaPart.LEFT, "the west sofa should be LEFT, was " + west);
+        h.assertTrue(east == SofaPart.RIGHT, "the east sofa should be RIGHT, was " + east);
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void sofasFacingOtherWaysDoNotJoin(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(new BlockPos(3, 2, 4), sofa(Direction.NORTH));
+        h.setBlock(new BlockPos(4, 2, 4), sofa(Direction.EAST));
+        h.assertTrue(h.getBlockState(new BlockPos(3, 2, 4)).getValue(SofaBlock.PART) == SofaPart.SINGLE,
+                "a sofa next to one facing another way stays a single");
+        h.assertTrue(h.getBlockState(new BlockPos(4, 2, 4)).getValue(SofaBlock.PART) == SofaPart.SINGLE,
+                "and so does the other");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void sofaSeatsAPlayer(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(new BlockPos(4, 2, 4), sofa(Direction.NORTH));
+        ServerPlayer player = playerAt(h, 4.5, 2, 5.5);
+        BlockPos rel = new BlockPos(4, 2, 4);
+        h.getLevel().getBlockState(h.absolutePos(rel)).useWithoutItem(h.getLevel(), player, clickOn(h, rel));
+        h.assertTrue(player.isPassenger(), "a click should sit the player on the sofa");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void quiltDropsOntoBed(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(new BlockPos(4, 2, 4), Blocks.RED_BED.defaultBlockState()
+                .setValue(BedBlock.PART, BedPart.HEAD).setValue(BedBlock.FACING, Direction.NORTH));
+        h.setBlock(new BlockPos(4, 3, 4), ModDecorations.PATCHWORK_QUILT.get().defaultBlockState());
+        h.setBlock(new BlockPos(6, 2, 6), ModDecorations.PATCHWORK_QUILT.get().defaultBlockState());
+        BlockState onBed = h.getBlockState(new BlockPos(4, 3, 4));
+        BlockState onStone = h.getBlockState(new BlockPos(6, 2, 6));
+        h.assertTrue(onBed.getValue(QuiltBlock.ON_BED), "a quilt above a bed should lie on the mattress");
+        h.assertFalse(onStone.getValue(QuiltBlock.ON_BED), "a quilt on stone stays flat");
+        BlockPos abs = h.absolutePos(new BlockPos(4, 3, 4));
+        h.assertTrue(onBed.getCollisionShape(h.getLevel(), abs).isEmpty(), "a quilt has no collision, so it cannot stop anyone sleeping");
+        // Taking the bed away drops the quilt, because nothing is under it now.
+        h.setBlock(new BlockPos(4, 2, 4), Blocks.AIR);
+        h.assertTrue(h.getBlockState(new BlockPos(4, 3, 4)).isAir(), "with no bed and nothing below, the quilt falls away");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void rugsJoinBorders(GameTestHelper h) {
+        stonePad(h);
+        BlockState rug = ModDecorations.HOUSE_RUGS.get(0).get().defaultBlockState();
+        h.setBlock(new BlockPos(3, 2, 4), rug);
+        h.setBlock(new BlockPos(4, 2, 4), rug);
+        BlockState west = h.getBlockState(new BlockPos(3, 2, 4));
+        BlockState east = h.getBlockState(new BlockPos(4, 2, 4));
+        h.assertFalse(west.getValue(RugBlock.EAST), "the west rug should lose its east border");
+        h.assertFalse(east.getValue(RugBlock.WEST), "the east rug should lose its west border");
+        h.assertTrue(west.getValue(RugBlock.WEST) && west.getValue(RugBlock.NORTH) && west.getValue(RugBlock.SOUTH),
+                "the west rug keeps its other three borders");
+        h.assertTrue(east.getValue(RugBlock.EAST) && east.getValue(RugBlock.NORTH) && east.getValue(RugBlock.SOUTH),
+                "the east rug keeps its other three borders");
+        // A different rug does not join, and taking one away brings the border back.
+        h.setBlock(new BlockPos(5, 2, 4), ModDecorations.HOUSE_RUGS.get(1).get().defaultBlockState());
+        h.assertTrue(h.getBlockState(new BlockPos(4, 2, 4)).getValue(RugBlock.EAST), "another house rug is a different rug");
+        h.setBlock(new BlockPos(3, 2, 4), Blocks.AIR);
+        h.assertTrue(h.getBlockState(new BlockPos(4, 2, 4)).getValue(RugBlock.WEST), "the border returns when the neighbour goes");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void readingNookShelfGivesLight(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(new BlockPos(4, 2, 4), ModDecorations.READING_NOOK_SHELF.get().defaultBlockState());
+        BlockPos abs = h.absolutePos(new BlockPos(4, 2, 4));
+        h.assertTrue(h.getLevel().getBlockState(abs).getLightEmission(h.getLevel(), abs) == 12, "the reading lamp gives light 12");
         h.succeed();
     }
 }

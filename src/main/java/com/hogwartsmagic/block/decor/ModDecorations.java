@@ -147,6 +147,53 @@ public final class ModDecorations {
             () -> new DecorBlock(copy(Blocks.DARK_OAK_PLANKS).strength(2.0f),
                     box(0, 0, 1, 16, 15, 15)));
 
+    // ---- Cosy home ----------------------------------------------------------------------------------
+
+    private static final Block[] HOUSE_WOOL = {Blocks.RED_WOOL, Blocks.BLUE_WOOL, Blocks.YELLOW_WOOL, Blocks.GREEN_WOOL};
+
+    /** Same chair as the common room armchair, one in each house velvet. */
+    private static final VoxelShape ARMCHAIR_SHAPE = DecorShapes.boxes(
+            new double[]{1, 0, 1, 15, 9, 15}, new double[]{1, 9, 12, 15, 22, 15},
+            new double[]{1, 9, 1, 3, 13, 15}, new double[]{13, 9, 1, 15, 13, 15});
+
+    public static final List<RegistryObject<Block>> HOUSE_ARMCHAIRS = new ArrayList<>();
+    public static final List<RegistryObject<Block>> HOUSE_RUGS = new ArrayList<>();
+
+    static {
+        for (int i = 0; i < HOUSES.length; i++) {
+            Block wool = HOUSE_WOOL[i];
+            HOUSE_ARMCHAIRS.add(block(HOUSES[i] + "_armchair",
+                    () -> new SeatBlock(copy(wool).strength(1.0f), ARMCHAIR_SHAPE, 9.0 / 16.0)));
+        }
+    }
+
+    public static final RegistryObject<Block> PATCHWORK_ARMCHAIR = block("patchwork_armchair",
+            () -> new SeatBlock(copy(Blocks.WHITE_WOOL).strength(1.0f), ARMCHAIR_SHAPE, 9.0 / 16.0));
+
+    public static final RegistryObject<Block> SOFA = block("sofa",
+            () -> new SofaBlock(copy(Blocks.BROWN_WOOL).strength(1.0f)));
+
+    public static final RegistryObject<Block> FOOTSTOOL = block("footstool",
+            () -> new SeatBlock(copy(Blocks.WHITE_WOOL).strength(0.8f), box(3, 0, 3, 13, 6, 13), 6.0 / 16.0));
+
+    public static final RegistryObject<Block> PATCHWORK_QUILT = block("patchwork_quilt",
+            () -> new QuiltBlock(copy(Blocks.WHITE_CARPET).strength(0.1f).pushReaction(PushReaction.DESTROY)));
+
+    static {
+        for (int i = 0; i < HOUSES.length; i++) {
+            Block wool = HOUSE_WOOL[i];
+            HOUSE_RUGS.add(block(HOUSES[i] + "_rug",
+                    () -> new RugBlock(copy(wool).strength(0.1f).pushReaction(PushReaction.DESTROY))));
+        }
+    }
+
+    public static final RegistryObject<Block> RAG_RUG = block("rag_rug",
+            () -> new RugBlock(copy(Blocks.WHITE_WOOL).strength(0.1f).pushReaction(PushReaction.DESTROY)));
+
+    public static final RegistryObject<Block> READING_NOOK_SHELF = block("reading_nook_shelf",
+            () -> new DecorBlock(copy(Blocks.BOOKSHELF).strength(1.0f).lightLevel(state -> 12),
+                    box(0, 0, 3, 16, 9, 15)));
+
     // ---- Block entities ---------------------------------------------------------------------------
 
     public static final RegistryObject<BlockEntityType<SchoolTrunkBlockEntity>> SCHOOL_TRUNK_BLOCK_ENTITY =

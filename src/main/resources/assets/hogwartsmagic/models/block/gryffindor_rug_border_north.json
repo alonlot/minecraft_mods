@@ -1,0 +1,42 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "centre": "hogwartsmagic:block/decor/gryffindor_rug",
+    "border": "hogwartsmagic:block/decor/gryffindor_rug_border",
+    "particle": "hogwartsmagic:block/decor/gryffindor_rug"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        0
+      ],
+      "to": [
+        14,
+        1,
+        2
+      ],
+      "faces": {
+        "up": {
+          "texture": "#border",
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ]
+        },
+        "north": {
+          "texture": "#border",
+          "uv": [
+            2,
+            0,
+            14,
+            1
+          ]
+        }
+      }
+    }
+  ]
+}

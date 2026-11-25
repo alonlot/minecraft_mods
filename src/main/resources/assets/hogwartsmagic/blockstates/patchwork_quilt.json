@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "on_bed=false": {
+      "model": "hogwartsmagic:block/patchwork_quilt"
+    },
+    "on_bed=true": {
+      "model": "hogwartsmagic:block/patchwork_quilt_on_bed"
+    }
+  }
+}

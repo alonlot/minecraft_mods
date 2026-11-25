@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "WWW"
+  ],
+  "key": {
+    "W": {
+      "item": "minecraft:green_wool"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:slytherin_rug",
+    "count": 3
+  }
+}

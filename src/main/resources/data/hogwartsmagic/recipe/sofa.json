@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "BBB",
+    "BBB",
+    "P P"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:brown_wool"
+    },
+    "P": {
+      "tag": "minecraft:planks"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:sofa",
+    "count": 1
+  }
+}

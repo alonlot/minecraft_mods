@@ -2143,5 +2143,19 @@
   "message.hogwartsmagic.cursed_cup.status": "The little golden cup is warm, and something inside it is watching you.",
   "message.hogwartsmagic.cursed_cup.freed": "A shriek tears out of the cup, and something that was once a man flees through the stone.",
   "block.hogwartsmagic.hearth": "Hearth",
-  "effect.hogwartsmagic.warmed": "Warmed"
+  "effect.hogwartsmagic.warmed": "Warmed",
+  "block.hogwartsmagic.gryffindor_armchair": "Gryffindor Armchair",
+  "block.hogwartsmagic.gryffindor_rug": "Gryffindor Round Rug",
+  "block.hogwartsmagic.ravenclaw_armchair": "Ravenclaw Armchair",
+  "block.hogwartsmagic.ravenclaw_rug": "Ravenclaw Round Rug",
+  "block.hogwartsmagic.hufflepuff_armchair": "Hufflepuff Armchair",
+  "block.hogwartsmagic.hufflepuff_rug": "Hufflepuff Round Rug",
+  "block.hogwartsmagic.slytherin_armchair": "Slytherin Armchair",
+  "block.hogwartsmagic.slytherin_rug": "Slytherin Round Rug",
+  "block.hogwartsmagic.patchwork_armchair": "Patchwork Armchair",
+  "block.hogwartsmagic.sofa": "Sofa",
+  "block.hogwartsmagic.footstool": "Footstool",
+  "block.hogwartsmagic.patchwork_quilt": "Patchwork Quilt",
+  "block.hogwartsmagic.rag_rug": "Rag Rug",
+  "block.hogwartsmagic.reading_nook_shelf": "Reading Nook Shelf"
 }

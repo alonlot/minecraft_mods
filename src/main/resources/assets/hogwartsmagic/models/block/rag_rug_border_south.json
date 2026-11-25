@@ -1,0 +1,43 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "centre": "hogwartsmagic:block/decor/rag_rug",
+    "border": "hogwartsmagic:block/decor/rag_rug_border",
+    "particle": "hogwartsmagic:block/decor/rag_rug"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        14
+      ],
+      "to": [
+        14,
+        1,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#border",
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ],
+          "rotation": 180
+        },
+        "south": {
+          "texture": "#border",
+          "uv": [
+            2,
+            0,
+            14,
+            1
+          ]
+        }
+      }
+    }
+  ]
+}

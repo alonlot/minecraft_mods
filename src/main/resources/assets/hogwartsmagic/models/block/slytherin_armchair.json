@@ -1,0 +1,7 @@
+{
+  "parent": "hogwartsmagic:block/common_room_armchair",
+  "textures": {
+    "velvet": "hogwartsmagic:block/decor/green_velvet",
+    "particle": "hogwartsmagic:block/decor/green_velvet"
+  }
+}

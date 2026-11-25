@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "hogwartsmagic:block/hufflepuff_armchair"
+    },
+    "facing=east": {
+      "model": "hogwartsmagic:block/hufflepuff_armchair",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "hogwartsmagic:block/hufflepuff_armchair",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "hogwartsmagic:block/hufflepuff_armchair",
+      "y": 270
+    }
+  }
+}

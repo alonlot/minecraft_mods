@@ -1,0 +1,161 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "centre": "hogwartsmagic:block/decor/slytherin_rug",
+    "border": "hogwartsmagic:block/decor/slytherin_rug_border",
+    "particle": "hogwartsmagic:block/decor/slytherin_rug"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        0.98,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#centre"
+        },
+        "down": {
+          "texture": "#centre"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        0,
+        0
+      ],
+      "to": [
+        14,
+        1,
+        2
+      ],
+      "faces": {
+        "up": {
+          "texture": "#border",
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ]
+        },
+        "north": {
+          "texture": "#border",
+          "uv": [
+            2,
+            0,
+            14,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        1,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#border",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "rotation": 90
+        },
+        "east": {
+          "texture": "#border",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        0,
+        14
+      ],
+      "to": [
+        14,
+        1,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#border",
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ],
+          "rotation": 180
+        },
+        "south": {
+          "texture": "#border",
+          "uv": [
+            2,
+            0,
+            14,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        2,
+        1,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#border",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "rotation": 270
+        },
+        "west": {
+          "texture": "#border",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ]
+        }
+      }
+    }
+  ]
+}

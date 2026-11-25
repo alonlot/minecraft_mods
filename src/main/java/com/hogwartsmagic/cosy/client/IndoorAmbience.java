@@ -48,6 +48,7 @@ public final class IndoorAmbience {
 
     private static FadingLoopSound rain;
     private static FadingLoopSound crackle;
+    private static ClientLevel lastLevel;
     private static boolean rainWanted;
     private static boolean crackleWanted;
     private static float crackleScale;
@@ -64,6 +65,10 @@ public final class IndoorAmbience {
         if (player == null || level == null) {
             reset();
             return;
+        }
+        if (level != lastLevel) {
+            reset();
+            lastLevel = level;
         }
         if (minecraft.isPaused()) {
             return;
@@ -87,13 +92,15 @@ public final class IndoorAmbience {
         rain = null;
         crackle = null;
         counter = 0;
+        lastLevel = null;
     }
 
     /** Keeps one instance per loop: starts it when wanted, tells it what is wanted, and lets go once it has stopped. */
     private static FadingLoopSound drive(FadingLoopSound sound, net.minecraft.sounds.SoundEvent event, float volume,
                                          boolean wanted, float scale) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (sound != null && sound.isStopped()) {
+        // A level change or the options screen stops every sound without telling the instance, so ask the manager.
+        if (sound != null && (sound.isStopped() || !minecraft.getSoundManager().isActive(sound))) {
             sound = null;
         }
         if (sound == null && wanted) {

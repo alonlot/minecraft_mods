@@ -2,6 +2,8 @@ package com.hogwartsmagic.cosy.client;
 
 import com.hogwartsmagic.client.ThemedGui;
 import com.hogwartsmagic.cosy.WizardCards;
+import com.hogwartsmagic.cosy.client.card.CardArt;
+import com.hogwartsmagic.cosy.client.card.CardRevealScreen;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -13,19 +15,16 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * The card album: a 5 by 4 grid of cards. A collected card shows its frame (bronze, silver or gold), a small
- * portrait and its name; hovering it tells its story. A missing card is a dark silhouette. Read-only: the server
- * moves cards into the album, this just draws what it was told. Uses the transparent backdrop, never the blur.
+ * The card album: a 5 by 4 grid of cards. A collected card is drawn as a small living portrait in its frame (bronze,
+ * silver or gold); hovering it tells its story and clicking it opens it large. A missing card is a dark silhouette.
+ * Read-only: the server moves cards into the album, this just draws what it was told. Uses the transparent
+ * backdrop, never the blur.
  */
 public class CardAlbumScreen extends Screen {
     private static final ThemedGui.Theme TH = ThemedGui.VIOLET;
     private static final int COLS = 5;
     private static final int ROWS = 4;
     private static final int GAP = 4;
-    private static final int[] FRAME_LIGHT = {0xFFD89A5A, 0xFFE6EBF2, 0xFFFFE27A};
-    private static final int[] FRAME_DARK = {0xFF8A4F26, 0xFF7C879E, 0xFFB07A1C};
-    private static final int PARCHMENT = 0xFFF2E2B8;
-    private static final int[] ROBES = {0xFF3A2A6B, 0xFF6B2A2A, 0xFF2A5A3A, 0xFF2A4A6B, 0xFF5A4A2A, 0xFF4A2A5A};
 
     private final Set<Integer> have;
     private int left;
@@ -81,7 +80,7 @@ public class CardAlbumScreen extends Screen {
             int y = this.gridY + row * (this.cellH + GAP);
             WizardCards.Card card = WizardCards.ALL.get(i);
             if (this.have.contains(card.id())) {
-                drawCard(g, x, y, card);
+                drawCard(g, x, y, card, partialTick);
             } else {
                 drawSilhouette(g, x, y);
             }
@@ -98,42 +97,29 @@ public class CardAlbumScreen extends Screen {
         }
     }
 
-    private void drawCard(GuiGraphics g, int x, int y, WizardCards.Card card) {
-        int r = card.rarity();
-        g.fill(x, y, x + this.cellW, y + this.cellH, FRAME_DARK[r]);
-        g.fill(x + 1, y + 1, x + this.cellW - 1, y + this.cellH - 1, FRAME_LIGHT[r]);
-        g.fill(x + 3, y + 3, x + this.cellW - 3, y + this.cellH - 3, PARCHMENT);
-        // Portrait: a head and shoulders, the robe colour chosen by the card.
-        int pw = this.cellW - 6;
-        int portraitH = (int) ((this.cellH - 6) * 0.58f);
-        int cx = x + this.cellW / 2;
-        int py = y + 3;
-        int robe = ROBES[card.id() % ROBES.length];
-        int head = Math.max(4, pw / 3);
-        g.fill(cx - pw / 3, py + portraitH - head, cx + pw / 3, py + portraitH, robe);
-        g.fill(cx - head / 2, py + portraitH - head - head / 2 - 1, cx + head / 2, py + portraitH - head, 0xFFE8B890);
-        if (card.id() % 3 != 0) {
-            g.fill(cx - head / 2 - 1, py + portraitH - head - head / 2 - 3, cx + head / 2 + 1,
-                    py + portraitH - head - head / 2 - 1, robe);
+    /** A collected card: the living portrait, as large as fits the cell, centred in it. */
+    private void drawCard(GuiGraphics g, int x, int y, WizardCards.Card card, float partial) {
+        float scale = Math.min(this.cellW / (float) CardArt.CARD_W, this.cellH / (float) CardArt.CARD_H);
+        float px = x + (this.cellW - CardArt.CARD_W * scale) / 2.0F;
+        float py = y + (this.cellH - CardArt.CARD_H * scale) / 2.0F;
+        CardArt.drawCard(g, card.id(), CardRevealScreen.viewSeedOf(card.id()), px, py, scale, partial);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            for (int i = 0; i < WizardCards.ALL.size(); i++) {
+                int x = this.gridX + (i % COLS) * (this.cellW + GAP);
+                int y = this.gridY + (i / COLS) * (this.cellH + GAP);
+                WizardCards.Card card = WizardCards.ALL.get(i);
+                if (this.have.contains(card.id()) && mouseX >= x && mouseX < x + this.cellW
+                        && mouseY >= y && mouseY < y + this.cellH && this.minecraft != null) {
+                    this.minecraft.setScreen(new CardRevealScreen(card.id(), this));
+                    return true;
+                }
+            }
         }
-        // The name, in up to two small lines.
-        Component name = Component.translatable("card.hogwartsmagic." + card.key() + ".name");
-        float scale = 0.62f;
-        List<FormattedCharSequence> lines = this.font.split(name, (int) ((this.cellW - 8) / scale));
-        int ly = y + 3 + portraitH + 2;
-        for (int i = 0; i < Math.min(2, lines.size()); i++) {
-            FormattedCharSequence line = lines.get(i);
-            g.pose().pushPose();
-            g.pose().translate(cx - this.font.width(line) * scale / 2f, ly + i * 7, 0);
-            g.pose().scale(scale, scale, 1f);
-            g.drawString(this.font, line, 0, 0, 0xFF3A2A18, false);
-            g.pose().popPose();
-        }
-        // Rarity pips along the bottom.
-        for (int i = 0; i <= r; i++) {
-            int px = cx - (r * 6) / 2 + i * 6 - 1;
-            g.fill(px, y + this.cellH - 6, px + 3, y + this.cellH - 3, FRAME_DARK[r]);
-        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private void drawSilhouette(GuiGraphics g, int x, int y) {

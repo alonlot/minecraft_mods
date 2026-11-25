@@ -3,6 +3,11 @@ package com.hogwartsmagic.gametest;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.cosy.CosyFood;
 import com.hogwartsmagic.cosy.ChocolateFrogEntity;
+import com.hogwartsmagic.cosy.CookingPotBlockEntity;
+import com.hogwartsmagic.cosy.CosyKitchen;
+import com.hogwartsmagic.cosy.EnchantedStoveBlock;
+import com.hogwartsmagic.cosy.EnchantedStoveBlockEntity;
+import com.hogwartsmagic.cosy.PotCookingRecipe;
 import com.hogwartsmagic.cosy.FoodRules;
 import com.hogwartsmagic.cosy.WizardCards;
 import com.hogwartsmagic.entity.DementorEntity;
@@ -369,6 +374,222 @@ public final class CosyFoodGameTests {
         BlockState state = h.getLevel().getBlockState(h.absolutePos(KEG));
         state.tick(h.getLevel(), h.absolutePos(KEG), h.getLevel().random);
         h.assertTrue(fillAt(h) == 3, "the aged keg shows ready, got " + fillAt(h));
+        h.succeed();
+    }
+
+    // ---------------------------------------------------------------- B5: stove and cooking pot
+
+    private static final BlockPos HEAT = new BlockPos(4, 2, 4);
+    private static final BlockPos POT = new BlockPos(4, 3, 4);
+
+    private static void useOn(GameTestHelper h, ServerPlayer p, BlockPos rel, ItemStack held) {
+        p.setItemInHand(InteractionHand.MAIN_HAND, held);
+        BlockPos abs = h.absolutePos(rel);
+        h.getLevel().getBlockState(abs).useItemOn(held, h.getLevel(), p, InteractionHand.MAIN_HAND,
+                new BlockHitResult(abs.getCenter(), Direction.UP, abs, false));
+    }
+
+    private static void emptyHandOn(GameTestHelper h, ServerPlayer p, BlockPos rel) {
+        p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        BlockPos abs = h.absolutePos(rel);
+        h.getLevel().getBlockState(abs).useWithoutItem(h.getLevel(), p,
+                new BlockHitResult(abs.getCenter(), Direction.UP, abs, false));
+    }
+
+    private static CookingPotBlockEntity pot(GameTestHelper h) {
+        return (CookingPotBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(POT));
+    }
+
+    private static void tickPot(GameTestHelper h, int ticks) {
+        BlockPos abs = h.absolutePos(POT);
+        for (int i = 0; i < ticks; i++) {
+            CookingPotBlockEntity.serverTick(h.getLevel(), abs, h.getLevel().getBlockState(abs), pot(h));
+        }
+    }
+
+    /** A pot on a lit campfire (or on stone), and the pasty ingredients put in by right-click. */
+    private static ServerPlayer potWithPasty(GameTestHelper h, boolean hot) {
+        stonePad(h);
+        if (hot) {
+            h.setBlock(HEAT, Blocks.CAMPFIRE);
+        }
+        h.setBlock(POT, CosyKitchen.COOKING_POT.get());
+        ServerPlayer p = survivor(h);
+        for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[]{
+                Items.PUMPKIN, Items.WHEAT, Items.WHEAT, Items.EGG, Items.SUGAR}) {
+            useOn(h, p, POT, new ItemStack(i));
+        }
+        return p;
+    }
+
+    private static void wand(GameTestHelper h, ServerPlayer p) {
+        useOn(h, p, POT, new ItemStack(ExampleMod.HARRY_POTTER_WAND.get()));
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void wandPotCooksPasties(GameTestHelper h) {
+        ServerPlayer p = potWithPasty(h, true);
+        h.assertTrue(pot(h).contents().size() == 5, "five ingredients in, got " + pot(h).contents().size());
+        wand(h, p);
+        h.assertTrue(pot(h).isEnchanted(), "the wand enchants the ladle");
+        tickPot(h, 400);
+        h.assertTrue(pot(h).isDone(), "the pasties are done after 400 ticks, progress " + pot(h).progress());
+        emptyHandOn(h, p, POT);
+        h.assertTrue(count(p, CosyFood.PUMPKIN_PASTY.get()) == 3, "three pasties, got " + count(p, CosyFood.PUMPKIN_PASTY.get()));
+        h.assertTrue(pot(h).isEmpty(), "the pot is empty again");
+        h.assertTrue(!h.getLevel().getBlockState(h.absolutePos(POT)).getValue(com.hogwartsmagic.cosy.CookingPotBlock.FILLED),
+                "and drawn empty");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void potOnStoneDoesNotCook(GameTestHelper h) {
+        ServerPlayer p = potWithPasty(h, false);
+        wand(h, p);
+        tickPot(h, 400);
+        h.assertTrue(!pot(h).isDone(), "a cold pot does not cook");
+        h.assertTrue(pot(h).progress() == 0, "and makes no progress");
+        h.assertTrue(pot(h).contents().size() == 5, "the ingredients are all still there");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void potKeepsProgressWhenHeatRemoved(GameTestHelper h) {
+        ServerPlayer p = potWithPasty(h, true);
+        wand(h, p);
+        tickPot(h, 100);
+        h.assertTrue(pot(h).progress() == 100, "100 ticks of progress, got " + pot(h).progress());
+        h.setBlock(HEAT, Blocks.STONE);
+        tickPot(h, 100);
+        h.assertTrue(pot(h).progress() == 100, "no progress and none lost without heat, got " + pot(h).progress());
+        h.assertTrue(pot(h).contents().size() == 5, "the ingredients stay");
+        h.setBlock(HEAT, Blocks.CAMPFIRE);
+        tickPot(h, 300);
+        h.assertTrue(pot(h).isDone(), "it finishes once the heat is back, progress " + pot(h).progress());
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void handStirringCooksForThreeSeconds(GameTestHelper h) {
+        ServerPlayer p = potWithPasty(h, true);
+        emptyHandOn(h, p, POT);
+        tickPot(h, 100);
+        h.assertTrue(pot(h).progress() == 60, "three seconds of progress from one stir, got " + pot(h).progress());
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void sneakingTakesIngredientsBack(GameTestHelper h) {
+        ServerPlayer p = potWithPasty(h, true);
+        wand(h, p);
+        p.setShiftKeyDown(true);
+        emptyHandOn(h, p, POT);
+        p.setShiftKeyDown(false);
+        h.assertTrue(pot(h).isEmpty(), "the pot is empty");
+        h.assertTrue(!pot(h).isEnchanted(), "and the ladle is plain again");
+        h.assertTrue(count(p, Items.WHEAT) == 2 && count(p, Items.SUGAR) == 1 && count(p, Items.EGG) == 1
+                && count(p, Items.PUMPKIN) == 1, "every ingredient came back");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void brokenPotDropsIngredients(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(POT, CosyKitchen.COOKING_POT.get());
+        ServerPlayer p = survivor(h);
+        useOn(h, p, POT, new ItemStack(Items.SUGAR));
+        useOn(h, p, POT, new ItemStack(Items.WHEAT));
+        h.getLevel().destroyBlock(h.absolutePos(POT), false);
+        List<ItemEntity> drops = h.getLevel().getEntitiesOfClass(ItemEntity.class,
+                new net.minecraft.world.phys.AABB(h.absolutePos(POT)).inflate(2.0));
+        boolean sugar = drops.stream().anyMatch(e -> e.getItem().is(Items.SUGAR));
+        boolean wheat = drops.stream().anyMatch(e -> e.getItem().is(Items.WHEAT));
+        h.assertTrue(sugar && wheat, "both ingredients dropped: sugar " + sugar + " wheat " + wheat);
+        drops.forEach(ItemEntity::discard);
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void containersComeBackFromThePot(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(HEAT, Blocks.CAMPFIRE);
+        h.setBlock(POT, CosyKitchen.COOKING_POT.get());
+        ServerPlayer p = survivor(h);
+        for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[]{
+                Items.COCOA_BEANS, Items.COCOA_BEANS, Items.SUGAR, Items.MILK_BUCKET}) {
+            useOn(h, p, POT, new ItemStack(i));
+        }
+        wand(h, p);
+        tickPot(h, 300);
+        h.assertTrue(pot(h).isDone(), "the chocolate is done");
+        emptyHandOn(h, p, POT);
+        h.assertTrue(count(p, CosyFood.CHOCOLATE_BAR.get()) == 3, "three bars");
+        h.assertTrue(count(p, Items.BUCKET) == 1, "and the milk bucket comes back as a bucket");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void allSixPotRecipesLoad(GameTestHelper h) {
+        var recipes = h.getLevel().getRecipeManager().getAllRecipesFor(CosyKitchen.POT_COOKING_TYPE.get());
+        h.assertTrue(recipes.size() == 6, "six pot recipes parsed, got " + recipes.size());
+        for (var holder : recipes) {
+            PotCookingRecipe r = holder.value();
+            h.assertTrue(!r.result().isEmpty() && r.cookTicks() >= 300 && r.cookTicks() <= 500,
+                    holder.id() + " has a result and a cook time of 300 to 500 ticks");
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void stoveFuelLights(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(HEAT, CosyKitchen.ENCHANTED_STOVE.get());
+        ServerPlayer p = survivor(h);
+        BlockPos abs = h.absolutePos(HEAT);
+        h.assertTrue(!h.getLevel().getBlockState(abs).getValue(EnchantedStoveBlock.LIT), "a new stove is out");
+        useOn(h, p, HEAT, new ItemStack(Items.COAL));
+        h.assertTrue(h.getLevel().getBlockState(abs).getValue(EnchantedStoveBlock.LIT), "coal lights it");
+        EnchantedStoveBlockEntity stove = (EnchantedStoveBlockEntity) h.getLevel().getBlockEntity(abs);
+        h.assertTrue(stove.burn() == 1600, "a coal is 1600 ticks, got " + stove.burn());
+        h.assertTrue(h.getLevel().getBlockState(abs).getLightEmission(h.getLevel(), abs) == 13, "and it gives light 13");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void stoveHoldsEightCoalsAndBurnsOut(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(HEAT, CosyKitchen.ENCHANTED_STOVE.get());
+        ServerPlayer p = survivor(h);
+        BlockPos abs = h.absolutePos(HEAT);
+        for (int i = 0; i < 8; i++) {
+            useOn(h, p, HEAT, new ItemStack(Items.COAL));
+        }
+        ItemStack ninth = new ItemStack(Items.COAL);
+        useOn(h, p, HEAT, ninth);
+        h.assertTrue(ninth.getCount() == 1, "the ninth coal is refused");
+        EnchantedStoveBlockEntity stove = (EnchantedStoveBlockEntity) h.getLevel().getBlockEntity(abs);
+        h.assertTrue(stove.burn() == 8 * 1600, "eight coals worth, got " + stove.burn());
+        // A heat source for a pot, only while lit.
+        h.setBlock(POT, CosyKitchen.COOKING_POT.get());
+        h.assertTrue(CosyKitchen.isHeatedBelow(h.getLevel(), h.absolutePos(POT)), "a lit stove heats the pot");
+        for (int i = 0; i < 8 * 1600 + 2; i++) {
+            EnchantedStoveBlockEntity.serverTick(h.getLevel(), abs, h.getLevel().getBlockState(abs), stove);
+        }
+        h.assertTrue(!h.getLevel().getBlockState(abs).getValue(EnchantedStoveBlock.LIT), "it goes out when the fuel is spent");
+        h.assertTrue(!CosyKitchen.isHeatedBelow(h.getLevel(), h.absolutePos(POT)), "and no longer heats the pot");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void heatSourceTagKnowsItsMembers(GameTestHelper h) {
+        h.assertTrue(CosyKitchen.isHeat(Blocks.CAMPFIRE.defaultBlockState()), "a lit campfire is heat");
+        h.assertTrue(!CosyKitchen.isHeat(Blocks.CAMPFIRE.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.LIT, false)), "an unlit one is not");
+        h.assertTrue(CosyKitchen.isHeat(Blocks.MAGMA_BLOCK.defaultBlockState()), "magma is heat");
+        h.assertTrue(CosyKitchen.isHeat(Blocks.LAVA.defaultBlockState()), "lava is heat");
+        h.assertTrue(CosyKitchen.isHeat(Blocks.FIRE.defaultBlockState()), "fire is heat");
+        h.assertTrue(CosyKitchen.isHeat(ExampleMod.FLOO_FIREPLACE.get().defaultBlockState()), "the Floo hearth is heat");
+        h.assertTrue(!CosyKitchen.isHeat(Blocks.STONE.defaultBlockState()), "stone is not");
         h.succeed();
     }
 }

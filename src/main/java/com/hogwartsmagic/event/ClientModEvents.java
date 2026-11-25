@@ -1359,6 +1359,8 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.GNOME.get(), com.hogwartsmagic.client.renderer.GnomeRenderer::new);
         // ---- Cosy food ----
         event.registerEntityRenderer(ModEntities.CHOCOLATE_FROG.get(), com.hogwartsmagic.cosy.client.ChocolateFrogRenderer::new);
+        event.registerBlockEntityRenderer(com.hogwartsmagic.cosy.CosyKitchen.COOKING_POT_BLOCK_ENTITY.get(),
+                com.hogwartsmagic.cosy.client.CookingPotRenderer::new);
     }
 
 }

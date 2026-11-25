@@ -1,0 +1,25 @@
+{
+  "type": "hogwartsmagic:pot_cooking",
+  "ingredients": [
+    {
+      "item": "minecraft:wheat"
+    },
+    {
+      "item": "minecraft:wheat"
+    },
+    {
+      "item": "minecraft:honey_bottle"
+    },
+    {
+      "item": "minecraft:egg"
+    },
+    {
+      "item": "minecraft:sugar"
+    }
+  ],
+  "cook_ticks": 400,
+  "result": {
+    "id": "hogwartsmagic:treacle_tart",
+    "count": 2
+  }
+}

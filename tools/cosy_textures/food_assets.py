@@ -197,6 +197,89 @@ def keg_models():
         "result": {"id": f"{MOD}:butterbeer_keg", "count": 1}})
 
 
+
+def glow_face(texture):
+    return {"texture": "#" + texture,
+            "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": False}}
+
+
+def stove_models():
+    base_tex = {"front": f"{MOD}:block/kitchen_stove_front", "side": f"{MOD}:block/kitchen_stove_side",
+                "top": f"{MOD}:block/kitchen_stove_top", "particle": f"{MOD}:block/kitchen_stove_side",
+                "glow": f"{MOD}:block/kitchen_stove_glow", "top_glow": f"{MOD}:block/kitchen_stove_top_glow"}
+    body = {"from": [0, 0, 0], "to": [16, 16, 16], "faces": {
+        "north": {"uv": [0, 0, 16, 16], "texture": "#front"}, "south": {"uv": [0, 0, 16, 16], "texture": "#side"},
+        "east": {"uv": [0, 0, 16, 16], "texture": "#side"}, "west": {"uv": [0, 0, 16, 16], "texture": "#side"},
+        "up": {"uv": [0, 0, 16, 16], "texture": "#top"}, "down": {"uv": [0, 0, 16, 16], "texture": "#side"}}}
+    front_glow = {"from": [0, 0, -0.02], "to": [16, 16, 0], "faces": {"north": {"uv": [0, 0, 16, 16], **glow_face("glow")}}}
+    top_glow = {"from": [0, 16, 0], "to": [16, 16.02, 16], "faces": {"up": {"uv": [0, 0, 16, 16], **glow_face("top_glow")}}}
+    write_json(os.path.join(ASSETS, "models", "block", "enchanted_stove.json"), {
+        "parent": "minecraft:block/block", "textures": base_tex, "elements": [body]})
+    write_json(os.path.join(ASSETS, "models", "block", "enchanted_stove_lit.json"), {
+        "parent": "minecraft:block/block", "render_type": "minecraft:cutout", "textures": base_tex,
+        "elements": [body, front_glow, top_glow]})
+    variants = {}
+    for facing, rot in (("north", 0), ("east", 90), ("south", 180), ("west", 270)):
+        for lit, model in (("false", "enchanted_stove"), ("true", "enchanted_stove_lit")):
+            variants[f"facing={facing},lit={lit}"] = {"model": f"{MOD}:block/{model}", **({"y": rot} if rot else {})}
+    write_json(os.path.join(ASSETS, "blockstates", "enchanted_stove.json"), {"variants": variants})
+    block_item_model("enchanted_stove")
+    block_loot("enchanted_stove")
+    shaped("enchanted_stove", ["III", "IFI", " B "],
+           {"I": {"item": "minecraft:iron_ingot"}, "F": {"item": "minecraft:furnace"}, "B": {"item": "minecraft:blaze_powder"}},
+           f"{MOD}:enchanted_stove")
+
+
+def pot_models():
+    tex = {"iron": f"{MOD}:block/kitchen_pot_iron", "rim": f"{MOD}:block/kitchen_pot_rim",
+           "broth": f"{MOD}:block/kitchen_pot_broth", "particle": f"{MOD}:block/kitchen_pot_iron"}
+    els = [
+        box([2, 0, 2], [14, 1, 14], "iron"),
+        box([1, 1, 1], [15, 9, 3], "iron"),
+        box([1, 1, 13], [15, 9, 15], "iron"),
+        box([1, 1, 3], [3, 9, 13], "iron"),
+        box([13, 1, 3], [15, 9, 13], "iron"),
+        box([0.5, 9, 0.5], [15.5, 10, 15.5], "rim", faces=("north", "south", "east", "west", "up")),
+        box([0, 6, 6], [1, 9, 10], "rim"),
+        box([15, 6, 6], [16, 9, 10], "rim"),
+        box([1, 0, 1], [3, 1, 3], "rim"), box([13, 0, 1], [15, 1, 3], "rim"),
+        box([1, 0, 13], [3, 1, 15], "rim"), box([13, 0, 13], [15, 1, 15], "rim"),
+    ]
+    # The broth: a flat sheet just under the rim, only in the filled model.
+    broth = {"from": [3, 8, 3], "to": [13, 8.01, 13], "faces": {"up": {"uv": [3, 3, 13, 13], "texture": "#broth"}}}
+    write_block_model("cooking_pot", tex, els)
+    write_block_model("cooking_pot_filled", tex, els + [broth])
+    write_json(os.path.join(ASSETS, "blockstates", "cooking_pot.json"), {"variants": {
+        "filled=false": {"model": f"{MOD}:block/cooking_pot"}, "filled=true": {"model": f"{MOD}:block/cooking_pot_filled"}}})
+    block_item_model("cooking_pot")
+    block_loot("cooking_pot")
+    shaped("cooking_pot", ["I I", "IBI", "III"],
+           {"I": {"item": "minecraft:iron_ingot"}, "B": {"item": "minecraft:bucket"}}, f"{MOD}:cooking_pot")
+
+
+POT_RECIPES = {
+    # name: (ingredients, cook_ticks, result, count)
+    "chocolate_bar": (["minecraft:cocoa_beans"] * 2 + ["minecraft:sugar", "minecraft:milk_bucket"], 300, f"{MOD}:chocolate_bar", 3),
+    "chocolate_frog": ([f"{MOD}:chocolate_bar"] * 2 + ["minecraft:slime_ball"], 300, f"{MOD}:chocolate_frog", 2),
+    "pumpkin_pasty": (["minecraft:pumpkin"] + ["minecraft:wheat"] * 2 + ["minecraft:egg", "minecraft:sugar"], 400, f"{MOD}:pumpkin_pasty", 3),
+    "treacle_tart": (["minecraft:wheat"] * 2 + ["minecraft:honey_bottle", "minecraft:egg", "minecraft:sugar"], 400, f"{MOD}:treacle_tart", 2),
+    "cauldron_cake": (["minecraft:wheat", "minecraft:cocoa_beans", "minecraft:sugar", "minecraft:egg", "minecraft:milk_bucket"], 400, f"{MOD}:cauldron_cake", 3),
+    "bertie_botts_beans": (["minecraft:sugar"] * 2 + ["minecraft:sweet_berries", "minecraft:slime_ball", "minecraft:spider_eye", "minecraft:glow_berries"], 500, f"{MOD}:bertie_botts_beans", 1),
+}
+
+
+def kitchen_data():
+    for name, (ings, ticks, result, count) in POT_RECIPES.items():
+        write_json(os.path.join(DATA, "recipe", "pot", name + ".json"), {
+            "type": f"{MOD}:pot_cooking", "ingredients": [{"item": i} for i in ings],
+            "cook_ticks": ticks, "result": {"id": result, "count": count}})
+    write_json(os.path.join(DATA, "tags", "block", "heat_sources.json"), {
+        "replace": False, "values": [
+            f"{MOD}:enchanted_stove", "minecraft:campfire", "minecraft:soul_campfire",
+            {"id": f"{MOD}:hearth", "required": False},  # the home pack adds the hearth
+            f"{MOD}:floo_fireplace", "minecraft:fire", "minecraft:soul_fire", "minecraft:lava", "minecraft:magma_block"]})
+
+
 # ------------------------------------------------------------------------------------------------
 LANG = {}
 
@@ -288,6 +371,21 @@ def build():
     lang("message.hogwartsmagic.keg.empty", "The keg is empty.")
     lang("message.hogwartsmagic.keg.busy", "The keg is full; wait for the batch.")
     lang("message.hogwartsmagic.keg.has_that", "The keg already has that.")
+    # ---- B5 ----
+    stove_models()
+    pot_models()
+    kitchen_data()
+    lang("block.hogwartsmagic.enchanted_stove", "Enchanted Stove")
+    lang("block.hogwartsmagic.cooking_pot", "Self-Stirring Cooking Pot")
+    lang("subtitles.hogwartsmagic.cosy.pot_bubble_loop", "Pot bubbles")
+    lang("message.hogwartsmagic.stove.full", "The stove can hold no more fuel.")
+    lang("message.hogwartsmagic.stove.fuel", "Fuel left: about %s coals")
+    lang("message.hogwartsmagic.pot.enchanted", "The ladle takes up its own stirring.")
+    lang("message.hogwartsmagic.pot.nothing_to_stir", "There is nothing in the pot to stir.")
+    lang("message.hogwartsmagic.pot.done", "The dish is done. Take it with an empty hand.")
+    lang("message.hogwartsmagic.pot.full", "The pot is full.")
+    lang("message.hogwartsmagic.pot.empty", "The pot is empty.")
+    lang("message.hogwartsmagic.pot.cold", "The pot is cold: stand it on a lit stove, campfire or hearth.")
     write_lang()
 
 

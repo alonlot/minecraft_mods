@@ -595,6 +595,10 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PORTKEY_CRUMBLE = register("portkey.crumble");
     public static final RegistryObject<SoundEvent> PORTKEY_BIND = register("portkey.bind");
 
+    // ---- Cosy food ----
+    /** The cooking pot bubbling while it cooks (sounds/cosy/pot_bubble_loop.ogg, 8.5 s, loops seamlessly). */
+    public static final RegistryObject<SoundEvent> COSY_POT_BUBBLE_LOOP = register("cosy.pot_bubble_loop");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

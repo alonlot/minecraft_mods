@@ -2230,5 +2230,16 @@
   "message.hogwartsmagic.keg.ready": "Ready to pour: %s servings. Bring an empty tankard.",
   "message.hogwartsmagic.keg.empty": "The keg is empty.",
   "message.hogwartsmagic.keg.busy": "The keg is full; wait for the batch.",
-  "message.hogwartsmagic.keg.has_that": "The keg already has that."
+  "message.hogwartsmagic.keg.has_that": "The keg already has that.",
+  "block.hogwartsmagic.enchanted_stove": "Enchanted Stove",
+  "block.hogwartsmagic.cooking_pot": "Self-Stirring Cooking Pot",
+  "subtitles.hogwartsmagic.cosy.pot_bubble_loop": "Pot bubbles",
+  "message.hogwartsmagic.stove.full": "The stove can hold no more fuel.",
+  "message.hogwartsmagic.stove.fuel": "Fuel left: about %s coals",
+  "message.hogwartsmagic.pot.enchanted": "The ladle takes up its own stirring.",
+  "message.hogwartsmagic.pot.nothing_to_stir": "There is nothing in the pot to stir.",
+  "message.hogwartsmagic.pot.done": "The dish is done. Take it with an empty hand.",
+  "message.hogwartsmagic.pot.full": "The pot is full.",
+  "message.hogwartsmagic.pot.empty": "The pot is empty.",
+  "message.hogwartsmagic.pot.cold": "The pot is cold: stand it on a lit stove, campfire or hearth."
 }

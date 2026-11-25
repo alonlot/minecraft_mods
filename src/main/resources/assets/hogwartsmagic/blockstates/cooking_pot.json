@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "filled=false": {
+      "model": "hogwartsmagic:block/cooking_pot"
+    },
+    "filled=true": {
+      "model": "hogwartsmagic:block/cooking_pot_filled"
+    }
+  }
+}

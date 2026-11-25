@@ -26,7 +26,11 @@ public class CardAlbumScreen extends Screen {
     private static final int ROWS = 4;
     private static final int GAP = 4;
 
+    /** Cards whose small copies may be built in one frame: the first open must not decode every PNG at once. */
+    private static final int LOADS_PER_FRAME = 4;
+
     private final Set<Integer> have;
+    private int loadBudget;
     private int left;
     private int top;
     private int w;
@@ -73,13 +77,14 @@ public class CardAlbumScreen extends Screen {
         g.drawString(this.font, count, this.left + this.w - 10 - this.font.width(count), this.top + 9, TH.textDim(), false);
 
         int hovered = -1;
+        this.loadBudget = LOADS_PER_FRAME;
         for (int i = 0; i < WizardCards.ALL.size(); i++) {
             int col = i % COLS;
             int row = i / COLS;
             int x = this.gridX + col * (this.cellW + GAP);
             int y = this.gridY + row * (this.cellH + GAP);
             WizardCards.Card card = WizardCards.ALL.get(i);
-            if (this.have.contains(card.id())) {
+            if (this.have.contains(card.id()) && prepared(card)) {
                 drawCard(g, x, y, card, partialTick);
             } else {
                 drawSilhouette(g, x, y);
@@ -95,6 +100,19 @@ public class CardAlbumScreen extends Screen {
         if (hovered >= 0) {
             drawTooltip(g, WizardCards.ALL.get(hovered), mouseX, mouseY);
         }
+    }
+
+    /** True once the card's small copies exist; builds them (within this frame's budget) if not, else it stays a silhouette. */
+    private boolean prepared(WizardCards.Card card) {
+        if (CardArt.miniReady(card.key())) {
+            return true;
+        }
+        if (this.loadBudget > 0) {
+            this.loadBudget--;
+            CardArt.prepareMini(card.key());
+            return CardArt.miniReady(card.key());
+        }
+        return false;
     }
 
     /** A collected card: the living portrait, as large as fits the cell, centred in it. */

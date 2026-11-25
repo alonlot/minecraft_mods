@@ -15,7 +15,7 @@ import java.util.List;
 public final class CosyNet {
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":cosy_food")
-            .networkProtocolVersion(1)
+            .networkProtocolVersion(2)
             .simpleChannel();
 
     private CosyNet() {

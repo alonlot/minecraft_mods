@@ -17,6 +17,7 @@ import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.util.Mth;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
@@ -83,14 +84,43 @@ public final class CardArt {
         if (card == null) {
             return;
         }
+        // The float a Screen is handed is the frame delta, not the partial tick: always read the real one.
+        float tick = partialTick();
+        boolean mini = scale < MINI_BELOW && CardMini.ready(card.key());
         g.flush(); // anything batched so far must land before this raw drawing
         g.pose().pushPose();
         g.pose().translate(x, y, 0.0F);
         g.pose().scale(scale, scale, 1.0F);
-        GuiSink sink = new GuiSink(g, tilt, alpha);
-        render(sink, card, stateOf(card, viewSeed, partial), nameFraction, scale >= 0.2F, partial);
+        GuiSink sink = new GuiSink(g, tilt, alpha, mini);
+        render(sink, card, mini ? stateOfNoClip(card, viewSeed, tick) : stateOf(card, viewSeed, tick), nameFraction,
+                scale >= 0.2F, mini, tick);
         g.flush();
         g.pose().popPose();
+        RenderSystem.disableBlend();
+    }
+
+    /** Below this scale (GUI px per card px) a card is drawn from the pre-shrunk copies, so it does not sparkle. */
+    public static final float MINI_BELOW = 0.35F;
+
+    /** Album support: is this card's pre-shrunk copy built yet? */
+    public static boolean miniReady(String key) {
+        return CardMini.ready(key);
+    }
+
+    /** Album support: build this card's pre-shrunk copy (a few PNG decodes: spread over frames). */
+    public static void prepareMini(String key) {
+        CardMini.prepare(key);
+    }
+
+    /** Resource reload or logout: forget cached lookups, names, filters and the small copies. */
+    public static void releaseAll() {
+        forget();
+        CardMini.clear();
+    }
+
+    /** The real partial tick of the game (the float screens get is only the frame delta). */
+    public static float partialTick() {
+        return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
     }
 
     /**
@@ -104,7 +134,7 @@ public final class CardArt {
             return;
         }
         WorldSink sink = new WorldSink(pose, buffers, light);
-        render(sink, card, stateOf(card, viewSeed, partial), 1.0F, true, partial);
+        render(sink, card, stateOf(card, viewSeed, partial), 1.0F, true, false, partial);
     }
 
     /**
@@ -124,7 +154,7 @@ public final class CardArt {
         g.pose().pushPose();
         g.pose().translate(x, y, 0.0F);
         g.pose().scale(scale, scale, 1.0F);
-        GuiSink sink = new GuiSink(g, tilt, 1.0F);
+        GuiSink sink = new GuiSink(g, tilt, 1.0F, false);
         shimmerStrip(g, sink, c - halfWidth, c, 0.0F, strength, slope);
         shimmerStrip(g, sink, c, c + halfWidth, strength, 0.0F, slope);
         g.pose().popPose();
@@ -183,6 +213,11 @@ public final class CardArt {
         return card == null ? new CardTimeline.State(true, 0.0F, false, 0, -1) : stateOf(card, viewSeed, partial);
     }
 
+    /** The same without the exit clip: small cards have no clip frames, so a legendary just walks out. */
+    private static CardTimeline.State stateOfNoClip(WizardCards.Card card, long viewSeed, float partial) {
+        return CardTimeline.at(gameTime(), partial, card.id(), viewSeed, false, 0);
+    }
+
     private static CardTimeline.State stateOf(WizardCards.Card card, long viewSeed, float partial) {
         CardAssets.Assets a = CardAssets.forKey(card.key());
         boolean legendaryClip = a.clipFrames() > 0;
@@ -198,7 +233,13 @@ public final class CardArt {
 
     /** One quad of a layer, in card pixels, with the texture region it shows. */
     interface Sink {
-        void quad(ResourceLocation tex, float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1);
+        /** A quad whose top edge is shifted sideways by sh0 and bottom edge by sh1 (the sway). */
+        void quad(ResourceLocation tex, float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1,
+                  float sh0, float sh1);
+
+        default void quad(ResourceLocation tex, float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1) {
+            quad(tex, x0, y0, x1, y1, u0, v0, u1, v1, 0.0F, 0.0F);
+        }
 
         /** The name plate text, centred on (cx, cy) card pixels, in card-pixel units of height scale. */
         void text(String text, float left, float cy, float scale, int color);
@@ -210,15 +251,20 @@ public final class CardArt {
     }
 
     private static void render(Sink sink, WizardCards.Card card, CardTimeline.State st, float nameFraction,
-                               boolean withName, float partial) {
+                               boolean withName, boolean mini, float partial) {
         CardAssets.Assets a = CardAssets.forKey(card.key());
-        float t = (float) (gameTime() + partial);
+        long gt = gameTime();
+        // phases are taken modulo the period in long first, so they stay exact in a world that has run for weeks
+        float breathPhase = phase(gt, partial, 76);
+        float walkPhase = phase(gt, partial, 7);
+        float swayA = phase(gt, partial, 97);
+        float swayB = phase(gt, partial, 131);
 
         // 1. the empty plate
-        sink.quad(a.empty(), WIN_X, WIN_Y, WIN_X + WIN_W, WIN_Y + WIN_H, 0, 0, 1, 1);
+        sink.quad(tex(a.empty(), mini), WIN_X, WIN_Y, WIN_X + WIN_W, WIN_Y + WIN_H, 0, 0, 1, 1);
         sink.nextLayer();
 
-        if (st.clipFrame() >= 0 && a.clipFrames() > 0) {
+        if (st.clipFrame() >= 0 && a.clipFrames() > 0 && !mini) {
             // 4. the clip frame stands in for the figure: it is the whole painting at that moment
             ResourceLocation frame = CardVideo.use(card.key(), a.clipFrames(), st.clipFrame(), System.nanoTime());
             if (CardAssets.has(frame)) {
@@ -226,24 +272,27 @@ public final class CardArt {
             }
             sink.nextLayer();
         } else if (st.present()) {
-            // 2. the figure: slid by the walk, bobbing as it walks, breathing at 1% on Y, rooted at the window bottom
+            // 2. the figure: slid by the walk, bobbing as it walks, breathing at 1% on Y, rooted at the window bottom,
+            //    swaying a hair (a shear about the bottom: two slow sines, like the puppet mesh of wall portraits)
             boolean walking = st.figureOffsetX() != 0.0F;
             float dx = st.figureOffsetX() * WIN_W;
-            float bob = walking ? (float) Math.sin(t * 0.95F) * 2.0F : 0.0F;
-            float breath = 1.0F + 0.01F * (0.5F + 0.5F * (float) Math.sin(t * (Math.PI * 2.0 / 76.0)));
+            float bob = walking ? (float) Math.sin(walkPhase * Mth.TWO_PI) * 2.0F : 0.0F;
+            float breath = 1.0F + 0.01F * (0.5F + 0.5F * (float) Math.sin(breathPhase * Mth.TWO_PI));
+            float sway = SWAY_PX * (0.6F * (float) Math.sin(swayA * Mth.TWO_PI)
+                    + 0.4F * (float) Math.sin(swayB * Mth.TWO_PI + 1.3F));
             float bottom = WIN_Y + WIN_H + bob;
             float top = bottom - WIN_H * breath;
-            clippedQuad(sink, a.figure(), WIN_X + dx, top, WIN_X + dx + WIN_W, bottom, 0, 0, 1, 1);
+            clippedQuad(sink, tex(a.figure(), mini), WIN_X + dx, top, WIN_X + dx + WIN_W, bottom, 0, 0, 1, 1, sway);
             sink.nextLayer();
 
-            // 3. the eyes, only while the figure sits still
+            // 3. the eyes, only while the figure sits still (they ride on the figure, sway included)
             if (st.idle()) {
                 if (st.blink() && CardAssets.has(a.blink())) {
-                    overlay(sink, a.blink(), a.meta().eyes(), bottom, breath);
+                    overlay(sink, tex(a.blink(), mini), a.meta().eyes(), bottom, breath, sway);
                 } else if (st.look() != 0) {
                     ResourceLocation look = st.look() < 0 ? a.lookL() : a.lookR();
                     if (CardAssets.has(look)) {
-                        overlay(sink, look, a.meta().face(), bottom, breath);
+                        overlay(sink, tex(look, mini), a.meta().face(), bottom, breath, sway);
                     }
                 }
                 sink.nextLayer();
@@ -253,13 +302,13 @@ public final class CardArt {
         // 5. the frame
         ResourceLocation frameTex = CardAssets.frame(card.rarity());
         if (CardAssets.has(frameTex)) {
-            sink.quad(frameTex, 0, 0, CARD_W, CARD_H, 0, 0, 1, 1);
+            sink.quad(tex(frameTex, mini), 0, 0, CARD_W, CARD_H, 0, 0, 1, 1);
         }
         sink.nextLayer();
 
         // 6. the name plate
         if (withName && nameFraction > 0.0F) {
-            String name = Component.translatable("card.hogwartsmagic." + card.key() + ".name").getString();
+            String name = nameOf(card);
             float scale = Math.min(2.0F, NAME_MAX_W / Math.max(1.0F, sink.textWidth(name)));
             float full = sink.textWidth(name) * scale;
             int shown = Math.min(name.length(), (int) Math.ceil(name.length() * Math.min(1.0F, nameFraction)));
@@ -272,8 +321,33 @@ public final class CardArt {
         }
     }
 
+    /** The idle sway at the top of the window, in card px at its largest (256 px wide portrait): about 1.5 px. */
+    private static final float SWAY_PX = 1.5F;
+
+    /** Fraction (0..1) through a cycle of the given period in ticks, exact however large the game time. */
+    private static float phase(long gameTime, float partial, int period) {
+        return (Math.floorMod(gameTime, (long) period) + partial) / period;
+    }
+
+    private static final java.util.Map<String, String> NAMES = new java.util.HashMap<>();
+
+    /** The translated card name, cached (cleared on resource reload, which a language change triggers). */
+    static String nameOf(WizardCards.Card card) {
+        return NAMES.computeIfAbsent(card.key(),
+                k -> Component.translatable("card.hogwartsmagic." + k + ".name").getString());
+    }
+
+    static void forget() {
+        NAMES.clear();
+        SMOOTHED.clear();
+    }
+
+    private static ResourceLocation tex(ResourceLocation full, boolean mini) {
+        return mini ? CardMini.resolve(full) : full;
+    }
+
     /** An eye overlay: only the box region of the texture is drawn, moved and scaled with the figure. */
-    private static void overlay(Sink sink, ResourceLocation tex, CardAssets.Box box, float figureBottom, float breath) {
+    private static void overlay(Sink sink, ResourceLocation tex, CardAssets.Box box, float figureBottom, float breath, float sway) {
         float l = Math.max(0.0F, box.left());
         float r = Math.min(WIN_W, box.right());
         float tp = Math.max(0.0F, box.top());
@@ -284,12 +358,13 @@ public final class CardArt {
         // texture row y sits at figureBottom - (WIN_H - y) * breath, like the figure itself
         float y0 = figureBottom - (WIN_H - tp) * breath;
         float y1 = figureBottom - (WIN_H - bt) * breath;
-        sink.quad(tex, WIN_X + l, y0, WIN_X + r, y1, l / WIN_W, tp / WIN_H, r / WIN_W, bt / WIN_H);
+        sink.quad(tex, WIN_X + l, y0, WIN_X + r, y1, l / WIN_W, tp / WIN_H, r / WIN_W, bt / WIN_H,
+                shear(sway, y0), shear(sway, y1));
     }
 
     /** A portrait-sized quad cut to the window: the part outside is dropped and the UVs follow. */
     private static void clippedQuad(Sink sink, ResourceLocation tex, float x0, float y0, float x1, float y1,
-                                    float u0, float v0, float u1, float v1) {
+                                    float u0, float v0, float u1, float v1, float sway) {
         float wx0 = WIN_X;
         float wy0 = WIN_Y;
         float wx1 = WIN_X + WIN_W;
@@ -310,13 +385,22 @@ public final class CardArt {
         float nu1 = u0 + (u1 - u0) * ((cx1 - x0) / w);
         float nv0 = v0 + (v1 - v0) * ((cy0 - y0) / h);
         float nv1 = v0 + (v1 - v0) * ((cy1 - y0) / h);
-        sink.quad(tex, cx0, cy0, cx1, cy1, nu0, nv0, nu1, nv1);
+        sink.quad(tex, cx0, cy0, cx1, cy1, nu0, nv0, nu1, nv1, shear(sway, cy0), shear(sway, cy1));
     }
 
-    /** Smooth scaling for card textures: they are painted, and drawn at many sizes. */
-    private static void smooth(ResourceLocation tex) {
-        AbstractTexture t = Minecraft.getInstance().getTextureManager().getTexture(tex);
-        t.setFilter(true, false);
+    /** Sideways shift at card-pixel row y: the sway swings the top of the window, the bottom stays put. */
+    private static float shear(float sway, float y) {
+        return sway * (WIN_Y + WIN_H - y) / WIN_H;
+    }
+
+    private static final java.util.Set<ResourceLocation> SMOOTHED = new java.util.HashSet<>();
+
+    /** Linear scaling for card textures in the GUI, set once per texture (the world path uses a blurred render type). */
+    static void smooth(ResourceLocation tex) {
+        if (SMOOTHED.add(tex)) {
+            AbstractTexture t = Minecraft.getInstance().getTextureManager().getTexture(tex);
+            t.setFilter(true, false);
+        }
     }
 
     // ------------------------------------------------------------------ the GUI sink
@@ -325,6 +409,8 @@ public final class CardArt {
     static final class GuiSink implements Sink {
         private final GuiGraphics g;
         private final Tilt tilt;
+        private final boolean mini;
+        private final float[] p = new float[2];
         private final int alpha;
         private final float cosY;
         private final float sinY;
@@ -332,9 +418,10 @@ public final class CardArt {
         private final float sinX;
         private static final float DISTANCE = 1100.0F;
 
-        GuiSink(GuiGraphics g, Tilt tilt, float alpha) {
+        GuiSink(GuiGraphics g, Tilt tilt, float alpha, boolean mini) {
             this.g = g;
             this.tilt = tilt;
+            this.mini = mini;
             this.alpha = Math.max(0, Math.min(255, (int) (alpha * 255.0F)));
             double yaw = Math.toRadians(tilt.yawDeg());
             double pitch = Math.toRadians(tilt.pitchDeg());
@@ -363,7 +450,8 @@ public final class CardArt {
         }
 
         @Override
-        public void quad(ResourceLocation tex, float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1) {
+        public void quad(ResourceLocation tex, float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1,
+                         float sh0, float sh1) {
             smooth(tex);
             RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
             RenderSystem.setShaderTexture(0, tex);
@@ -372,16 +460,17 @@ public final class CardArt {
             Matrix4f m = this.g.pose().last().pose();
             BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
             int color = (this.alpha << 24) | 0xFFFFFF;
-            float[] p = new float[2];
-            project(x0, y0, p);
+            float[] p = this.p;
+            project(x0 + sh0, y0, p);
             b.addVertex(m, p[0], p[1], 0.0F).setUv(u0, v0).setColor(color);
-            project(x0, y1, p);
+            project(x0 + sh1, y1, p);
             b.addVertex(m, p[0], p[1], 0.0F).setUv(u0, v1).setColor(color);
-            project(x1, y1, p);
+            project(x1 + sh1, y1, p);
             b.addVertex(m, p[0], p[1], 0.0F).setUv(u1, v1).setColor(color);
-            project(x1, y0, p);
+            project(x1 + sh0, y0, p);
             b.addVertex(m, p[0], p[1], 0.0F).setUv(u1, v0).setColor(color);
             BufferUploader.drawWithShader(b.buildOrThrow());
+            RenderSystem.disableBlend();
         }
 
         @Override
@@ -428,18 +517,18 @@ public final class CardArt {
         }
 
         @Override
-        public void quad(ResourceLocation tex, float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1) {
-            smooth(tex);
-            VertexConsumer vc = this.buffers.getBuffer(RenderType.text(tex));
+        public void quad(ResourceLocation tex, float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1,
+                         float sh0, float sh1) {
+            VertexConsumer vc = this.buffers.getBuffer(CardRenderTypes.SMOOTH_TEXT.apply(tex));
             Matrix4f m = this.pose.last().pose();
             float s = 1.0F / CARD_W;
             float z = z();
             int white = 0xFFFFFFFF;
             // vanilla map order: bottom-left, bottom-right, top-right, top-left
-            vc.addVertex(m, x0 * s, y1 * s, z).setColor(white).setUv(u0, v1).setLight(this.light);
-            vc.addVertex(m, x1 * s, y1 * s, z).setColor(white).setUv(u1, v1).setLight(this.light);
-            vc.addVertex(m, x1 * s, y0 * s, z).setColor(white).setUv(u1, v0).setLight(this.light);
-            vc.addVertex(m, x0 * s, y0 * s, z).setColor(white).setUv(u0, v0).setLight(this.light);
+            vc.addVertex(m, (x0 + sh1) * s, y1 * s, z).setColor(white).setUv(u0, v1).setLight(this.light);
+            vc.addVertex(m, (x1 + sh1) * s, y1 * s, z).setColor(white).setUv(u1, v1).setLight(this.light);
+            vc.addVertex(m, (x1 + sh0) * s, y0 * s, z).setColor(white).setUv(u1, v0).setLight(this.light);
+            vc.addVertex(m, (x0 + sh0) * s, y0 * s, z).setColor(white).setUv(u0, v0).setLight(this.light);
         }
 
         @Override

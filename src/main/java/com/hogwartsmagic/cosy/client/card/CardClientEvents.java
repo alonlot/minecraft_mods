@@ -33,5 +33,6 @@ public final class CardClientEvents {
     public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         CardRevealClient.clear();
         CardVideo.releaseAll();
+        CardArt.releaseAll();
     }
 }

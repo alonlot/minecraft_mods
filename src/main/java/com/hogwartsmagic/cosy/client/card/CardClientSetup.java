@@ -21,6 +21,7 @@ public final class CardClientSetup {
         event.registerReloadListener((ResourceManagerReloadListener) manager -> {
             CardAssets.invalidate();
             CardVideo.releaseAll();
+            CardArt.releaseAll();
         });
     }
 }

@@ -49,6 +49,9 @@ public final class CardHandRender {
             return;
         }
         event.setCanceled(true);
+        if (player.isScoping()) {
+            return; // vanilla draws no held item while looking through a spyglass
+        }
 
         PoseStack pose = event.getPoseStack();
         MultiBufferSource buffers = event.getMultiBufferSource();

@@ -31,11 +31,14 @@ final class CardFx {
         }
         Matrix4f m = g.pose().last().pose();
         BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
-        for (int i = 0; i < xs.length; i++) {
+        // Counter-clockwise on a y-down screen is the front face (culling is on in the GUI): callers list their
+        // polygons clockwise, so emit them reversed.
+        for (int i = xs.length - 1; i >= 0; i--) {
             b.addVertex(m, xs[i], ys[i], 0.0F).setColor(argb[i]);
         }
         BufferUploader.drawWithShader(b.buildOrThrow());
         RenderSystem.defaultBlendFunc();
+        RenderSystem.disableBlend();
     }
 
     /** Alpha-scaled colour: {@code rgb} with alpha {@code a} (0..1). */

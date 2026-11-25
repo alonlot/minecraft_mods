@@ -16,10 +16,23 @@ final class CardCues {
     private static final String PUFF_KEY = "merlin";
     private static final float PUFF_AT = 0.6F;
 
+    private static final long STALE_NANOS = 2_000_000_000L;
+
     private CardTimeline.State prev;
     private boolean puffed;
+    private int lastCard = -1;
+    private long lastNanos;
 
     void update(CardTimeline.State now, WizardCards.Card card, CardAssets.Assets assets, float volume) {
+        // A different card, or one not looked at for a couple of seconds, starts fresh: picking up a card that is
+        // already mid-walk must not play a footstep.
+        long t = System.nanoTime();
+        if (card.id() != this.lastCard || t - this.lastNanos > STALE_NANOS) {
+            this.prev = null;
+            this.puffed = now.clipFrame() >= 0;
+        }
+        this.lastCard = card.id();
+        this.lastNanos = t;
         if (this.prev != null && this.prev.idle() && !now.idle() && now.present()) {
             play(ModSounds.CARD_WALK_OUT.get(), 1.0F, volume);
             this.puffed = false;

@@ -201,7 +201,7 @@ public class CardRevealScreen extends Screen {
             float e = fly * fly;
             float slot = this.minecraft.player == null ? 4 : this.minecraft.player.getInventory().selected;
             centerX = Mth.lerp(e, centerX, w / 2.0F - 90.0F + slot * 20.0F + 10.0F);
-            centerY = Mth.lerp(e, centerY, h - 19.0F);
+            centerY = Mth.lerp(e, centerY, h - 11.0F);
             scale *= 1.0F - 0.93F * e;
             alpha *= 1.0F - Mth.clamp((fly - 0.8F) * 5.0F, 0.0F, 1.0F);
         }
@@ -250,18 +250,19 @@ public class CardRevealScreen extends Screen {
         if (cardUp) {
             float nameFrac;
             if (this.reveal) {
-                int len = Component.translatable("card.hogwartsmagic." + this.card.key() + ".name").getString().length();
+                int len = CardArt.nameOf(this.card).length();
                 nameFrac = (float) Mth.clamp((age - 1.0) / Math.min(1.4, 0.07 * Math.max(1, len)), 0.0, 1.0);
             } else {
                 nameFrac = 1.0F;
             }
             float x = centerX - CardArt.CARD_W * scale / 2.0F;
             float y = centerY - CardArt.CARD_H * scale / 2.0F;
-            CardArt.drawCard(g, this.cardId, this.viewSeed, x, y, scale, partial, nameFrac, tilt, alpha);
+            CardArt.drawCard(g, this.cardId, this.viewSeed, x, y, scale, 0.0F, nameFrac, tilt, alpha);
             double shimmerStart = this.reveal ? RISE_START + 0.15 : 0.12;
             CardArt.drawShimmer(g, x, y, scale, tilt, (float) ((age - shimmerStart) / 0.9), 0.55F * alpha);
 
-            CardTimeline.State st = CardArt.stateOf(this.cardId, this.viewSeed, partial);
+            // not the render delta Screen.render is handed: the game's own partial tick
+            CardTimeline.State st = CardArt.stateOf(this.cardId, this.viewSeed, CardArt.partialTick());
             this.cues.update(st, this.card, assets, 0.5F);
         }
 
@@ -319,6 +320,7 @@ public class CardRevealScreen extends Screen {
             g.pose().popPose();
         }
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.disableBlend();
     }
 
     /** The frog leaps out of the box and away up and to the right, spinning. */
@@ -334,6 +336,7 @@ public class CardRevealScreen extends Screen {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F - t * t * t);
         g.blit(FROG_SPRITE, -8, -8, 0, 0, 0, 16, 16, 16, 16);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.disableBlend();
         g.pose().popPose();
     }
 

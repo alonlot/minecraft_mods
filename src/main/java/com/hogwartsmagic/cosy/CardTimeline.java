@@ -8,8 +8,8 @@ package com.hogwartsmagic.cosy;
  *
  * <p>The year is cut into 30-minute "super slots" (shifted per view so views are out of step). Inside one super slot
  * the cycle chain restarts at its start: idle for 1200-3600 ticks, exit (40-tick walk, or the clip), absent for
- * 400-1200 ticks, a 40-tick walk back in, and so on while another whole cycle still fits. The tail of the slot is
- * idle. Costs about a dozen hashes per call however long the world has been running.
+ * 400-1200 ticks, a 40-tick walk back in, and so on. The last cycle is stretched so its walk back ends exactly at the
+ * slot end, which keeps every idle gap inside 1200-3600 ticks, seams included. Costs about a dozen hashes per call however long the world has been running.
  */
 public final class CardTimeline {
     /** The figure fully out of the frame, in portrait widths: a little over 1 so none of it is left in the window. */
@@ -20,6 +20,8 @@ public final class CardTimeline {
     private static final long SUPER_SLOT = 36000L;
     private static final int IDLE_MIN = 1200;
     private static final int IDLE_SPAN = 2401;   // 1200..3600
+    private static final int IDLE_MAX = 3600;
+    private static final int ABSENT_MAX = 1200;
     private static final int ABSENT_MIN = 400;
     private static final int ABSENT_SPAN = 801;  // 400..1200
     private static final long BLOCK = 2400L;
@@ -55,16 +57,28 @@ public final class CardTimeline {
         double local = ts - slot * (double) SUPER_SLOT;
         long chain = mix(seed * 0x9E3779B97F4A7C15L + slot);
 
-        double pos = 0;
+        // The chain is packed so the LAST cycle's return walk ends exactly at the slot's end: the next slot then opens
+        // with a plain idle stretch, so no idle gap (even across a seam) leaves 1200..3600 ticks (60..180 s).
+        long pos = 0;
         for (int i = 0; i < 64; i++) {
             long h = mix(chain + i * 0xD1B54A32D192ED03L);
-            double exitStart = pos + IDLE_MIN + Math.floorMod(h, IDLE_SPAN);
-            double absentStart = exitStart + exitTicks;
-            double returnStart = absentStart + ABSENT_MIN + Math.floorMod(h >>> 20, ABSENT_SPAN);
-            double end = returnStart + WALK_TICKS;
-            if (end > SUPER_SLOT) {
-                break;
+            long space = SUPER_SLOT - pos - exitTicks - WALK_TICKS;      // what idle + absent may use up
+            long idle = IDLE_MIN + Math.floorMod(h, IDLE_SPAN);
+            long absent = ABSENT_MIN + Math.floorMod(h >>> 20, ABSENT_SPAN);
+            boolean last = space <= IDLE_MAX + ABSENT_MAX;
+            if (last) {
+                long lo = Math.max(IDLE_MIN, space - ABSENT_MAX);
+                long hi = Math.min(IDLE_MAX, space - ABSENT_MIN);
+                idle = Math.max(lo, Math.min(hi, idle));
+                absent = space - idle;
+            } else {
+                // leave room for one more whole cycle (at least the shortest idle + absent)
+                idle = Math.min(idle, space - (IDLE_MIN + ABSENT_MIN) - absent - exitTicks - WALK_TICKS);
             }
+            double exitStart = pos + idle;
+            double absentStart = exitStart + exitTicks;
+            double returnStart = absentStart + absent;
+            double end = returnStart + WALK_TICKS;
             if (local < exitStart) {
                 break; // idle before this exit
             }
@@ -85,7 +99,10 @@ public final class CardTimeline {
                 float p = (float) ((local - returnStart) / WALK_TICKS);
                 return new State(true, side * OFF_EDGE * (1.0F - ease(p)), false, 0, -1);
             }
-            pos = end;
+            pos = (long) end;
+            if (last) {
+                break;
+            }
         }
         // Idle: the eyes live.
         boolean blink = eventAt(seed ^ 0x2545F4914F6CDD1DL, t, 40, 80, 3, 3) >= 0;

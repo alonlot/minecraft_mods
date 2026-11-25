@@ -113,7 +113,23 @@ public final class CardAssets {
         return ResourceLocation.fromNamespaceAndPath(NAMESPACE, "textures/card/" + name + ".png");
     }
 
+    private static final Map<String, ResourceLocation[]> CLIP_FRAMES = new HashMap<>();
+
+    /** The location of clip frame {@code index}; cached, because the clip draws ask for it every frame. */
     public static ResourceLocation clipFrame(String key, int index) {
+        ResourceLocation[] cache = CLIP_FRAMES.computeIfAbsent(key, k -> new ResourceLocation[512]);
+        if (index >= 0 && index < cache.length) {
+            ResourceLocation known = cache[index];
+            if (known == null) {
+                known = buildClipFrame(key, index);
+                cache[index] = known;
+            }
+            return known;
+        }
+        return buildClipFrame(key, index);
+    }
+
+    private static ResourceLocation buildClipFrame(String key, int index) {
         return ResourceLocation.fromNamespaceAndPath(NAMESPACE,
                 "textures/card/" + key + "/clips/exit/" + String.format("%04d", index) + ".png");
     }

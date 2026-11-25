@@ -173,13 +173,13 @@ public class ChocolateFrogEntity extends Entity {
         }
     }
 
-    /** The nearest glass block or pane within {@link #WINDOW_SCAN} blocks (a little more vertically up), or null. */
+    /** The nearest glass block or pane within {@link #WINDOW_SCAN} blocks sideways and from its own level up 4 (never a glass floor under it), or null. */
     @Nullable
     private BlockPos findGlass(ServerLevel server) {
         BlockPos origin = this.blockPosition();
         BlockPos best = null;
         double bestSq = Double.MAX_VALUE;
-        for (BlockPos p : BlockPos.betweenClosed(origin.offset(-WINDOW_SCAN, -2, -WINDOW_SCAN),
+        for (BlockPos p : BlockPos.betweenClosed(origin.offset(-WINDOW_SCAN, 0, -WINDOW_SCAN),
                 origin.offset(WINDOW_SCAN, 4, WINDOW_SCAN))) {
             if (!server.hasChunkAt(p)) {
                 continue;
@@ -211,7 +211,9 @@ public class ChocolateFrogEntity extends Entity {
         double dz = target.getZ() + 0.5 - this.getZ();
         double flat = Math.sqrt(dx * dx + dz * dz);
         double dy = Math.abs(target.getY() + 0.5 - this.getY());
-        if (flat <= WINDOW_REACH && dy <= 2.5) {
+        // never before it has lived a hop interval and made one hop: a frog opened beside a window still leaps out
+        boolean hopped = this.life > HOP_INTERVAL && this.entityData.get(DATA_HOPS) > 0;
+        if (hopped && flat <= WINDOW_REACH && dy <= 2.5) {
             server.broadcastEntityEvent(this, EVENT_WINDOW_PUFF);
             server.playSound(null, this.getX(), this.getY(), this.getZ(), ModSounds.CARD_PUFF.get(),
                     SoundSource.NEUTRAL, 0.6F, 1.3F);

@@ -156,6 +156,35 @@ class CardTimelineTest {
     }
 
     @Test
+    void idleGapsStayWithinThreeMinutesEvenAcrossSeams() {
+        // 5 super slots (30 min each) per seed, several clip lengths
+        for (long seed : SEEDS) {
+            for (int frames : new int[]{0, 96}) {
+                long run = 0;
+                int gaps = 0;
+                boolean counting = false;
+                for (long t = 0; t < 180000; t++) {
+                    CardTimeline.State s = CardTimeline.at(t, 0.0F, 2, seed, frames > 0, frames);
+                    if (s.idle()) {
+                        run++;
+                    } else {
+                        if (counting && run > 0) {
+                            assertTrue(run >= 1190 && run <= 3601, "idle gap " + run + " ticks, seed " + seed + " frames " + frames);
+                            gaps++;
+                        }
+                        // a gap only counts from the first walk-back, so the sample start (a cut-off stretch) is skipped
+                        if (!s.present()) {
+                            counting = true;
+                        }
+                        run = 0;
+                    }
+                }
+                assertTrue(gaps >= 30, "gaps seen: " + gaps);
+            }
+        }
+    }
+
+    @Test
     void sameInputsSameState() {
         for (long t = 0; t < 5000; t += 13) {
             assertEquals(CardTimeline.at(t, 0.37F, 8, 55L, false, 0), CardTimeline.at(t, 0.37F, 8, 55L, false, 0));

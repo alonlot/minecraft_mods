@@ -199,22 +199,27 @@ public final class CosyFoodGameTests {
         }
         h.setBlock(7, 2, 4, Blocks.GLASS);          // the window, behind it
         ServerPlayer p = survivor(h);
-        p.setPos(h.absolutePos(new BlockPos(4, 2, 4)).getCenter().add(0, -0.5, 0));
+        // the player stands to the north along the wall, so "away from the player" is south-to-north (-z is toward them)
+        p.setPos(h.absolutePos(new BlockPos(4, 2, 7)).getCenter().add(0, -0.5, 0));
         ChocolateFrogEntity frog = h.spawn(ModEntities.CHOCOLATE_FROG.get(), new Vec3(2.5, 2, 4.5));
         boolean sawTarget = false;
         int cleared = -1;
+        double distAtClear = 0;
         for (int i = 0; i < ChocolateFrogEntity.LIFE_TICKS - 1 && !frog.isRemoved(); i++) {
             frog.tick();
             if (frog.windowTarget() != null) {
                 sawTarget = true;
             } else if (sawTarget && cleared < 0) {
                 cleared = i;
+                distAtClear = frog.distanceTo(p);
             }
         }
         h.assertTrue(sawTarget, "the frog first made for the glass");
         h.assertTrue(cleared >= ChocolateFrogEntity.GIVE_UP_TICKS,
                 "it gave up only after " + ChocolateFrogEntity.GIVE_UP_TICKS + " ticks of no progress, at " + cleared);
         h.assertTrue(!frog.isRemoved(), "and it is still hopping about, not gone");
+        h.assertTrue(frog.distanceTo(p) > distAtClear + 0.5,
+                "after giving up it hops away from the player: " + distAtClear + " then " + frog.distanceTo(p));
         frog.discard();
         h.setBlock(7, 2, 4, Blocks.AIR);
         for (int z = 0; z < 9; z++) {

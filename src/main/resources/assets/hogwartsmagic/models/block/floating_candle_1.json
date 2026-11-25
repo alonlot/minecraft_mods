@@ -1,0 +1,177 @@
+{
+  "parent": "block/block",
+  "render_type": "minecraft:cutout",
+  "ambientocclusion": false,
+  "textures": {
+    "wax": "hogwartsmagic:block/decor/candle_wax",
+    "particle": "hogwartsmagic:block/decor/candle_wax"
+  },
+  "elements": [
+    {
+      "from": [
+        9,
+        2,
+        4
+      ],
+      "to": [
+        11,
+        11,
+        6
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wax"
+        },
+        "south": {
+          "texture": "#wax"
+        },
+        "east": {
+          "texture": "#wax"
+        },
+        "west": {
+          "texture": "#wax"
+        },
+        "up": {
+          "texture": "#wax"
+        },
+        "down": {
+          "texture": "#wax"
+        }
+      }
+    },
+    {
+      "from": [
+        9.75,
+        11,
+        4.75
+      ],
+      "to": [
+        10.25,
+        12,
+        5.25
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        },
+        "south": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        },
+        "east": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        },
+        "west": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        },
+        "up": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        },
+        "down": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        9.5,
+        12,
+        5
+      ],
+      "to": [
+        10.5,
+        13.5,
+        5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wax",
+          "uv": [
+            12,
+            0,
+            14,
+            3
+          ]
+        },
+        "south": {
+          "texture": "#wax",
+          "uv": [
+            12,
+            0,
+            14,
+            3
+          ]
+        }
+      },
+      "shade": false
+    },
+    {
+      "from": [
+        10,
+        12,
+        4.5
+      ],
+      "to": [
+        10,
+        13.5,
+        5.5
+      ],
+      "faces": {
+        "east": {
+          "texture": "#wax",
+          "uv": [
+            12,
+            0,
+            14,
+            3
+          ]
+        },
+        "west": {
+          "texture": "#wax",
+          "uv": [
+            12,
+            0,
+            14,
+            3
+          ]
+        }
+      },
+      "shade": false
+    }
+  ]
+}

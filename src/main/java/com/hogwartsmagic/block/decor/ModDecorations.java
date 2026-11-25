@@ -153,6 +153,11 @@ public final class ModDecorations {
             ExampleMod.BLOCK_ENTITY_TYPES.register("school_trunk",
                     () -> BlockEntityType.Builder.of(SchoolTrunkBlockEntity::new, SCHOOL_TRUNK.get()).build(null));
 
+    // ---- Cosy home ----
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.cosy.FloatingCandleBlockEntity>> FLOATING_CANDLE_BLOCK_ENTITY =
+            ExampleMod.BLOCK_ENTITY_TYPES.register("floating_candle",
+                    () -> BlockEntityType.Builder.of(com.hogwartsmagic.cosy.FloatingCandleBlockEntity::new, FLOATING_CANDLE.get()).build(null));
+
     /** Loads this class so every entry is queued on the deferred registers before they attach. */
     public static void init() {
     }

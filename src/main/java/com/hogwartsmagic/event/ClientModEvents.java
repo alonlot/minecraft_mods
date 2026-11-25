@@ -1231,6 +1231,12 @@ public class ClientModEvents {
         }
     }
 
+    // ---- Cosy home ----
+    @SubscribeEvent
+    public static void registerCosyModels(net.minecraftforge.client.event.ModelEvent.RegisterAdditional event) {
+        com.hogwartsmagic.cosy.client.FloatingCandleRenderer.registerModels(event);
+    }
+
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ExampleMod.GRINGOTTS_VAULT_DOOR_BLOCK_ENTITY.get(),
@@ -1247,6 +1253,9 @@ public class ClientModEvents {
         event.registerBlockEntityRenderer(ExampleMod.PENSIEVE_BLOCK_ENTITY.get(),
                 com.hogwartsmagic.client.pensieve.PensieveBasinRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.BROOM_WORKBENCH_BLOCK_ENTITY.get(), com.hogwartsmagic.client.BroomWorkbenchRenderer::new);
+        // ---- Cosy home ----
+        event.registerBlockEntityRenderer(com.hogwartsmagic.block.decor.ModDecorations.FLOATING_CANDLE_BLOCK_ENTITY.get(),
+                com.hogwartsmagic.cosy.client.FloatingCandleRenderer::new);
 
         event.registerEntityRenderer(ModEntities.PENSIEVE_BODY.get(), com.hogwartsmagic.client.pensieve.PensieveBodyRenderer::new);
         event.registerEntityRenderer(ModEntities.OWL.get(), OwlRenderer::new);

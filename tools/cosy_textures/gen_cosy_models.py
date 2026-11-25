@@ -147,8 +147,24 @@ def hearth():
                   {"C": "minecraft:cobblestone", "B": "minecraft:bricks", "F": "minecraft:campfire"}, "hearth")
 
 
+# ---------------------------------------------------------------------------- A2: floating candles
+
+def candles():
+    """Split the existing three-candle model into one model per candle, lit and unlit, for the bobbing renderer.
+    The source model's elements come in groups of four: body, wick base, then two crossed flame planes."""
+    src = json.load(open(os.path.join(ASSETS, "models/block/floating_candle.json"), encoding="utf-8"))
+    els = src["elements"]
+    assert len(els) == 12
+    for i in range(3):
+        group = els[i * 4:(i + 1) * 4]
+        for name, elements in (("floating_candle_%d" % i, group), ("floating_candle_%d_unlit" % i, group[:2])):
+            model(name, {"parent": "block/block", "render_type": "minecraft:cutout", "ambientocclusion": False,
+                         "textures": src["textures"], "elements": elements})
+
+
 def main():
     hearth()
+    candles()
 
 
 if __name__ == "__main__":

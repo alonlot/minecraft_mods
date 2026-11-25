@@ -1,0 +1,111 @@
+{
+  "parent": "block/block",
+  "render_type": "minecraft:cutout",
+  "ambientocclusion": false,
+  "textures": {
+    "wax": "hogwartsmagic:block/decor/candle_wax",
+    "particle": "hogwartsmagic:block/decor/candle_wax"
+  },
+  "elements": [
+    {
+      "from": [
+        4,
+        4,
+        5
+      ],
+      "to": [
+        6,
+        13,
+        7
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wax"
+        },
+        "south": {
+          "texture": "#wax"
+        },
+        "east": {
+          "texture": "#wax"
+        },
+        "west": {
+          "texture": "#wax"
+        },
+        "up": {
+          "texture": "#wax"
+        },
+        "down": {
+          "texture": "#wax"
+        }
+      }
+    },
+    {
+      "from": [
+        4.75,
+        13,
+        5.75
+      ],
+      "to": [
+        5.25,
+        14,
+        6.25
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        },
+        "south": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        },
+        "east": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        },
+        "west": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        },
+        "up": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        },
+        "down": {
+          "texture": "#wax",
+          "uv": [
+            14,
+            0,
+            15,
+            1
+          ]
+        }
+      }
+    }
+  ]
+}

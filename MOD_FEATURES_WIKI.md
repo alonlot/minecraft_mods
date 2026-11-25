@@ -772,7 +772,8 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 - Drowned corpse kept by black water; wanders at night in Dementor Fen and swamps, and guards every Locket cave.
 - Takes only 30% of non-fire damage, but fire hurts it fully, and twice as much while it is already burning.
-- Grabs on a hit and drags the victim toward the water, even pulling a rider out of a boat.
+- Grabs on a hit and drags the victim toward the water, on land as well as in it.
+- In a Locket cave it climbs out onto the island's shore, clings to the skiff on the crossing (two at most), and turns back at the blood arch.
 - Flees fire, lava, lit campfires, and players holding a torch, soul torch, flint and steel, fire charge, or lava bucket.
 - Cave Inferi drop nothing, give no experience, and sink back into the lake when nobody is hunting them.
 
@@ -1809,37 +1810,52 @@ goblin walk past.
 
 ### Slytherin's Locket Cave
 
-A rock headland on the shore with a black lake hollowed inside it, holding Slytherin's Locket. Each cave
+A tall black sea stack standing alone in the ocean, with a black lake hollowed out under the seabed
+beneath it, holding Slytherin's Locket. Caves spawn in ocean, deep ocean and the cold oceans. Each cave
 yields one Locket, once. After it is taken the cave is marked looted forever and is no longer searched for.
 The Locket is a Horcrux and is kept for the future Voldemort finale.
 
 **Finding one.** A Memory of the Cave vial turns up in Death Eater camp chests (about 15%) and drops
-from Death Eaters (about 2%). Drinking it, or watching it in a Pensieve, gives a Cave Map pointing at the nearest unlooted cave; the X marks
-the cave area, not the exact entrance. Revelio shows the hidden crack in the north cliff from up to 48
-blocks away. A second hidden entrance is a shaft in the clifftop above the tunnel.
+from Death Eaters (about 2%). Drinking it, or watching it in a Pensieve, gives a Cave Map pointing at the
+nearest unlooted cave. Reach the stack by boat, broom or swimming.
 
 **The route.**
 
-- **The swim tunnel.** Through the crack and a short flooded tunnel into an antechamber with a small pool.
-- **The Blood Seal.** A sealed arch that opens for a toll of three hearts, paid once from the outside.
-  Creative players open it free.
-- **The hidden chain.** At the shore beyond the seal. Revelio shows it, or touching it shows it briefly.
-  Right-click it to raise a one-seat boat.
-- **The island.** Row the boat across the lake to the Basin of Despair.
+- **The cleft.** A dark crack at the waterline on one face of the stack. Swim in through a short flooded
+  tunnel and surface in a small antechamber pool.
+- **The blood arch.** The passage ends in bare rock with a thin red arch outline, and a slow drip marks it
+  when you stand close. Right-click the stone to pay three hearts: blood smears the arch and it melts away
+  in under a second, then stays open for a minute. It opens free from the inside and never closes on anyone.
+- **The descent.** A winding passage down through the rock comes out high on the cavern wall above the lake.
+- **The ring and chain.** An iron ring is set in the shore. Right-click it, or cast Revelio, and a faintly
+  glowing green chain shows, running down into the water. Pull it and the chain hauls in over three seconds
+  while the water bubbles.
+- **The skiff.** A narrow old boat with a lantern at the prow rises bow first from the lake. It carries one
+  rider and crosses on its own along a curving course, bobbing, with pale shapes drifting under the
+  surface. It grounds on the island and waits. An empty skiff never leaves anyone stranded on the island,
+  and there is only ever one skiff per cave.
 
-**The Drink of Despair.** The basin holds six drinks, at least a second apart. Each one adds worse
-effects (nausea, weakness, slowness, darkness, blindness, mining fatigue, hunger) and drinks three to six hurt, though never
-to death. After the sixth the Locket shows. If the drinker stops for thirty seconds, dies, or leaves the
-island the basin refills and the count starts again. Whispers play as you drink.
+**The goblet and the basin.** Pick up the crystal goblet beside the basin, dip it, and drink. Six cups empty
+the basin, and the green liquid drops with each one. Each cup adds worse effects and some hurt, though never
+to death, and you feel it rather than read it: the view darkens and blurs at the edges, whispers rise around
+you, the view shakes, and at the last two cups you sink to your knees. Only the drinker can dip while a run
+is going. If the drinker stops for thirty seconds, dies, or leaves the island, the basin refills. The goblet
+crumbles if carried out of the cave, and the basin replaces a lost goblet by itself. After the sixth cup the
+Locket lies in the dry basin: lift it out with an empty hand.
 
-**Unquenchable Thirst.** Taking the Locket leaves a ten-minute thirst that no ordinary water,
-milk or potion removes. Only the cave lake cures it: put your head under the black water, or use a glass
-bottle on it. The antechamber pool does not count.
+**Unquenchable Thirst.** Taking the Locket leaves a ten-minute thirst that no ordinary water, milk or potion
+removes. Water conjured with Aqua Eructo vanishes before it reaches a thirsty player. Only the cave lake
+cures it: dip the goblet in the lake and drink it (a bottle or bare hands on the lake work too).
 
-**The ambush.** Curing the thirst wakes the lake: 16 Inferi rise in four waves of four, hunting everyone in the
-cave. Fire drives them back. The ambush ends when all 16 are down, or when nobody is left in the cave, and
-survivors sink back into the lake. Swimming in the lake before that draws a small warning grab (never more
-than six idle Inferi at once), and a boat does not protect its rider from the grab.
+**The ambush.** The moment the goblet touches the lake, the lake wakes. Hands break the surface around the
+island, then Inferi crawl up its sloping shore from every side. They do little damage but grab you and drag
+you toward the water, on land too, and hold you under once there. Fire is the answer: Incendio makes them
+recoil, burning ground holds the shore, Fiendfyre clears them. On the crossing back up to two cling to the
+skiff, slowing it and clawing at the rider, until a hit or fire knocks them off. They follow you to the blood
+arch and turn back there.
+
+**Old caves.** Caves generated before this rebuild keep their old shape and still work, with the goblet in
+place of drinking from the basin directly.
 
 ### Spawn Modifiers
 

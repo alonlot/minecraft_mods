@@ -1,0 +1,19 @@
+{
+  "type": "hogwartsmagic:pot_cooking",
+  "ingredients": [
+    {
+      "item": "hogwartsmagic:chocolate_bar"
+    },
+    {
+      "item": "hogwartsmagic:chocolate_bar"
+    },
+    {
+      "item": "minecraft:slime_ball"
+    }
+  ],
+  "cook_ticks": 400,
+  "result": {
+    "id": "hogwartsmagic:chocolate_frog",
+    "count": 2
+  }
+}

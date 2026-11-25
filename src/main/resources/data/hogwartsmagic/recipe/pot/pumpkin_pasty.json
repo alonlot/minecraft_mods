@@ -1,0 +1,25 @@
+{
+  "type": "hogwartsmagic:pot_cooking",
+  "ingredients": [
+    {
+      "item": "minecraft:pumpkin"
+    },
+    {
+      "item": "minecraft:wheat"
+    },
+    {
+      "item": "minecraft:wheat"
+    },
+    {
+      "item": "minecraft:egg"
+    },
+    {
+      "item": "minecraft:sugar"
+    }
+  ],
+  "cook_ticks": 400,
+  "result": {
+    "id": "hogwartsmagic:pumpkin_pasty",
+    "count": 3
+  }
+}

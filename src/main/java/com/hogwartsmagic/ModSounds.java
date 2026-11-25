@@ -598,6 +598,9 @@ public class ModSounds {
     // ---- Cosy home ----
     public static final RegistryObject<SoundEvent> RAIN_WINDOW_LOOP = register("cosy.rain_window_loop");
     public static final RegistryObject<SoundEvent> HEARTH_CRACKLE_LOOP = register("cosy.hearth_crackle_loop");
+    // ---- Cosy food ----
+    /** The cooking pot bubbling while it cooks (sounds/cosy/pot_bubble_loop.ogg, 8.5 s, loops seamlessly). */
+    public static final RegistryObject<SoundEvent> COSY_POT_BUBBLE_LOOP = register("cosy.pot_bubble_loop");
 
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);

@@ -113,7 +113,8 @@ public class DementorEntity extends Monster {
     /** A caster holding the shield up is behind it, so the aura of dread can't reach them. */
     private static boolean isShieldedFromAura(LivingEntity entity) {
         return entity.getTags().contains("patronus")
-                || entity.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING);
+                || entity.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)
+                || com.hogwartsmagic.cosy.FoodRules.hasCourage(entity); // Chocolate Courage
     }
 
     @Override

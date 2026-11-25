@@ -4824,5 +4824,14 @@
         "stream": false
       }
     ]
+  },
+  "cosy.pot_bubble_loop": {
+    "subtitle": "subtitles.hogwartsmagic.cosy.pot_bubble_loop",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cosy/pot_bubble_loop",
+        "stream": false
+      }
+    ]
   }
 }

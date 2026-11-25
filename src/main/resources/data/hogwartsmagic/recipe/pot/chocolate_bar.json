@@ -1,0 +1,22 @@
+{
+  "type": "hogwartsmagic:pot_cooking",
+  "ingredients": [
+    {
+      "item": "minecraft:cocoa_beans"
+    },
+    {
+      "item": "minecraft:cocoa_beans"
+    },
+    {
+      "item": "minecraft:sugar"
+    },
+    {
+      "item": "minecraft:milk_bucket"
+    }
+  ],
+  "cook_ticks": 300,
+  "result": {
+    "id": "hogwartsmagic:chocolate_bar",
+    "count": 3
+  }
+}

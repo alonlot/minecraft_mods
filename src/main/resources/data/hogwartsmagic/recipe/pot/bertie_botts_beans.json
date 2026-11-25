@@ -1,0 +1,28 @@
+{
+  "type": "hogwartsmagic:pot_cooking",
+  "ingredients": [
+    {
+      "item": "minecraft:sugar"
+    },
+    {
+      "item": "minecraft:sugar"
+    },
+    {
+      "item": "minecraft:sweet_berries"
+    },
+    {
+      "item": "minecraft:slime_ball"
+    },
+    {
+      "item": "minecraft:spider_eye"
+    },
+    {
+      "item": "minecraft:glow_berries"
+    }
+  ],
+  "cook_ticks": 500,
+  "result": {
+    "id": "hogwartsmagic:bertie_botts_beans",
+    "count": 1
+  }
+}

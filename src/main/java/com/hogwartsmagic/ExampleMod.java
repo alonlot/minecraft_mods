@@ -1248,6 +1248,9 @@ public class ExampleMod
                 com.hogwartsmagic.block.decor.ModDecorations.CREATIVE_ORDER.forEach(item -> output.accept(item.get()));
                 // ---- Cosy home ----
                 com.hogwartsmagic.cosy.CosyHome.CREATIVE_ORDER.forEach(item -> output.accept(item.get()));
+                // ---- Cosy food ----
+                com.hogwartsmagic.cosy.CosyFood.fillCreativeTab(output);
+                com.hogwartsmagic.cosy.CosyKitchen.fillCreativeTab(output);
                 output.accept(ARCANE_DUST.get());
                 output.accept(ARCANE_CORE.get());
                 output.accept(WIZARD_HAT_PURPLE.get());
@@ -1395,6 +1398,9 @@ public class ExampleMod
         com.hogwartsmagic.block.decor.ModDecorations.init();
         // ---- Cosy home ----
         com.hogwartsmagic.cosy.CosyHome.init();
+        // ---- Cosy food ----
+        com.hogwartsmagic.cosy.CosyFood.init();
+        com.hogwartsmagic.cosy.CosyKitchen.init();
         // Register the Deferred Register to the mod event bus so blocks get registered
         BLOCKS.register(modEventBus);
         com.hogwartsmagic.spell.vfx.ModParticles.PARTICLE_TYPES.register(modEventBus);

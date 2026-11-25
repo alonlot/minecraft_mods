@@ -2141,5 +2141,13 @@
   "subtitles.hogwartsmagic.portkey.bind": "Portkey binds",
   "block.hogwartsmagic.cursed_cup": "Cursed Golden Cup",
   "message.hogwartsmagic.cursed_cup.status": "The little golden cup is warm, and something inside it is watching you.",
-  "message.hogwartsmagic.cursed_cup.freed": "A shriek tears out of the cup, and something that was once a man flees through the stone."
+  "message.hogwartsmagic.cursed_cup.freed": "A shriek tears out of the cup, and something that was once a man flees through the stone.",
+  "item.hogwartsmagic.chocolate_bar": "Chocolate Bar",
+  "item.hogwartsmagic.pumpkin_pasty": "Pumpkin Pasty",
+  "item.hogwartsmagic.treacle_tart": "Treacle Tart",
+  "item.hogwartsmagic.cauldron_cake": "Cauldron Cake",
+  "item.hogwartsmagic.tankard": "Tankard",
+  "item.hogwartsmagic.tankard_of_butterbeer": "Tankard of Butterbeer",
+  "effect.hogwartsmagic.chocolate_courage": "Chocolate Courage",
+  "effect.hogwartsmagic.chocolate_courage.description": "A Dementor's chill slides off you."
 }

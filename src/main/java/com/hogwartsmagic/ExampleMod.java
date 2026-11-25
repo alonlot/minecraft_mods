@@ -1246,6 +1246,8 @@ public class ExampleMod
                 output.accept(HUFFLEPUFF_BANNER_BLOCK_ITEM.get());
                 output.accept(SLYTHERIN_BANNER_BLOCK_ITEM.get());
                 com.hogwartsmagic.block.decor.ModDecorations.CREATIVE_ORDER.forEach(item -> output.accept(item.get()));
+                // ---- Cosy food ----
+                com.hogwartsmagic.cosy.CosyFood.fillCreativeTab(output);
                 output.accept(ARCANE_DUST.get());
                 output.accept(ARCANE_CORE.get());
                 output.accept(WIZARD_HAT_PURPLE.get());
@@ -1391,6 +1393,8 @@ public class ExampleMod
 
         // Queue the decoration blocks, items and block entity before the registers attach.
         com.hogwartsmagic.block.decor.ModDecorations.init();
+        // ---- Cosy food ----
+        com.hogwartsmagic.cosy.CosyFood.init();
         // Register the Deferred Register to the mod event bus so blocks get registered
         BLOCKS.register(modEventBus);
         com.hogwartsmagic.spell.vfx.ModParticles.PARTICLE_TYPES.register(modEventBus);

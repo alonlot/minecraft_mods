@@ -518,7 +518,7 @@ public class ExampleMod
             () -> new com.hogwartsmagic.block.BloodSealBlock(BlockBehaviour.Properties.of()
                     .mapColor(net.minecraft.world.level.material.MapColor.COLOR_BLACK)
                     .sound(net.minecraft.world.level.block.SoundType.DEEPSLATE)
-                    .strength(-1.0f, 3600000.0f).noLootTable()));
+                    .strength(-1.0f, 3600000.0f).noLootTable().noOcclusion()));
     public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.CaveMarkerBlockEntity>> CAVE_MARKER_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("cave_marker", () -> BlockEntityType.Builder.of(
                     com.hogwartsmagic.block.entity.CaveMarkerBlockEntity::new,

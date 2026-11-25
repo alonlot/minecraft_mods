@@ -59,6 +59,13 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
     /** The look: 0 bare rock with a hairline, 1 smeared, 2 melting, 3 open. OPEN stays the collision flag (true at 3). */
     public static final IntegerProperty STAGE = IntegerProperty.create("stage", 0, 3);
 
+    /**
+     * Which of the arch's nine tile pieces this block shows: (row * 3 + column + 5) % 9, row 0 on top, column 0 on the
+     * viewer's left from the outside. Piece 0 is the plain infill centre, so a seal saved without the property
+     * (an older cave) looks like bare rock instead of a stray arch fragment.
+     */
+    public static final IntegerProperty PIECE = IntegerProperty.create("piece", 0, 8);
+
     /** Ticks between melt stages: 0 to 1 on the click, 1 to 2, then 2 to 3, so the arch is open after 14 ticks. */
     private static final int MELT_STEP = 7;
     private static final int OPEN_TICKS = 1200;
@@ -67,12 +74,12 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
 
     public BloodSealBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(OPEN, false).setValue(STAGE, 0).setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any().setValue(OPEN, false).setValue(STAGE, 0).setValue(PIECE, 0).setValue(FACING, Direction.NORTH));
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(OPEN, STAGE, FACING);
+        builder.add(OPEN, STAGE, FACING, PIECE);
     }
 
     /** The placer stands on the outside, facing in, so the outside is the opposite of where they look. */

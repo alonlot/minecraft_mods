@@ -96,9 +96,9 @@ public class CaveChainRenderer implements BlockEntityRenderer<CaveRingBlockEntit
         Matrix4f m = last.pose();
         int light = LightTexture.FULL_BRIGHT;
         float pulse = 0.8f + 0.2f * Mth.sin(time * 0.12f);
-        int r = (int) (110 * pulse);
-        int g = (int) (255 * pulse);
-        int b = (int) (140 * pulse);
+        int r = (int) (96 * pulse);
+        int g = (int) (214 * pulse);
+        int b = (int) (120 * pulse);
 
         Vector3f prev = point(sx, sy, sz, dx, dy, dz, sag, 0f, time);
         for (int i = 1; i <= drawn; i++) {

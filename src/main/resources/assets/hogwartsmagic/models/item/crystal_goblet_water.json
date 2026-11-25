@@ -1,3 +1,6 @@
 {
-  "parent": "hogwartsmagic:block/crystal_goblet_water"
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "hogwartsmagic:item/crystal_goblet_water"
+  }
 }

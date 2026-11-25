@@ -65,7 +65,12 @@ def apply(blocks):
         for y in range(F.ARCH_FEET, F.ARCH_FEET + 3):
             if blocks.get((F.ARCH_X, y, z), (None,))[0] == F.CAVE_AIR:
                 # FACING points to the outside: the antechamber, west of the arch
-                blocks[(F.ARCH_X, y, z)] = (SEAL, {'facing': 'west', 'open': 'false'}, None)
+                # piece = (row*3 + col + 5) % 9: row 0 on top, col 0 on the viewer's left from the outside
+                # (the antechamber, west): looking east, left is the smaller z. Piece 0 is the plain infill.
+                row = 2 - (y - F.ARCH_FEET)
+                col = z - z0
+                piece = (row * 3 + col + 5) % 9
+                blocks[(F.ARCH_X, y, z)] = (SEAL, {'facing': 'west', 'open': 'false', 'piece': str(piece)}, None)
     _put_marker(blocks, out, 'arch', 0, (F.ARCH_X + 1, F.ARCH_FEET + 2, (z0 + z1) // 2))
 
     rx, ry, rz = _standing(blocks, F.RING)

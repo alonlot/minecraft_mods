@@ -594,4 +594,107 @@ public final class CosyFoodGameTests {
         h.assertTrue(!CosyKitchen.isHeat(Blocks.STONE.defaultBlockState()), "stone is not");
         h.succeed();
     }
+
+    // ---------------------------------------------------------------- fix round 1
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
+    public static void lastFrogBoxKeepsItsCardThroughTheRealUsePath(GameTestHelper h) {
+        stonePad(h);
+        ServerPlayer p = survivor(h);
+        for (int i = 0; i < p.getInventory().items.size(); i++) {
+            p.getInventory().items.set(i, new ItemStack(Items.DIAMOND_SWORD));
+        }
+        p.getInventory().items.set(0, new ItemStack(CosyFood.CHOCOLATE_FROG.get()));
+        p.getInventory().selected = 0;
+        p.gameMode.useItem(p, h.getLevel(), p.getItemInHand(InteractionHand.MAIN_HAND), InteractionHand.MAIN_HAND);
+        List<ItemEntity> drops = h.getLevel().getEntitiesOfClass(ItemEntity.class, p.getBoundingBox().inflate(3.0),
+                e -> e.getItem().is(CosyFood.WIZARD_CARD.get()));
+        h.assertTrue(cardsInInventory(p) + drops.size() == 1,
+                "exactly one card is in the pack or on the ground: pack " + cardsInInventory(p) + ", ground " + drops.size());
+        drops.forEach(ItemEntity::discard);
+        frogsAround(h, p).forEach(ChocolateFrogEntity::discard);
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
+    public static void kitchenBlocksDropWhenMinedWithTheRightTool(GameTestHelper h) {
+        stonePad(h);
+        net.minecraft.world.level.block.Block[] blocks = {CosyKitchen.ENCHANTED_STOVE.get(), CosyKitchen.COOKING_POT.get()};
+        net.minecraft.world.item.Item[] items = {CosyKitchen.ENCHANTED_STOVE.get().asItem(), CosyKitchen.COOKING_POT.get().asItem()};
+        for (int i = 0; i < blocks.length; i++) {
+            h.assertTrue(blocks[i].defaultBlockState().is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE),
+                    blocks[i] + " is in mineable/pickaxe");
+            ServerPlayer p = survivor(h);
+            p.getInventory().items.set(0, new ItemStack(Items.IRON_PICKAXE));
+            p.getInventory().selected = 0;
+            net.minecraft.world.item.Item wanted = items[i];
+            BlockPos at = new BlockPos(2 + i * 2, 2, 2);
+            h.setBlock(at, blocks[i]);
+            h.assertTrue(p.getMainHandItem().isCorrectToolForDrops(h.getLevel().getBlockState(h.absolutePos(at))),
+                    "an iron pickaxe is the right tool for " + blocks[i]);
+            p.gameMode.destroyBlock(h.absolutePos(at));
+            List<ItemEntity> drops = h.getLevel().getEntitiesOfClass(ItemEntity.class,
+                    new net.minecraft.world.phys.AABB(h.absolutePos(at)).inflate(1.5), e -> e.getItem().is(wanted));
+            h.assertTrue(drops.size() == 1, blocks[i] + " dropped itself when mined, found " + drops.size());
+            drops.forEach(ItemEntity::discard);
+        }
+        h.assertTrue(CosyFood.BUTTERBEER_KEG.get().defaultBlockState().is(net.minecraft.tags.BlockTags.MINEABLE_WITH_AXE),
+                "the keg is in mineable/axe");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
+    public static void brokenKegDropsPartialIngredients(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(KEG, CosyFood.BUTTERBEER_KEG.get());
+        ServerPlayer p = survivor(h);
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.SUGAR));
+        click(h, p);
+        h.getLevel().destroyBlock(h.absolutePos(KEG), false);
+        List<ItemEntity> drops = h.getLevel().getEntitiesOfClass(ItemEntity.class,
+                new net.minecraft.world.phys.AABB(h.absolutePos(KEG)).inflate(2.0), e -> e.getItem().is(Items.SUGAR));
+        h.assertTrue(drops.size() == 1, "the sugar comes back, found " + drops.size());
+        drops.forEach(ItemEntity::discard);
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
+    public static void stoveTakesALavaBucketAndGivesBackABucket(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(HEAT, CosyKitchen.ENCHANTED_STOVE.get());
+        ServerPlayer p = survivor(h);
+        useOn(h, p, HEAT, new ItemStack(Items.LAVA_BUCKET));
+        EnchantedStoveBlockEntity stove = (EnchantedStoveBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(HEAT));
+        h.assertTrue(stove.burn() == 8 * 1600, "clamped to the cap, got " + stove.burn());
+        h.assertTrue(p.getItemInHand(InteractionHand.MAIN_HAND).is(Items.BUCKET), "an empty bucket comes back");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
+    public static void albumTakesACardFromTheOffHand(GameTestHelper h) {
+        stonePad(h);
+        ServerPlayer p = survivor(h);
+        p.setItemInHand(InteractionHand.OFF_HAND, com.hogwartsmagic.cosy.WizardCardItem.create(WizardCards.ALL.get(3)));
+        ItemStack album = new ItemStack(CosyFood.CARD_ALBUM.get());
+        p.setItemInHand(InteractionHand.MAIN_HAND, album);
+        album.use(h.getLevel(), p, InteractionHand.MAIN_HAND);
+        h.assertTrue(album.getOrDefault(CosyFood.ALBUM_CARDS.get(), List.of()).contains(WizardCards.ALL.get(3).id()),
+                "the off-hand card is in the album");
+        h.assertTrue(p.getOffhandItem().isEmpty(), "and left the off hand");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
+    public static void wandGuardLeavesTheServerAlone(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(POT, CosyKitchen.COOKING_POT.get());
+        ServerPlayer p = survivor(h);
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ExampleMod.HARRY_POTTER_WAND.get()));
+        BlockPos abs = h.absolutePos(POT);
+        var event = new net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock(p,
+                InteractionHand.MAIN_HAND, abs, new BlockHitResult(abs.getCenter(), Direction.UP, abs, false));
+        com.hogwartsmagic.cosy.PotWandTapGuard.onRightClickBlock(event);
+        h.assertTrue(!event.isCanceled(), "on the server the guard must not cancel, or the pot would never be used");
+        h.succeed();
+    }
 }

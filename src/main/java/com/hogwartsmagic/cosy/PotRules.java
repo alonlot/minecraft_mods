@@ -29,8 +29,11 @@ public final class PotRules {
         return enchanted || stirTicks > 0;
     }
 
-    /** Whether the stove has room for an item worth {@code itemBurnTicks} on top of {@code burn} already stored. */
+    /**
+     * Whether the stove has room for an item worth {@code itemBurnTicks} on top of {@code burn} already stored.
+     * An empty stove takes anything that burns (a lava bucket is worth more than it holds; the total is clamped).
+     */
     public static boolean canTakeFuel(int burn, int itemBurnTicks) {
-        return itemBurnTicks > 0 && burn + itemBurnTicks <= STOVE_MAX_BURN;
+        return itemBurnTicks > 0 && (burn == 0 || burn + itemBurnTicks <= STOVE_MAX_BURN);
     }
 }

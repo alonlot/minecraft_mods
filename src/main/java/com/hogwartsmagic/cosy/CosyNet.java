@@ -30,14 +30,19 @@ public final class CosyNet {
     /** The ids the album holds, for the screen to draw. */
     public record OpenAlbumPacket(List<Integer> collected) {
         void encode(FriendlyByteBuf buf) {
-            buf.writeVarInt(collected.size());
-            for (int id : collected) {
-                buf.writeVarInt(id);
+            // Never more than there are cards: an album with extra ids (a command) must not break the packet.
+            int n = Math.min(collected.size(), WizardCards.ALL.size());
+            buf.writeVarInt(n);
+            for (int i = 0; i < n; i++) {
+                buf.writeVarInt(collected.get(i));
             }
         }
 
         static OpenAlbumPacket decode(FriendlyByteBuf buf) {
-            int n = Math.min(buf.readVarInt(), WizardCards.ALL.size());
+            int n = buf.readVarInt();
+            if (n < 0 || n > WizardCards.ALL.size()) {
+                throw new IllegalArgumentException("card album list too long: " + n);
+            }
             List<Integer> ids = new ArrayList<>(n);
             for (int i = 0; i < n; i++) {
                 ids.add(buf.readVarInt());

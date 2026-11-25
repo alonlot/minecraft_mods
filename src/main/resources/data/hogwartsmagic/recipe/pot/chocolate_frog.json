@@ -11,7 +11,7 @@
       "item": "minecraft:slime_ball"
     }
   ],
-  "cook_ticks": 300,
+  "cook_ticks": 400,
   "result": {
     "id": "hogwartsmagic:chocolate_frog",
     "count": 2

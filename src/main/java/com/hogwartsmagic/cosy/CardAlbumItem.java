@@ -57,7 +57,9 @@ public class CardAlbumItem extends Item {
         List<Integer> before = collected(album);
         Set<Integer> have = new LinkedHashSet<>(before);
         List<Integer> take = new ArrayList<>();
-        for (ItemStack stack : player.getInventory().items) {
+        List<ItemStack> held = new ArrayList<>(player.getInventory().items);
+        held.addAll(player.getInventory().offhand);
+        for (ItemStack stack : held) {
             if (!stack.is(CosyFood.WIZARD_CARD.get())) {
                 continue;
             }

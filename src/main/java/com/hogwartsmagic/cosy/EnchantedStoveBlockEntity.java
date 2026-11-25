@@ -25,7 +25,7 @@ public class EnchantedStoveBlockEntity extends BlockEntity {
         if (!PotRules.canTakeFuel(this.burn, ticks)) {
             return false;
         }
-        this.burn += ticks;
+        this.burn = Math.min(PotRules.STOVE_MAX_BURN, this.burn + ticks);
         setChanged();
         return true;
     }

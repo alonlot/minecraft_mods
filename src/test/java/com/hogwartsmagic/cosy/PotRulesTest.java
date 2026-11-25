@@ -48,6 +48,7 @@ class PotRulesTest {
         assertEquals(true, PotRules.canTakeFuel(7 * 1600, 1600));
         assertEquals(false, PotRules.canTakeFuel(7 * 1600 + 1, 1600));
         assertEquals(false, PotRules.canTakeFuel(0, 0), "an item that does not burn is refused");
-        assertEquals(false, PotRules.canTakeFuel(0, 20000), "a lava bucket would overfill it");
+        assertEquals(true, PotRules.canTakeFuel(0, 20000), "an empty stove takes a lava bucket (clamped)");
+        assertEquals(false, PotRules.canTakeFuel(1, 20000), "but not on top of fuel it cannot hold");
     }
 }

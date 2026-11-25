@@ -260,7 +260,7 @@ def pot_models():
 POT_RECIPES = {
     # name: (ingredients, cook_ticks, result, count)
     "chocolate_bar": (["minecraft:cocoa_beans"] * 2 + ["minecraft:sugar", "minecraft:milk_bucket"], 300, f"{MOD}:chocolate_bar", 3),
-    "chocolate_frog": ([f"{MOD}:chocolate_bar"] * 2 + ["minecraft:slime_ball"], 300, f"{MOD}:chocolate_frog", 2),
+    "chocolate_frog": ([f"{MOD}:chocolate_bar"] * 2 + ["minecraft:slime_ball"], 400, f"{MOD}:chocolate_frog", 2),
     "pumpkin_pasty": (["minecraft:pumpkin"] + ["minecraft:wheat"] * 2 + ["minecraft:egg", "minecraft:sugar"], 400, f"{MOD}:pumpkin_pasty", 3),
     "treacle_tart": (["minecraft:wheat"] * 2 + ["minecraft:honey_bottle", "minecraft:egg", "minecraft:sugar"], 400, f"{MOD}:treacle_tart", 2),
     "cauldron_cake": (["minecraft:wheat", "minecraft:cocoa_beans", "minecraft:sugar", "minecraft:egg", "minecraft:milk_bucket"], 400, f"{MOD}:cauldron_cake", 3),

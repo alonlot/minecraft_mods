@@ -198,17 +198,35 @@ public class ButterbeerKegBlock extends BaseEntityBlock {
     }
 
     private static Component missing(ButterbeerKegBlockEntity keg) {
-        StringBuilder sb = new StringBuilder();
-        if (!keg.has(KegRules.SUGAR)) {
-            sb.append("sugar");
+        net.minecraft.network.chat.MutableComponent list = Component.empty();
+        boolean first = true;
+        for (int ingredient = 0; ingredient < 3; ingredient++) {
+            if (!keg.has(ingredient)) {
+                net.minecraft.world.item.Item item = ingredient == KegRules.SUGAR ? Items.SUGAR
+                        : ingredient == KegRules.HONEY ? Items.HONEY_BOTTLE : Items.WHEAT;
+                list.append(first ? Component.empty() : Component.literal(", ")).append(item.getDescription());
+                first = false;
+            }
         }
-        if (!keg.has(KegRules.HONEY)) {
-            sb.append(sb.length() > 0 ? ", " : "").append("a honey bottle");
+        return list.withStyle(ChatFormatting.GOLD);
+    }
+
+    /** Breaking a keg that has not started a batch hands back what was put in; a started batch is lost. */
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock()) && !level.isClientSide
+                && level.getBlockEntity(pos) instanceof ButterbeerKegBlockEntity keg && keg.servings() == 0) {
+            if (keg.has(KegRules.SUGAR)) {
+                net.minecraft.world.Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, new ItemStack(Items.SUGAR));
+            }
+            if (keg.has(KegRules.HONEY)) {
+                net.minecraft.world.Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, new ItemStack(Items.HONEY_BOTTLE));
+            }
+            if (keg.has(KegRules.WHEAT)) {
+                net.minecraft.world.Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, new ItemStack(Items.WHEAT));
+            }
         }
-        if (!keg.has(KegRules.WHEAT)) {
-            sb.append(sb.length() > 0 ? ", " : "").append("wheat");
-        }
-        return Component.literal(sb.toString()).withStyle(ChatFormatting.GOLD);
+        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     private static void setFill(Level level, BlockPos pos, BlockState state, int fill) {

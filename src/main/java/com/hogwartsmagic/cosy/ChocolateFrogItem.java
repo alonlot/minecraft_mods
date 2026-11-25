@@ -26,10 +26,12 @@ public class ChocolateFrogItem extends Item {
         if (level.isClientSide) {
             return InteractionResultHolder.sidedSuccess(box, true);
         }
+        // The card first: shrinking the last box empties the held slot, which Inventory.add would then fill, and the
+        // caller clears the held slot of an emptied stack again, so the card would vanish.
+        giveOrDrop(player, WizardCardItem.create(WizardCards.roll(level.random)));
         if (!player.getAbilities().instabuild) {
             box.shrink(1);
         }
-        giveOrDrop(player, WizardCardItem.create(WizardCards.roll(level.random)));
         spawnFrog(level, player);
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BOOK_PAGE_TURN,
                 SoundSource.PLAYERS, 0.8F, 1.1F);

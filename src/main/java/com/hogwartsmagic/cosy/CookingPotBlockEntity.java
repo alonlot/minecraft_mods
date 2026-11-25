@@ -174,6 +174,10 @@ public class CookingPotBlockEntity extends BlockEntity {
 
     @Nullable
     private PotCookingRecipe currentRecipe(Level level) {
+        // Re-look-up now and then so a datapack /reload is picked up by a pot that is mid-cook.
+        if (level.getGameTime() % 100 == 0) {
+            this.recipeDirty = true;
+        }
         if (this.recipeDirty) {
             this.recipeDirty = false;
             this.recipe = this.contents.isEmpty() ? null

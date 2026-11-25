@@ -105,4 +105,13 @@ public final class FxKinds {
     public static final String HORCRUX_SHATTER = "horcrux_shatter";
     /** The owner's body reforms at the vessel: black smoke spirals into them. Position is their feet. No params. */
     public static final String HORCRUX_REBIRTH = "horcrux_rebirth";
+
+    // ---- A cast that fails ----
+
+    /**
+     * A wand was swung at a spell that would not come: the wand sputters (still on cooldown) or droops, drained
+     * (not enough mana). Position is the caster's feet, entityId the caster. params: kind (0 cooldown, 1 drained),
+     * spell ordinal (-1 when unknown). Handled by client.CastFizzle.
+     */
+    public static final String CAST_FIZZLE = "cast_fizzle";
 }

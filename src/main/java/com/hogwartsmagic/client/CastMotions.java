@@ -104,6 +104,21 @@ public final class CastMotions {
             new float[]{0.0f, 0.1f, 0.0f, -1.5f}, new float[]{2.0f, 0.02f, 0.0f, 3.5f},
             new float[]{6.0f, 0.0f, 0.0f, 3.0f}, new float[]{12.0f, 0.0f, 0.0f, 0.0f});
 
+    /**
+     * The fizzles (CastFizzle): a cast that would not come. The sputter jabs, stalls short and taps the wand down;
+     * the droop lifts to cast, strains, then sags low and hangs before coming back up.
+     */
+    private static final Motion SPUTTER = new Motion(14.0f, 0.0f,
+            new float[]{0.0f, 0.0f, 0.0f, 0.0f}, new float[]{1.6f, 0.22f, -0.05f, 2.0f},
+            new float[]{2.4f, 0.1f, -0.03f, 1.2f}, new float[]{4.5f, 0.12f, 0.0f, 1.0f},
+            new float[]{5.6f, 0.35f, 0.0f, 0.8f}, new float[]{6.5f, -0.25f, 0.0f, 1.2f},
+            new float[]{8.0f, 0.05f, 0.0f, 0.6f}, new float[]{12.0f, 0.0f, 0.0f, 0.0f});
+    private static final Motion DROOP = new Motion(24.0f, 0.0f,
+            new float[]{0.0f, 0.0f, 0.0f, 0.0f}, new float[]{3.0f, 0.45f, -0.05f, 1.0f},
+            new float[]{6.0f, 0.4f, -0.04f, 0.8f}, new float[]{8.0f, 0.25f, 0.0f, 0.5f},
+            new float[]{13.0f, -0.6f, 0.15f, -0.8f}, new float[]{18.5f, -0.68f, 0.18f, -1.0f},
+            new float[]{24.0f, -0.3f, 0.1f, 0.0f});
+
     private static final Map<SpellType, Motion> MOTIONS = new EnumMap<>(SpellType.class);
 
     static {
@@ -150,6 +165,8 @@ public final class CastMotions {
         @javax.annotation.Nullable
         final FirstPersonWandRig.Motion move;
         final FirstPersonCast.Variant variant;
+        /** A fizzle (CastFizzle): no spell leaves, so no trail of its light either. */
+        final boolean dud;
 
         Cast(Motion motion, SpellType spell, double start, float tilt) {
             this(motion, spell, start, tilt, null, FirstPersonCast.Variant.NONE);
@@ -157,6 +174,12 @@ public final class CastMotions {
 
         Cast(Motion motion, SpellType spell, double start, float tilt, @javax.annotation.Nullable FirstPersonWandRig.Motion move,
              FirstPersonCast.Variant variant) {
+            this(motion, spell, start, tilt, move, variant, false);
+        }
+
+        Cast(Motion motion, SpellType spell, double start, float tilt, @javax.annotation.Nullable FirstPersonWandRig.Motion move,
+             FirstPersonCast.Variant variant, boolean dud) {
+            this.dud = dud;
             this.motion = motion;
             this.spell = spell;
             this.start = start;
@@ -213,6 +236,10 @@ public final class CastMotions {
         public SpellType spell() {
             return spell;
         }
+
+        public boolean dud() {
+            return dud;
+        }
     }
 
     private static final Map<Integer, Cast> CASTS = new HashMap<>();
@@ -227,6 +254,7 @@ public final class CastMotions {
             return;
         }
         if (minecraft.player != null && packet.casterId() == minecraft.player.getId()) {
+            CastFizzle.noteServerCast();
             FirstPersonCast.onServerCast(spell); // your own first-person arm (FirstPersonWand), and its whoosh
         } else if (minecraft.level.getEntity(packet.casterId()) instanceof Entity caster
                 && !(caster instanceof com.hogwartsmagic.entity.VoldemortEntity)) { // his moves have their own sound
@@ -243,6 +271,12 @@ public final class CastMotions {
                 new java.util.Random(minecraft.level.random.nextLong()), gesture, spell);
         CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime() - (move.release() - RELEASE_LEAD),
                 tilt, move, variant));
+    }
+
+    /** {@code casterId}'s wand fizzles (CastFizzle): the sputter, or the droop when {@code drained}. */
+    static void putFizzle(int casterId, SpellType spell, boolean drained, double start) {
+        CASTS.put(casterId, new Cast(drained ? DROOP : SPUTTER, spell, start, 0.0f, null,
+                FirstPersonCast.Variant.NONE, true));
     }
 
     /** Drop gestures that are over for casters never drawn again (walked off, logged out). */

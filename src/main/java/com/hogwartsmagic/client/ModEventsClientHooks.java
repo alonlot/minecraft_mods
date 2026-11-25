@@ -152,6 +152,11 @@ public final class ModEventsClientHooks {
             com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
             return true;
         }
+        // Still on cooldown: the wand sputters instead of a cast the server would only turn down.
+        if (com.hogwartsmagic.spell.CastFizzles.cooldownFizzles(player, wand, selected)) {
+            CastFizzle.predict(player, selected, com.hogwartsmagic.spell.CastFizzles.COOLDOWN);
+            return true;
+        }
         if (selected == SpellType.PROTEGO_MAXIMA && com.hogwartsmagic.event.ClientModEvents.startsProtegoMaximaChannel()) {
             com.hogwartsmagic.event.ClientModEvents.setProtegoMaximaChannelActive(true);
             SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
@@ -186,6 +191,7 @@ public final class ModEventsClientHooks {
         int requiredMana = com.hogwartsmagic.spell.SpellCosts.manaCost(player, wand, selected);
         if (!player.isCreative() && currentMana < requiredMana) {
             player.displayClientMessage(Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
+            CastFizzle.predict(player, selected, com.hogwartsmagic.spell.CastFizzles.DRAINED);
             return true;
         }
 

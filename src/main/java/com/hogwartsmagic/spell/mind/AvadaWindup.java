@@ -54,6 +54,8 @@ public final class AvadaWindup {
             float mana = modData.contains("Mana") ? modData.getFloat("Mana") : PlayerMagicData.getMaxMana(player);
             if (mana < SpellCosts.manaCost(player, wand, SpellType.AVADA_KEDAVRA)) {
                 player.displayClientMessage(Component.literal("Not enough mana!").withStyle(ChatFormatting.RED), true);
+                com.hogwartsmagic.spell.CastFizzles.refused(player, SpellType.AVADA_KEDAVRA,
+                        com.hogwartsmagic.spell.CastFizzles.DRAINED);
                 return;
             }
         }

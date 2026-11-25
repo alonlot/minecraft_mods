@@ -842,6 +842,24 @@ public class SpellPackets {
                 .decoder(buf -> new VoiceSpokenPacket(buf.readUtf(VoiceSpokenPacket.MAX_LENGTH)))
                 .consumerMainThread(VoiceSpokenPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(CastFizzleNoticePacket.class)
+                .encoder((p, buf) -> buf.writeByte(p.kind))
+                .decoder(buf -> new CastFizzleNoticePacket(buf.readByte()))
+                .consumerMainThread(CastFizzleNoticePacket::handle)
+                .add();
+    }
+
+    /**
+     * Client to server: your wand just fizzled a cast it could not make (still on cooldown, or not enough mana), and
+     * your client played it; the server shows it to the players round you (spell.CastFizzles, which checks it).
+     */
+    public record CastFizzleNoticePacket(byte kind) {
+        public static void handle(CastFizzleNoticePacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player != null) {
+                com.hogwartsmagic.spell.CastFizzles.onNotice(player, p.kind);
+            }
+        }
     }
 
     /**
@@ -1382,6 +1400,7 @@ public class SpellPackets {
                 float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : PlayerMagicData.getMaxMana(player);
                 if (!creative && currentMana < upkeepCost) {
                     player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
+                    com.hogwartsmagic.spell.CastFizzles.refused(player, spell, com.hogwartsmagic.spell.CastFizzles.DRAINED);
                     return;
                 }
 
@@ -1424,6 +1443,7 @@ public class SpellPackets {
                 float startupCost = com.hogwartsmagic.event.ModEvents.getWingardiumStartCost(player, wand);
                 if (!creative && currentMana < startupCost) {
                     player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
+                    com.hogwartsmagic.spell.CastFizzles.refused(player, spell, com.hogwartsmagic.spell.CastFizzles.DRAINED);
                     return;
                 }
 
@@ -1485,6 +1505,7 @@ public class SpellPackets {
                 float upkeepCost = com.hogwartsmagic.event.ModEvents.getPatronusShieldUpkeepCost(player, wand);
                 if (!creative && currentMana < upkeepCost) {
                     player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
+                    com.hogwartsmagic.spell.CastFizzles.refused(player, spell, com.hogwartsmagic.spell.CastFizzles.DRAINED);
                     return;
                 }
 
@@ -1497,7 +1518,13 @@ public class SpellPackets {
             if (p.channelHeartbeat) return;
 
             if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)
-                    && !(spell == SpellType.ASCENDIO && com.hogwartsmagic.spell.support.AscendioSpell.canDoubleCast(player))) return;
+                    && !(spell == SpellType.ASCENDIO && com.hogwartsmagic.spell.support.AscendioSpell.canDoubleCast(player))) {
+                // A left-click self-cast re-sends every tick the button is held on a block: no fizzle for those.
+                if (!p.selfCastProtego) {
+                    com.hogwartsmagic.spell.CastFizzles.refused(player, spell, com.hogwartsmagic.spell.CastFizzles.COOLDOWN);
+                }
+                return;
+            }
 
             // Reparo cast on yourself mends the off-hand item or worn armour (Expert and up). It
             // prices itself by the item, so it runs before the flat mana charge below.
@@ -1530,6 +1557,7 @@ public class SpellPackets {
 
             if (!creative && currentMana < cost) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
+                com.hogwartsmagic.spell.CastFizzles.refused(player, spell, com.hogwartsmagic.spell.CastFizzles.DRAINED);
                 return;
             }
 

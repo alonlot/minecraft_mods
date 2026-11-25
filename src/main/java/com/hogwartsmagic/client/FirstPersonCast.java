@@ -133,7 +133,13 @@ public final class FirstPersonCast {
     private static void start(LocalPlayer player, SpellType spell) {
         Gesture gesture = forSpell(spell);
         current = new Cast(player.tickCount, spell, gesture, nextVariant(player, current, gesture, spell));
+        CastFizzle.clearOwn();
         CastSounds.swing(player, spell);
+    }
+
+    /** The cast you swung at never came (CastFizzle): drop its gesture, so no strike or flash lands. */
+    static void cancel() {
+        current = null;
     }
 
     /** The server says you cast {@code spell}: start its gesture unless your own swing already did. */
@@ -173,7 +179,7 @@ public final class FirstPersonCast {
         lastSwingTime = player.swingTime;
 
         holdWeightO = holdWeight;
-        boolean holding = wand && minecraft.options.keyUse.isDown()
+        boolean holding = wand && minecraft.options.keyUse.isDown() && !CastFizzle.ownActive()
                 && CHANNELLED.contains(MagicWandItem.getSelectedSpell(player.getMainHandItem()));
         holdWeight = Mth.clamp(holdWeight + (holding ? 0.25F : -0.2F), 0.0F, 1.0F);
     }

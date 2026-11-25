@@ -866,6 +866,7 @@ public class ClientModEvents {
         com.hogwartsmagic.client.fx.marks.MarkSpells.onClientSetup(event);
         com.hogwartsmagic.client.fx.moments.MomentsClient.Setup.onClientSetup(event);
         com.hogwartsmagic.client.fx.broom.BroomSpeedFx.Setup.onClientSetup(event);
+        com.hogwartsmagic.client.CastFizzle.registerFx();
         event.enqueueWork(() -> {
             MenuScreens.register(ExampleMod.WAND_WORKBENCH_MENU.get(), com.hogwartsmagic.client.WandWorkbenchScreen::new);
             MenuScreens.register(ExampleMod.BROOM_WORKBENCH_MENU.get(), com.hogwartsmagic.client.BroomWorkbenchScreen::new);

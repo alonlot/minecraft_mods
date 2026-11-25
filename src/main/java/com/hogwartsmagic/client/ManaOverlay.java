@@ -44,6 +44,14 @@ public class ManaOverlay {
         guiGraphics.fill(x, y, x + fillWidth, y + barHeight,
                 com.hogwartsmagic.spell.dark.DarkRules.manaBarColor(DarkMagicClientState.tier()));
 
+        // A cast you had not the mana for: the bar flashes red.
+        float flash = CastFizzle.manaFlash(minecraft.getTimer().getGameTimeDeltaPartialTick(false));
+        if (flash > 0.01F) {
+            int alpha = (int) (flash * 0xB0) << 24;
+            guiGraphics.fill(x - 1, y - 1, x + barWidth + 1, y + barHeight + 1, alpha | 0xE03030);
+            guiGraphics.fill(x, y, x + fillWidth, y + barHeight, (int) (flash * 0x60) << 24 | 0xFF6060);
+        }
+
         // Draw text
         String text = (int) currentMana + " / " + (int) maxMana;
         int textWidth = minecraft.font.width(text);

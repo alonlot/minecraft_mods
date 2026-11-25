@@ -232,6 +232,31 @@ add("wizard_card_silver", CARD_GRID, {**CARD_BASE, "k": "#2c3446", "L": "#e6ebf2
 add("wizard_card_gold", CARD_GRID, {**CARD_BASE, "k": "#4a2e08", "L": "#ffe27a", "M": "#d89a2a"})
 
 
+# ---------------------------------------------------------------- Bertie Bott's Every Flavour Beans
+# A striped card box with a heap of beans (red, green, yellow, purple, white) piled over the rim.
+add("bertie_botts_beans", """
+................
+................
+................
+......GGg.RRr...
+....YYy.GggRR...
+...PPp.RRr.WWw..
+..GGgYYyPPp.RRr.
+..kkkkkkkkkkkk..
+.kOOOOOOOOOOOOk.
+.kCCOOCCOOCCOOk.
+.kOCCOOCCOOCCOk.
+.kOOCCOOCCOOCCk.
+.kddddddddddddk.
+..kkkkkkkkkkkk..
+................
+................
+""", {"k": "#3a1c0a", "O": "#e8a21e", "C": "#fff3c0", "d": "#b8731a",
+      "R": "#d8403a", "r": "#9c2a26", "G": "#5fb84a", "g": "#3a8030",
+      "Y": "#f2c230", "y": "#b08a1a", "P": "#8a55c8", "p": "#5b3590",
+      "W": "#f4efe0", "w": "#bdb59a"})
+
+
 def write_all():
     os.makedirs(OUT, exist_ok=True)
     for name, img in SPRITES.items():

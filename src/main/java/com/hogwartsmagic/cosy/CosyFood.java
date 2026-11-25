@@ -55,6 +55,13 @@ public final class CosyFood {
                     .networkSynchronized(ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list()))
                     .build());
 
+    /** Beans left in a box of Bertie Bott's (absent reads as a full box of ten). */
+    public static final RegistryObject<DataComponentType<Integer>> BEANS_LEFT = ExampleMod.DATA_COMPONENTS.register("beans_left",
+            () -> DataComponentType.<Integer>builder()
+                    .persistent(Codec.intRange(0, BeanTable.BOX_SIZE))
+                    .networkSynchronized(ByteBufCodecs.VAR_INT)
+                    .build());
+
     // ---- Effects ----------------------------------------------------------------------------------
 
     /** While it lasts, a Dementor's slowing aura skips you. Eating chocolate gives it. */
@@ -95,6 +102,13 @@ public final class CosyFood {
 
     public static final RegistryObject<Item> CARD_ALBUM = item("card_album",
             () -> new CardAlbumItem(new Item.Properties()));
+
+    // ---- Bertie Bott's Every Flavour Beans --------------------------------------------------------
+
+    /** A box of ten beans; each bite takes one (16 ticks) and rolls a flavour. */
+    public static final RegistryObject<Item> BERTIE_BOTTS_BEANS = item("bertie_botts_beans",
+            () -> new BertieBottsItem(new Item.Properties().stacksTo(1).food(
+                    new FoodProperties.Builder().nutrition(1).saturationModifier(0.1f).alwaysEdible().fast().build())));
 
     /** Loads this class so every entry is queued on the deferred registers before they attach. */
     public static void init() {

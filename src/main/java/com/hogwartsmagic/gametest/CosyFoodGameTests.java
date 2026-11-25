@@ -208,4 +208,48 @@ public final class CosyFoodGameTests {
         h.assertTrue(cardsInInventory(p) == 1, "the duplicate is still there");
         h.succeed();
     }
+
+    // ---------------------------------------------------------------- B3: beans
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void eatingBeanUsesOne(GameTestHelper h) {
+        stonePad(h);
+        ServerPlayer p = survivor(h);
+        ItemStack box = new ItemStack(CosyFood.BERTIE_BOTTS_BEANS.get());
+        h.assertTrue(com.hogwartsmagic.cosy.BertieBottsItem.beansLeft(box) == 10, "a fresh box holds ten");
+        box.finishUsingItem(h.getLevel(), p);
+        h.assertTrue(box.getOrDefault(CosyFood.BEANS_LEFT.get(), -1) == 9, "ten becomes nine");
+        h.assertTrue(!box.isEmpty(), "the box is still there");
+        for (int i = 0; i < 20; i++) {
+            box.set(CosyFood.BEANS_LEFT.get(), 9);
+            box.finishUsingItem(h.getLevel(), p);
+            h.assertTrue(box.getOrDefault(CosyFood.BEANS_LEFT.get(), -1) == 8, "always exactly one bean");
+        }
+        p.removeAllEffects();
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void lastBeanEmptiesBox(GameTestHelper h) {
+        stonePad(h);
+        ServerPlayer p = survivor(h);
+        ItemStack box = new ItemStack(CosyFood.BERTIE_BOTTS_BEANS.get());
+        box.set(CosyFood.BEANS_LEFT.get(), 1);
+        ItemStack after = box.finishUsingItem(h.getLevel(), p);
+        h.assertTrue(after.isEmpty(), "the box is gone with its last bean");
+        h.assertTrue(box.isEmpty(), "the original stack is empty too");
+        p.removeAllEffects();
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20)
+    public static void everyBeanEffectResolves(GameTestHelper h) {
+        for (com.hogwartsmagic.cosy.BeanTable.Outcome o : com.hogwartsmagic.cosy.BeanTable.ALL) {
+            if (o.effect() != null) {
+                h.assertTrue(net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getHolder(o.effect()).isPresent(),
+                        o.flavourKey() + " names a missing effect " + o.effect());
+            }
+        }
+        h.succeed();
+    }
 }

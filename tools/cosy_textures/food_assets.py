@@ -102,6 +102,28 @@ CARDS = {
     "newt_scamander": ("Newt Scamander", "A magizoologist who carried a suitcase of impossible creatures and endless patience."),
 }
 
+
+# Action-bar lines for each bean flavour (original wording). Keys match BeanTable.
+BEANS = {
+    "toffee": "Toffee. Your feet feel light.",
+    "peppermint": "Peppermint, cool and clear. The dark seems friendlier.",
+    "honeycomb": "Honeycomb. Warmth spreads through you.",
+    "lemon_sherbet": "Lemon sherbet. You could bounce off the walls.",
+    "treacle_fudge": "Treacle fudge. Wonderfully filling.",
+    "candy_floss": "Candy floss. What a sugar rush!",
+    "marshmallow": "Marshmallow. Perfectly pleasant.",
+    "buttered_toast": "Buttered toast. Nothing to report.",
+    "cabbage": "Boiled cabbage. Hm.",
+    "parsley": "Parsley. Like a mouthful of garden.",
+    "plain_vanilla": "Plain vanilla. Not a thing wrong with it.",
+    "earwax": "Earwax!",
+    "soap": "Soap. Ugh.",
+    "bogey": "Bogey. Who thought of that one?",
+    "fizzing_whizbee": "Fizzing whizbee. Your feet leave the ground!",
+    "burp": "Burp-berry. Excuse you.",
+    "sardine": "Sardine. Your stomach turns.",
+}
+
 # ------------------------------------------------------------------------------------------------
 LANG = {}
 
@@ -176,6 +198,12 @@ def build():
     for key, (name, line) in CARDS.items():
         lang(f"card.hogwartsmagic.{key}.name", name)
         lang(f"card.hogwartsmagic.{key}.line", line)
+    # ---- B3 ----
+    item_model("bertie_botts_beans")
+    lang("item.hogwartsmagic.bertie_botts_beans", "Bertie Bott's Every Flavour Beans")
+    lang("item.hogwartsmagic.bertie_botts_beans.left", "Beans left: %s")
+    for key, text in BEANS.items():
+        lang(f"bean.hogwartsmagic.{key}", text)
     write_lang()
 
 

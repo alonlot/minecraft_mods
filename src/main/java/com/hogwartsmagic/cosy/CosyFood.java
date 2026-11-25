@@ -1,11 +1,15 @@
 package com.hogwartsmagic.cosy;
 
 import com.hogwartsmagic.ExampleMod;
+import com.mojang.serialization.Codec;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.RegistryObject;
 
 import java.util.ArrayList;
@@ -35,6 +39,22 @@ public final class CosyFood {
         return item;
     }
 
+    // ---- Data components --------------------------------------------------------------------------
+
+    /** Which Famous Wizard Card a card stack is (a {@link WizardCards.Card} id). */
+    public static final RegistryObject<DataComponentType<Integer>> CARD_ID = ExampleMod.DATA_COMPONENTS.register("card_id",
+            () -> DataComponentType.<Integer>builder()
+                    .persistent(Codec.intRange(1, 1000))
+                    .networkSynchronized(ByteBufCodecs.VAR_INT)
+                    .build());
+
+    /** The card ids an album holds, in the order they were collected. */
+    public static final RegistryObject<DataComponentType<List<Integer>>> ALBUM_CARDS = ExampleMod.DATA_COMPONENTS.register("album_cards",
+            () -> DataComponentType.<List<Integer>>builder()
+                    .persistent(Codec.INT.listOf())
+                    .networkSynchronized(ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list()))
+                    .build());
+
     // ---- Effects ----------------------------------------------------------------------------------
 
     /** While it lasts, a Dementor's slowing aura skips you. Eating chocolate gives it. */
@@ -63,12 +83,31 @@ public final class CosyFood {
     public static final RegistryObject<Item> TANKARD = item("tankard",
             () -> new Item(new Item.Properties().stacksTo(16)));
 
+    // ---- Chocolate Frogs, cards and the album -----------------------------------------------------
+
+    /** A box of Chocolate Frog: opening it gives a card and a hopping frog. */
+    public static final RegistryObject<Item> CHOCOLATE_FROG = item("chocolate_frog",
+            () -> new ChocolateFrogItem(new Item.Properties().stacksTo(16)));
+
+    /** A Famous Wizard Card. Not in {@link #CREATIVE_ORDER}: the creative tab lists one stack per card. */
+    public static final RegistryObject<Item> WIZARD_CARD =
+            ExampleMod.ITEMS.register("wizard_card", () -> new WizardCardItem(new Item.Properties()));
+
+    public static final RegistryObject<Item> CARD_ALBUM = item("card_album",
+            () -> new CardAlbumItem(new Item.Properties()));
+
     /** Loads this class so every entry is queued on the deferred registers before they attach. */
     public static void init() {
+        // The packet channel registers on common setup, as the owl post channel does.
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(
+                (net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent e) -> e.enqueueWork(CosyNet::register));
     }
 
     /** Adds the food items to the main creative tab. */
     public static void fillCreativeTab(CreativeModeTab.Output output) {
         CREATIVE_ORDER.forEach(item -> output.accept(item.get()));
+        for (WizardCards.Card card : WizardCards.ALL) {
+            output.accept(WizardCardItem.create(card));
+        }
     }
 }

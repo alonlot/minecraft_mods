@@ -523,4 +523,16 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .updateInterval(2)
                             .build("gnome"));
+
+    // ---- Cosy food ----
+    /** The chocolate frog that hops out of a box: five seconds of life, never saved. */
+    public static final RegistryObject<EntityType<com.hogwartsmagic.cosy.ChocolateFrogEntity>> CHOCOLATE_FROG =
+            ENTITY_TYPES.register("chocolate_frog",
+                    () -> EntityType.Builder.<com.hogwartsmagic.cosy.ChocolateFrogEntity>of(
+                                    com.hogwartsmagic.cosy.ChocolateFrogEntity::new, MobCategory.MISC)
+                            .sized(0.3F, 0.25F)
+                            .clientTrackingRange(8)
+                            .updateInterval(2)
+                            .noSave()
+                            .build("chocolate_frog"));
 }

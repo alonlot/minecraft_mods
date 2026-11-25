@@ -1218,6 +1218,9 @@ public class ClientModEvents {
         // Garden gnomes
         event.registerLayerDefinition(com.hogwartsmagic.client.model.GnomeModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.GnomeModel::createBodyLayer);
+        // ---- Cosy food ----
+        event.registerLayerDefinition(com.hogwartsmagic.cosy.client.ChocolateFrogModel.LAYER_LOCATION,
+                com.hogwartsmagic.cosy.client.ChocolateFrogModel::createBodyLayer);
     }
 
     @SubscribeEvent
@@ -1354,6 +1357,8 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.MEMORY_TAPE.get(), com.hogwartsmagic.client.MemoryTapeRenderer::new);
         // Garden gnomes
         event.registerEntityRenderer(ModEntities.GNOME.get(), com.hogwartsmagic.client.renderer.GnomeRenderer::new);
+        // ---- Cosy food ----
+        event.registerEntityRenderer(ModEntities.CHOCOLATE_FROG.get(), com.hogwartsmagic.cosy.client.ChocolateFrogRenderer::new);
     }
 
 }

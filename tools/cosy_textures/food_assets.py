@@ -77,6 +77,31 @@ def courage_icon(d):
     d.point((11, 6), fill=star)
 
 
+
+# Card names and one-line flavour texts (original wording). Keys match WizardCards.
+CARDS = {
+    "merlin": ("Merlin", "Every legend of magic is measured against his, and he never once explained a trick."),
+    "albus_dumbledore": ("Albus Dumbledore", "Headmaster, duellist and keeper of sweets; he saw far more than he ever said."),
+    "godric_gryffindor": ("Godric Gryffindor", "A founder who prized nerve above nearly everything and seldom walked away from a fight."),
+    "helga_hufflepuff": ("Helga Hufflepuff", "A founder who took in every student the others turned away, and cooked rather well besides."),
+    "rowena_ravenclaw": ("Rowena Ravenclaw", "A founder who held that a sharp mind is the finest treasure, and wore hers as a diadem."),
+    "salazar_slytherin": ("Salazar Slytherin", "A founder of great cunning and a narrow welcome, whose quarrels divided the school."),
+    "nicolas_flamel": ("Nicolas Flamel", "An alchemist who outlived his century; his famous stone is best left out of polite talk."),
+    "morgana": ("Morgana", "An enchantress of the old courts, feared by some and quietly borrowed from by many."),
+    "circe": ("Circe", "An ancient sorceress who turned unwelcome guests into animals and took no complaints."),
+    "agrippa": ("Agrippa", "A scholar who wrote the book on hidden wisdom, and perhaps a few on things best left hidden."),
+    "ptolemy": ("Ptolemy", "An astronomer who charted the heavens so carefully that even wizards still cite him."),
+    "paracelsus": ("Paracelsus", "A physician-alchemist who mixed medicine with mystery and trusted neither blindly."),
+    "cliodna": ("Cliodna", "A queen of the Irish hills in the old tales, said to heal with song and vanish at dawn."),
+    "hengist_of_woodcroft": ("Hengist of Woodcroft", "A hermit-wizard who founded a quiet village and kept it quiet with discreet charms."),
+    "bowman_wright": ("Bowman Wright", "A goldsmith whose small winged invention has been chased across the sky ever since."),
+    "elfrida_clagg": ("Elfrida Clagg", "A council chief who argued with great force and was rarely outvoted."),
+    "gulliver_pokeby": ("Gulliver Pokeby", "A wizard who wrote to everyone he ever met and filed the replies in tidy bundles."),
+    "herpo_the_foul": ("Herpo the Foul", "A dark wizard who dabbled in serpents and forbidden magic, and earned the nickname."),
+    "bertie_bott": ("Bertie Bott", "An inventor of sweets that taste of everything, which is not always a kindness."),
+    "newt_scamander": ("Newt Scamander", "A magizoologist who carried a suitcase of impossible creatures and endless patience."),
+}
+
 # ------------------------------------------------------------------------------------------------
 LANG = {}
 
@@ -121,6 +146,36 @@ def build():
     lang("item.hogwartsmagic.tankard_of_butterbeer", "Tankard of Butterbeer")
     lang("effect.hogwartsmagic.chocolate_courage", "Chocolate Courage")
     lang("effect.hogwartsmagic.chocolate_courage.description", "A Dementor's chill slides off you.")
+    # ---- B2 ----
+    item_model("chocolate_frog")
+    item_model("card_album")
+    write_json(os.path.join(ASSETS, "models", "item", "wizard_card.json"), {
+        "parent": "minecraft:item/generated", "textures": {"layer0": f"{MOD}:item/wizard_card"},
+        "overrides": [
+            {"predicate": {"custom_model_data": 2.0}, "model": f"{MOD}:item/wizard_card_silver"},
+            {"predicate": {"custom_model_data": 3.0}, "model": f"{MOD}:item/wizard_card_gold"}]})
+    item_model("wizard_card_silver")
+    item_model("wizard_card_gold")
+    write_json(os.path.join(DATA, "recipe", "card_album.json"), {
+        "type": "minecraft:crafting_shapeless", "category": "misc",
+        "ingredients": [{"item": "minecraft:book"}, {"item": "minecraft:leather"}, {"item": "minecraft:gold_nugget"}],
+        "result": {"id": f"{MOD}:card_album", "count": 1}})
+    lang("item.hogwartsmagic.chocolate_frog", "Chocolate Frog")
+    lang("item.hogwartsmagic.wizard_card", "Famous Wizard Card")
+    lang("item.hogwartsmagic.card_album", "Card Album")
+    lang("item.hogwartsmagic.card_album.progress", "Cards: %s / %s")
+    lang("entity.hogwartsmagic.chocolate_frog", "Chocolate Frog")
+    lang("message.hogwartsmagic.card_album.added", "%s new card(s) added to the album")
+    lang("gui.hogwartsmagic.card_album.title", "Card Album")
+    lang("gui.hogwartsmagic.card_album.count", "%s / %s")
+    lang("gui.hogwartsmagic.card_album.hint", "Use the album to add cards from your pack. Duplicates stay with you.")
+    lang("gui.hogwartsmagic.card_album.missing", "A card you have not found yet")
+    lang("card.hogwartsmagic.rarity.0", "Common")
+    lang("card.hogwartsmagic.rarity.1", "Rare")
+    lang("card.hogwartsmagic.rarity.2", "Legendary")
+    for key, (name, line) in CARDS.items():
+        lang(f"card.hogwartsmagic.{key}.name", name)
+        lang(f"card.hogwartsmagic.{key}.line", line)
     write_lang()
 
 

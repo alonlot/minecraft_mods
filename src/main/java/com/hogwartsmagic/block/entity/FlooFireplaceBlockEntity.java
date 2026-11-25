@@ -64,6 +64,10 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
         if (serverLevel.getGameTime() % 40L == 0L) {
             FlooFireplaceBlock.completeFrame(serverLevel, pos, state.getValue(FlooFireplaceBlock.FACING));
         }
+        // ---- Cosy home ----: the Floo hearth warms the room as the stone hearth does.
+        if (serverLevel.getGameTime() % com.hogwartsmagic.cosy.WarmthRules.PULSE_TICKS == 0L) {
+            com.hogwartsmagic.cosy.HearthBlockEntity.warmPlayers(serverLevel, pos);
+        }
         fireplace.tryIgniteFromDroppedPowder(serverLevel);
         if (fireplace.activeTicks > 0) {
             fireplace.activeTicks--;

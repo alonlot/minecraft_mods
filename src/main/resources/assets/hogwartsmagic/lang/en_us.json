@@ -2141,5 +2141,7 @@
   "subtitles.hogwartsmagic.portkey.bind": "Portkey binds",
   "block.hogwartsmagic.cursed_cup": "Cursed Golden Cup",
   "message.hogwartsmagic.cursed_cup.status": "The little golden cup is warm, and something inside it is watching you.",
-  "message.hogwartsmagic.cursed_cup.freed": "A shriek tears out of the cup, and something that was once a man flees through the stone."
+  "message.hogwartsmagic.cursed_cup.freed": "A shriek tears out of the cup, and something that was once a man flees through the stone.",
+  "block.hogwartsmagic.hearth": "Hearth",
+  "effect.hogwartsmagic.warmed": "Warmed"
 }

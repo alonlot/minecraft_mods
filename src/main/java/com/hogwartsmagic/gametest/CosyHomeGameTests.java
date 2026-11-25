@@ -146,7 +146,10 @@ public final class CosyHomeGameTests {
         h.getLevel().removeBlockEntity(abs);
         h.assertTrue(h.getLevel().getChunkAt(abs).getBlockEntity(abs, LevelChunk.EntityCreationType.CHECK) == null,
                 "the entity should be gone for the test");
+        // adoptCandles is what the server ChunkEvent.Load handler calls, before any chunk packet is built.
+        h.getLevel().getChunkAt(abs).setUnsaved(false);
         int made = CosyHomeEvents.adoptCandles(h.getLevel().getChunkAt(abs));
+        h.assertTrue(h.getLevel().getChunkAt(abs).isUnsaved(), "the chunk should be marked unsaved so the entity persists");
         h.assertTrue(made >= 1, "adoption should create the entity, made " + made);
         h.assertTrue(h.getLevel().getBlockEntity(abs) instanceof FloatingCandleBlockEntity, "the candle should have an entity now");
         h.assertTrue(h.getLevel().getBlockState(abs).getValue(FloatingCandleBlock.LIT), "and still be lit");

@@ -1,19 +1,17 @@
 {
-  "type": "minecraft:crafting_shaped",
+  "type": "minecraft:crafting_shapeless",
   "category": "misc",
-  "pattern": [
-    "W  ",
-    "WWW",
-    "P P"
-  ],
-  "key": {
-    "W": {
-      "item": "minecraft:yellow_wool"
+  "ingredients": [
+    {
+      "item": "hogwartsmagic:common_room_armchair"
     },
-    "P": {
-      "tag": "minecraft:planks"
+    {
+      "item": "minecraft:yellow_dye"
+    },
+    {
+      "item": "minecraft:black_dye"
     }
-  },
+  ],
   "result": {
     "id": "hogwartsmagic:hufflepuff_armchair",
     "count": 1

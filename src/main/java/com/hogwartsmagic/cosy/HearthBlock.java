@@ -82,18 +82,18 @@ public class HearthBlock extends CampfireBlock {
     @Nullable
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-        return level.isClientSide ? null
+        // The client ticker makes the chimney smoke at the campfire rate on every hearth in view, not just the
+        // few that animateTick happens to pick.
+        return level.isClientSide
+                ? createTickerHelper(type, CosyHome.HEARTH_BLOCK_ENTITY.get(), HearthBlockEntity::clientTick)
                 : createTickerHelper(type, CosyHome.HEARTH_BLOCK_ENTITY.get(), HearthBlockEntity::serverTick);
     }
 
-    /** Chimney smoke and ember pops. The crackle is the hearth loop (see IndoorAmbience), not the vanilla one. */
+    /** Ember pops (the chimney smoke is the client ticker). The crackle is the hearth loop (see IndoorAmbience), not the vanilla one. */
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
         if (!state.getValue(LIT)) {
             return;
-        }
-        if (random.nextInt(4) == 0) {
-            CampfireBlock.makeParticles(level, pos, false, false);
         }
         if (random.nextInt(8) == 0) {
             level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.LAVA),

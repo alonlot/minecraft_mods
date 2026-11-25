@@ -26,6 +26,8 @@ public class QuiltBlock extends Block {
     public static final MapCodec<QuiltBlock> CODEC = simpleCodec(QuiltBlock::new);
     public static final BooleanProperty ON_BED = BooleanProperty.create("on_bed");
     private static final VoxelShape SHAPE = Block.box(0.0, 0.0, 0.0, 16.0, 1.0, 16.0);
+    /** The quilt on a bed is drawn seven pixels down, so its outline goes there too. */
+    private static final VoxelShape ON_BED_SHAPE = Block.box(0.0, -7.0, 0.0, 16.0, -6.0, 16.0);
 
     public QuiltBlock(BlockBehaviour.Properties properties) {
         super(properties.noOcclusion().noCollission());
@@ -49,7 +51,7 @@ public class QuiltBlock extends Block {
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return SHAPE;
+        return state.getValue(ON_BED) ? ON_BED_SHAPE : SHAPE;
     }
 
     @Override

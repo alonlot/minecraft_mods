@@ -1,12 +1,11 @@
 package com.hogwartsmagic.cosy;
 
-import com.hogwartsmagic.ExampleMod;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * Warmed: the cold cannot take hold (Glacius chill and powder snow both let go), and a body that has not
+ * Warmed: the cold cannot take hold (Glacius chill and powder snow both let go, see CosyHomeEvents), and a body that has not
  * been hurt lately slowly mends. Given by the hearth, the Floo fireplace and Butterbeer.
  */
 public class WarmedEffect extends MobEffect {
@@ -26,12 +25,6 @@ public class WarmedEffect extends MobEffect {
     public boolean applyEffectTick(LivingEntity entity, int amplifier) {
         if (entity.level().isClientSide) {
             return true;
-        }
-        if (entity.hasEffect(ExampleMod.GLACIUS_CHILL.getHolder().get())) {
-            entity.removeEffect(ExampleMod.GLACIUS_CHILL.getHolder().get());
-        }
-        if (entity.getTicksFrozen() > 0) {
-            entity.setTicksFrozen(0);
         }
         long now = entity.level().getGameTime();
         long lastHurt = entity.getPersistentData().contains(HURT_KEY)

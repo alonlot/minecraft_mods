@@ -12,6 +12,8 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CampfireBlock;
@@ -108,7 +110,8 @@ public final class IndoorAmbience {
         BlockPos eye = BlockPos.containing(player.getEyePosition());
         boolean raining = level.isRaining() && level.dimensionType().hasSkyLight()
                 && level.getBiome(eye).value().getPrecipitationAt(eye) == Biome.Precipitation.RAIN;
-        boolean underRoof = !level.canSeeSky(eye);
+        // Under a roof: something motion-blocking (glass included) is above the eyes, so a conservatory counts.
+        boolean underRoof = level.getHeight(Heightmap.Types.MOTION_BLOCKING, eye.getX(), eye.getZ()) > eye.getY();
         // Only worth scanning for glass when the rest already holds.
         rainWanted = raining && underRoof && AmbienceRules.rainOnWindow(true, true, exposedGlassNearby(level, eye));
 
@@ -137,7 +140,7 @@ public final class IndoorAmbience {
         crackleScale = crackleWanted ? AmbienceRules.crackleScale(nearest) : 0.0f;
     }
 
-    /** Glass or a pane within five blocks with open sky above it: a window the rain is falling on. */
+    /** Glass or a pane within five blocks that the rain reaches: a window the rain is falling on. */
     private static boolean exposedGlassNearby(ClientLevel level, BlockPos centre) {
         int r = AmbienceRules.GLASS_RADIUS;
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
@@ -145,10 +148,27 @@ public final class IndoorAmbience {
             for (int dz = -r; dz <= r; dz++) {
                 for (int dy = -r; dy <= r; dy++) {
                     pos.set(centre.getX() + dx, centre.getY() + dy, centre.getZ() + dz);
-                    if (isGlass(level.getBlockState(pos)) && level.canSeeSky(pos.above())) {
+                    if (isGlass(level.getBlockState(pos)) && rainReaches(level, pos)) {
                         return true;
                     }
                 }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Rain is on this glass if sky can be seen from just above it (a skylight or glass roof), from the glass itself,
+     * or from an open-air cell beside it (the outside face of a window in a wall).
+     */
+    private static boolean rainReaches(ClientLevel level, BlockPos glass) {
+        if (level.canSeeSky(glass.above()) || level.canSeeSky(glass)) {
+            return true;
+        }
+        for (Direction side : Direction.Plane.HORIZONTAL) {
+            BlockPos outside = glass.relative(side);
+            if (level.isEmptyBlock(outside) && level.canSeeSky(outside)) {
+                return true;
             }
         }
         return false;

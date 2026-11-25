@@ -9,7 +9,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
-import net.minecraftforge.event.level.ChunkWatchEvent;
+import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.level.ChunkEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -30,11 +31,29 @@ public final class CosyHomeEvents {
 
     /**
      * Floating candles placed before they had a block entity have none, and are drawn by it, so they would be
-     * invisible. Give them one just before a player is sent the chunk.
+     * invisible. The chunk packet snapshots block entities when it is built, so the entity has to exist before any
+     * send: give them one as the chunk finishes loading on the server.
      */
     @SubscribeEvent
-    public static void onChunkWatch(ChunkWatchEvent.Watch event) {
-        adoptCandles(event.getChunk());
+    public static void onChunkLoad(ChunkEvent.Load event) {
+        if (!event.getLevel().isClientSide() && event.getChunk() instanceof LevelChunk chunk) {
+            adoptCandles(chunk);
+        }
+    }
+
+    /** While Warmed the cold cannot take hold. Done here, not inside the effect tick, which would break its own iteration. */
+    @SubscribeEvent
+    public static void onLivingTick(LivingEvent.LivingTickEvent event) {
+        LivingEntity entity = event.getEntity();
+        if (entity.level().isClientSide || !entity.hasEffect(CosyHome.WARMED.getHolder().get())) {
+            return;
+        }
+        if (entity.hasEffect(ExampleMod.GLACIUS_CHILL.getHolder().get())) {
+            entity.removeEffect(ExampleMod.GLACIUS_CHILL.getHolder().get());
+        }
+        if (entity.getTicksFrozen() > 0) {
+            entity.setTicksFrozen(0);
+        }
     }
 
     /** Creates the missing block entity of every floating candle in the chunk. Returns how many it made. */
@@ -63,6 +82,9 @@ public final class CosyHomeEvents {
                     }
                 }
             }
+        }
+        if (made > 0) {
+            chunk.setUnsaved(true); // so the entities persist and this is not redone every session
         }
         return made;
     }

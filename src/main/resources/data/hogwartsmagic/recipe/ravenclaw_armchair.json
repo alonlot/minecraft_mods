@@ -1,19 +1,17 @@
 {
-  "type": "minecraft:crafting_shaped",
+  "type": "minecraft:crafting_shapeless",
   "category": "misc",
-  "pattern": [
-    "W  ",
-    "WWW",
-    "P P"
-  ],
-  "key": {
-    "W": {
-      "item": "minecraft:blue_wool"
+  "ingredients": [
+    {
+      "item": "hogwartsmagic:common_room_armchair"
     },
-    "P": {
-      "tag": "minecraft:planks"
+    {
+      "item": "minecraft:blue_dye"
+    },
+    {
+      "item": "minecraft:light_gray_dye"
     }
-  },
+  ],
   "result": {
     "id": "hogwartsmagic:ravenclaw_armchair",
     "count": 1

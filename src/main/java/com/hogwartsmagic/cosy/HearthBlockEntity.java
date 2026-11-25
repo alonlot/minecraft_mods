@@ -33,6 +33,14 @@ public class HearthBlockEntity extends BlockEntity {
         }
     }
 
+    public static void clientTick(Level level, BlockPos pos, BlockState state, HearthBlockEntity hearth) {
+        if (state.getValue(CampfireBlock.LIT) && level.random.nextFloat() < 0.11F) {
+            for (int i = 0; i < level.random.nextInt(2) + 2; i++) {
+                CampfireBlock.makeParticles(level, pos, false, false);
+            }
+        }
+    }
+
     /** Gives Warmed to every player within reach of a fire at {@code pos}. Shared with the Floo fireplace. */
     public static void warmPlayers(ServerLevel level, BlockPos pos) {
         Vec3 centre = Vec3.atCenterOf(pos);

@@ -12,7 +12,7 @@ public final class AmbienceRules {
     /** How far the player looks for window glass, in blocks, and for a hearth. */
     public static final int GLASS_RADIUS = 5;
 
-    /** Rain on the windows: it rains here, the player is indoors, and some glass nearby is out in the weather. */
+    /** Rain on the windows: it rains here, the player is indoors (a roof of glass counts), and some glass nearby has rain on it. */
     public static boolean rainOnWindow(boolean raining, boolean playerUnderRoof, boolean exposedGlassNearby) {
         return raining && playerUnderRoof && exposedGlassNearby;
     }

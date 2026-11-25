@@ -142,6 +142,17 @@ VELVET_TARGETS = {
 }
 
 
+def gryffindor_velvet():
+    """The red velvet with gold piping: two pinstripes a tile, so it never reads as the common room chair."""
+    im = recolor_velvet(REF_RED)
+    px = im.load()
+    gold = hexc("#d9b04a")
+    for y in range(16):
+        for x in (0, 8):
+            px[x, y] = shade(gold, 1.12 if y % 4 < 2 else 0.88)
+    return im
+
+
 def patchwork_velvet():
     """Four house velvets as 8x8 patches, with a cream running stitch along the seams."""
     patches = [Image.open(os.path.join(DECOR, "red_velvet.png")).convert("RGBA")] +         [recolor_velvet(VELVET_TARGETS[n]) for n in ("blue_velvet", "yellow_velvet", "green_velvet")]
@@ -268,6 +279,7 @@ def main():
     save(warmed_icon(), os.path.join(ASSETS, "mob_effect"), "warmed")
     for name, target in VELVET_TARGETS.items():
         save(recolor_velvet(target), DECOR, name)
+    save(gryffindor_velvet(), DECOR, "gryffindor_velvet")
     save(patchwork_velvet(), DECOR, "patchwork_velvet")
     save(patchwork_quilt(), DECOR, "patchwork_quilt")
     for house in RUG_PALETTES:

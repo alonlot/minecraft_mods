@@ -1,28 +1,20 @@
 {
-  "type": "minecraft:crafting_shaped",
+  "type": "minecraft:crafting_shapeless",
   "category": "misc",
-  "pattern": [
-    "RBY",
-    "WWW",
-    "P P"
-  ],
-  "key": {
-    "R": {
+  "ingredients": [
+    {
+      "item": "hogwartsmagic:common_room_armchair"
+    },
+    {
       "item": "minecraft:red_wool"
     },
-    "B": {
+    {
       "item": "minecraft:blue_wool"
     },
-    "Y": {
+    {
       "item": "minecraft:yellow_wool"
-    },
-    "W": {
-      "item": "minecraft:white_wool"
-    },
-    "P": {
-      "tag": "minecraft:planks"
     }
-  },
+  ],
   "result": {
     "id": "hogwartsmagic:patchwork_armchair",
     "count": 1

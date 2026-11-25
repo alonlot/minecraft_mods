@@ -165,7 +165,7 @@ def candles():
 # -------------------------------------------------------------------------------- A3: furniture
 
 VELVETS = {
-    "gryffindor": "red_velvet", "ravenclaw": "blue_velvet", "hufflepuff": "yellow_velvet",
+    "gryffindor": "gryffindor_velvet", "ravenclaw": "blue_velvet", "hufflepuff": "yellow_velvet",
     "slytherin": "green_velvet", "patchwork": "patchwork_velvet",
 }
 FACING_Y = (("north", 0), ("east", 90), ("south", 180), ("west", 270))
@@ -190,12 +190,14 @@ def armchairs():
         blockstate(block_id, {"variants": facing_variants("hogwartsmagic:block/" + block_id)})
         item_block(block_id)
         loot_self(block_id)
-    for house, wool in (("gryffindor", "red"), ("ravenclaw", "blue"), ("hufflepuff", "yellow"), ("slytherin", "green")):
-        recipe_shaped(house + "_armchair", ["W  ", "WWW", "P P"],
-                      {"W": "minecraft:%s_wool" % wool, "P": "#minecraft:planks"}, house + "_armchair")
-    recipe_shaped("patchwork_armchair", ["RBY", "WWW", "P P"],
-                  {"R": "minecraft:red_wool", "B": "minecraft:blue_wool", "Y": "minecraft:yellow_wool",
-                   "W": "minecraft:white_wool", "P": "#minecraft:planks"}, "patchwork_armchair")
+    # Shapeless from the common room armchair plus the house two dyes, so it never matches that chair's own recipe.
+    house_dyes = {"gryffindor": ("red_dye", "yellow_dye"), "ravenclaw": ("blue_dye", "light_gray_dye"),
+                  "hufflepuff": ("yellow_dye", "black_dye"), "slytherin": ("green_dye", "light_gray_dye")}
+    for house, (d1, d2) in house_dyes.items():
+        recipe_shapeless(house + "_armchair", ["hogwartsmagic:common_room_armchair", "minecraft:" + d1, "minecraft:" + d2],
+                         house + "_armchair")
+    recipe_shapeless("patchwork_armchair", ["hogwartsmagic:common_room_armchair", "minecraft:red_wool",
+                                            "minecraft:blue_wool", "minecraft:yellow_wool"], "patchwork_armchair")
 
 
 def sofa_model(left_arm, right_arm):

@@ -163,6 +163,68 @@ public final class CosyFoodGameTests {
         h.succeed();
     }
 
+    // The window tests get a batch each: glass within eight blocks of ANY frog draws it, and the tests of a batch run
+    // side by side, so glass left in "cosy_food" would pull the other frog tests toward it.
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_frog_glass")
+    public static void frogEscapesThroughGlass(GameTestHelper h) {
+        stonePad(h);
+        h.setBlock(6, 2, 4, Blocks.GLASS); // four blocks away, in the open
+        ChocolateFrogEntity frog = h.spawn(ModEntities.CHOCOLATE_FROG.get(), new Vec3(2.5, 2, 4.5));
+        int gone = -1;
+        boolean sawTarget = false;
+        for (int i = 0; i < ChocolateFrogEntity.LIFE_TICKS; i++) {
+            frog.tick();
+            sawTarget |= frog.windowTarget() != null;
+            if (frog.isRemoved()) {
+                gone = i;
+                break;
+            }
+        }
+        h.assertTrue(sawTarget, "the frog picked the glass as its window");
+        h.assertTrue(gone >= 0 && gone < ChocolateFrogEntity.LIFE_TICKS - 20,
+                "the frog went out of the window well before its life ran out, gone at " + gone);
+        h.assertTrue(frog.getRemovalReason() == net.minecraft.world.entity.Entity.RemovalReason.DISCARDED,
+                "removed with a puff (discarded), was " + frog.getRemovalReason());
+        h.setBlock(6, 2, 4, Blocks.AIR);
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_frog_wall")
+    public static void frogGivesUpOnUnreachableGlass(GameTestHelper h) {
+        stonePad(h);
+        for (int z = 0; z < 9; z++) {
+            for (int y = 2; y <= 4; y++) {
+                h.setBlock(5, y, z, Blocks.STONE); // a wall right across the pad
+            }
+        }
+        h.setBlock(7, 2, 4, Blocks.GLASS);          // the window, behind it
+        ServerPlayer p = survivor(h);
+        p.setPos(h.absolutePos(new BlockPos(4, 2, 4)).getCenter().add(0, -0.5, 0));
+        ChocolateFrogEntity frog = h.spawn(ModEntities.CHOCOLATE_FROG.get(), new Vec3(2.5, 2, 4.5));
+        boolean sawTarget = false;
+        int cleared = -1;
+        for (int i = 0; i < ChocolateFrogEntity.LIFE_TICKS - 1 && !frog.isRemoved(); i++) {
+            frog.tick();
+            if (frog.windowTarget() != null) {
+                sawTarget = true;
+            } else if (sawTarget && cleared < 0) {
+                cleared = i;
+            }
+        }
+        h.assertTrue(sawTarget, "the frog first made for the glass");
+        h.assertTrue(cleared >= ChocolateFrogEntity.GIVE_UP_TICKS,
+                "it gave up only after " + ChocolateFrogEntity.GIVE_UP_TICKS + " ticks of no progress, at " + cleared);
+        h.assertTrue(!frog.isRemoved(), "and it is still hopping about, not gone");
+        frog.discard();
+        h.setBlock(7, 2, 4, Blocks.AIR);
+        for (int z = 0; z < 9; z++) {
+            for (int y = 2; y <= 4; y++) {
+                h.setBlock(5, y, z, Blocks.AIR);
+            }
+        }
+        h.succeed();
+    }
+
     @GameTest(template = EMPTY9, timeoutTicks = 20, batch = "cosy_food")
     public static void catchingFrogFeeds(GameTestHelper h) {
         stonePad(h);

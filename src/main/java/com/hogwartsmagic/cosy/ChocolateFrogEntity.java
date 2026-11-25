@@ -1,5 +1,7 @@
 package com.hogwartsmagic.cosy;
 
+import com.hogwartsmagic.ModSounds;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -16,12 +18,18 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.Tags;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * The little chocolate frog that jumps out of a box. It hops away from the nearest player every ten ticks for five
- * seconds, then is gone with a puff. Hit it or right-click it before then to catch and eat it: food 3 and the
- * chocolate cure. It is never saved, so an unloaded chunk just loses it.
+ * The little chocolate frog that jumps out of a box. It hops every ten ticks for five seconds, then is gone with a
+ * puff. Like the one on the train it makes for a window: when it spawns it looks for glass (a block or a pane) within
+ * eight blocks and hops toward it, vanishing in a puff when it gets there. With no glass in reach, or glass it cannot
+ * get to (it gives up after a second of no progress), it hops away from the nearest player instead. Hit it or
+ * right-click it before then to catch and eat it: food 3 and the chocolate cure. It is never saved, so an unloaded
+ * chunk just loses it.
  *
  * <p>A plain {@link Entity}: no health, no attributes, no AI. Both sides run the same gravity and friction;
  * only the server decides to hop, and a hop reaches the client as a motion packet. The model squashes and stretches
@@ -33,6 +41,14 @@ public class ChocolateFrogEntity extends Entity {
     public static final int HOP_INTERVAL = 10;
     private static final double HOP_SPEED = 0.24;
     private static final double HOP_LIFT = 0.36;
+    /** How far from the spawn point the frog looks for glass, in blocks. */
+    public static final int WINDOW_SCAN = 8;
+    /** The frog is "out of the window" once this close to the glass (horizontally). */
+    public static final double WINDOW_REACH = 1.2;
+    /** It gives up on a window that has not got closer for this many ticks. */
+    public static final int GIVE_UP_TICKS = 60;
+    /** Entity event: the frog went out of the window (the client puffs). 61 is safe: 21, 35 and 63 crash the client. */
+    public static final byte EVENT_WINDOW_PUFF = 61;
 
     private static final EntityDataAccessor<Integer> DATA_HOPS =
             SynchedEntityData.defineId(ChocolateFrogEntity.class, EntityDataSerializers.INT);
@@ -40,6 +56,11 @@ public class ChocolateFrogEntity extends Entity {
     /** Client: the entity tick on which the latest hop began, or -1000 before the first one. */
     private int hopStartTick = -1000;
     private boolean caught;
+    /** Server: the glass it is making for, or null. */
+    @Nullable
+    private BlockPos windowTarget;
+    private double bestWindowDistance = Double.MAX_VALUE;
+    private int windowStalled;
     /**
      * Ticks lived. Counted here, not read from {@code tickCount}: the level bumps {@code tickCount} before it
      * calls {@code tick()}, so a frog ticked by hand (as the tests do) would never age.
@@ -100,6 +121,12 @@ public class ChocolateFrogEntity extends Entity {
                 this.discard();
                 return;
             }
+            if (this.life == 1) {
+                this.windowTarget = findGlass(server);
+            }
+            if (this.windowTarget != null && updateWindow(server)) {
+                return;
+            }
             if (this.life % HOP_INTERVAL == 2 && this.onGround()) {
                 hop(server);
             }
@@ -111,7 +138,12 @@ public class ChocolateFrogEntity extends Entity {
         Player near = server.getNearestPlayer(this, 16.0);
         double dx;
         double dz;
-        if (near != null) {
+        double wobbleSpan = 0.9;
+        if (this.windowTarget != null) {
+            dx = this.windowTarget.getX() + 0.5 - this.getX();
+            dz = this.windowTarget.getZ() + 0.5 - this.getZ();
+            wobbleSpan = 0.2;
+        } else if (near != null) {
             dx = this.getX() - near.getX();
             dz = this.getZ() - near.getZ();
         } else {
@@ -125,7 +157,7 @@ public class ChocolateFrogEntity extends Entity {
             dz = Math.sin(a);
             len = 1.0;
         }
-        double wobble = (this.random.nextDouble() - 0.5) * 0.9;
+        double wobble = (this.random.nextDouble() - 0.5) * wobbleSpan;
         double cos = Math.cos(wobble);
         double sin = Math.sin(wobble);
         double hx = (dx * cos - dz * sin) / len;
@@ -139,6 +171,80 @@ public class ChocolateFrogEntity extends Entity {
             server.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.FROG_AMBIENT,
                     SoundSource.NEUTRAL, 0.35F, 1.6F + this.random.nextFloat() * 0.3F);
         }
+    }
+
+    /** The nearest glass block or pane within {@link #WINDOW_SCAN} blocks (a little more vertically up), or null. */
+    @Nullable
+    private BlockPos findGlass(ServerLevel server) {
+        BlockPos origin = this.blockPosition();
+        BlockPos best = null;
+        double bestSq = Double.MAX_VALUE;
+        for (BlockPos p : BlockPos.betweenClosed(origin.offset(-WINDOW_SCAN, -2, -WINDOW_SCAN),
+                origin.offset(WINDOW_SCAN, 4, WINDOW_SCAN))) {
+            if (!server.hasChunkAt(p)) {
+                continue;
+            }
+            BlockState state = server.getBlockState(p);
+            if (state.is(Tags.Blocks.GLASS) || state.is(Tags.Blocks.GLASS_PANES)) {
+                double sq = p.distToCenterSqr(this.getX(), this.getY(), this.getZ());
+                if (sq < bestSq) {
+                    bestSq = sq;
+                    best = p.immutable();
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Each tick while it has a window: gone with a puff when it is there, forgets the window when it has not got closer
+     * for {@link #GIVE_UP_TICKS} (glass behind a wall) or the glass was broken. Returns true when the frog is gone.
+     */
+    private boolean updateWindow(ServerLevel server) {
+        BlockPos target = this.windowTarget;
+        BlockState state = server.getBlockState(target);
+        if (!state.is(Tags.Blocks.GLASS) && !state.is(Tags.Blocks.GLASS_PANES)) {
+            this.windowTarget = null;
+            return false;
+        }
+        double dx = target.getX() + 0.5 - this.getX();
+        double dz = target.getZ() + 0.5 - this.getZ();
+        double flat = Math.sqrt(dx * dx + dz * dz);
+        double dy = Math.abs(target.getY() + 0.5 - this.getY());
+        if (flat <= WINDOW_REACH && dy <= 2.5) {
+            server.broadcastEntityEvent(this, EVENT_WINDOW_PUFF);
+            server.playSound(null, this.getX(), this.getY(), this.getZ(), ModSounds.CARD_PUFF.get(),
+                    SoundSource.NEUTRAL, 0.6F, 1.3F);
+            this.discard();
+            return true;
+        }
+        if (flat < this.bestWindowDistance - 0.05) {
+            this.bestWindowDistance = flat;
+            this.windowStalled = 0;
+        } else if (++this.windowStalled >= GIVE_UP_TICKS) {
+            this.windowTarget = null; // cannot get there: hop away like any frog
+        }
+        return false;
+    }
+
+    /** The glass the frog is making for, or null (for tests). */
+    @Nullable
+    public BlockPos windowTarget() {
+        return this.windowTarget;
+    }
+
+    @Override
+    public void handleEntityEvent(byte id) {
+        if (id == EVENT_WINDOW_PUFF) {
+            // client: a puff of chocolate-brown smoke where the frog was
+            for (int i = 0; i < 10; i++) {
+                this.level().addParticle(ParticleTypes.POOF, this.getX() + (this.random.nextDouble() - 0.5) * 0.3,
+                        this.getY() + 0.1 + this.random.nextDouble() * 0.2, this.getZ() + (this.random.nextDouble() - 0.5) * 0.3,
+                        (this.random.nextDouble() - 0.5) * 0.06, 0.03, (this.random.nextDouble() - 0.5) * 0.06);
+            }
+            return;
+        }
+        super.handleEntityEvent(id);
     }
 
     private void puff(ServerLevel server) {

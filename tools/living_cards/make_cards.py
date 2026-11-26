@@ -50,6 +50,8 @@ B2, V2 = "Cards-batch2-2026-11-25", "Cards-var2-2026-11-25"
 for i, (key, v) in enumerate([("salazar_slytherin", 2), ("nicolas_flamel", 1)]):
     CARDS[key] = {"base": f(B2, i + 1, v)[0], "empty": f(V2, 3 * i + 1, 1, 2), "blink": f(V2, 3 * i + 2, 1, 2),
                   "look_r": f(V2, 3 * i + 3, 1, 2)}
+# picked by eye: the other empty plate moved the right-hand pedestal (in the loop below, set after)
+EMPTY_PICK = {"ptolemy": 2}
 # Flow's queue was lost after Morgana's blink (2026-11-26): the rest went to a second folder
 V2B = "Cards-var2b-2026-11-26"
 CARDS["morgana"] = {"base": f(B2, 3, 2)[0], "empty": f(V2, 7, 1, 2), "blink": f(V2, 8, 1, 2), "look_r": f(V2B, 1, 1, 2)}
@@ -154,7 +156,7 @@ def figure_matte(base, empty):
     rows = np.arange(h)[:, None]
     has = keep.any(axis=0)
     lowest = np.where(has, h - 1 - np.argmax(keep[::-1], axis=0), -1)
-    reach = has & (lowest > int(h * 0.85))
+    reach = has & (lowest > int(h * 0.97))  # only figures cut off by the bottom edge, not ones standing on a floor
     keep = keep | ((rows >= lowest[None, :]) & reach[None, :]).astype(np.uint8)
     keep = cv2.dilate(keep, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (w // 120 | 1,) * 2))
     return cv2.GaussianBlur(keep.astype(np.float32), (0, 0), w / 300.0)
@@ -181,7 +183,9 @@ def grabcut_refine(base, d, rough):
         return rough
     out = ((gc == cv2.GC_FGD) | (gc == cv2.GC_PR_FGD)).astype(np.uint8)
     # thin props (a staff head against shelves) lose the colour vote but differ strongly from the empty plate
-    out |= ((ds > 16) & (rs > 0)).astype(np.uint8)
+    strong_props = ((ds > 16) & (rs > 0)).astype(np.uint8)
+    strong_props[int(ds.shape[0] * 0.8):] = 0  # near the floor, strong difference is the person's shadow, not a prop
+    out |= strong_props
     out = cv2.morphologyEx(out, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
     n, lab, stats, _ = cv2.connectedComponentsWithStats(out)
     if n > 1:
@@ -338,6 +342,11 @@ def debug_sheet(key, base, plate, fig, blink, look_l, look_r, eye_alpha, eb):
     sheet = np.concatenate([top, row], axis=0)
     sheet = cv2.resize(sheet, (1200, int(sheet.shape[0] * 1200 / sheet.shape[1])), interpolation=cv2.INTER_AREA)
     cv2.imwrite(os.path.join(DEBUG, key + ".png"), (np.clip(sheet, 0, 1) * 255).astype(np.uint8))
+
+
+for _k, _v in EMPTY_PICK.items():
+    if _k in CARDS:
+        CARDS[_k]["empty_pick"] = [p for p in CARDS[_k]["empty"] if p.endswith(f"-v{_v}.jpeg")]
 
 
 if __name__ == "__main__":

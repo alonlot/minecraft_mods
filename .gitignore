@@ -66,3 +66,5 @@ build_scripts/pensieve_scenes/source/quidditch_pitch_v2/
 # Runtime logs written by local Gradle test and server runs
 logs/
 tools/living_cards/sfx_raw/
+tools/living_cards/clip_frames/
+tools/living_cards/debug/

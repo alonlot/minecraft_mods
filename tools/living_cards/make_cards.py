@@ -47,9 +47,23 @@ CARDS = {
     "rowena_ravenclaw": {"base": f(B1, 5, 1)[0], "empty": f(V1, 13, 1, 2), "blink": f(V1, 14, 1, 2), "look_r": f(V1, 15, 1, 2)},
 }
 B2, V2 = "Cards-batch2-2026-11-25", "Cards-var2-2026-11-25"
-for i, (key, v) in enumerate([("salazar_slytherin", 2), ("nicolas_flamel", 1), ("morgana", 2), ("circe", 1), ("agrippa", 3)]):
+for i, (key, v) in enumerate([("salazar_slytherin", 2), ("nicolas_flamel", 1)]):
     CARDS[key] = {"base": f(B2, i + 1, v)[0], "empty": f(V2, 3 * i + 1, 1, 2), "blink": f(V2, 3 * i + 2, 1, 2),
                   "look_r": f(V2, 3 * i + 3, 1, 2)}
+# Flow's queue was lost after Morgana's blink (2026-11-26): the rest went to a second folder
+V2B = "Cards-var2b-2026-11-26"
+CARDS["morgana"] = {"base": f(B2, 3, 2)[0], "empty": f(V2, 7, 1, 2), "blink": f(V2, 8, 1, 2), "look_r": f(V2B, 1, 1, 2)}
+CARDS["circe"] = {"base": f(B2, 4, 1)[0], "empty": f(V2B, 2, 1, 2), "blink": f(V2B, 3, 1, 2), "look_r": f(V2B, 4, 1, 2)}
+CARDS["agrippa"] = {"base": f(B2, 5, 3)[0], "empty": f(V2B, 5, 1, 2), "blink": f(V2B, 6, 1, 2), "look_r": f(V2B, 7, 1, 2)}
+# Newt v3: v1 and v2 came out looking like the film actor
+CARDS["newt_scamander"] = {"base": f("Cards-batch34-2026-11-25", 10, 3)[0], "empty": f(V2B, 8, 1, 2),
+                           "blink": f(V2B, 9, 1, 2), "look_r": f(V2B, 10, 1, 2)}
+B34, V3 = "Cards-batch34-2026-11-25", "Cards-var3-2026-11-25"
+for i, (key, scene, v) in enumerate([("ptolemy", 1, 2), ("paracelsus", 2, 2), ("cliodna", 3, 3), ("hengist_of_woodcroft", 4, 3),
+                                     ("bowman_wright", 5, 1), ("elfrida_clagg", 6, 1), ("gulliver_pokeby", 7, 2),
+                                     ("herpo_the_foul", 8, 2), ("bertie_bott", 9, 2)]):
+    CARDS[key] = {"base": f(B34, scene, v)[0], "empty": f(V3, 3 * i + 1, 1, 2), "blink": f(V3, 3 * i + 2, 1, 2),
+                  "look_r": f(V3, 3 * i + 3, 1, 2)}
 
 
 def load(path):
@@ -323,7 +337,7 @@ def debug_sheet(key, base, plate, fig, blink, look_l, look_r, eye_alpha, eb):
     row = cv2.resize(row, (top.shape[1], int(row.shape[0] * top.shape[1] / row.shape[1])))
     sheet = np.concatenate([top, row], axis=0)
     sheet = cv2.resize(sheet, (1200, int(sheet.shape[0] * 1200 / sheet.shape[1])), interpolation=cv2.INTER_AREA)
-    cv2.imwrite(os.path.join(DEBUG, key + ".png"), (sheet * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(DEBUG, key + ".png"), (np.clip(sheet, 0, 1) * 255).astype(np.uint8))
 
 
 if __name__ == "__main__":

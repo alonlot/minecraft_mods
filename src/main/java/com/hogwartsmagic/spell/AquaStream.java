@@ -209,6 +209,7 @@ public final class AquaStream {
             return;
         }
         if (!creative && !pay(player, SpellCosts.manaCost(player, wand, SpellType.AQUA_ERUCTO))) {
+            com.hogwartsmagic.spell.CastFizzles.refused(player, SpellType.AQUA_ERUCTO, com.hogwartsmagic.spell.CastFizzles.DRAINED);
             return;
         }
         Stream stream = new Stream(player.getUUID(), now);

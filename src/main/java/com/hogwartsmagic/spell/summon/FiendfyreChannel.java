@@ -92,6 +92,7 @@ public final class FiendfyreChannel {
         float startup = startupCost(player, wand);
         if (!creative && mana < startup) {
             player.displayClientMessage(Component.literal("Not enough mana!").withStyle(ChatFormatting.RED), true);
+            com.hogwartsmagic.spell.CastFizzles.refused(player, SpellType.FIENDFYRE, com.hogwartsmagic.spell.CastFizzles.DRAINED);
             return;
         }
         if (!creative) {

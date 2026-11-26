@@ -1740,6 +1740,7 @@ public class ModEvents {
         long now = player.level().getGameTime();
 
         if (!creative && MagicWandItem.isOnCooldown(wand, SpellType.APPARITION, now)) {
+            com.hogwartsmagic.spell.CastFizzles.refused(player, SpellType.APPARITION, com.hogwartsmagic.spell.CastFizzles.COOLDOWN);
             return;
         }
 
@@ -1757,6 +1758,7 @@ public class ModEvents {
         if (!creative && currentMana < APPARITION_MANA_COST) {
             player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!")
                     .withStyle(net.minecraft.ChatFormatting.RED), true);
+            com.hogwartsmagic.spell.CastFizzles.refused(player, SpellType.APPARITION, com.hogwartsmagic.spell.CastFizzles.DRAINED);
             return;
         }
         if (!creative) {
@@ -3906,6 +3908,17 @@ public class ModEvents {
                     return true;
                 }
                 SpellType selected = MagicWandItem.getSelectedSpell(heldItem);
+                // A fresh press, or the use key's repeat while held (which never fizzles: see takeFreshUse).
+                boolean freshPress = com.hogwartsmagic.client.CastFizzle.takeFreshUse();
+                // Still on cooldown: the wand sputters instead of a cast the server would only turn down. A held
+                // key's repeats are swallowed quietly, as the server refused them before.
+                if (com.hogwartsmagic.spell.CastFizzles.cooldownFizzles(player, heldItem, selected)) {
+                    if (freshPress) {
+                        com.hogwartsmagic.client.CastFizzle.predict(player, selected,
+                                com.hogwartsmagic.spell.CastFizzles.COOLDOWN);
+                    }
+                    return true;
+                }
                 if (selected == SpellType.PROTEGO_MAXIMA && com.hogwartsmagic.event.ClientModEvents.startsProtegoMaximaChannel()) {
                     com.hogwartsmagic.event.ClientModEvents.setProtegoMaximaChannelActive(true);
                     SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
@@ -3970,6 +3983,10 @@ public class ModEvents {
                     int requiredMana = SpellCosts.manaCost(player, heldItem, selected);
                     if (!player.isCreative() && currentMana < requiredMana) {
                         player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
+                        if (freshPress) {
+                            com.hogwartsmagic.client.CastFizzle.predict(player, selected,
+                                    com.hogwartsmagic.spell.CastFizzles.DRAINED);
+                        }
                         return true;
                     }
                 }

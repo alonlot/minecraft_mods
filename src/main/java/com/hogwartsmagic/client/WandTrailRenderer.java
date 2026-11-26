@@ -91,7 +91,7 @@ public final class WandTrailRenderer {
             Entity entity = minecraft.level.getEntity(entry.getKey());
             CastMotions.Cast cast = entry.getValue();
             if (!(entity instanceof LivingEntity caster) || AvadaChargePose.isOwnFirstPerson(caster)
-                    || cast.over(now) || hidden(minecraft, caster)) {
+                    || cast.over(now) || cast.dud() || hidden(minecraft, caster)) {
                 continue;
             }
             // The wand as drawn, mid-gesture; before its model has been drawn, where the gesture puts it.

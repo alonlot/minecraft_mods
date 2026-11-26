@@ -310,6 +310,9 @@ public final class FirstPersonWand {
             FirstPersonWandRig.Key raised = FirstPersonWandRig.raisedKey();
             now = FirstPersonWandRig.mix(now, raised, c * c * (3.0F - 2.0F * c));
         }
+        if (!casting) {
+            CastFizzle.applyFirstPerson(now, partialTick); // a cast that would not come: the sputter or the droop
+        }
         lastPose = now.copy(now.at()); // a copy: the equip drop below changes the drawn pose in place
         overlap(now, player.tickCount + partialTick);
         now = FirstPersonWandRig.sway(now);
@@ -612,6 +615,9 @@ public final class FirstPersonWand {
         float idle = 0.16F + 0.05F * Mth.sin(age * 0.12F);
         float sparkle = FirstPersonWandRig.switchGlow(age);
         float glow = Math.max(Math.max(Math.max(charge * 0.7F, held * 0.8F), flare), Math.max(idle, sparkle * 0.9F));
+        if (!casting) {
+            glow *= CastFizzle.tipGlow(Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+        }
         Matrix4f matrix = new Matrix4f().translate(tip);
         VertexConsumer light = buffer.getBuffer(GLOW);
         glowQuad(light, matrix, 0.05F + 0.07F * glow, new float[]{1.0F, 1.0F, 1.0F}, glow);

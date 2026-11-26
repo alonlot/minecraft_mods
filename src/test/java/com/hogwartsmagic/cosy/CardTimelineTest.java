@@ -232,4 +232,19 @@ class CardTimelineTest {
             }
         }
     }
+
+    /** A reveal starts its card at the top of a slot: the wizard stands there, still, for at least a minute. */
+    @Test
+    void slotStartIsPresentForAMinute() {
+        for (int card = 1; card <= 20; card++) {
+            for (long seed : new long[]{0L, 7919L * card, -123456789L, Long.MAX_VALUE / 3}) {
+                long origin = -CardTimeline.shift(card, seed);
+                for (int k = 0; k < 1200; k += 7) {
+                    CardTimeline.State s = CardTimeline.at(origin + k, 0.0F, card, seed, card <= 2, 95);
+                    assertTrue(s.present() && s.figureOffsetX() == 0.0F && s.clipFrame() < 0,
+                            "card " + card + " seed " + seed + " tick " + k + " was " + s);
+                }
+            }
+        }
+    }
 }

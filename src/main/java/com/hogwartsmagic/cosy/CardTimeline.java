@@ -45,13 +45,21 @@ public final class CardTimeline {
         return frames <= 0 ? 0 : (frames * 20 + CLIP_FPS - 1) / CLIP_FPS;
     }
 
+    /**
+     * How far this view's schedule is shifted into its super slot. A view that wants to begin at the start of a slot
+     * (a reveal: the wizard is there, for at least a minute) feeds {@code at} the time {@code -shift + ticksSinceOpen}.
+     */
+    public static long shift(int cardId, long viewSeed) {
+        return Math.floorMod(mix((cardId * 31L + viewSeed) ^ 0x51ED270B3C5A9E11L), SUPER_SLOT);
+    }
+
     public static State at(long gameTime, float partial, int cardId, long viewSeed, boolean legendaryClip, int clipFrames) {
         long seed = cardId * 31L + viewSeed;
         double t = gameTime + (double) partial;
         boolean clip = legendaryClip && clipFrames > 0;
         int exitTicks = clip ? clipTicks(clipFrames) : WALK_TICKS;
 
-        long shift = Math.floorMod(mix(seed ^ 0x51ED270B3C5A9E11L), SUPER_SLOT);
+        long shift = shift(cardId, viewSeed);
         double ts = t + shift;
         long slot = (long) Math.floor(ts / SUPER_SLOT);
         double local = ts - slot * (double) SUPER_SLOT;

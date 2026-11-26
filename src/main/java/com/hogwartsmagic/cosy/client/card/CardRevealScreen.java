@@ -51,6 +51,11 @@ public class CardRevealScreen extends Screen {
     @Nullable
     private final Screen parent;
     private final long viewSeed;
+    /**
+     * A reveal runs its card on its own clock, started at the top of a schedule slot, so the wizard is always there when
+     * the card rises (and stays for at least a minute). The album's large view keeps the world clock, to match its grid.
+     */
+    private final long timeOffset;
     private final CardCues cues = new CardCues();
     private final List<Spark> sparks = new ArrayList<>();
     private final RandomSource rnd = RandomSource.create();
@@ -81,6 +86,7 @@ public class CardRevealScreen extends Screen {
         this.reveal = reveal;
         this.parent = parent;
         this.viewSeed = viewSeedOf(cardId);
+        this.timeOffset = reveal ? -CardArt.gameTime() - CardTimeline.shift(cardId, this.viewSeed) : 0L;
     }
 
     /** The view seed the album and the large view share, so a card is in the same moment in both. */
@@ -257,12 +263,12 @@ public class CardRevealScreen extends Screen {
             }
             float x = centerX - CardArt.CARD_W * scale / 2.0F;
             float y = centerY - CardArt.CARD_H * scale / 2.0F;
-            CardArt.drawCard(g, this.cardId, this.viewSeed, x, y, scale, 0.0F, nameFrac, tilt, alpha);
+            CardArt.drawCard(g, this.cardId, this.viewSeed, x, y, scale, 0.0F, nameFrac, tilt, alpha, this.timeOffset);
             double shimmerStart = this.reveal ? RISE_START + 0.15 : 0.12;
             CardArt.drawShimmer(g, x, y, scale, tilt, (float) ((age - shimmerStart) / 0.9), 0.55F * alpha);
 
             // not the render delta Screen.render is handed: the game's own partial tick
-            CardTimeline.State st = CardArt.stateOf(this.cardId, this.viewSeed, CardArt.partialTick());
+            CardTimeline.State st = CardArt.stateOf(this.cardId, this.viewSeed, CardArt.partialTick(), this.timeOffset);
             this.cues.update(st, this.card, assets, 0.5F);
         }
 

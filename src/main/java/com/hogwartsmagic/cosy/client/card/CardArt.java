@@ -80,6 +80,12 @@ public final class CardArt {
      */
     public static void drawCard(GuiGraphics g, int cardId, long viewSeed, float x, float y, float scale, float partial,
                                 float nameFraction, Tilt tilt, float alpha) {
+        drawCard(g, cardId, viewSeed, x, y, scale, partial, nameFraction, tilt, alpha, 0L);
+    }
+
+    /** The same on a schedule shifted by {@code timeOffset} ticks from the world's clock (a reveal's own clock). */
+    public static void drawCard(GuiGraphics g, int cardId, long viewSeed, float x, float y, float scale, float partial,
+                                float nameFraction, Tilt tilt, float alpha, long timeOffset) {
         WizardCards.Card card = WizardCards.byId(cardId);
         if (card == null) {
             return;
@@ -92,7 +98,8 @@ public final class CardArt {
         g.pose().translate(x, y, 0.0F);
         g.pose().scale(scale, scale, 1.0F);
         GuiSink sink = new GuiSink(g, tilt, alpha, mini);
-        render(sink, card, mini ? stateOfNoClip(card, viewSeed, tick) : stateOf(card, viewSeed, tick), nameFraction,
+        render(sink, card, mini ? stateOfNoClip(card, viewSeed, tick, timeOffset) : stateOf(card, viewSeed, tick, timeOffset),
+                nameFraction,
                 scale >= 0.2F, mini, tick);
         g.flush();
         g.pose().popPose();
@@ -134,7 +141,7 @@ public final class CardArt {
             return;
         }
         WorldSink sink = new WorldSink(pose, buffers, light);
-        render(sink, card, stateOf(card, viewSeed, partial), 1.0F, true, false, partial);
+        render(sink, card, stateOf(card, viewSeed, partial, 0L), 1.0F, true, false, partial);
     }
 
     /**
@@ -209,22 +216,28 @@ public final class CardArt {
 
     /** What the card's portrait is doing right now (for sound cues). */
     public static CardTimeline.State stateOf(int cardId, long viewSeed, float partial) {
+        return stateOf(cardId, viewSeed, partial, 0L);
+    }
+
+    /** The same on a schedule shifted by {@code timeOffset} ticks. */
+    public static CardTimeline.State stateOf(int cardId, long viewSeed, float partial, long timeOffset) {
         WizardCards.Card card = WizardCards.byId(cardId);
-        return card == null ? new CardTimeline.State(true, 0.0F, false, 0, -1) : stateOf(card, viewSeed, partial);
+        return card == null ? new CardTimeline.State(true, 0.0F, false, 0, -1) : stateOf(card, viewSeed, partial, timeOffset);
     }
 
     /** The same without the exit clip: small cards have no clip frames, so a legendary just walks out. */
-    private static CardTimeline.State stateOfNoClip(WizardCards.Card card, long viewSeed, float partial) {
-        return CardTimeline.at(gameTime(), partial, card.id(), viewSeed, false, 0);
+    private static CardTimeline.State stateOfNoClip(WizardCards.Card card, long viewSeed, float partial, long timeOffset) {
+        return CardTimeline.at(gameTime() + timeOffset, partial, card.id(), viewSeed, false, 0);
     }
 
-    private static CardTimeline.State stateOf(WizardCards.Card card, long viewSeed, float partial) {
+    private static CardTimeline.State stateOf(WizardCards.Card card, long viewSeed, float partial, long timeOffset) {
         CardAssets.Assets a = CardAssets.forKey(card.key());
         boolean legendaryClip = a.clipFrames() > 0;
-        return CardTimeline.at(gameTime(), partial, card.id(), viewSeed, legendaryClip, a.clipFrames());
+        return CardTimeline.at(gameTime() + timeOffset, partial, card.id(), viewSeed, legendaryClip, a.clipFrames());
     }
 
-    private static long gameTime() {
+    /** The world's clock (or the GUI's, with no world loaded), in ticks. */
+    public static long gameTime() {
         Minecraft mc = Minecraft.getInstance();
         return mc.level == null ? mc.gui.getGuiTicks() : mc.level.getGameTime();
     }

@@ -29,16 +29,28 @@ public final class SpellEnchantments {
     public static final ResourceKey<Enchantment> REPARO = key("reparo");
     public static final ResourceKey<Enchantment> LUMOS = key("lumos");
     public static final ResourceKey<Enchantment> ASCENDIO = key("ascendio");
+    public static final ResourceKey<Enchantment> CAVE_INIMICUM = key("cave_inimicum");
+    public static final ResourceKey<Enchantment> DEPULSO = key("depulso");
+    public static final ResourceKey<Enchantment> PROTEGO_MAXIMA = key("protego_maxima");
+    public static final ResourceKey<Enchantment> REVELIO = key("revelio");
+    public static final ResourceKey<Enchantment> INCENDIO = key("incendio");
+    public static final ResourceKey<Enchantment> INCARCEROUS = key("incarcerous");
 
     /** Which spell book binds into which enchantment. */
-    public static final Map<SpellType, ResourceKey<Enchantment>> FROM_SPELL = Map.of(
-            SpellType.PROTEGO, WARDING,
-            SpellType.ARRESTO_MOMENTUM, ARRESTO,
-            SpellType.AQUA_ERUCTO, DOUSE,
-            SpellType.ACCIO, ACCIO,
-            SpellType.REPARO, REPARO,
-            SpellType.LUMOS, LUMOS,
-            SpellType.ASCENDIO, ASCENDIO);
+    public static final Map<SpellType, ResourceKey<Enchantment>> FROM_SPELL = Map.ofEntries(
+            Map.entry(SpellType.PROTEGO, WARDING),
+            Map.entry(SpellType.ARRESTO_MOMENTUM, ARRESTO),
+            Map.entry(SpellType.AQUA_ERUCTO, DOUSE),
+            Map.entry(SpellType.ACCIO, ACCIO),
+            Map.entry(SpellType.REPARO, REPARO),
+            Map.entry(SpellType.LUMOS, LUMOS),
+            Map.entry(SpellType.ASCENDIO, ASCENDIO),
+            Map.entry(SpellType.CAVE_INIMICUM, CAVE_INIMICUM),
+            Map.entry(SpellType.DEPULSO, DEPULSO),
+            Map.entry(SpellType.PROTEGO_MAXIMA, PROTEGO_MAXIMA),
+            Map.entry(SpellType.REVELIO, REVELIO),
+            Map.entry(SpellType.INCENDIO, INCENDIO),
+            Map.entry(SpellType.INCARCEROUS, INCARCEROUS));
 
     private SpellEnchantments() {
     }
@@ -67,6 +79,19 @@ public final class SpellEnchantments {
     /** {@code key}'s level on what {@code entity} wears in {@code slot}. */
     public static int level(LivingEntity entity, ResourceKey<Enchantment> key, EquipmentSlot slot) {
         return level(entity.level(), key, entity.getItemBySlot(slot));
+    }
+
+    /**
+     * Cave Inimicum: how much less mobs notice the wearer (their detection range is multiplied by this). Each level
+     * summed over the armour takes 7.5% off, to 40% with a full set of II.
+     */
+    public static double caveInimicumVisibility(int levels) {
+        return Math.max(0.4, 1.0 - 0.075 * Math.max(0, levels));
+    }
+
+    /** Cave Inimicum: the wearer's body alpha, from 1 (none) down to 0.45 for a full set of II. */
+    public static float caveInimicumAlpha(int levels) {
+        return Math.max(0.45f, 1.0f - 0.07f * Math.max(0, levels));
     }
 
     /** {@code key}'s levels summed over {@code entity}'s four armour slots. */

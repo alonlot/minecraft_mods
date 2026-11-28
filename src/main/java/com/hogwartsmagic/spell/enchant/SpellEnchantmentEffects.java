@@ -55,7 +55,7 @@ public final class SpellEnchantmentEffects {
     /** Accio: where each player just broke a block, and when. */
     private static final Map<UUID, AccioBreak> ACCIO_BREAKS = new HashMap<>();
 
-    private record AccioBreak(ServerPlayer player, BlockPos pos, long time) {
+    private record AccioBreak(ServerPlayer player, BlockPos pos, long time, boolean accio, boolean incendio) {
     }
 
     private SpellEnchantmentEffects() {
@@ -180,9 +180,11 @@ public final class SpellEnchantmentEffects {
         if (!(event.getPlayer() instanceof ServerPlayer player) || player.isCreative()) {
             return;
         }
-        if (SpellEnchantments.level(player, SpellEnchantments.ACCIO, EquipmentSlot.MAINHAND) > 0) {
+        boolean accio = SpellEnchantments.level(player, SpellEnchantments.ACCIO, EquipmentSlot.MAINHAND) > 0;
+        boolean incendio = SpellEnchantments.level(player, SpellEnchantments.INCENDIO, EquipmentSlot.MAINHAND) > 0;
+        if (accio || incendio) {
             ACCIO_BREAKS.put(player.getUUID(), new AccioBreak(player, event.getPos().immutable(),
-                    player.level().getGameTime()));
+                    player.level().getGameTime(), accio, incendio));
         }
     }
 
@@ -196,7 +198,10 @@ public final class SpellEnchantmentEffects {
         for (AccioBreak brk : ACCIO_BREAKS.values()) {
             if (brk.time() == now && brk.player().level() == event.getLevel()
                     && item.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(brk.pos())) < 1.5 * 1.5) {
-                if (pull(brk.player(), item.getItem())) {
+                if (brk.incendio()) {
+                    smelt(brk.player(), item);
+                }
+                if (brk.accio() && pull(brk.player(), item.getItem())) {
                     event.setCanceled(true);
                 }
                 return;
@@ -211,6 +216,31 @@ public final class SpellEnchantmentEffects {
             return;
         }
         event.getDrops().removeIf(item -> pull(player, item.getItem()));
+    }
+
+    /** Incendio: a block's drop comes out as what a furnace would make of it, with the furnace's experience. */
+    private static void smelt(ServerPlayer player, ItemEntity item) {
+        ServerLevel level = player.serverLevel();
+        ItemStack stack = item.getItem();
+        net.minecraft.world.item.crafting.SingleRecipeInput input = new net.minecraft.world.item.crafting.SingleRecipeInput(stack);
+        var recipe = level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, input, level);
+        if (recipe.isEmpty()) {
+            return;
+        }
+        ItemStack out = recipe.get().value().assemble(input, level.registryAccess());
+        if (out.isEmpty()) {
+            return;
+        }
+        int count = stack.getCount();
+        out.setCount(Math.min(out.getMaxStackSize(), out.getCount() * count));
+        item.setItem(out);
+        float xp = recipe.get().value().getExperience() * count;
+        int orbs = (int) xp + (player.getRandom().nextFloat() < xp - (int) xp ? 1 : 0);
+        if (orbs > 0) {
+            net.minecraft.world.entity.ExperienceOrb.award(level, item.position(), orbs);
+        }
+        level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME, item.getX(), item.getY() + 0.2, item.getZ(),
+                4, 0.15, 0.1, 0.15, 0.01);
     }
 
     /** Puts {@code stack} into the player's inventory; true when all of it fitted (what does not stays put). */

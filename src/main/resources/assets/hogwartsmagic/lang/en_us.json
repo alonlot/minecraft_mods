@@ -2328,5 +2328,17 @@
   "enchantment.hogwartsmagic.lumos": "Lumos",
   "enchantment.hogwartsmagic.lumos.desc": "See in the dark.",
   "enchantment.hogwartsmagic.ascendio": "Ascendio",
-  "enchantment.hogwartsmagic.ascendio.desc": "Jump higher and land softer."
+  "enchantment.hogwartsmagic.ascendio.desc": "Jump higher and land softer.",
+  "enchantment.hogwartsmagic.cave_inimicum": "Cave Inimicum",
+  "enchantment.hogwartsmagic.cave_inimicum.desc": "Mobs notice you from less far, and your body shows faintly see-through.",
+  "enchantment.hogwartsmagic.depulso": "Depulso",
+  "enchantment.hogwartsmagic.depulso.desc": "Blocking a blow throws the attacker back.",
+  "enchantment.hogwartsmagic.protego_maxima": "Protego Maxima",
+  "enchantment.hogwartsmagic.protego_maxima.desc": "Blocked arrows fly back at the shooter; blocked spells send a third of their force back.",
+  "enchantment.hogwartsmagic.revelio": "Revelio",
+  "enchantment.hogwartsmagic.revelio.desc": "Hostile mobs nearby glow through walls, for you alone.",
+  "enchantment.hogwartsmagic.incendio": "Incendio",
+  "enchantment.hogwartsmagic.incendio.desc": "Mined blocks drop already smelted. Cannot be combined with Silk Touch.",
+  "enchantment.hogwartsmagic.incarcerous": "Incarcerous",
+  "enchantment.hogwartsmagic.incarcerous.desc": "Bolts that hit bind the target in chains."
 }

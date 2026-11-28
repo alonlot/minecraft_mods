@@ -47,7 +47,9 @@
     "client.BloomRenderTypeMixin",
     "client.SkyFogVeilMixin",
     "client.WandGestureModelMixin",
-    "client.TenebrisGuiMixin"
+    "client.TenebrisGuiMixin",
+    "client.RevelioGlowMixin",
+    "client.CaveInimicumVeilMixin"
   ],
   "injectors": {
     "defaultRequire": 1

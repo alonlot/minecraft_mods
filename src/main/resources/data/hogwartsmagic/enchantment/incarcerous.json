@@ -1,0 +1,21 @@
+{
+  "description": {
+    "translate": "enchantment.hogwartsmagic.incarcerous"
+  },
+  "supported_items": "minecraft:crossbow",
+  "weight": 2,
+  "max_level": 2,
+  "min_cost": {
+    "base": 10,
+    "per_level_above_first": 8
+  },
+  "max_cost": {
+    "base": 18,
+    "per_level_above_first": 8
+  },
+  "anvil_cost": 4,
+  "slots": [
+    "hand"
+  ],
+  "effects": {}
+}

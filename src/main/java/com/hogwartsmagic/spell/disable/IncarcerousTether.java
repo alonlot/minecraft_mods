@@ -88,6 +88,20 @@ public final class IncarcerousTether {
         }
     }
 
+    /**
+     * An Incarcerous crossbow bolt: the plain Novice bind (no catch radius, no pull) for {@code ticks}, through the
+     * same crowd-control rules as the spell.
+     */
+    public static void applyBolt(LivingEntity target, @Nullable Entity shooter, int ticks) {
+        if (!(target.level() instanceof ServerLevel level)) {
+            return;
+        }
+        if (DisableSupport.applyHiddenCrowdControl(target, ExampleMod.INCARCEROUS_CHAINS, ticks, 0, shooter) > 0) {
+            tether(level, target, IncarcerousRules.leash(0), false, null, null);
+            syncRopes(level, target, shooter, true);
+        }
+    }
+
     private static void tether(ServerLevel level, LivingEntity target, double leash, boolean pull,
                                @Nullable UUID group, @Nullable UUID anchorEntity) {
         if (target.isPassenger()) {

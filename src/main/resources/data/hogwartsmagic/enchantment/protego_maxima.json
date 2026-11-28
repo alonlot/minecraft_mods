@@ -1,0 +1,21 @@
+{
+  "description": {
+    "translate": "enchantment.hogwartsmagic.protego_maxima"
+  },
+  "supported_items": "minecraft:shield",
+  "weight": 2,
+  "max_level": 1,
+  "min_cost": {
+    "base": 10,
+    "per_level_above_first": 8
+  },
+  "max_cost": {
+    "base": 18,
+    "per_level_above_first": 8
+  },
+  "anvil_cost": 8,
+  "slots": [
+    "hand"
+  ],
+  "effects": {}
+}

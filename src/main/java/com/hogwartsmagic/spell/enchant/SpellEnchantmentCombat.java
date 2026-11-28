@@ -1,0 +1,143 @@
+package com.hogwartsmagic.spell.enchant;
+
+import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.spell.damage.DamageSupport;
+import com.hogwartsmagic.spell.disable.IncarcerousTether;
+import com.hogwartsmagic.spell.vfx.SpellVfxOptions;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.event.entity.living.ShieldBlockEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+
+/**
+ * The fighting and hiding spell enchantments, server side.
+ * <ul>
+ * <li><b>Cave Inimicum</b> I-II (any armour): mobs notice the wearer from less far (the body also shows faintly
+ * see-through, drawn client side).</li>
+ * <li><b>Depulso</b> I-III (shield): a blocked melee blow throws the attacker back.</li>
+ * <li><b>Protego Maxima</b> (shield): blocked arrows fly back at their shooter, and a blocked spell sends a third of
+ * its force back at the caster.</li>
+ * <li><b>Incarcerous</b> I-II (crossbow): a bolt that hits binds the target in chains for 2 / 3.5 s.</li>
+ * </ul>
+ * Revelio (glowing hostiles) is client side only: {@code RevelioGlowMixin}.
+ */
+@Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+public final class SpellEnchantmentCombat {
+    private static final int[] INCARCEROUS_TICKS = {40, 70};
+    public static final float PROTEGO_MAXIMA_RETURN = 1.0f / 3.0f;
+
+    private SpellEnchantmentCombat() {
+    }
+
+    @SubscribeEvent
+    public static void onVisibility(LivingEvent.LivingVisibilityEvent event) {
+        if (event.getEntity().level().isClientSide()) {
+            return;
+        }
+        int levels = SpellEnchantments.armourLevels(event.getEntity(), SpellEnchantments.CAVE_INIMICUM);
+        if (levels > 0) {
+            event.modifyVisibility(SpellEnchantments.caveInimicumVisibility(levels));
+        }
+    }
+
+    /** The shield in use, or empty. */
+    private static ItemStack shield(LivingEntity blocker) {
+        ItemStack using = blocker.getUseItem();
+        return using.is(Items.SHIELD) ? using : ItemStack.EMPTY;
+    }
+
+    @SubscribeEvent
+    public static void onShieldBlock(ShieldBlockEvent event) {
+        LivingEntity blocker = event.getEntity();
+        if (!(blocker.level() instanceof ServerLevel level)) {
+            return;
+        }
+        ItemStack shield = shield(blocker);
+        if (shield.isEmpty()) {
+            return;
+        }
+        DamageSource source = event.getDamageSource();
+        Entity direct = source.getDirectEntity();
+        Entity attacker = source.getEntity();
+
+        int depulso = SpellEnchantments.level(level, SpellEnchantments.DEPULSO, shield);
+        if (depulso > 0 && direct instanceof LivingEntity melee && direct == attacker && melee != blocker) {
+            Vec3 away = melee.position().subtract(blocker.position()).multiply(1.0, 0.0, 1.0);
+            if (away.lengthSqr() > 1.0E-4) {
+                away = away.normalize();
+                melee.knockback(0.5 + 0.35 * Math.min(3, depulso), -away.x, -away.z);
+                melee.hurtMarked = true;
+                Vec3 at = blocker.getEyePosition().add(away.scale(0.8));
+                level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.RING, 0x9FD8FF, 0.9f, 10),
+                        at.x, at.y - 0.4, at.z, 1, 0.0, 0.0, 0.0, 0.0);
+                level.playSound(null, blocker.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(),
+                        SoundSource.PLAYERS, 0.6F, 1.3F);
+            }
+        }
+
+        if (SpellEnchantments.level(level, SpellEnchantments.PROTEGO_MAXIMA, shield) <= 0) {
+            return;
+        }
+        if (direct instanceof AbstractArrow arrow && attacker instanceof LivingEntity shooter && shooter != blocker) {
+            // The arrow is still resolving its hit: turn it round once that is done.
+            level.getServer().execute(() -> reflect(level, arrow, blocker, shooter));
+        } else if (source.is(DamageSupport.SPELL) && attacker instanceof LivingEntity caster && caster != blocker
+                && caster.isAlive()) {
+            float back = event.getBlockedDamage() * PROTEGO_MAXIMA_RETURN;
+            if (back > 0.0f) {
+                caster.hurt(DamageSupport.spell(level, null, blocker), back);
+                Vec3 at = caster.getEyePosition();
+                level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.SPARK, 0xBFE6FF, 0.07f, 14),
+                        at.x, at.y, at.z, 14, 0.25, 0.3, 0.25, 0.15);
+            }
+        }
+        Vec3 front = blocker.getEyePosition().add(blocker.getLookAngle().scale(0.7));
+        level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.GLOW, 0xBFE6FF, 0.4f, 8),
+                front.x, front.y - 0.3, front.z, 1, 0.0, 0.0, 0.0, 0.0);
+        level.playSound(null, blocker.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0F, 1.5F);
+    }
+
+    private static void reflect(ServerLevel level, AbstractArrow arrow, LivingEntity blocker, LivingEntity shooter) {
+        if (arrow.isRemoved() || !shooter.isAlive() || shooter.level() != level) {
+            return;
+        }
+        Vec3 from = arrow.position();
+        Vec3 to = shooter.getEyePosition().subtract(0.0, 0.3, 0.0);
+        Vec3 dir = to.subtract(from);
+        if (dir.lengthSqr() < 1.0E-4) {
+            return;
+        }
+        arrow.setOwner(blocker);
+        arrow.setDeltaMovement(dir.normalize().scale(1.8));
+        arrow.hasImpulse = true;
+        level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.SPARK, 0xBFE6FF, 0.05f, 10),
+                from.x, from.y, from.z, 8, 0.1, 0.1, 0.1, 0.1);
+    }
+
+    @SubscribeEvent
+    public static void onBoltHit(LivingHurtEvent event) {
+        if (!(event.getSource().getDirectEntity() instanceof AbstractArrow arrow)
+                || event.getEntity().level().isClientSide()) {
+            return;
+        }
+        ItemStack weapon = arrow.getWeaponItem();
+        if (weapon == null || !weapon.is(Items.CROSSBOW)) {
+            return;
+        }
+        int level = SpellEnchantments.level(event.getEntity().level(), SpellEnchantments.INCARCEROUS, weapon);
+        if (level > 0) {
+            IncarcerousTether.applyBolt(event.getEntity(), arrow.getOwner(), INCARCEROUS_TICKS[Math.min(2, level) - 1]);
+        }
+    }
+}

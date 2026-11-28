@@ -1,0 +1,25 @@
+{
+  "description": {
+    "translate": "enchantment.hogwartsmagic.glacius"
+  },
+  "supported_items": "#hogwartsmagic:enchantable/glacius",
+  "weight": 2,
+  "max_level": 3,
+  "min_cost": {
+    "base": 10,
+    "per_level_above_first": 8
+  },
+  "max_cost": {
+    "base": 18,
+    "per_level_above_first": 8
+  },
+  "anvil_cost": 4,
+  "slots": [
+    "hand"
+  ],
+  "exclusive_set": [
+    "minecraft:fire_aspect",
+    "minecraft:flame"
+  ],
+  "effects": {}
+}

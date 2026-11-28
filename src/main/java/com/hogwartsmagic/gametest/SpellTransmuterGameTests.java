@@ -68,7 +68,7 @@ public final class SpellTransmuterGameTests {
         helper.assertTrue(SpellEnchantmentEffects.douseDelay(5) == 0, "Douse V puts fire out at once");
         helper.assertTrue(SpellEnchantments.caveInimicumVisibility(0) == 1.0, "no Cave Inimicum, full sight");
         helper.assertTrue(SpellEnchantments.caveInimicumVisibility(8) == 0.4, "a full set of II hides to 40%");
-        helper.assertTrue(SpellEnchantments.FROM_SPELL.size() == 13, "thirteen spells bind");
+        helper.assertTrue(SpellEnchantments.FROM_SPELL.size() == 17, "seventeen spells bind");
         helper.succeed();
     }
 }

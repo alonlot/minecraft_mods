@@ -2340,5 +2340,13 @@
   "enchantment.hogwartsmagic.incendio": "Incendio",
   "enchantment.hogwartsmagic.incendio.desc": "Mined blocks drop already smelted. Cannot be combined with Silk Touch.",
   "enchantment.hogwartsmagic.incarcerous": "Incarcerous",
-  "enchantment.hogwartsmagic.incarcerous.desc": "Bolts that hit bind the target in chains."
+  "enchantment.hogwartsmagic.incarcerous.desc": "Bolts that hit bind the target in chains.",
+  "enchantment.hogwartsmagic.leviosa": "Leviosa",
+  "enchantment.hogwartsmagic.leviosa.desc": "Hold jump in the air to hover, sinking slowly: 2 seconds at I, 4 at II. Wears the boots.",
+  "enchantment.hogwartsmagic.alatus": "Alatus",
+  "enchantment.hogwartsmagic.alatus.desc": "Gliding loses less speed, so you fly farther.",
+  "enchantment.hogwartsmagic.patronus": "Patronus",
+  "enchantment.hogwartsmagic.patronus.desc": "Darkness and Wither cannot take hold of you.",
+  "enchantment.hogwartsmagic.glacius": "Glacius",
+  "enchantment.hogwartsmagic.glacius.desc": "Hits and arrows chill the target, slowing it. Cannot be combined with Fire Aspect or Flame."
 }

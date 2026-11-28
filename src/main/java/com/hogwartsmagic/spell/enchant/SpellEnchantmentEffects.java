@@ -80,6 +80,48 @@ public final class SpellEnchantmentEffects {
             lumos(player, level);
         }
         reparo(player, level);
+        leviosa(player, level);
+    }
+
+    /** Ticks of hover each player has spent since last on the ground (Leviosa), server thread only. */
+    private static final Map<UUID, Integer> HOVERED = new HashMap<>();
+    /** Each player's height at the end of the last tick: the client moves them between ticks. */
+    private static final Map<UUID, Double> LAST_Y = new HashMap<>();
+
+    /**
+     * Leviosa's server half: the hover itself is the wearer's own movement (client side, where player movement is
+     * worked out); here a slow, steady sink in the air is recognised as a hover, so the fall it would have built up
+     * is forgiven, the boots wear by 1 a second and everyone sees the lift under the feet.
+     */
+    private static void leviosa(ServerPlayer player, ServerLevel level) {
+        Double lastY = LAST_Y.put(player.getUUID(), player.getY());
+        if (player.onGround() || player.isInWater() || player.isFallFlying() || player.getAbilities().flying) {
+            HOVERED.remove(player.getUUID());
+            return;
+        }
+        int leviosa = SpellEnchantments.level(player, SpellEnchantments.LEVIOSA, EquipmentSlot.FEET);
+        if (leviosa <= 0 || lastY == null) {
+            return;
+        }
+        double moved = player.getY() - lastY;
+        if (Math.abs(moved - SpellEnchantments.LEVIOSA_SINK) >= 0.03) {
+            return;
+        }
+        int hovered = HOVERED.merge(player.getUUID(), 1, Integer::sum);
+        if (hovered > SpellEnchantments.leviosaHoverTicks(leviosa) + 5) {
+            return; // past the boots' budget: no more forgiveness (a lying client gains nothing)
+        }
+        player.resetFallDistance();
+        if (hovered % 20 == 0) {
+            player.getItemBySlot(EquipmentSlot.FEET).hurtAndBreak(1, player, EquipmentSlot.FEET);
+        }
+        if (hovered % 2 == 0) {
+            level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.MOTE, 0xFFF4D6, 0.04f, 16),
+                    player.getX(), player.getY() - 0.05, player.getZ(), 2, 0.2, 0.02, 0.2, 0.005);
+        }
+        if (hovered == 1) {
+            level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.5F, 1.8F);
+        }
     }
 
     private static void arresto(ServerPlayer player) {
@@ -267,6 +309,8 @@ public final class SpellEnchantmentEffects {
     @SubscribeEvent
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         BURNING_SINCE.remove(event.getEntity().getUUID());
+        HOVERED.remove(event.getEntity().getUUID());
+        LAST_Y.remove(event.getEntity().getUUID());
         ACCIO_BREAKS.remove(event.getEntity().getUUID());
     }
 }

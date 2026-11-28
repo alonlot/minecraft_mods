@@ -35,6 +35,28 @@ public final class SpellEnchantments {
     public static final ResourceKey<Enchantment> REVELIO = key("revelio");
     public static final ResourceKey<Enchantment> INCENDIO = key("incendio");
     public static final ResourceKey<Enchantment> INCARCEROUS = key("incarcerous");
+    public static final ResourceKey<Enchantment> LEVIOSA = key("leviosa");
+    public static final ResourceKey<Enchantment> ALATUS = key("alatus");
+    public static final ResourceKey<Enchantment> PATRONUS = key("patronus");
+    public static final ResourceKey<Enchantment> GLACIUS = key("glacius");
+
+    /** Leviosa: how long one airborne spell can hover (ticks), and how fast a hover sinks (blocks a tick). */
+    public static int leviosaHoverTicks(int level) {
+        return 40 * Math.max(0, Math.min(2, level));
+    }
+
+    /** Sinking a little, never still: a hover must not read as flying to the server's float check. */
+    public static final double LEVIOSA_SINK = -0.05;
+
+    /** Alatus: horizontal speed kept each gliding tick on top of vanilla's drag, per level. */
+    public static double alatusCarry(int level) {
+        return 1.0 + 0.004 * Math.max(0, Math.min(2, level));
+    }
+
+    /** Glacius: Slowness ticks for a hit at this level (I 3 s, II 4 s, III 5 s). */
+    public static int glaciusTicks(int level) {
+        return 40 + 20 * Math.max(1, Math.min(3, level));
+    }
 
     /** Which spell book binds into which enchantment. */
     public static final Map<SpellType, ResourceKey<Enchantment>> FROM_SPELL = Map.ofEntries(
@@ -50,7 +72,11 @@ public final class SpellEnchantments {
             Map.entry(SpellType.PROTEGO_MAXIMA, PROTEGO_MAXIMA),
             Map.entry(SpellType.REVELIO, REVELIO),
             Map.entry(SpellType.INCENDIO, INCENDIO),
-            Map.entry(SpellType.INCARCEROUS, INCARCEROUS));
+            Map.entry(SpellType.INCARCEROUS, INCARCEROUS),
+            Map.entry(SpellType.WINGARDIUM_LEVIOSA, LEVIOSA),
+            Map.entry(SpellType.ALATUS, ALATUS),
+            Map.entry(SpellType.EXPECTO_PATRONUM, PATRONUS),
+            Map.entry(SpellType.GLACIUS, GLACIUS));
 
     private SpellEnchantments() {
     }

@@ -125,6 +125,49 @@ public final class SpellEnchantmentCombat {
                 from.x, from.y, from.z, 8, 0.1, 0.1, 0.1, 0.1);
     }
 
+    /** Patronus: the wearer shrugs off Darkness and Wither. */
+    @SubscribeEvent
+    public static void onEffectApplicable(net.minecraftforge.event.entity.living.MobEffectEvent.Applicable event) {
+        var effect = event.getEffectInstance().getEffect();
+        if ((effect.is(net.minecraft.world.effect.MobEffects.DARKNESS) || effect.is(net.minecraft.world.effect.MobEffects.WITHER))
+                && SpellEnchantments.level(event.getEntity(), SpellEnchantments.PATRONUS,
+                net.minecraft.world.entity.EquipmentSlot.CHEST) > 0) {
+            event.setResult(net.minecraftforge.eventbus.api.Event.Result.DENY);
+        }
+    }
+
+    /** Glacius: a melee hit or an arrow from a Glacius weapon chills the target. */
+    @SubscribeEvent
+    public static void onGlaciusHit(LivingHurtEvent event) {
+        LivingEntity target = event.getEntity();
+        if (!(target.level() instanceof ServerLevel level) || event.getAmount() <= 0.0f) {
+            return;
+        }
+        Entity direct = event.getSource().getDirectEntity();
+        ItemStack weapon = ItemStack.EMPTY;
+        if (direct instanceof AbstractArrow arrow && arrow.getWeaponItem() != null) {
+            weapon = arrow.getWeaponItem();
+        } else if (direct instanceof LivingEntity attacker && direct == event.getSource().getEntity()) {
+            weapon = attacker.getMainHandItem();
+        }
+        int glacius = SpellEnchantments.level(level, SpellEnchantments.GLACIUS, weapon);
+        if (glacius <= 0 || target == event.getSource().getEntity()) {
+            return;
+        }
+        glacius = Math.min(3, glacius);
+        target.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN,
+                SpellEnchantments.glaciusTicks(glacius), glacius - 1), event.getSource().getEntity());
+        // Frost creeping over the screen and the skin (kept short of the cold's own damage at 140).
+        if (target.canFreeze()) {
+            target.setTicksFrozen(Math.min(130, target.getTicksFrozen() + 40 * glacius));
+        }
+        level.sendParticles(net.minecraft.core.particles.ParticleTypes.SNOWFLAKE, target.getX(), target.getY(0.6), target.getZ(),
+                8 + 4 * glacius, target.getBbWidth() * 0.4, target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.02);
+        level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.MOTE, 0xBFE9FF, 0.04f, 20), target.getX(), target.getY(0.5),
+                target.getZ(), 4, 0.3, 0.4, 0.3, 0.01);
+        level.playSound(null, target.blockPosition(), SoundEvents.POWDER_SNOW_STEP, SoundSource.PLAYERS, 0.8F, 1.4F);
+    }
+
     @SubscribeEvent
     public static void onBoltHit(LivingHurtEvent event) {
         if (!(event.getSource().getDirectEntity() instanceof AbstractArrow arrow)

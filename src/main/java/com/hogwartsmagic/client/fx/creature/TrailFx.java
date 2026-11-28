@@ -1,6 +1,7 @@
 package com.hogwartsmagic.client.fx.creature;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.entity.AurorEntity;
 import com.hogwartsmagic.entity.HungarianHorntailEntity;
 import com.hogwartsmagic.entity.WizardEntity;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -30,6 +31,7 @@ import java.util.Map;
  *   <li>a Death Eater (a {@link WizardEntity}, Voldemort too) in smoke flight: its model is hidden and in its place a
  *       ribbon of churning black smoke streams behind it, thick and dark at the body, tearing into wisps further back,
  *       inside a faint dark sheath;</li>
+ *   <li>an Auror in light flight: the same ribbon in silver-white, with a bright cold core down its middle;</li>
  *   <li>a Hungarian Horntail (or Ironbelly) stooping on its target: a ribbon of fire off the body that cools from
  *       white-gold to red, and behind it a much longer, heavier ribbon of black smoke.</li>
  * </ul>
@@ -63,7 +65,7 @@ public final class TrailFx {
     private static final float DRAGON_FIRE_LIFE = 15.0f, DRAGON_SMOKE_LIFE = 44.0f;
     private static final float DRAGON_FIRE_HALF = 1.15f, DRAGON_SMOKE_HALF = 1.5f;
 
-    private static final int KIND_SMOKE = 0, KIND_DRAGON = 1;
+    private static final int KIND_SMOKE = 0, KIND_DRAGON = 1, KIND_LIGHT = 2;
 
     private static final Map<Integer, Track> TRACKS = new HashMap<>();
     private static long clientTick;
@@ -109,7 +111,7 @@ public final class TrailFx {
         }
 
         float life() {
-            return kind == KIND_SMOKE ? SMOKE_LIFE : DRAGON_SMOKE_LIFE;
+            return kind == KIND_DRAGON ? DRAGON_SMOKE_LIFE : SMOKE_LIFE;
         }
     }
 
@@ -139,6 +141,8 @@ public final class TrailFx {
             int kind;
             if (e instanceof WizardEntity wizard && wizard.isFlying()) {
                 kind = KIND_SMOKE;
+            } else if (e instanceof AurorEntity auror && auror.isLightFlying()) {
+                kind = KIND_LIGHT;
             } else if (e instanceof HungarianHorntailEntity dragon
                     && dragon.getAttackState() == HungarianHorntailEntity.AttackState.DIVE) {
                 kind = KIND_DRAGON;
@@ -157,6 +161,8 @@ public final class TrailFx {
                 TRACKS.put(e.getId(), track);
                 if (kind == KIND_SMOKE) {
                     burst(level, e);
+                } else if (kind == KIND_LIGHT) {
+                    lightBurst(level, e);
                 }
             }
             track.live = true;
@@ -181,6 +187,19 @@ public final class TrailFx {
             double s = 0.04 + level.random.nextDouble() * 0.1;
             level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), e.getX() + Math.cos(a) * 0.3, cy + (level.random.nextDouble() - 0.5),
                     e.getZ() + Math.sin(a) * 0.3, Math.cos(a) * s, 0.03, Math.sin(a) * s);
+        }
+    }
+
+    /** The instant an Auror takes flight: a puff of white cloud and a scatter of silver sparks. */
+    private static void lightBurst(ClientLevel level, Entity e) {
+        double cy = e.getY() + e.getBbHeight() * 0.5;
+        for (int i = 0; i < 12; i++) {
+            double a = level.random.nextDouble() * Math.PI * 2.0;
+            double s = 0.04 + level.random.nextDouble() * 0.1;
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.CLOUD), e.getX() + Math.cos(a) * 0.3,
+                    cy + (level.random.nextDouble() - 0.5), e.getZ() + Math.sin(a) * 0.3, Math.cos(a) * s, 0.03, Math.sin(a) * s);
+            level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.END_ROD), e.getX(), cy, e.getZ(),
+                    Math.cos(a) * s * 1.5, (level.random.nextDouble() - 0.3) * 0.12, Math.sin(a) * s * 1.5);
         }
     }
 
@@ -224,6 +243,9 @@ public final class TrailFx {
             }
             if (t.kind == KIND_SMOKE) {
                 smoke(soft, m, n, t.phase, time, SMOKE_LIFE, SMOKE_HALF, 1.0f, 0.02f, 0.02f, 0.03f);
+            } else if (t.kind == KIND_LIGHT) {
+                // The Auror streak: the same churning ribbon, pale silver-white instead of black and a little thinner.
+                smoke(soft, m, n, t.phase, time, SMOKE_LIFE, SMOKE_HALF * 0.85f, 0.75f, 0.9f, 0.93f, 1.0f);
             } else {
                 smoke(soft, m, n, t.phase, time, DRAGON_SMOKE_LIFE, DRAGON_SMOKE_HALF, 0.8f, 0.05f, 0.045f, 0.045f);
             }
@@ -233,7 +255,7 @@ public final class TrailFx {
         }
         // Fire goes over the smoke, additive, in its own batch.
         for (Track t : TRACKS.values()) {
-            if (t.kind != KIND_DRAGON) {
+            if (t.kind == KIND_SMOKE) {
                 continue;
             }
             int n = gather(t, partial, cam);
@@ -243,7 +265,13 @@ public final class TrailFx {
             if (glow == null) {
                 glow = buffer.getBuffer(CreatureDraw.GLOW);
             }
-            fire(glow, m, n, t.phase, time);
+            if (t.kind == KIND_LIGHT) {
+                // A bright cold core down the middle of the white smoke: the light in the light-flight.
+                flame(glow, m, n, t.phase, time, SMOKE_HALF * 0.55f, 0.55f, 0.65f, 0.8f, 0.9f);
+                flame(glow, m, n, t.phase + 1.7f, time, SMOKE_HALF * 0.22f, 0.9f, 0.95f, 1.0f, 1.0f);
+            } else {
+                fire(glow, m, n, t.phase, time);
+            }
         }
         if (glow != null) {
             buffer.endBatch(CreatureDraw.GLOW);

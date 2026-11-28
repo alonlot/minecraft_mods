@@ -926,6 +926,8 @@ public class ExampleMod
 
     public static final RegistryObject<Item> STUDENT_SPAWN_EGG = ITEMS.register("student_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.STUDENT, 0x8B4513, 0xFFDD44, new Item.Properties()));
+    public static final RegistryObject<Item> AUROR_SPAWN_EGG = ITEMS.register("auror_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.AUROR, 0x7A1420, 0x1C1C22, new Item.Properties()));
 
     public static final RegistryObject<Item> OWL_SPAWN_EGG = ITEMS.register("owl_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.OWL, 0xC19E67, 0xFFFFFF, new Item.Properties()));
@@ -1360,6 +1362,7 @@ public class ExampleMod
                 output.accept(TRIWIZARD_ROBES.get());
                 output.accept(WIZARD_SPAWN_EGG.get()); // Wizard Spawn Egg
                 output.accept(STUDENT_SPAWN_EGG.get()); // Student Spawn Egg
+                output.accept(AUROR_SPAWN_EGG.get());
                 output.accept(OWL_SPAWN_EGG.get()); // Owl Spawn Egg
                 output.accept(HIPPOGRIFF_SPAWN_EGG.get()); // Hippogriff Spawn Egg
                 output.accept(UNICORN_SPAWN_EGG.get()); // Unicorn Spawn Egg

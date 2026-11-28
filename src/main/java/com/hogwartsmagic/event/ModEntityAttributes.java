@@ -35,6 +35,7 @@ public class ModEntityAttributes {
         event.put(ModEntities.WIZARD.get(), WizardEntity.createAttributes().build());
         event.put(ModEntities.VOLDEMORT.get(), VoldemortEntity.createAttributes().build());
         event.put(ModEntities.STUDENT.get(), StudentEntity.createAttributes().build());
+        event.put(ModEntities.AUROR.get(), com.hogwartsmagic.entity.AurorEntity.createAttributes().build());
         event.put(ModEntities.FLYING_MOB.get(), FlyingMobEntity.createAttributes().build());
         event.put(ModEntities.ACROMANTULA.get(), AcromantulaEntity.createAttributes().build());
         event.put(ModEntities.DEMENTOR.get(), DementorEntity.createAttributes().build());

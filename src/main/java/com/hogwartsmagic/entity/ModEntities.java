@@ -203,6 +203,13 @@ public class ModEntities {
                             .clientTrackingRange(8)
                             .build("student"));
 
+    public static final RegistryObject<EntityType<AurorEntity>> AUROR =
+            ENTITY_TYPES.register("auror",
+                    () -> EntityType.Builder.<AurorEntity>of(AurorEntity::new, MobCategory.CREATURE)
+                            .sized(0.6f, 1.95f)
+                            .clientTrackingRange(10)
+                            .build("auror"));
+
     public static final RegistryObject<EntityType<DarkMarkEntity>> DARK_MARK =
             ENTITY_TYPES.register("dark_mark",
                     () -> EntityType.Builder.<DarkMarkEntity>of(DarkMarkEntity::new, MobCategory.MISC)

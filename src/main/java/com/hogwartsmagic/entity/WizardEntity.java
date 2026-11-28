@@ -85,6 +85,10 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
     @Override
     public void tick() {
         super.tick();
+        if (!this.level().isClientSide && com.hogwartsmagic.auror.AurorPrison.isPrisoner(this)) {
+            com.hogwartsmagic.auror.AurorPrison.tick(this); // caged in an Auror tower until its cell opens
+            return;
+        }
         if (!this.level().isClientSide && this.escortOwner != null) {
             DeathEaterEscort.tick(this); // Dark Magic: follow, catch up, and leave after 5 minutes
         }
@@ -217,6 +221,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         // strike).
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, 10, true, false,
                 target -> !this.ignoresPlayer(target)));
+        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, AurorEntity.class, true)); // the Aurors
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, net.minecraft.world.entity.npc.Villager.class, true));
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, net.minecraft.world.entity.animal.IronGolem.class, true));
         this.targetSelector.addGoal(4, new NearestAttackableTargetGoal<>(this, StudentEntity.class, true));

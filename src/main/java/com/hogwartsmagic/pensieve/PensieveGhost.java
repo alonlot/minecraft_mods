@@ -9,6 +9,8 @@ import net.minecraft.world.entity.player.Player;
 public final class PensieveGhost {
     /** Set by client code while the local player is a free ghost inside a recorded memory. */
     public static volatile boolean localNoclip;
+    /** Set by client code while the local player is inside a Pensieve dive (the server's viewer list is not here). */
+    public static volatile boolean localViewer;
 
     private PensieveGhost() {
     }
@@ -17,5 +19,12 @@ public final class PensieveGhost {
     public static boolean noclip(Player p) {
         if (p.level().isClientSide) return localNoclip && p.isLocalPlayer();
         return PensieveSessions.isFreeGhost(p);
+    }
+
+    /** Whether {@code p} is watching a memory, asked on whichever side the caller runs. */
+    public static boolean viewer(Player p) {
+        if (p == null) return false;
+        if (p.level().isClientSide) return localViewer && p.isLocalPlayer();
+        return PensieveSessions.isViewer(p);
     }
 }

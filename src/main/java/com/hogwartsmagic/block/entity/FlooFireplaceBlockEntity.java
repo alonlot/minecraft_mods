@@ -133,13 +133,16 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
             return;
         }
 
-        // The traveller has to be standing inside the fireplace, on the hearth.
-        ServerPlayer player = level.getEntitiesOfClass(ServerPlayer.class,
-                        new AABB(worldPosition).expandTowards(0.0, 1.0, 0.0),
-                        serverPlayer -> serverPlayer.onGround() && serverPlayer.blockPosition().equals(worldPosition))
-                .stream()
+        // The traveller has to be standing inside the fireplace, on the hearth. Whoever threw the powder
+        // goes if they are in there; otherwise whoever is.
+        java.util.List<ServerPlayer> onHearth = level.getEntitiesOfClass(ServerPlayer.class,
+                new AABB(worldPosition).expandTowards(0.0, 1.0, 0.0),
+                serverPlayer -> serverPlayer.onGround() && serverPlayer.blockPosition().equals(worldPosition));
+        java.util.UUID thrower = powderEntity.getOwner() != null ? powderEntity.getOwner().getUUID() : null;
+        ServerPlayer player = onHearth.stream()
+                .filter(sp -> sp.getUUID().equals(thrower))
                 .findFirst()
-                .orElse(null);
+                .orElse(onHearth.isEmpty() ? null : onHearth.get(0));
         if (player == null) {
             return;
         }

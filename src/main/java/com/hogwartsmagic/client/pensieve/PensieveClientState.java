@@ -707,11 +707,14 @@ public final class PensieveClientState {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) {
             if (phase != NONE) reset();
+            PensieveGhost.localViewer = false;
             wakePending = false;
             wakeStart = -1;
             timeLevel = null;
             return;
         }
+        // Mirrors the server's viewer list for this client, so PensieveEvents can cancel input here too.
+        PensieveGhost.localViewer = phase != NONE;
         if (phase == NONE) {
             drainLeaveKey();
             if (wakeStart >= 0) {

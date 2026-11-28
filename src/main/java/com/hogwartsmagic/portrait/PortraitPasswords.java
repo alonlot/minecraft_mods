@@ -51,8 +51,9 @@ public final class PortraitPasswords {
         if (!deliver(player, said, false)) {
             return false;
         }
-        player.sendSystemMessage(Component.literal("You whisper to the portrait: " + said)
-                .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+        // Action bar, not chat: chat lines are captured into Pensieve memories other players can watch.
+        player.displayClientMessage(Component.literal("You whisper to the portrait: " + said)
+                .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC), true);
         return true;
     }
 

@@ -54,8 +54,8 @@ public final class CrowdControl {
         if (target.level().isClientSide() || !target.isAlive() || baseTicks <= 0) {
             return 0;
         }
-        if (immuneByMode(target)) {
-            return 0;
+        if (immuneByMode(target) || com.hogwartsmagic.spell.mind.MindControl.pvpBlocked(target, source)) {
+            return 0; // pvp=false (or a team that can't hurt them): no player-on-player crowd control
         }
         MobEffectInstance probe = new MobEffectInstance(effect, baseTicks, Math.max(0, amplifier), false, visible, visible);
         if (!target.canBeAffected(probe)) {
@@ -77,7 +77,8 @@ public final class CrowdControl {
 
     /** Scaled duration for this target right now. Consumes one diminishing-returns step when it is above 0. */
     public static int scaleDuration(LivingEntity target, int baseTicks, @Nullable Entity source) {
-        if (target.level().isClientSide() || !target.isAlive() || baseTicks <= 0 || immuneByMode(target)) {
+        if (target.level().isClientSide() || !target.isAlive() || baseTicks <= 0 || immuneByMode(target)
+                || com.hogwartsmagic.spell.mind.MindControl.pvpBlocked(target, source)) {
             return 0;
         }
         long now = target.level().getGameTime();

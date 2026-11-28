@@ -115,7 +115,7 @@ public class OwlPerchBlock extends BaseEntityBlock {
             OwlPost.openDefaultScreen(serverPlayer, perch);
             return InteractionResult.SUCCESS;
         }
-        if (perch.hasInbox()) {
+        if (perch.hasInbox() && perch.mayManage(player)) {
             int stacks = 0;
             for (ItemStack stack : perch.takeInbox()) {
                 stacks++;
@@ -127,7 +127,9 @@ public class OwlPerchBlock extends BaseEntityBlock {
                     "You take %s parcel(s) off the perch.", stacks), true);
             return InteractionResult.SUCCESS;
         }
-        if (perch.hasOutbox()) {
+        if (perch.hasOutbox() && (player.getUUID().equals(perch.getOutboxSender())
+                || (perch.getOutboxSender() == null && perch.mayManage(player)))) {
+            // Only whoever queued the parcel takes it back (the owner, for one a hopper loaded).
             ItemStack stack = perch.takeOutbox();
             if (!player.addItem(stack)) {
                 player.drop(stack, false);

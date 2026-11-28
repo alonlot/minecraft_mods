@@ -62,6 +62,12 @@ public class SpellBeamEntity extends ThrowableProjectile {
     /** Of those, how many also get particles; the rest get only their light. */
     private static final int REVELIO_MAX_PARTICLE_REVEALS = 128;
     private static final double MORSMORDRE_MIN_SKY_HEIGHT = 20.0D;
+
+    /** Spells that help whoever they hit: they still land on players when the server has pvp off. */
+    private static boolean friendlyToPlayers(SpellType spell) {
+        return spell == SpellType.HEAL || spell == SpellType.PROTEGO || spell == SpellType.PROTEGO_MAXIMA
+                || spell == SpellType.LUMOS || spell == SpellType.REVELIO || spell == SpellType.RIDDIKULUS;
+    }
     private static final double MORSMORDRE_MARK_MIN_HEIGHT_ABOVE_GROUND = -3.0D;
     private static final double MORSMORDRE_MARK_BELOW_PEAK_OFFSET = 31.0D;
     private static final double ARRESTO_MOMENTUM_PROXIMITY_TRACK_RANGE = 10.0D;
@@ -866,6 +872,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             com.hogwartsmagic.spell.SpellBeamFx.impact(this, spell, com.hogwartsmagic.spell.SpellBeamFx.bodyCentre(living), com.hogwartsmagic.spell.SpellBeamFx.EVADE);
                             this.impactSent = true;
                             hitSuccessful = true;
+                        } else if (!friendlyToPlayers(spell)
+                                && com.hogwartsmagic.spell.mind.MindControl.pvpBlocked(living, getOwner())) {
+                            // pvp=false (or teams that can't hurt each other): a hostile spell does nothing to a player.
+                            hitSuccessful = false;
                         } else {
                             hitSuccessful = true;
                             masteryTarget = living;

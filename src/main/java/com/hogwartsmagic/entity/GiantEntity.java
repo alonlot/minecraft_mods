@@ -339,7 +339,9 @@ public class GiantEntity extends Monster {
             this.crowdingTicks = 0;
             return;
         }
-        Player nearby = this.level().getNearestPlayer(this, CROWDING_RADIUS);
+        // Filter inside the search: a creative player standing closest must not shield a survival one behind them.
+        Player nearby = this.level().getNearestPlayer(this.getX(), this.getY(), this.getZ(), CROWDING_RADIUS,
+                e -> e instanceof Player p && !p.isCreative() && !p.isSpectator());
         if (nearby != null && !nearby.isCreative() && !nearby.isSpectator()) {
             this.crowdingTicks++;
             if (this.crowdingTicks >= CROWDING_PATIENCE) {

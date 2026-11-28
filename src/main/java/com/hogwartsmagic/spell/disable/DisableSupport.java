@@ -128,8 +128,9 @@ public final class DisableSupport {
         if (owner != null && !(owner instanceof Player)) {
             return npcFoe(owner, candidate, mainTarget);
         }
-        if (candidate instanceof Player) {
-            return mainTarget instanceof Player;
+        if (candidate instanceof Player victim) {
+            return mainTarget instanceof Player
+                    && !com.hogwartsmagic.spell.mind.MindControl.pvpBlocked(victim, owner);
         }
         if (candidate instanceof Mob mob && owner != null && mob.getTarget() == owner) {
             return true;

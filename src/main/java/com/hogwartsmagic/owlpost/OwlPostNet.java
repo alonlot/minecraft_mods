@@ -170,6 +170,12 @@ public final class OwlPostNet {
             return;
         }
         GlobalPos self = perch.globalPos();
+        if ((p.action() == ACTION_CLEAR_DEFAULT || p.action() == ACTION_SET_DEFAULT
+                || p.action() == ACTION_SEND_AND_DEFAULT) && !perch.mayManage(player)) {
+            player.displayClientMessage(Component.translatableWithFallback("message.hogwartsmagic.owl_post.not_yours",
+                    "Only this perch's owner can change where its hoppers send.").withStyle(ChatFormatting.RED), true);
+            return;
+        }
         if (p.action() == ACTION_CLEAR_DEFAULT) {
             perch.setDefaultDest(null);
             player.displayClientMessage(Component.translatableWithFallback("message.hogwartsmagic.owl_post.default_cleared",

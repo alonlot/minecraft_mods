@@ -34,7 +34,9 @@ public final class VisibleEffects {
         return effect == ExampleMod.LEVICORPUS_EFFECT.get() || effect == ExampleMod.PETRIFIED.get()
                 || effect == ExampleMod.BASILISK_PETRIFICATION.get() || effect == ExampleMod.GILLYWEED_EFFECT.get()
                 // Feral too: watchers draw a cursed player's werewolf at the hunting gallop.
-                || effect == ExampleMod.FERAL.get();
+                || effect == ExampleMod.FERAL.get()
+                // Tenebris Flight too: watchers draw Voldemort hovering from it, and must see it end.
+                || effect == ExampleMod.TENEBRIS_FLIGHT_EFFECT.get();
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)

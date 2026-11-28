@@ -180,7 +180,8 @@ public class GoldenSnitchEntity extends Mob {
                 this.getBoundingBox().inflate(CATCH_RANGE),
                 p -> p.isAlive() && !p.isSpectator() && p.getVehicle() instanceof BroomEntity);
         if (nearby.isEmpty()) return;
-        Player catcher = nearby.get(0);
+        Player catcher = java.util.Collections.min(nearby,
+                java.util.Comparator.comparingDouble(this::distanceToSqr)); // the closest rider, not list order
 
         if (this.level() instanceof ServerLevel sl) {
             sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(net.minecraft.core.particles.ParticleTypes.FIREWORK),

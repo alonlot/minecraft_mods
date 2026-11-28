@@ -143,6 +143,12 @@ public class OwlPerchBlockEntity extends BlockEntity implements WorldlyContainer
         return owner;
     }
 
+    /** Whether {@code player} may take this perch's post and set where its hoppers send: owner or op (anyone on an unowned perch). */
+    public boolean mayManage(net.minecraft.world.entity.player.Player player) {
+        return owner == null || owner.equals(player.getUUID())
+                || (player instanceof net.minecraft.server.level.ServerPlayer sp && sp.hasPermissions(2));
+    }
+
     public void setPerchName(String perchName) {
         this.perchName = perchName == null ? "" : perchName;
         setChanged();

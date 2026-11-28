@@ -109,6 +109,36 @@ public class PensieveBlock extends BaseEntityBlock {
         return InteractionResult.CONSUME;
     }
 
+    /**
+     * Mining a basin drops its memory, so mining is held to the same rule as lifting it out: someone else's
+     * private memory (or one with people inside it) can't be taken by breaking the block.
+     */
+    @Override
+    public boolean onDestroyedByPlayer(BlockState state, Level level, BlockPos pos, Player player, boolean willHarvest,
+                                       net.minecraft.world.level.material.FluidState fluid) {
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PensieveBlockEntity basin
+                && !basin.memory().isEmpty()) {
+            boolean op = player instanceof ServerPlayer sp && sp.hasPermissions(2);
+            if (!BasinAccess.canTakeOut(basin.pourer(), player.getUUID(), op, basin.publicBasin(),
+                    PensieveSessions.anyoneInside(level, pos))) {
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.not_yours"), true);
+                level.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
+                return false;
+            }
+        }
+        return super.onDestroyedByPlayer(state, level, pos, player, willHarvest, fluid);
+    }
+
+    /** A basin holding a memory doesn't blow apart: an explosion would hand the memory to whoever lit it. */
+    @Override
+    public float getExplosionResistance(BlockState state, net.minecraft.world.level.BlockGetter level, BlockPos pos,
+                                        net.minecraft.world.level.Explosion explosion) {
+        if (level.getBlockEntity(pos) instanceof PensieveBlockEntity basin && !basin.memory().isEmpty()) {
+            return 3_600_000.0F;
+        }
+        return super.getExplosionResistance(state, level, pos, explosion);
+    }
+
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {

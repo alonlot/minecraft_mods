@@ -92,35 +92,35 @@ public final class PensieveEvents {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onInteract(PlayerInteractEvent event) {
-        if (event.isCancelable() && PensieveSessions.isViewer(event.getEntity())) {
+        if (event.isCancelable() && PensieveGhost.viewer(event.getEntity())) {
             event.setCanceled(true);
         }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onBreak(BlockEvent.BreakEvent event) {
-        if (PensieveSessions.isViewer(event.getPlayer())) {
+        if (PensieveGhost.viewer(event.getPlayer())) {
             event.setCanceled(true);
         }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onPlace(BlockEvent.EntityPlaceEvent event) {
-        if (event.getEntity() instanceof Player p && PensieveSessions.isViewer(p)) {
+        if (event.getEntity() instanceof Player p && PensieveGhost.viewer(p)) {
             event.setCanceled(true);
         }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onAttack(AttackEntityEvent event) {
-        if (PensieveSessions.isViewer(event.getEntity())) {
+        if (PensieveGhost.viewer(event.getEntity())) {
             event.setCanceled(true);
         }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onPickup(EntityItemPickupEvent event) {
-        if (PensieveSessions.isViewer(event.getEntity())) {
+        if (PensieveGhost.viewer(event.getEntity())) {
             event.setCanceled(true);
         }
     }

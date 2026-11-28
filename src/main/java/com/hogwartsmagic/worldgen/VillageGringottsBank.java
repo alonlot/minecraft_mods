@@ -131,12 +131,17 @@ public final class VillageGringottsBank {
         if (job == null) {
             return;
         }
+        // The player who triggered it left: wait rather than force-loading chunks from the tick.
+        if (!footprintResident(job.level, job.anchor, job.width, job.length)) {
+            return;
+        }
         try {
             if (job.advance()) {
                 job.staff();
                 VillageBankTracker tracker = VillageBankTracker.get(job.level);
                 if (job.villageCenter != null) {
                     tracker.markVisited(job.villageCenter);
+                    tracker.clearPending(job.villageCenter);
                 }
                 tracker.addBank(job.locator());
                 announce(job.level, job.locator());
@@ -154,6 +159,10 @@ public final class VillageGringottsBank {
             }
         } catch (Exception e) {
             LOGGER.error("Gringotts placement failed; abandoning job", e);
+            if (job.villageCenter != null) {
+                // Stays visited: a half bank is better than a second one built over it.
+                VillageBankTracker.get(job.level).clearPending(job.villageCenter);
+            }
             activeJob = null;
         }
     }
@@ -279,6 +288,9 @@ public final class VillageGringottsBank {
             return;
         }
         try {
+            if (resumePending(player)) {
+                return;
+            }
             attemptBuild(player);
         } catch (Exception e) {
             LOGGER.error("Gringotts site search failed", e);
@@ -323,7 +335,46 @@ public final class VillageGringottsBank {
 
         RandomSource rng = RandomSource.create(level.getSeed() ^ bell.asLong());
         activeJob = new PlacementJob(level, schem, anchor, bell, rng);
+        // Judged now, not on completion, and the anchor kept: an interrupted build resumes in place.
+        tracker.markVisited(bell);
+        tracker.setPending(bell, anchor);
         LOGGER.info("Gringotts bank starting at {} for village bell {}", anchor, bell);
+    }
+
+    /**
+     * Restarts a build a server stop cut short, at the anchor it began on (same seed, so the same bank;
+     * placing over the finished part is harmless). True if one was resumed.
+     */
+    private static boolean resumePending(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        VillageBankTracker tracker = VillageBankTracker.get(level);
+        if (tracker.getPending().isEmpty()) {
+            return false;
+        }
+        GringottsSchematic schem = GringottsSchematic.get();
+        if (schem == null) {
+            return false;
+        }
+        for (java.util.Map.Entry<BlockPos, BlockPos> e : tracker.getPending().entrySet()) {
+            BlockPos bell = e.getKey();
+            BlockPos anchor = e.getValue();
+            if (bell.distSqr(player.blockPosition()) > 160.0D * 160.0D
+                    || !footprintResident(level, anchor, schem.width(), schem.length())) {
+                continue;
+            }
+            RandomSource rng = RandomSource.create(level.getSeed() ^ bell.asLong());
+            activeJob = new PlacementJob(level, schem, anchor, bell, rng);
+            LOGGER.info("Gringotts bank resuming at {} for village bell {}", anchor, bell);
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean footprintResident(ServerLevel level, BlockPos anchor, int w, int l) {
+        int minX = anchor.getX();
+        int minZ = anchor.getZ();
+        return resident(level, minX, minZ) && resident(level, minX + w, minZ)
+                && resident(level, minX, minZ + l) && resident(level, minX + w, minZ + l);
     }
 
     /** The village bell is the village's identity; reads resident POI data only. */

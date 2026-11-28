@@ -29,6 +29,11 @@ public class VillageBankTracker extends SavedData {
 
     private final List<BlockPos> visited = new ArrayList<>();
     private final List<BlockPos> banks = new ArrayList<>();
+    /**
+     * Builds started but not finished (village bell -> anchor). A restart or a failure mid-build must not
+     * leave the village unjudged, or the next visitor would raise a second bank over the first half.
+     */
+    private final java.util.Map<BlockPos, BlockPos> pending = new java.util.LinkedHashMap<>();
 
     public static VillageBankTracker get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(
@@ -48,6 +53,21 @@ public class VillageBankTracker extends SavedData {
         }
         this.visited.add(villageCenter.immutable());
         setDirty();
+    }
+
+    public void setPending(BlockPos bell, BlockPos anchor) {
+        this.pending.put(bell.immutable(), anchor.immutable());
+        setDirty();
+    }
+
+    public void clearPending(BlockPos bell) {
+        if (this.pending.remove(bell) != null) {
+            setDirty();
+        }
+    }
+
+    public java.util.Map<BlockPos, BlockPos> getPending() {
+        return java.util.Collections.unmodifiableMap(this.pending);
     }
 
     public void addBank(BlockPos pos) {
@@ -93,6 +113,14 @@ public class VillageBankTracker extends SavedData {
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider provider) {
         tag.put("Visited", toList(this.visited));
         tag.put("Banks", toList(this.banks));
+        ListTag pendingList = new ListTag();
+        for (java.util.Map.Entry<BlockPos, BlockPos> e : this.pending.entrySet()) {
+            CompoundTag entry = new CompoundTag();
+            entry.putLong("Bell", e.getKey().asLong());
+            entry.putLong("Anchor", e.getValue().asLong());
+            pendingList.add(entry);
+        }
+        tag.put("Pending", pendingList);
         return tag;
     }
 
@@ -100,6 +128,11 @@ public class VillageBankTracker extends SavedData {
         VillageBankTracker tracker = new VillageBankTracker();
         readInto(tag.getList("Visited", Tag.TAG_LONG), tracker.visited);
         readInto(tag.getList("Banks", Tag.TAG_LONG), tracker.banks);
+        ListTag pendingList = tag.getList("Pending", Tag.TAG_COMPOUND);
+        for (int i = 0; i < pendingList.size(); i++) {
+            CompoundTag entry = pendingList.getCompound(i);
+            tracker.pending.put(BlockPos.of(entry.getLong("Bell")), BlockPos.of(entry.getLong("Anchor")));
+        }
         return tracker;
     }
 

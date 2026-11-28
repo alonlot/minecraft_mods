@@ -178,6 +178,19 @@ public class ModEvents {
         );
     }
 
+    /**
+     * A player coming into view learns their disguise (or that there is none, which clears a stale one left
+     * from before they walked out of range): the change itself only reaches whoever was tracking at the time.
+     */
+    @SubscribeEvent
+    public static void onStartTrackingPolyjuice(net.minecraftforge.event.entity.player.PlayerEvent.StartTracking event) {
+        if (event.getEntity() instanceof ServerPlayer watcher && event.getTarget() instanceof ServerPlayer target) {
+            SpellPackets.CHANNEL.send(
+                    new SpellPackets.SyncPolyjuiceDisguisePacket(target.getUUID(), PolyjuiceData.getActive(target)),
+                    PacketDistributor.PLAYER.with(watcher));
+        }
+    }
+
     /** A timed Lumos light: its removal is a scheduled block tick saved with the chunk, so it survives no restart. */
     public static void addTemporaryRevelioLight(ServerLevel level, BlockPos pos, int ttlTicks) {
         com.hogwartsmagic.block.LumosLightBlock.placeTimedLight(level, pos, 15, ttlTicks);
@@ -330,6 +343,12 @@ public class ModEvents {
             if (player.blockPosition().closerThan(raid.center, WIZARD_RAID_RADIUS)) {
                 raid.bossBar.addPlayer(player);
             } else {
+                raid.bossBar.removePlayer(player);
+            }
+        }
+        // Players who left this dimension or the server are not in level.players(): drop them too.
+        for (net.minecraft.server.level.ServerPlayer player : new java.util.ArrayList<>(raid.bossBar.getPlayers())) {
+            if (player.level() != level || player.hasDisconnected()) {
                 raid.bossBar.removePlayer(player);
             }
         }
@@ -1829,6 +1848,14 @@ public class ModEvents {
     }
 
     /** Effect checks only (no persistent-data reads). */
+    /** Side-along takes mobs, but another player only if they opt in by sneaking; never a spectator. */
+    private static boolean willingSideAlong(net.minecraft.world.entity.LivingEntity e) {
+        if (e instanceof Player other) {
+            return !other.isSpectator() && other.isShiftKeyDown();
+        }
+        return true;
+    }
+
     public static boolean isHeldInPlace(net.minecraft.world.entity.LivingEntity e) {
         return com.hogwartsmagic.spell.disable.LevicorpusSpell.isHanging(e)
                 || e.hasEffect(ExampleMod.INCARCEROUS_CHAINS.getHolder().get());
@@ -1939,7 +1966,7 @@ public class ModEvents {
 
         // Side-along: anyone within a block comes with you. Gather BEFORE moving.
         java.util.List<LivingEntity> passengers = level.getEntitiesOfClass(LivingEntity.class,
-                player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive() && !isHeldInPlace(e));
+                player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive() && !isHeldInPlace(e) && willingSideAlong(e));
 
         // Splinch risk falls with rank and comes from config (10% at Novice by default, and it can be
         // switched off); a botched jump still lands you short.
@@ -2050,7 +2077,7 @@ public class ModEvents {
 
         // Side-along: anyone within a block comes with you. Gather BEFORE moving.
         java.util.List<LivingEntity> passengers = level.getEntitiesOfClass(LivingEntity.class,
-                player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive() && !isHeldInPlace(e));
+                player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive() && !isHeldInPlace(e) && willingSideAlong(e));
         Vec3 from = player.position();
         crackEffect(player, from.x, from.y, from.z, true);
         player.teleportTo(x, y, z);

@@ -97,6 +97,11 @@ final class PortraitDoor {
         long now = player.serverLevel().getGameTime();
         ItemStack stack = player.getItemInHand(hand);
         if (stack.is(Items.PAPER)) {
+            if (recorder != null && !recorder.equals(player.getUUID()) && now <= recordUntil) {
+                // Someone else is mid-way through telling her a password: theirs would be lost to public chat.
+                say(player, "One at a time, dear, I'm already listening to someone.");
+                return;
+            }
             if (!player.hasInfiniteMaterials()) {
                 stack.shrink(1);
             }

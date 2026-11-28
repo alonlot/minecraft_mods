@@ -73,6 +73,25 @@ public final class CastFizzleGameTests {
     }
 
     @GameTest(template = EMPTY)
+    public static void cooldownFollowsThePlayerToAnotherWand(GameTestHelper helper) {
+        ServerPlayer p = caster(helper, SpellType.STUPEFY, "cooldown-swap");
+        ItemStack first = p.getMainHandItem();
+        long now = p.level().getGameTime();
+        com.hogwartsmagic.spell.SpellCooldowns.set(p, first, SpellType.STUPEFY, now + 200L);
+        ItemStack second = first.copy();
+        MagicWandItem.setSpellCooldown(second, SpellType.STUPEFY, 0L); // a wand that never cast it
+        helper.assertTrue(com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(p, second, SpellType.STUPEFY, now),
+                "a second wand does not skip the cooldown");
+        com.hogwartsmagic.spell.SpellCooldowns.mirrorOnto(p, second);
+        helper.assertTrue(MagicWandItem.getSpellCooldown(second, SpellType.STUPEFY) == now + 200L,
+                "the held wand shows the player's timer");
+        helper.assertFalse(com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(p, second, SpellType.STUPEFY, now + 200L),
+                "the cooldown still ends");
+        helper.getLevel().getServer().getPlayerList().remove(p);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY)
     public static void refusedCastsFizzleAndChargeNothing(GameTestHelper helper) {
         ServerPlayer p = caster(helper, SpellType.LUMOS, "fizzle-refused");
         ItemStack wand = p.getMainHandItem();

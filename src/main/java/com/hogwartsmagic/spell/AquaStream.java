@@ -205,7 +205,7 @@ public final class AquaStream {
             return;
         }
         boolean creative = player.isCreative();
-        if (!creative && MagicWandItem.isOnCooldown(wand, SpellType.AQUA_ERUCTO, now)) {
+        if (!creative && com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(player, wand, SpellType.AQUA_ERUCTO, now)) {
             return;
         }
         if (!creative && !pay(player, SpellCosts.manaCost(player, wand, SpellType.AQUA_ERUCTO))) {

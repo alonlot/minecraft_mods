@@ -412,7 +412,7 @@ public final class PossessionManager {
             }
             learned.add(spell.getId());
             ranks.add(SpellMasteryData.getRank(victim, spell));
-            long left = holdsWand ? MagicWandItem.getSpellCooldown(wand, spell) - now : 0L;
+            long left = com.hogwartsmagic.spell.SpellCooldowns.get(victim, wand, spell) - now;
             cooldowns.add((int) Math.max(0L, Math.min(Integer.MAX_VALUE, left)));
         }
         List<String> wandSlots = new ArrayList<>(MagicWandItem.SPELL_SLOT_COUNT);

@@ -239,21 +239,25 @@ public final class VoiceCastClient {
 
     /** Prime the recogniser with the spells this player knows (or all, see {@link #PROMPT_KNOWN_ONLY}). */
     private static void refreshPrompt(Player player) {
-        if (!PROMPT_KNOWN_ONLY) {
-            return;
-        }
         java.util.List<String> known = new java.util.ArrayList<>();
         for (SpellType s : SpellType.values()) {
             if (MagicBookItem.isSpellLearned(player, s)) {
                 known.add(s.getId());
             }
         }
+        knownSpells = java.util.Set.copyOf(known);
+        if (!PROMPT_KNOWN_ONLY) {
+            return;
+        }
         ENGINE.setPrompt(IncantationMatcher.recogniserPrompt(known));
     }
 
+    /** The spells the player knew at the last prompt refresh; only those are matched (empty: every spell). */
+    private static volatile java.util.Set<String> knownSpells = java.util.Set.of();
+
     /** The matcher with this computer's practice aliases for the model that heard the take. */
     private static IncantationMatcher.Result match(WhisperEngine.Heard heard, boolean strict) {
-        return IncantationMatcher.match(heard.text(), strict, VoiceAliasStore.view(heard.model()));
+        return IncantationMatcher.match(heard.text(), strict, VoiceAliasStore.view(heard.model()), knownSpells);
     }
 
     private static void saveTake(WhisperEngine.Heard heard, String mode, IncantationMatcher.Result result) {

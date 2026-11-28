@@ -48,7 +48,20 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
     public static final int SLOT_SPELL = 0;
     public static final int SLOT_BOOK = 1;
     public static final int SLOT_DUST = 2;
+    /** The rite's length by Incantare rank (Novice to Master): 5 s, 4 s, 3 s, 2 s. */
+    private static final int[] RITE_BY_RANK = {100, 80, 60, 40};
+    /** Chance the rite gives a level II book, by rank: from Expert, 15%; at Master, 30%. */
+    private static final float[] LEVEL_TWO_BY_RANK = {0.0f, 0.0f, 0.15f, 0.30f};
+    /** The Novice length, for anything that has no rite running to ask. */
     public static final int RITE_TICKS = 100;
+
+    public static int riteTicks(int rank) {
+        return RITE_BY_RANK[Math.max(0, Math.min(3, rank - 1))];
+    }
+
+    public static float levelTwoChance(int rank) {
+        return LEVEL_TWO_BY_RANK[Math.max(0, Math.min(3, rank - 1))];
+    }
     /** Height of the top the items rest over, in blocks from the block's foot. */
     public static final double TOP = 1.0;
 
@@ -56,6 +69,9 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
     private ItemStack result = ItemStack.EMPTY;
     /** Ticks into the rite, or -1 when none is running. */
     private int rite = -1;
+    /** The running rite's length and the caster's Incantare rank. */
+    private int riteTotal = RITE_TICKS;
+    private int riteRank = 1;
 
     public SpellTransmuterBlockEntity(BlockPos pos, BlockState state) {
         super(ExampleMod.SPELL_TRANSMUTER_BLOCK_ENTITY.get(), pos, state);
@@ -89,8 +105,9 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
         slots[slot] = held.split(1);
         level.playSound(null, worldPosition, SoundEvents.AMETHYST_BLOCK_PLACE, SoundSource.BLOCKS, 0.8F,
                 0.9F + slot * 0.15F);
-        if (!slots[SLOT_SPELL].isEmpty() && !slots[SLOT_BOOK].isEmpty() && !slots[SLOT_DUST].isEmpty()) {
-            beginRite(level);
+        if (isLaden()) {
+            // Ready: a soft chime tells the player to cast Incantare at it.
+            level.playSound(null, worldPosition, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 0.7F, 1.4F);
         }
         changed();
         return true;
@@ -163,6 +180,32 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
 
     // ------------------------------------------------------------------------------------------------ the rite
 
+    /** All three laid on and no rite running or book waiting: ready for Incantare. */
+    public boolean isLaden() {
+        return rite < 0 && result.isEmpty() && !slots[SLOT_SPELL].isEmpty() && !slots[SLOT_BOOK].isEmpty()
+                && !slots[SLOT_DUST].isEmpty();
+    }
+
+    public int riteTotal() {
+        return riteTotal;
+    }
+
+    /** Incantare hit the transmuter. False (and the charm fizzles) unless all three are laid on. */
+    public boolean beginRiteFromSpell(ServerLevel level, @Nullable net.minecraft.world.entity.Entity caster) {
+        if (!isLaden()) {
+            if (com.hogwartsmagic.spell.combat.CombatEffects.responsible(caster) instanceof net.minecraft.world.entity.player.Player p) {
+                p.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.hogwartsmagic.spell_transmuter.not_ready").withStyle(net.minecraft.ChatFormatting.GRAY), true);
+            }
+            return false;
+        }
+        riteRank = com.hogwartsmagic.spell.disable.DisableSupport.casterRank(caster, SpellType.INCANTARE);
+        riteTotal = riteTicks(riteRank);
+        beginRite(level);
+        changed();
+        return true;
+    }
+
     private void beginRite(ServerLevel level) {
         rite = 0;
         level.playSound(null, worldPosition, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.9F, 1.4F);
@@ -172,7 +215,7 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
     public static void tick(Level level, BlockPos pos, BlockState state, SpellTransmuterBlockEntity be) {
         if (level.isClientSide) {
             be.clientTick(level);
-            if (be.rite >= 0 && be.rite < RITE_TICKS) {
+            if (be.rite >= 0 && be.rite < be.riteTotal) {
                 be.rite++; // run ahead smoothly between the server's syncs
             }
             return;
@@ -182,14 +225,14 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
         }
         be.rite++;
         ServerLevel server = (ServerLevel) level;
-        if (be.rite % 20 == 0 && be.rite < RITE_TICKS) {
+        if (be.rite % 20 == 0 && be.rite < be.riteTotal) {
             server.playSound(null, pos, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS, 0.9F,
-                    0.7F + be.rite / (float) RITE_TICKS * 0.8F);
+                    0.7F + be.rite / (float) be.riteTotal * 0.8F);
         }
-        if (be.rite == RITE_TICKS - 25) {
+        if (be.rite == be.riteTotal - 25) {
             server.playSound(null, pos, SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.BLOCKS, 0.8F, 1.6F);
         }
-        if (be.rite >= RITE_TICKS) {
+        if (be.rite >= be.riteTotal) {
             be.finish(server);
         }
     }
@@ -206,7 +249,8 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
         for (int i = 0; i < slots.length; i++) {
             slots[i] = ItemStack.EMPTY;
         }
-        result = EnchantedBookItem.createForEnchantment(new EnchantmentInstance(holder.get(), 1));
+        int bookLevel = level.random.nextFloat() < levelTwoChance(riteRank) && holder.get().value().getMaxLevel() >= 2 ? 2 : 1;
+        result = EnchantedBookItem.createForEnchantment(new EnchantmentInstance(holder.get(), bookLevel));
         changed();
 
         Vec3 c = Vec3.atBottomCenterOf(worldPosition).add(0.0, TOP + 0.45, 0.0);
@@ -232,6 +276,11 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
         double cz = worldPosition.getZ() + 0.5;
         int colour = colour();
         if (rite < 0) {
+            if (isLaden() && random.nextInt(2) == 0) {
+                double a = level.getGameTime() * 0.15 + random.nextDouble() * 0.4;
+                level.addParticle(new SpellVfxOptions(SpellVfxOptions.Kind.GLOW, colour, 0.05f, 12),
+                        cx + Math.cos(a) * 0.42, cy + 0.35, cz + Math.sin(a) * 0.42, 0.0, 0.005, 0.0);
+            }
             if (!isEmpty() && random.nextInt(6) == 0) {
                 level.addParticle(new SpellVfxOptions(SpellVfxOptions.Kind.MOTE, result.isEmpty() ? colour : 0xD8B8FF,
                         0.035f, 30 + random.nextInt(20)), cx + (random.nextDouble() - 0.5) * 0.7, cy + 0.15,
@@ -247,7 +296,7 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
             }
             return;
         }
-        float p = Math.min(1.0f, rite / (float) RITE_TICKS);
+        float p = Math.min(1.0f, rite / (float) riteTotal);
         // Glyphs drawn in from a ring round the transmuter, ever more of them.
         int glyphs = 1 + (int) (p * 4);
         for (int i = 0; i < glyphs; i++) {
@@ -302,6 +351,8 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
             tag.put("Result", result.save(registries));
         }
         tag.putInt("Rite", rite);
+        tag.putInt("RiteTotal", riteTotal);
+        tag.putInt("RiteRank", riteRank);
     }
 
     @Override
@@ -312,6 +363,8 @@ public class SpellTransmuterBlockEntity extends BlockEntity {
         }
         result = tag.contains("Result") ? ItemStack.parseOptional(registries, tag.getCompound("Result")) : ItemStack.EMPTY;
         rite = tag.contains("Rite") ? tag.getInt("Rite") : -1;
+        riteTotal = tag.contains("RiteTotal") ? Math.max(1, tag.getInt("RiteTotal")) : RITE_TICKS;
+        riteRank = tag.contains("RiteRank") ? tag.getInt("RiteRank") : 1;
     }
 
     @Override

@@ -34,6 +34,7 @@ public final class SpellTransmuterGameTests {
         helper.assertTrue(SpellTransmuterBlockEntity.slotFor(stupefy) < 0, "a spell with no enchantment is refused");
         helper.assertFalse(be.insert(level, stupefy), "and not taken");
 
+        helper.assertFalse(be.beginRiteFromSpell(level, null), "Incantare on an empty transmuter fizzles");
         helper.assertTrue(be.insert(level, MagicBookItem.createBook(SpellType.PROTEGO)), "the spell book goes on");
         helper.assertFalse(be.insert(level, MagicBookItem.createBook(SpellType.PROTEGO)), "only one spell book");
         helper.assertTrue(be.insert(level, new ItemStack(Items.BOOK)), "the plain book goes on");
@@ -41,7 +42,9 @@ public final class SpellTransmuterGameTests {
         ItemStack dust = new ItemStack(ExampleMod.ARCANE_DUST.get(), 5);
         helper.assertTrue(be.insert(level, dust), "the dust goes on");
         helper.assertTrue(dust.getCount() == 4, "one dust taken, not the stack");
-        helper.assertTrue(be.rite() == 0, "all three start the rite");
+        helper.assertTrue(be.rite() < 0 && be.isLaden(), "all three wait for the charm");
+        helper.assertTrue(be.beginRiteFromSpell(level, null), "Incantare starts the rite");
+        helper.assertTrue(be.rite() == 0, "the rite is running");
         helper.assertTrue(be.takeOne().isEmpty(), "nothing comes off mid-rite");
 
         helper.runAfterDelay(SpellTransmuterBlockEntity.RITE_TICKS + 5, () -> {

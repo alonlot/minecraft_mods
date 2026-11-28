@@ -772,6 +772,19 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             }
                         }
                     }
+                } else if (spell == SpellType.INCANTARE) {
+                    if (this.level() instanceof ServerLevel sl) {
+                        if (this.level().getBlockEntity(pos) instanceof com.hogwartsmagic.block.entity.SpellTransmuterBlockEntity transmuter
+                                && transmuter.beginRiteFromSpell(sl, getOwner())) {
+                            hitSuccessful = true;
+                        } else {
+                            Vec3 at = Vec3.atCenterOf(pos);
+                            com.hogwartsmagic.spell.SpellBeamFx.effectAt(sl, spell, at, com.hogwartsmagic.spell.SpellBeamFx.FIZZLE);
+                            this.level().playSound(null, at.x, at.y, at.z, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS, 0.22f, 0.55f);
+                            hitSuccessful = true;
+                            masteryEligible = false; // nothing to bind earns no mastery
+                        }
+                    }
                 } else if (spell == SpellType.LUMOS) {
                     // Lumos Maxima (Expert and up): a floating light orb where the beam lands.
                     if (this.level() instanceof ServerLevel lumosLevel) {
@@ -860,7 +873,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         // Reparo and Alatus are block-only too: on a creature they did nothing yet paid hit XP.
                         if (spell == SpellType.MORSMORDRE || spell == SpellType.PIERTOTUM_LOCOMOTOR
                                 || spell == SpellType.COLLOPORTUS || spell == SpellType.CAELUM_FASCINO
-                                || spell == SpellType.REPARO || spell == SpellType.ALATUS) {
+                                || spell == SpellType.REPARO || spell == SpellType.ALATUS
+                                || spell == SpellType.INCANTARE) {
                             hitSuccessful = false;
                         } else if (spell == SpellType.AVADA_KEDAVRA && living instanceof VoldemortEntity voldemort && voldemort.tryEvadeAvada(getOwner())) {
                             com.hogwartsmagic.spell.SpellBeamFx.impact(this, spell, com.hogwartsmagic.spell.SpellBeamFx.bodyCentre(living), com.hogwartsmagic.spell.SpellBeamFx.EVADE);

@@ -74,6 +74,7 @@ public final class IncantationMatcher {
         put("confundo", "Confundo");
         put("cave_inimicum", "Cave Inimicum");
         put("alatus", "Alatus");
+        put("incantare", "Incantare");
         put("serpensortia", "Serpensortia");
         put("arresto_momentum", "Arresto Momentum");
         put("reparo", "Reparo");
@@ -188,6 +189,28 @@ public final class IncantationMatcher {
      */
     public static Result match(String heard, boolean strict, Map<String, ? extends java.util.Collection<String>> aliases) {
         return match(heard, strict, STRICT_EXTRA_WORD_PENALTY, lexicon(aliases));
+    }
+
+    /**
+     * As {@link #match(String, boolean, Map)}, heard against only the spells the player knows ({@code known}, spell
+     * ids; null or empty means every spell). A spell the player cannot cast is no rival: with Incantare unknown, a
+     * mangled "Incarcerous" is not lost to it on the margin.
+     */
+    public static Result match(String heard, boolean strict, Map<String, ? extends java.util.Collection<String>> aliases,
+                               java.util.Collection<String> known) {
+        List<Phrase> lexicon = lexicon(aliases);
+        if (known != null && !known.isEmpty()) {
+            List<Phrase> kept = new ArrayList<>();
+            for (Phrase p : lexicon) {
+                if (known.contains(p.spellId())) {
+                    kept.add(p);
+                }
+            }
+            if (!kept.isEmpty()) {
+                lexicon = kept;
+            }
+        }
+        return match(heard, strict, STRICT_EXTRA_WORD_PENALTY, lexicon);
     }
 
     static Result match(String heard, boolean strict, double extraWordPenalty) {

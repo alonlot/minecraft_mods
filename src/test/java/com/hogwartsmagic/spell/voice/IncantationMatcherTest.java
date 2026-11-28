@@ -40,7 +40,11 @@ class IncantationMatcherTest {
         assertEquals("imperio", id(" Embeddio."));
         assertEquals("accio", id(" Acho."));
         assertEquals("sectumsempra", id(" Sekdomemsempra."));
-        assertEquals("incarcerous", id(" Incarthris!"));
+        // Incantare sits close to this mangle; a player who does not know Incantare is matched without it.
+        java.util.Set<String> knownNoIncantare = new java.util.HashSet<>(IncantationMatcher.incantations().keySet());
+        knownNoIncantare.remove("incantare");
+        assertEquals("incarcerous", IncantationMatcher.match(" Incarthris!", false, java.util.Map.of(),
+                knownNoIncantare).spellId());
         assertEquals("stupefy", id(" Stupefyre.")); // every voice: the prompt's Fiendfyre bleeds in
         assertEquals("stupefy", id("Stupefyre, Stupefyre, Stupefyre, Stupefyre,")); // a repeat loop
         assertEquals("expecto_patronum", id("Inspector Patronum."));

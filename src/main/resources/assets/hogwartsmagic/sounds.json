@@ -5009,6 +5009,10 @@
     "subtitle": "subtitles.hogwartsmagic.spells.voice",
     "sounds": [{"name": "hogwartsmagic:spells/voice/alatus", "stream": false}]
   },
+  "spells.voice.incantare": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/incantare", "stream": false}]
+  },
   "spells.voice.serpensortia": {
     "subtitle": "subtitles.hogwartsmagic.spells.voice",
     "sounds": [{"name": "hogwartsmagic:spells/voice/serpensortia", "stream": false}]

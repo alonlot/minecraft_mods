@@ -1,0 +1,15 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "craft",
+      "target": "minecraft:enchanting_table",
+      "count": 1
+    },
+    {
+      "type": "craft",
+      "target": "hogwartsmagic:spell_transmuter",
+      "count": 1
+    }
+  ]
+}

@@ -23,7 +23,7 @@ public final class MagicBookChestLoot {
     private static final SpellType[] VILLAGE = {
             SpellType.LUMOS, SpellType.HEAL, SpellType.ACCIO, SpellType.ALOHOMORA,
             SpellType.WINGARDIUM_LEVIOSA, SpellType.PROTEGO, SpellType.DEPULSO, SpellType.DIFFINDO,
-            SpellType.ALATUS, SpellType.ARRESTO_MOMENTUM, SpellType.REPARO
+            SpellType.ALATUS, SpellType.ARRESTO_MOMENTUM, SpellType.REPARO, SpellType.INCANTARE
     };
     private static final SpellType[] WATER = {
             SpellType.AQUA_ERUCTO, SpellType.GLACIUS, SpellType.REVELIO, SpellType.ASCENDIO

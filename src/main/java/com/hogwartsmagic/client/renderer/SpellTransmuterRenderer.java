@@ -40,7 +40,7 @@ public class SpellTransmuterRenderer implements BlockEntityRenderer<SpellTransmu
             return;
         }
         int rite = be.rite();
-        float p = rite < 0 ? 0.0f : Mth.clamp((rite + partialTick) / SpellTransmuterBlockEntity.RITE_TICKS, 0.0f, 1.0f);
+        float p = rite < 0 ? 0.0f : Mth.clamp((rite + partialTick) / be.riteTotal(), 0.0f, 1.0f);
         // Ease in: slow at first, rushing at the end.
         float e = p * p;
         double radius = 0.3 * (1.0 - e);

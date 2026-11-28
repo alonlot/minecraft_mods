@@ -2313,7 +2313,7 @@
   "gui.hogwartsmagic.spell_say_it": "Say it aloud with your wand: %s",
   "block.hogwartsmagic.spell_transmuter": "Spell Transmuter",
   "block.hogwartsmagic.spell_transmuter.tooltip": "Lay on a spell book, a book and arcane dust to bind the spell into an enchantment",
-  "message.hogwartsmagic.spell_transmuter.hint": "Lay on a spell book, a plain book and arcane dust. Sneak and right-click for the guide",
+  "message.hogwartsmagic.spell_transmuter.hint": "Lay on a spell book, a plain book and arcane dust, then cast Incantare at it. Sneak and right-click for the guide",
   "message.hogwartsmagic.spell_transmuter.full": "That is already on the transmuter",
   "message.hogwartsmagic.spell_transmuter.busy": "The transmuter is binding a spell",
   "message.hogwartsmagic.spell_transmuter.no_binding": "%s cannot be bound into an enchantment",
@@ -2354,7 +2354,7 @@
   "enchantment.hogwartsmagic.imperio": "Imperio",
   "enchantment.hogwartsmagic.imperio.desc": "Leashes any mob, villagers and monsters too. While held it will not fight and keeps close.",
   "gui.hogwartsmagic.transmuter.title": "Spell Transmuter",
-  "gui.hogwartsmagic.transmuter.how": "Lay on a spell book, a plain book and arcane dust",
+  "gui.hogwartsmagic.transmuter.how": "Lay on a spell book, a plain book and arcane dust, then cast Incantare at it",
   "gui.hogwartsmagic.transmuter.anvil": "It makes level I; combine two books in an anvil to raise it",
   "gui.hogwartsmagic.transmuter.on.armour": "Any armour",
   "gui.hogwartsmagic.transmuter.on.chestplate": "Chestplate",
@@ -2370,5 +2370,14 @@
   "gui.hogwartsmagic.transmuter.on.trident": "Trident",
   "gui.hogwartsmagic.transmuter.on.lead": "Lead",
   "message.hogwartsmagic.enchant.no_mana": "Not enough mana for the enchantment",
-  "gui.hogwartsmagic.transmuter.mana": "Every enchantment draws on your mana when it acts"
+  "gui.hogwartsmagic.transmuter.mana": "Every enchantment draws on your mana when it acts",
+  "spell.hogwartsmagic.incantare": "Incantare",
+  "spell.hogwartsmagic.incantare.desc": "Cast at a Spell Transmuter holding a spell book, a plain book and arcane dust to bind the spell into an enchanted book. The rite takes 5s (Novice), 4s (Adept), 3s (Expert) or 2s (Master). Expert: 15%% chance of a level II book. Master: 30%%.",
+  "spell.hogwartsmagic.incantare.rank.2": "The binding rite takes 4s.",
+  "spell.hogwartsmagic.incantare.rank.3": "The rite takes 3s, with a 15% chance of a level II book.",
+  "spell.hogwartsmagic.incantare.rank.4": "The rite takes 2s, with a 30% chance of a level II book.",
+  "message.hogwartsmagic.spell_transmuter.not_ready": "Lay a spell book, a plain book and arcane dust on the transmuter first",
+  "assignment.hogwartsmagic.incantare.quote": "A charm can be kept, like a pressed flower, if you know how to bind it.",
+  "assignment.hogwartsmagic.incantare.0": "Build %s enchanting table",
+  "assignment.hogwartsmagic.incantare.1": "Build %s Spell Transmuter"
 }

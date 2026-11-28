@@ -255,6 +255,12 @@
         "custom_model_data": 42.0
       },
       "model": "hogwartsmagic:item/magic_book_caelum_fascino"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 43.0
+      },
+      "model": "hogwartsmagic:item/magic_book_incantare"
     }
   ]
 }

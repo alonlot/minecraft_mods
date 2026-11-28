@@ -4,6 +4,10 @@
     "hogwartsmagic:voldemort",
     "hogwartsmagic:hungarian_horntail",
     "hogwartsmagic:ukrainian_ironbelly",
-    "hogwartsmagic:basilisk"
+    "hogwartsmagic:basilisk",
+    "minecraft:wither",
+    "minecraft:warden",
+    "minecraft:elder_guardian",
+    "minecraft:ender_dragon"
   ]
 }

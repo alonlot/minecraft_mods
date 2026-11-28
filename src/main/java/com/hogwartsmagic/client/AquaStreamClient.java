@@ -148,8 +148,17 @@ public final class AquaStreamClient {
         right = right.lengthSqr() < 1.0E-4 ? new Vec3(1.0, 0.0, 0.0) : right.normalize();
         Vec3 eye = caster.getEyePosition(partial);
         if (AvadaChargePose.isOwnFirstPerson(caster)) {
+            // The tip the first-person arm is drawing, so the water leaves the wand you see.
+            Vec3 drawn = FirstPersonWand.localTipInWorld(Minecraft.getInstance().gameRenderer.getMainCamera());
+            if (drawn != null) {
+                return drawn;
+            }
             Vec3 up = right.cross(look).normalize();
             return eye.add(look.scale(0.62)).add(right.scale(0.3)).add(up.scale(-0.2));
+        }
+        Vec3 drawnTip = WandSwipeLayer.recentTip(caster);
+        if (drawnTip != null) {
+            return drawnTip;
         }
         if (caster instanceof Player) {
             float bodyYaw = Mth.rotLerp(partial, caster.yBodyRotO, caster.yBodyRot) * Mth.DEG_TO_RAD;

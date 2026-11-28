@@ -53,7 +53,7 @@ public final class CastFizzles {
                                           SpellType spell) {
         return spell != null && !player.isCreative() && MagicWandItem.isAnyWand(wand)
                 && spell != SpellType.ALOHOMORA && spell != SpellType.REVELIO && spell != SpellType.ASCENDIO
-                && MagicWandItem.isOnCooldown(wand, spell, player.level().getGameTime() + 2L);
+                && com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(player, wand, spell, player.level().getGameTime() + 2L);
     }
 
     /** The server refused {@code player}'s cast of {@code spell} for {@code kind}: everyone watching, them too, sees it. */
@@ -78,7 +78,7 @@ public final class CastFizzles {
         boolean holds;
         if (kind == COOLDOWN) {
             // A few ticks of slack: the client's clock and the wand data reach it a moment late.
-            holds = MagicWandItem.getSpellCooldown(wand, spell) > now - 5L;
+            holds = com.hogwartsmagic.spell.SpellCooldowns.get(player, wand, spell) > now - 5L;
         } else {
             CompoundTag modData = PlayerMagicData.getModData(player);
             float mana = modData.contains("Mana") ? modData.getFloat("Mana") : Float.MAX_VALUE;

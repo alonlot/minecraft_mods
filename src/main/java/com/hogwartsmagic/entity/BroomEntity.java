@@ -174,6 +174,10 @@ public class BroomEntity extends Entity {
         this.setQuality(tag.getInt("Quality"));
         // Absent (brooms saved before the flag, /summon, NPC brooms): not a pickup, so punching is no broom farm.
         this.dropsItem = tag.getBoolean("DropsItem");
+        if (tag.contains("Stamina")) {
+            this.staminaF = Mth.clamp(tag.getFloat("Stamina"), 0.0F, STAMINA_MAX);
+            this.boostLocked = tag.getBoolean("BoostLocked");
+        }
     }
 
     @Override
@@ -181,6 +185,45 @@ public class BroomEntity extends Entity {
         tag.putInt("BroomType", this.getBroomType());
         tag.putInt("Quality", this.getQuality());
         tag.putBoolean("DropsItem", this.dropsItem);
+        // The overheat lock is saved, or a relog or chunk reload would hand back a full, unlocked tank.
+        tag.putFloat("Stamina", this.staminaF);
+        tag.putBoolean("BoostLocked", this.boostLocked);
+    }
+
+    private static final String ITEM_STAMINA = "BroomStamina";
+    private static final String ITEM_LOCKED = "BroomBoostLocked";
+    private static final String ITEM_TIME = "BroomHeatTime";
+
+    /**
+     * Picking a broom up keeps its heat on the item: an overheated broom must still cool to
+     * STAMINA_RECOVERY_THRESHOLD before it boosts again, not reset by being placed anew.
+     */
+    private void storeHeat(net.minecraft.world.item.ItemStack stack) {
+        if (this.staminaF >= STAMINA_MAX && !this.boostLocked) {
+            return;
+        }
+        float stamina = this.staminaF;
+        boolean locked = this.boostLocked;
+        long time = this.level().getGameTime();
+        net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, stack, tag -> {
+            tag.putFloat(ITEM_STAMINA, stamina);
+            tag.putBoolean(ITEM_LOCKED, locked);
+            tag.putLong(ITEM_TIME, time);
+        });
+    }
+
+    /** The heat a placed broom's item carried, cooled at the resting rate for the time it spent as an item. */
+    public void restoreHeat(net.minecraft.world.item.ItemStack stack) {
+        net.minecraft.nbt.CompoundTag tag = stack.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                net.minecraft.world.item.component.CustomData.EMPTY).copyTag();
+        if (!tag.contains(ITEM_STAMINA)) {
+            return;
+        }
+        long elapsed = Math.max(0L, this.level().getGameTime() - tag.getLong(ITEM_TIME));
+        this.staminaF = Mth.clamp(tag.getFloat(ITEM_STAMINA) + elapsed * 0.7F, 0.0F, STAMINA_MAX);
+        this.boostLocked = tag.getBoolean(ITEM_LOCKED) && this.staminaF < STAMINA_RECOVERY_THRESHOLD;
+        this.entityData.set(DATA_STAMINA, (byte) (int) this.staminaF);
+        this.entityData.set(DATA_BOOST_LOCKED, this.boostLocked);
     }
 
     /**
@@ -218,6 +261,7 @@ public class BroomEntity extends Entity {
             }
             net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
             com.hogwartsmagic.item.BroomItem.setQuality(stack, this.getQuality());
+            this.storeHeat(stack);
             this.spawnAtLocation(stack);
         }
         this.discard();

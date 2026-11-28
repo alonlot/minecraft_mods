@@ -1390,7 +1390,7 @@ public class SpellPackets {
             // at a Ward block is a plain cast instead, which charges the ward).
             boolean shouldChannelProtegoMaxima = spell == SpellType.PROTEGO_MAXIMA;
             if (p.channelHeartbeat && shouldChannelProtegoMaxima) {
-                if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)) return;
+                if (!creative && com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(player, wand, spell, now)) return;
                 if (playerData.getBoolean(TAG_PROTEGO_MAXIMA_CHANNELING)) {
                     playerData.putLong(TAG_PROTEGO_MAXIMA_LAST_SEEN, now);
                     return;
@@ -1422,7 +1422,7 @@ public class SpellPackets {
             }
 
             if (p.channelHeartbeat && spell == SpellType.WINGARDIUM_LEVIOSA) {
-                if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)) return;
+                if (!creative && com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(player, wand, spell, now)) return;
 
                 net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
                 float maxMana = PlayerMagicData.getMaxMana(player);
@@ -1477,7 +1477,7 @@ public class SpellPackets {
                     playerData.putLong(TAG_PATRONUS_CAST_SPENT, now);
                     return;
                 }
-                if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)) return;
+                if (!creative && com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(player, wand, spell, now)) return;
 
                 net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
                 float maxMana = PlayerMagicData.getMaxMana(player);
@@ -1517,7 +1517,7 @@ public class SpellPackets {
             // or forged one) and must never cast or charge mana.
             if (p.channelHeartbeat) return;
 
-            if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)
+            if (!creative && com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(player, wand, spell, now)
                     && !(spell == SpellType.ASCENDIO && com.hogwartsmagic.spell.support.AscendioSpell.canDoubleCast(player))) {
                 // A left-click self-cast re-sends every tick the button is held on a block: no fizzle for those.
                 if (!p.selfCastProtego) {
@@ -1807,7 +1807,7 @@ public class SpellPackets {
                 com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
                 return;
             }
-            if (!player.isCreative() && MagicWandItem.isOnCooldown(wand, SpellType.IMPERIO, player.level().getGameTime())) {
+            if (!player.isCreative() && com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(player, wand, SpellType.IMPERIO, player.level().getGameTime())) {
                 return;
             }
             if (!com.hogwartsmagic.spell.mind.PossessionManager.holdReady(player)) {

@@ -72,7 +72,7 @@ public final class FiendfyreChannel {
         CompoundTag data = player.getPersistentData();
         long now = player.level().getGameTime();
         boolean creative = player.isCreative();
-        if (!creative && MagicWandItem.isOnCooldown(wand, SpellType.FIENDFYRE, now)) {
+        if (!creative && com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(player, wand, SpellType.FIENDFYRE, now)) {
             return;
         }
         if (data.getBoolean(TAG_CHANNELING)) {

@@ -884,6 +884,11 @@ public class ModEvents {
             net.minecraft.nbt.CompoundTag persisted = player.getPersistentData().getCompound("PlayerPersisted");
             net.minecraft.nbt.CompoundTag modData = persisted.getCompound(ExampleMod.MODID);
             HousePerks.applyHouseAttributes(player);
+            if (player.tickCount % 10 == 0) {
+                // Cooldowns live on the player: a wand just taken in hand picks up the running timers.
+                com.hogwartsmagic.spell.SpellCooldowns.mirrorOnto(player, player.getMainHandItem());
+                com.hogwartsmagic.spell.SpellCooldowns.mirrorOnto(player, player.getOffhandItem());
+            }
             HorcruxData.applyMaxHealthPenalty(player);
             HorcruxData.reconcileMissingHorcrux(player);
             
@@ -1739,7 +1744,7 @@ public class ModEvents {
         boolean creative = player.isCreative();
         long now = player.level().getGameTime();
 
-        if (!creative && MagicWandItem.isOnCooldown(wand, SpellType.APPARITION, now)) {
+        if (!creative && com.hogwartsmagic.spell.SpellCooldowns.isOnCooldown(player, wand, SpellType.APPARITION, now)) {
             com.hogwartsmagic.spell.CastFizzles.refused(player, SpellType.APPARITION, com.hogwartsmagic.spell.CastFizzles.COOLDOWN);
             return;
         }

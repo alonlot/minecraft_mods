@@ -94,8 +94,8 @@ public final class AvadaWindup {
         long now = player.level().getGameTime();
         if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             long lockout = now + AvadaRules.INTERRUPT_LOCKOUT_TICKS;
-            MagicWandItem.setSpellCooldown(wand, SpellType.AVADA_KEDAVRA,
-                    Math.max(lockout, MagicWandItem.getSpellCooldown(wand, SpellType.AVADA_KEDAVRA)));
+            com.hogwartsmagic.spell.SpellCooldowns.set(player, wand, SpellType.AVADA_KEDAVRA,
+                    Math.max(lockout, com.hogwartsmagic.spell.SpellCooldowns.get(player, wand, SpellType.AVADA_KEDAVRA)));
         }
         player.displayClientMessage(Component.translatable("gui." + ExampleMod.MODID + ".avada.interrupted")
                 .withStyle(ChatFormatting.RED), true);

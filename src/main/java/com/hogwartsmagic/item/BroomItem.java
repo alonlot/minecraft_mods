@@ -50,6 +50,7 @@ public class BroomItem extends Item {
             broom.setBroomType(this.broomType);
             broom.setQuality(quality(itemstack));
             broom.setDropsItem(true);
+            broom.restoreHeat(itemstack);
             broom.moveTo(pos.x, pos.y, pos.z, player.getYRot(), 0.0F);
             // Looking into a wall would put the broom inside it, where it is hard to reach again:
             // fall back to the player's own spot, which they are standing in.

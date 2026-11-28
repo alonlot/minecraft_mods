@@ -24,13 +24,14 @@ import javax.annotation.Nullable;
 /**
  * A Death Eater locked in an Auror tower cell. The tower generator bakes it in with AurorRules.PRISONER_TAG and no
  * wand. While caged it fights nobody and nobody fights it. It is freed when its cell door stands open (a lever, a
- * spell, a hand) or when it ends up outside its cell; then it takes up a wand, and the nearest player, its
- * liberator, gets it as a Death Eater escort for five minutes. The Aurors nearby hear the breakout and the liberator
- * is wanted.
+ * spell, a hand) or when it ends up outside its cell; then it takes up a wand. The nearest player is its liberator:
+ * a dark caster (AurorRules.ALLY_TIER) gets it as a Death Eater escort for five minutes, anyone else is its first
+ * target. Either way the Aurors nearby hear the breakout and the liberator is wanted.
  */
 public final class AurorPrison {
     private static final String KEY_FREED = "chat.hogwartsmagic.auror.prisoner_freed";
     private static final String KEY_ESCAPED = "chat.hogwartsmagic.auror.prisoner_escaped";
+    private static final String KEY_BETRAYED = "chat.hogwartsmagic.auror.prisoner_turns";
 
     private AurorPrison() {
     }
@@ -99,10 +100,14 @@ public final class AurorPrison {
                 wizard.getY() + 1.0D, wizard.getZ(), 24, 0.4D, 0.7D, 0.4D, 0.05D);
 
         ServerPlayer liberator = liberator(level, wizard);
-        if (liberator != null) {
+        if (liberator != null && AurorRules.sidesWithLiberator(com.hogwartsmagic.spell.dark.DarkCosts.tierOf(liberator))) {
             wizard.setEscort(liberator.getUUID(), level.getGameTime() + AurorRules.FREED_ESCORT_TICKS);
             wizard.setEscortOwnerDeaths(liberator.getStats().getValue(Stats.CUSTOM.get(Stats.DEATHS)));
             liberator.sendSystemMessage(Component.translatable(KEY_FREED).withStyle(ChatFormatting.DARK_GREEN));
+        } else if (liberator != null) {
+            // No dark magic on them: no friend of his. The first thing he does with the wand is turn it on them.
+            wizard.setTarget(liberator);
+            liberator.sendSystemMessage(Component.translatable(KEY_BETRAYED).withStyle(ChatFormatting.DARK_RED));
         } else {
             for (ServerPlayer near : level.getEntitiesOfClass(ServerPlayer.class,
                     wizard.getBoundingBox().inflate(AurorRules.ALARM_RADIUS))) {

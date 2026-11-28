@@ -97,6 +97,16 @@ public final class AurorRules {
     public static final double ESCAPED_DISTANCE = 3.0;
     /** The player nearest the freed prisoner within this range is its liberator. */
     public static final double LIBERATOR_RADIUS = 12.0;
+    /**
+     * A freed Death Eater sides with its liberator only from this dark tier up (the same line the Aurors hunt from):
+     * to a clean or barely shadowed liberator he is just another Ministry sympathiser, and he turns on them.
+     */
+    public static final int ALLY_TIER = DarkRules.TAINTED;
+
+    public static boolean sidesWithLiberator(int tier) {
+        return tier >= ALLY_TIER;
+    }
+
     /** A freed Death Eater fights at its liberator's side this long, then Disapparates (5 minutes). */
     public static final long FREED_ESCORT_TICKS = 6_000L;
     /** Aurors this close to a breakout hear it and come. */

@@ -44,4 +44,11 @@ class AurorRulesTest {
         assertFalse(AurorRules.escaped(1.5 * 1.5));
         assertTrue(AurorRules.escaped(3.5 * 3.5));
     }
+
+    @Test void freedDeathEatersOnlySideWithDarkCasters() {
+        assertFalse(AurorRules.sidesWithLiberator(DarkRules.CLEAN));
+        assertFalse(AurorRules.sidesWithLiberator(DarkRules.SHADOWED));
+        assertTrue(AurorRules.sidesWithLiberator(DarkRules.TAINTED));
+        assertTrue(AurorRules.sidesWithLiberator(DarkRules.LOST));
+    }
 }

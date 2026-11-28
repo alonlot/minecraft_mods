@@ -145,6 +145,7 @@
   "chat.hogwartsmagic.auror.squad": "Cracks of Apparition all around you: the Aurors have found you.",
   "chat.hogwartsmagic.auror.prisoner_freed": "The Death Eater shakes off his chains and takes up a wand. He will fight at your side, for now.",
   "chat.hogwartsmagic.auror.prisoner_escaped": "A Death Eater has broken out of his cell!",
+  "chat.hogwartsmagic.auror.prisoner_turns": "The Death Eater sees no dark magic on you. He takes up a wand, and turns it on you.",
   "item.hogwartsmagic.dementor_spawn_egg": "Dementor Spawn Egg",
   "entity.hogwartsmagic.dementor": "Dementor",
   "entity.hogwartsmagic.patronus": "Patronus",

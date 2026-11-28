@@ -56,7 +56,7 @@ public final class AurorGameTests {
         return player;
     }
 
-    @GameTest(template = "hogwartsmagic:auror_tower", timeoutTicks = 200)
+    @GameTest(template = "hogwartsmagic:auror_tower", timeoutTicks = 200, batch = "aurors")
     public static void towerHoldsItsGarrisonAndALeverFreesAPrisoner(GameTestHelper helper) {
         List<AurorEntity> aurors = helper.getEntities(ModEntities.AUROR.get());
         helper.assertTrue(aurors.size() == 6, "six Aurors in the tower, found " + aurors.size());
@@ -75,41 +75,69 @@ public final class AurorGameTests {
                         "a caged Death Eater should stay disarmed and idle");
                 helper.assertTrue(!MagicWandItem.isAnyWand(w.getMainHandItem()), "a caged Death Eater holds no wand");
             }
-            WizardEntity prisoner = prisoners.get(0);
-            BlockPos cell = prisoner.blockPosition();
-            BlockPos lever = null;
-            for (BlockPos p : BlockPos.betweenClosed(cell.offset(-3, -1, -4), cell.offset(3, 2, 4))) {
-                if (helper.getLevel().getBlockState(p).is(Blocks.LEVER)) {
-                    if (lever == null || p.distSqr(cell) < lever.distSqr(cell)) {
-                        lever = p.immutable();
-                    }
-                }
-            }
-            helper.assertTrue(lever != null, "every cell has a lever on the corridor side");
-            ServerPlayer player = survivalPlayer(helper);
-            Vec3 stand = Vec3.atBottomCenterOf(lever).add(0, -1, 0);
-            player.moveTo(stand.x, stand.y, stand.z);
-            var leverState = helper.getLevel().getBlockState(lever);
-            ((net.minecraft.world.level.block.LeverBlock) leverState.getBlock()).pull(leverState, helper.getLevel(), lever, null);
+            // One player frees a cell clean, another, steeped in dark magic, frees a cell on the far side.
+            WizardEntity spurned = prisoners.get(0);
+            WizardEntity grateful = prisoners.stream()
+                    .max(java.util.Comparator.comparingDouble(w -> w.distanceToSqr(spurned))).orElseThrow();
+            ServerPlayer clean = survivalPlayer(helper);
+            ServerPlayer dark = survivalPlayer(helper);
+            com.hogwartsmagic.spell.dark.DarkMagicData.set(dark,
+                    com.hogwartsmagic.spell.dark.DarkRules.tierLowerBound(AurorRules.ALLY_TIER) + 1.0f);
+            openCell(helper, spurned, clean);
+            openCell(helper, grateful, dark);
             helper.runAfterDelay(AurorRules.PRISONER_CHECK_TICKS + 10, () -> {
-                helper.assertTrue(!AurorPrison.isPrisoner(prisoner), "pulling the lever should free that cell's prisoner");
-                helper.assertTrue(!prisoner.isDisarmed() && MagicWandItem.isAnyWand(prisoner.getMainHandItem()),
-                        "the freed Death Eater takes up a wand");
-                helper.assertTrue(player.getUUID().equals(prisoner.getEscortOwnerId()),
-                        "the freed Death Eater fights for whoever let him out");
-                helper.assertTrue(AurorJustice.isHunted(player), "freeing a prisoner makes the liberator wanted");
+              try {
+                for (WizardEntity w : List.of(spurned, grateful)) {
+                    helper.assertTrue(!AurorPrison.isPrisoner(w), "pulling the lever should free the prisoner at "
+                            + helper.relativePos(w.blockPosition()));
+                    helper.assertTrue(!w.isDisarmed() && MagicWandItem.isAnyWand(w.getMainHandItem()),
+                            "the freed Death Eater takes up a wand");
+                }
+                helper.assertTrue(dark.getUUID().equals(grateful.getEscortOwnerId()),
+                        "a dark caster who frees a Death Eater gets him at their side");
+                // He turns on the clean liberator first; by now an Auror coming for him may have drawn him off.
+                helper.assertTrue(spurned.getEscortOwnerId() == null
+                                && (spurned.getTarget() == clean || spurned.getTarget() instanceof AurorEntity),
+                        "a clean liberator gets no ally: the Death Eater turns on them");
+                helper.assertTrue(AurorJustice.isHunted(clean) && AurorJustice.isHunted(dark),
+                        "freeing a prisoner makes the liberator wanted");
                 boolean answered = helper.getEntities(ModEntities.AUROR.get()).stream()
-                        .anyMatch(a -> a.getTarget() == prisoner);
+                        .anyMatch(a -> a.getTarget() == spurned || a.getTarget() == grateful);
                 helper.assertTrue(answered, "the Aurors should answer the breakout");
                 long stillCaged = helper.getEntities(ModEntities.WIZARD.get()).stream().filter(AurorPrison::isPrisoner).count();
-                helper.assertTrue(stillCaged == 4, "only that one cell opened, " + stillCaged + " still caged");
+                helper.assertTrue(stillCaged == 3, "only those two cells opened, " + stillCaged + " still caged");
                 helper.succeed();
                 LOGGER.info("AUROR-GAMETEST PASS towerHoldsItsGarrisonAndALeverFreesAPrisoner");
+              } finally {
+                logOut(clean);
+                logOut(dark); // a dark player left online changes how the rest of the suite behaves
+              }
             });
         });
     }
 
-    @GameTest(template = ROOMY, timeoutTicks = 60)
+    private static void logOut(ServerPlayer player) {
+        player.getServer().getPlayerList().remove(player);
+    }
+
+    /** Stands the player at the prisoner's cell lever and pulls it. */
+    private static void openCell(GameTestHelper helper, WizardEntity prisoner, ServerPlayer player) {
+        BlockPos cell = prisoner.blockPosition();
+        BlockPos lever = null;
+        for (BlockPos p : BlockPos.betweenClosed(cell.offset(-3, -1, -4), cell.offset(3, 2, 4))) {
+            if (helper.getLevel().getBlockState(p).is(Blocks.LEVER)
+                    && (lever == null || p.distSqr(cell) < lever.distSqr(cell))) {
+                lever = p.immutable();
+            }
+        }
+        helper.assertTrue(lever != null, "every cell has a lever on the corridor side");
+        Vec3 stand = Vec3.atBottomCenterOf(lever).add(0, -1, 0);
+        player.moveTo(stand.x, stand.y, stand.z);
+        var state = helper.getLevel().getBlockState(lever);
+        ((net.minecraft.world.level.block.LeverBlock) state.getBlock()).pull(state, helper.getLevel(), lever, null);
+    }
+
+    @GameTest(template = ROOMY, timeoutTicks = 60, batch = "aurors")
     public static void anAurorWhoSeesADarkCastTurnsOnTheCaster(GameTestHelper helper) {
         AurorEntity auror = helper.spawn(ModEntities.AUROR.get(), new Vec3(2.5, 1.0, 2.5));
         // A plain survival player: the gametest mock player always reports creative, and Aurors ignore creative players.
@@ -118,15 +146,19 @@ public final class AurorGameTests {
         player.moveTo(at.x, at.y, at.z);
         helper.assertTrue(!AurorJustice.isHunted(player), "a clean player is not hunted");
         helper.runAfterDelay(2, () -> {
+          try {
             AurorJustice.onDarkCast(player, SpellType.CRUCIO);
             helper.assertTrue(AurorJustice.isHunted(player), "a witnessed dark cast makes the caster wanted");
             helper.assertTrue(auror.getTarget() == player, "the Auror should turn on the caster");
             helper.succeed();
+          } finally {
+            logOut(player);
+          }
             LOGGER.info("AUROR-GAMETEST PASS anAurorWhoSeesADarkCastTurnsOnTheCaster");
         });
     }
 
-    @GameTest(template = ROOMY, timeoutTicks = 100)
+    @GameTest(template = ROOMY, timeoutTicks = 100, batch = "aurors")
     public static void deathEatersAndAurorsFight(GameTestHelper helper) {
         AurorEntity auror = helper.spawn(ModEntities.AUROR.get(), new Vec3(2.5, 1.0, 2.5));
         WizardEntity wizard = helper.spawn(ModEntities.WIZARD.get(), new Vec3(6.5, 1.0, 6.5));
@@ -137,7 +169,7 @@ public final class AurorGameTests {
         });
     }
 
-    @GameTest(template = ROOMY, timeoutTicks = 80)
+    @GameTest(template = ROOMY, timeoutTicks = 80, batch = "aurors")
     public static void lightFlightHidesTheAurorAndLands(GameTestHelper helper) {
         AurorEntity auror = helper.spawn(ModEntities.AUROR.get(), new Vec3(1.5, 1.0, 1.5));
         helper.runAfterDelay(2, () -> {

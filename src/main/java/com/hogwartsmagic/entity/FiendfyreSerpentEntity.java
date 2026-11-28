@@ -9,6 +9,7 @@ import com.hogwartsmagic.block.entity.HorcruxBlockEntity;
 import com.hogwartsmagic.spell.TerrainRules;
 import com.hogwartsmagic.spell.summon.FiendfyreChannel;
 import com.hogwartsmagic.spell.summon.FiendfyreRules;
+import com.hogwartsmagic.spell.summon.FiendfyreWielder;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -89,6 +90,10 @@ public class FiendfyreSerpentEntity extends Entity implements FireBreather {
     private UUID dispatchTargetId;
     private long dispatchUntil;
     private boolean destroysHorcrux;
+    /** The caster is a {@link FiendfyreWielder} mob (Voldemort), not a player: it steers, the serpent never turns. */
+    private boolean mobCaster;
+    /** A mob-cast serpent goes out after this many ticks whatever its wielder says. */
+    private static final int MOB_CAST_MAX_TICKS = 400;
 
     public FiendfyreSerpentEntity(EntityType<?> type, Level level) {
         super(type, level);
@@ -112,6 +117,7 @@ public class FiendfyreSerpentEntity extends Entity implements FireBreather {
         this.rogueEndTick = tag.contains("RogueEnd") ? tag.getInt("RogueEnd") : -1;
         this.setState(tag.getByte("State"));
         this.destroysHorcrux = tag.getBoolean("DestroysHorcrux");
+        this.mobCaster = tag.getBoolean("MobCaster");
     }
 
     @Override
@@ -126,6 +132,7 @@ public class FiendfyreSerpentEntity extends Entity implements FireBreather {
         tag.putInt("RogueEnd", this.rogueEndTick);
         tag.putByte("State", this.getState());
         tag.putBoolean("DestroysHorcrux", this.destroysHorcrux);
+        tag.putBoolean("MobCaster", this.mobCaster);
     }
 
     public int getLifeTicks() {
@@ -138,6 +145,15 @@ public class FiendfyreSerpentEntity extends Entity implements FireBreather {
 
     public void setCaster(ServerPlayer caster) {
         this.casterUuid = caster.getUUID();
+        this.mobCaster = false;
+    }
+
+    /** Held by a mob: it flies where {@code wielder} aims for as long as it holds the channel, and never turns. */
+    public <T extends LivingEntity & FiendfyreWielder> void setMobCaster(T wielder) {
+        this.casterUuid = wielder.getUUID();
+        this.mobCaster = true;
+        this.rogueTurnTick = -1;
+        this.rogueEndTick = -1;
     }
 
     /**
@@ -285,6 +301,10 @@ public class FiendfyreSerpentEntity extends Entity implements FireBreather {
             tickRogue(serverLevel, ticks);
             return;
         }
+        if (this.mobCaster) {
+            tickMobCast(serverLevel, ticks);
+            return;
+        }
 
         ServerPlayer caster = getCaster(serverLevel);
         boolean casterless = this.casterUuid == null && this.rogueTurnTick >= 0;
@@ -330,6 +350,39 @@ public class FiendfyreSerpentEntity extends Entity implements FireBreather {
         if (this.isTelegraphing() && ticks % 2 == 0) {
             serverLevel.sendParticles(WARNING_DUST, this.getX(), this.getY(), this.getZ(), 6, 0.5D, 0.5D, 0.5D, 0.0D);
         }
+    }
+
+    /**
+     * Held by a mob: fly to its place in the formation along the wielder's aim and breathe along it, burning only
+     * whom the wielder may burn. Its fire lands where the jet does (TerrainRules, so mobGriefing) but it sheds none
+     * round itself, so a boss fight does not set the whole arena alight.
+     */
+    private void tickMobCast(ServerLevel level, int ticks) {
+        Entity e = this.casterUuid == null ? null : level.getEntity(this.casterUuid);
+        if (!(e instanceof LivingEntity caster) || !(e instanceof FiendfyreWielder wielder) || !caster.isAlive()
+                || !wielder.fiendfyreHeld() || ticks > MOB_CAST_MAX_TICKS) {
+            level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), this.getX(), this.getY(), this.getZ(), 14, 0.6D, 0.6D, 0.6D, 0.02D);
+            this.discard();
+            return;
+        }
+        Vec3 aim = wielder.fiendfyreAim();
+        if (aim.lengthSqr() < 1.0E-6D) aim = new Vec3(0.0D, 0.0D, 1.0D);
+        aim = aim.normalize();
+        Vec3 origin = wielder.fiendfyreOrigin();
+        double reach = wielder.fiendfyreReach();
+        Vec3 desired = origin.add(aim.scale(reach));
+        Vec3 right = new Vec3(-aim.z, 0.0D, aim.x);
+        double lateral = FiendfyreRules.lateralOffset(this.formationIndex, this.formationCount);
+        if (lateral != 0.0D && right.lengthSqr() > 1.0E-6D) {
+            desired = desired.add(right.normalize().scale(lateral));
+        }
+        desired = desired.add(0.0D, Math.sin(ticks * 0.3D + this.formationIndex) * 0.35D, 0.0D);
+        moveToward(desired, MAX_STEP, TURN_RESPONSE);
+        Predicate<LivingEntity> burnable = wielder::fiendfyreMayBurn;
+        scorchNearby(caster, burnable);
+        // The jets close on one point past the formation, so the side serpents' fire meets the middle one's.
+        Vec3 focus = origin.add(aim.scale(reach + 8.0D));
+        roar(level, focus.subtract(mouthEstimate()), caster, burnable, caster);
     }
 
     public void setDestroysHorcrux(boolean destroys) {

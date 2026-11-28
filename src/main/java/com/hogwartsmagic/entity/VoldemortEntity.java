@@ -49,7 +49,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
-public class VoldemortEntity extends WizardEntity {
+public class VoldemortEntity extends WizardEntity implements com.hogwartsmagic.spell.summon.FiendfyreWielder {
     private static final Component DEFAULT_NAME = Component.literal("Lord Voldemort");
     private static final ResourceLocation DARK_WIZARD_ADVANCEMENT_ID = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "hp/dark_wizard_down");
     private static final ResourceLocation VOLDEMORT_ADVANCEMENT_ID = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "hp/voldemort_falls");
@@ -157,6 +157,48 @@ public class VoldemortEntity extends WizardEntity {
 
     void attackCooldownTicks(int ticks) {
         this.attackCooldown = ticks;
+    }
+
+    // ---- his held Fiendfyre (VoldemortMoves.FIENDFYRE_HELD; the serpents ask these every tick) -----------------
+
+    /** Start the held Fiendfyre at {@code target} now, whatever he was doing (gametests, scripted fights). */
+    public void startHeldFiendfyre(LivingEntity target) {
+        cancelQueuedSpell(false);
+        this.moves.cancel();
+        this.moves.start(VoldemortMoves.FIENDFYRE_HELD, target, SpellType.FIENDFYRE);
+    }
+
+    /** Whether one of his set pieces is running. */
+    public boolean isInMove() {
+        return this.moves.busy();
+    }
+
+    @Override
+    public boolean fiendfyreHeld() {
+        return !this.level().isClientSide && this.isAlive() && this.moves.heldFire();
+    }
+
+    @Override
+    public Vec3 fiendfyreAim() {
+        return this.moves.heldAim();
+    }
+
+    @Override
+    public Vec3 fiendfyreOrigin() {
+        return this.getEyePosition();
+    }
+
+    @Override
+    public double fiendfyreReach() {
+        return this.moves.heldReach();
+    }
+
+    @Override
+    public boolean fiendfyreMayBurn(LivingEntity victim) {
+        if (victim == this || victim instanceof VoldemortEntity) return false;
+        if (victim instanceof WizardEntity && victim.getTags().contains(WizardEntity.VOLDEMORT_GUARD_TAG)) return false;
+        if (victim instanceof net.minecraft.world.entity.player.Player p && (p.isCreative() || p.isSpectator())) return false;
+        return !victim.isAlliedTo(this);
     }
 
     /**
@@ -868,7 +910,9 @@ public class VoldemortEntity extends WizardEntity {
             } else if (nextSpell == SpellType.SECTUMSEMPRA) {
                 this.voldemort.moves.start(VoldemortMoves.SLASH, target, nextSpell);
             } else if (nextSpell == SpellType.FIENDFYRE) {
-                this.voldemort.moves.start(VoldemortMoves.FIENDFYRE, target, nextSpell);
+                // Held when they are near enough for the fire to reach (its jet runs about 18 blocks), else thrown.
+                boolean held = distSq < 16.0D * 16.0D && this.voldemort.getRandom().nextFloat() < 0.55F;
+                this.voldemort.moves.start(held ? VoldemortMoves.FIENDFYRE_HELD : VoldemortMoves.FIENDFYRE, target, nextSpell);
             } else {
                 this.voldemort.moves.start(VoldemortMoves.CAST, target, nextSpell);
             }

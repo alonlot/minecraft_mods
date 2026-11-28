@@ -143,6 +143,27 @@ public final class VoldemortAnimations {
             .addAnimation("cape", rot(r(0F, 0, 0, 0), r(1.1F, 10, 0, 0), r(1.25F, 30, 0, 0), r(1.6F, 8, 0, 0)))
             .build();
 
+    /**
+     * Fiendfyre held: the hands gather the fire overhead as for the thrown curse, then at 0.9 s the wand is thrust
+     * out level and held there, straining, the off hand braced beside it, while the serpents pour out; at 4.8 s he
+     * lets it go and the arm drops back. 5.3 s (VoldemortMoves.HELD_*).
+     */
+    public static final AnimationDefinition FIENDFYRE_HELD = AnimationDefinition.Builder.withLength(5.3F)
+            .addAnimation("right_arm", rot(r(0F, 0, 0, 0), r(0.3F, 20, 0, 20), r(0.8F, -150, -10, 25), r(0.95F, -95, 0, 6),
+                    r(1.6F, -91, 3, 7), r(2.3F, -97, -3, 4), r(3.0F, -92, 4, 7), r(3.7F, -97, -2, 4), r(4.4F, -92, 3, 6),
+                    r(4.8F, -95, 0, 5), r(5.3F, -37, 0, 4)))
+            .addAnimation("left_arm", rot(r(0F, 0, 0, 0), r(0.3F, 20, 0, -20), r(0.8F, -150, 10, -25), r(0.95F, -80, 0, -22),
+                    r(1.6F, -76, -3, -24), r(2.3F, -82, 3, -20), r(3.0F, -77, -3, -24), r(3.7F, -82, 2, -20), r(4.4F, -77, -2, -23),
+                    r(4.8F, -80, 0, -22), r(5.3F, -9, 0, 0)))
+            .addAnimation("body", rot(r(0F, 0, 0, 0), r(0.3F, 8, 0, 0), r(0.8F, -10, 0, 0), r(0.95F, 10, 0, 0),
+                    r(2.6F, 8, 2, 0), r(4.8F, 9, -2, 0), r(5.3F, 2, 0, 0)))
+            .addAnimation("head", rot(r(0F, 0, 0, 0), r(0.8F, -20, 0, 0), r(0.95F, 4, 0, 0), r(4.8F, 2, 0, 0), r(5.3F, 0, 0, 0)))
+            .addAnimation("cape", rot(r(0F, 0, 0, 0), r(0.8F, 10, 0, 0), r(0.95F, 32, 0, 0), r(1.8F, 26, 0, 4), r(2.8F, 34, 0, -4),
+                    r(3.8F, 27, 0, 4), r(4.8F, 32, 0, 0), r(5.3F, 6, 0, 0)))
+            .addAnimation("right_skirt", rot(r(0F, 0, 0, 0), r(0.95F, 6, 0, 8), r(4.8F, 6, 0, 10), r(5.3F, 0, 0, 0)))
+            .addAnimation("left_skirt", rot(r(0F, 0, 0, 0), r(0.95F, 6, 0, -8), r(4.8F, 6, 0, -10), r(5.3F, 0, 0, 0)))
+            .build();
+
     /** The dark shockwave: arms up and back as he lifts, then down and the ground slams at 1.2 s; 1.8 s. */
     public static final AnimationDefinition SHOCKWAVE = AnimationDefinition.Builder.withLength(1.8F)
             .addAnimation("right_arm", rot(r(0F, 0, 0, 0), r(1.1F, -170, 0, 15), r(1.22F, -20, 0, 35), r(1.8F, -10, 0, 12)))
@@ -200,6 +221,7 @@ public final class VoldemortAnimations {
             case 6: return SHOCKWAVE;
             case 7: return PHASE;
             case 8: return STRIKE;
+            case 10: return FIENDFYRE_HELD;
             default: return null;
         }
     }

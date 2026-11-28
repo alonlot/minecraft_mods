@@ -25,7 +25,7 @@ import java.util.List;
 
 /**
  * Voldemort's set pieces, run on the server one at a time: the entrance, the attacks that have their own wind-up
- * and timing (Crucio, the triple Sectumsempra, Fiendfyre, the dark shockwave, the lightning call, the smoke dash,
+ * and timing (Crucio, the triple Sectumsempra, Fiendfyre thrown or held, the dark shockwave, the lightning call, the smoke dash,
  * a plain cast) and the turn at half health. Each move is a timeline in ticks; the entity syncs which one is
  * running ({@link VoldemortEntity#setAction}) and the clients play its clip ({@code VoldemortAnimations}) and draw
  * its effects ({@link VoldemortFx}) from the same clock, so the beam leaves the wand on the frame the arm lunges.
@@ -44,12 +44,20 @@ public final class VoldemortMoves {
     public static final int PHASE = 7;
     public static final int STRIKE = 8;
     public static final int DASH = 9;
+    /** Fiendfyre held: serpents of cursed fire he steers after his target for a few seconds (FiendfyreWielder). */
+    public static final int FIENDFYRE_HELD = 10;
 
     /** Ticks into SHOCKWAVE when the ground slams; into FIENDFYRE when the fire leaves; into STRIKE when it lands. */
     public static final int SLAM_TICK = 24;
     public static final int FIRE_TICK = 24;
     public static final int STRIKE_TICK = 26;
     public static final int PHASE_BLAST_TICK = 50;
+    /** FIENDFYRE_HELD: the serpents burst from the wand here, he lets the fire go here, and the clip ends here. */
+    public static final int HELD_SPAWN_TICK = 18;
+    public static final int HELD_RELEASE_TICK = 96;
+    public static final int HELD_END_TICK = 106;
+    /** How fast the held fire swings after its target, degrees a tick: a sprint across his line outruns it up close. */
+    private static final double HELD_TURN_DEG = 2.4D, HELD_TURN_DEG_ENRAGED = 3.2D;
     /** The three Sectumsempra slashes. */
     public static final int[] SLASH_TICKS = {5, 11, 17};
     /** The summoning's Tenebris Flight runs this long before he re-forms. */
@@ -66,6 +74,7 @@ public final class VoldemortMoves {
             case SHOCKWAVE: return 36;
             case PHASE: return 70;
             case STRIKE: return 30;
+            case FIENDFYRE_HELD: return HELD_END_TICK;
             default: return 0;
         }
     }
@@ -79,6 +88,9 @@ public final class VoldemortMoves {
     private SpellType spell;
     private final List<Vec3> strikeSpots = new ArrayList<>();
     private double hoverBase;
+    /** FIENDFYRE_HELD: where the fire points (unit, swung after the target) and how far out the serpents fly. */
+    private Vec3 heldAim = new Vec3(0.0D, 0.0D, 1.0D);
+    private double heldReach;
 
     VoldemortMoves(VoldemortEntity v) {
         this.v = v;
@@ -145,7 +157,10 @@ public final class VoldemortMoves {
         if (move == NONE) return;
         tick++;
         LivingEntity t = target != null && target.isAlive() ? target : v.getTarget();
-        if (t != null && move != ENTRANCE) {
+        if (move == FIENDFYRE_HELD && heldFire()) {
+            Vec3 at = v.getEyePosition().add(heldAim.scale(12.0D));   // he faces his fire, not the target it chases
+            v.getLookControl().setLookAt(at.x, at.y, at.z, 40.0F, 40.0F);
+        } else if (t != null && move != ENTRANCE) {
             v.getLookControl().setLookAt(t, 40.0F, 40.0F);
         }
         if (move != DASH) v.getNavigation().stop();
@@ -185,6 +200,30 @@ public final class VoldemortMoves {
                 if (tick == 12) sound(level, ModSounds.VOLDEMORT_CURSE_GATHER.get(), 1.4F, 0.6F);
                 if (tick == FIRE_TICK && t != null) fire(SpellType.FIENDFYRE, t, 0.0F, true);
                 if (tick >= 32) end(36);
+            }
+            case FIENDFYRE_HELD -> {
+                if (tick == 1) {
+                    sound(level, ModSounds.VOLDEMORT_CURSE_GATHER.get(), 1.4F, 0.7F);
+                    v.setSpellCooldown(SpellType.FIENDFYRE, level.getGameTime() + v.bossCooldown(SpellType.FIENDFYRE) + HELD_END_TICK);
+                    heldAim = t != null ? aimAt(t) : Vec3.directionFromRotation(0.0F, v.getYHeadRot());
+                    heldReach = 2.5D;
+                }
+                if (tick == 10) sound(level, ModSounds.VOLDEMORT_CURSE_GATHER.get(), 1.4F, 0.6F);
+                if (tick == HELD_SPAWN_TICK) {
+                    if (t != null) heldAim = aimAt(t);
+                    sound(level, SpellType.FIENDFYRE.getSoundEvent(), 1.6F, 0.8F);
+                    spawnSerpents(level, phase2 ? 3 : 2);
+                }
+                if (heldFire()) {
+                    if (t != null) {
+                        heldAim = turnToward(heldAim, aimAt(t), phase2 ? HELD_TURN_DEG_ENRAGED : HELD_TURN_DEG);
+                        // Driven out after them, but kept a few blocks short so it is the jet, not the bodies, that burns.
+                        double want = Mth.clamp(v.getEyePosition().distanceTo(t.getEyePosition()) - 3.5D, 3.0D, 11.0D);
+                        heldReach += Mth.clamp(want - heldReach, -0.35D, 0.25D);
+                    }
+                    if (tick % 20 == 0) sound(level, ModSounds.VOLDEMORT_CURSE_GATHER.get(), 0.9F, 0.5F);
+                }
+                if (tick >= HELD_END_TICK) end(30);
             }
             case SHOCKWAVE -> {
                 if (tick == 1 || tick == 12) sound(level, ModSounds.VOLDEMORT_SHOCKWAVE_CHARGE.get(), 1.5F, tick == 1 ? 0.8F : 1.0F);
@@ -258,6 +297,52 @@ public final class VoldemortMoves {
                 }
             }
             default -> end(20);
+        }
+    }
+
+    /** FIENDFYRE_HELD: whether the serpents are out and his (FiendfyreWielder#fiendfyreHeld). */
+    boolean heldFire() {
+        return move == FIENDFYRE_HELD && tick >= HELD_SPAWN_TICK && tick < HELD_RELEASE_TICK;
+    }
+
+    Vec3 heldAim() {
+        return heldAim;
+    }
+
+    double heldReach() {
+        return heldReach;
+    }
+
+    /** From his eyes to the middle of {@code t} (unit). */
+    private Vec3 aimAt(LivingEntity t) {
+        Vec3 d = t.getBoundingBox().getCenter().subtract(v.getEyePosition());
+        return d.lengthSqr() < 1.0E-6D ? heldAim : d.normalize();
+    }
+
+    /** {@code from} swung toward {@code to} (both unit) by at most {@code maxDeg}. */
+    static Vec3 turnToward(Vec3 from, Vec3 to, double maxDeg) {
+        double dot = Mth.clamp(from.dot(to), -1.0D, 1.0D);
+        double angle = Math.acos(dot);
+        double max = Math.toRadians(maxDeg);
+        if (angle <= max || angle < 1.0E-4D) return to;
+        // Slerp by max/angle; straight behind (sin near 0) falls back to a nudge, which the next ticks finish.
+        double sin = Math.sin(angle);
+        if (sin < 1.0E-4D) return from.add(new Vec3(-from.z, 0.0D, from.x).scale(0.1D)).normalize();
+        double k = max / angle;
+        double a = Math.sin((1.0D - k) * angle) / sin, b = Math.sin(k * angle) / sin;
+        return from.scale(a).add(to.scale(b)).normalize();
+    }
+
+    /** The held fire's serpents, out of his wand, in his formation. */
+    private void spawnSerpents(ServerLevel level, int count) {
+        Vec3 eye = v.getEyePosition();
+        Vec3 start = eye.add(heldAim.scale(1.2D));
+        for (int i = 0; i < count; i++) {
+            FiendfyreSerpentEntity serpent = new FiendfyreSerpentEntity(ModEntities.FIENDFYRE_SERPENT.get(), level);
+            serpent.configure(i, count, -1, HELD_RELEASE_TICK - HELD_SPAWN_TICK);
+            serpent.setMobCaster(v);
+            serpent.moveTo(start.x, start.y, start.z, v.getYHeadRot(), 0.0F);
+            level.addFreshEntity(serpent);
         }
     }
 

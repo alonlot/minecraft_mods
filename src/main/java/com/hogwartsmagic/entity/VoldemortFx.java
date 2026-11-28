@@ -78,6 +78,36 @@ final class VoldemortFx {
                     }
                 }
             }
+            case VoldemortMoves.FIENDFYRE_HELD -> {
+                // His wand thrust out before him (the clip's levelled arm), the fire pouring from it while he holds.
+                Vec3 tip = feet.add(fwd.scale(1.05D)).add(right.scale(0.32D)).add(0.0D, 1.5D, 0.0D);
+                if (e < VoldemortMoves.HELD_SPAWN_TICK) {
+                    double lift = 0.9D + e * 0.06D;
+                    for (int side = -1; side <= 1; side += 2) {
+                        Vec3 hand = feet.add(right.scale(0.45D * side)).add(fwd.scale(0.15D)).add(0.0D, lift, 0.0D);
+                        double a = e * 0.7D + side;
+                        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME), hand.x + Math.cos(a) * 0.3D, hand.y + 0.1D,
+                                hand.z + Math.sin(a) * 0.3D, 0.0D, 0.03D, 0.0D);
+                        if (e % 3 == 0) level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LAVA), hand.x, hand.y, hand.z, 0.0D, 0.0D, 0.0D);
+                    }
+                } else if (e == VoldemortMoves.HELD_SPAWN_TICK) {
+                    for (int i = 0; i < 30; i++) {
+                        Vec3 d = fwd.scale(0.2D + r.nextDouble() * 0.35D).add(r.nextGaussian() * 0.1D, r.nextGaussian() * 0.1D, r.nextGaussian() * 0.1D);
+                        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.FLAME), tip.x, tip.y, tip.z, d.x, d.y, d.z);
+                    }
+                } else if (e < VoldemortMoves.HELD_RELEASE_TICK) {
+                    for (int i = 0; i < 3; i++) {
+                        Vec3 d = fwd.scale(0.18D + r.nextDouble() * 0.22D).add(r.nextGaussian() * 0.03D, r.nextGaussian() * 0.03D, r.nextGaussian() * 0.03D);
+                        level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(i == 0 ? ParticleTypes.SMALL_FLAME : ParticleTypes.FLAME),
+                                tip.x, tip.y, tip.z, d.x, d.y, d.z);
+                    }
+                    if (e % 4 == 0) level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LAVA), tip.x, tip.y, tip.z, 0.0D, 0.0D, 0.0D);
+                    if (e % 2 == 0) level.addParticle(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), tip.x, tip.y + 0.1D, tip.z,
+                            fwd.x * 0.05D, 0.04D, fwd.z * 0.05D);
+                } else if (e < VoldemortMoves.HELD_RELEASE_TICK + 6) {
+                    burst(level, tip, 4, ParticleTypes.SMOKE, 0.05D);
+                }
+            }
             case VoldemortMoves.SHOCKWAVE -> {
                 if (e < VoldemortMoves.SLAM_TICK) {
                     // The dark drawn in: smoke from all round falls into him, soul fire climbs his robe.

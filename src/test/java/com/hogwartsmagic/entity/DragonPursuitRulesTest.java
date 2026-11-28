@@ -6,31 +6,59 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DragonPursuitRulesTest {
+    /** Boost speeds from BroomEntity.handlePlayerFlight, and the Masterwork multiplier. */
+    private static final double BASIC_BOOST = 6.5D;
+    private static final double NIMBUS_BOOST = 8.0D;
+    private static final double FIREBOLT_BOOST = 10.0D;
+    private static final double MASTERWORK = 1.1D;
+
+    private static double chase(int broom, boolean nimbusEscapes, double quarrySpeed, double distance) {
+        double cap = DragonPursuitRules.cap(broom, nimbusEscapes, false);
+        return DragonPursuitRules.chaseSpeed(quarrySpeed, distance, cap);
+    }
 
     @Test
     void fallingBehindMakesItFlyHarder() {
-        double near = DragonPursuitRules.chaseSpeed(1.5D, 12.0D, false);
-        double far = DragonPursuitRules.chaseSpeed(1.5D, 50.0D, false);
+        double near = chase(DragonPursuitRules.FIREBOLT, false, 1.5D, 12.0D);
+        double far = chase(DragonPursuitRules.FIREBOLT, false, 1.5D, 50.0D);
         assertTrue(far > near, "far " + far + " should beat near " + near);
         assertTrue(near > 1.5D, "in range it still gains on its quarry");
     }
 
     @Test
-    void aBoostingBroomOutrunsEvenARagingDragon() {
-        // The slowest broom's boost is 6.5 blocks/tick.
-        assertTrue(DragonPursuitRules.chaseSpeed(6.5D, 80.0D, true) < 6.5D);
-        assertEquals(DragonPursuitRules.CAP, DragonPursuitRules.chaseSpeed(6.5D, 80.0D, false), 1e-9);
+    void itRunsDownAFireboltAtFullBoost() {
+        double boost = FIREBOLT_BOOST * MASTERWORK;
+        assertTrue(chase(DragonPursuitRules.FIREBOLT, false, boost, 15.0D) > boost);
+        assertTrue(chase(DragonPursuitRules.FIREBOLT, true, boost, 15.0D) > boost, "the Nimbus roll is not a Firebolt's");
     }
 
     @Test
-    void aBasicBroomAtCruiseCannotShakeIt() {
-        // Basic broom cruise is 2.0: under the cap, so the dragon keeps gaining.
-        assertTrue(DragonPursuitRules.chaseSpeed(2.0D, 20.0D, false) > 2.0D);
+    void itRunsDownABasicBroomAtFullBoost() {
+        double boost = BASIC_BOOST * MASTERWORK;
+        assertTrue(chase(DragonPursuitRules.BASIC, false, boost, 15.0D) > boost);
+    }
+
+    @Test
+    void aNimbusGetsAwayOnlyOnTheLuckyChases() {
+        // Unlucky: even a Masterwork Nimbus at full boost is caught.
+        double best = NIMBUS_BOOST * MASTERWORK;
+        assertTrue(chase(DragonPursuitRules.NIMBUS, false, best, 15.0D) > best);
+        // Lucky: a plain Nimbus at full boost pulls away, and fast enough to matter.
+        double plain = NIMBUS_BOOST;
+        double dragon = chase(DragonPursuitRules.NIMBUS, true, plain, 60.0D);
+        assertTrue(dragon < plain, "dragon " + dragon);
+        // It has to open 140 blocks and hold the gap 100 ticks on one ~288-tick tank.
+        double ticksToEscape = 140.0D / (plain - dragon) + 100.0D;
+        assertTrue(ticksToEscape < 288.0D, "escape takes " + ticksToEscape + " ticks");
+        // A lucky chase stays lucky even when it is enraged.
+        assertEquals(DragonPursuitRules.CAP_NIMBUS_OUTRUN,
+                DragonPursuitRules.cap(DragonPursuitRules.NIMBUS, true, true), 1e-9);
+        assertTrue(DragonPursuitRules.NIMBUS_ESCAPE_CHANCE > 0.0D && DragonPursuitRules.NIMBUS_ESCAPE_CHANCE < 1.0D);
     }
 
     @Test
     void itNeverHangsStill() {
-        assertEquals(DragonPursuitRules.FLOOR, DragonPursuitRules.chaseSpeed(0.0D, 3.0D, false), 1e-9);
+        assertEquals(DragonPursuitRules.FLOOR, chase(-1, false, 0.0D, 3.0D), 1e-9);
     }
 
     @Test
@@ -61,10 +89,11 @@ class DragonPursuitRulesTest {
     }
 
     @Test
-    void theTurningCircleIsWiderThanABroomsAtTopSpeed() {
-        // Circumference over 2 pi: speed / turn rate.
-        double radius = DragonPursuitRules.CAP / DragonPursuitRules.TURN;
-        assertTrue(radius > 25.0D, "radius " + radius);
+    void theTurningCircleIsWideSlowAndBoundedFast() {
+        double slow = 2.4D / DragonPursuitRules.turnRate(2.4D, false);
+        assertTrue(slow > 25.0D, "slow radius " + slow);
+        double fast = 11.0D / DragonPursuitRules.turnRate(11.0D, false);
+        assertEquals(DragonPursuitRules.MAX_TURN_RADIUS, fast, 1e-9);
     }
 
     @Test

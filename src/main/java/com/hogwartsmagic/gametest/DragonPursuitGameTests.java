@@ -36,12 +36,12 @@ public final class DragonPursuitGameTests {
         ServerLevel level = helper.getLevel();
         level.getGameRules().getRule(GameRules.RULE_MOBGRIEFING).set(false, level.getServer());
         BlockPos centre = helper.absolutePos(BlockPos.ZERO);
-        for (int dx = -5; dx <= 5; dx++) {
-            for (int dz = -5; dz <= 5; dz++) {
+        for (int dx = -6; dx <= 6; dx++) {
+            for (int dz = -6; dz <= 6; dz++) {
                 level.setChunkForced((centre.getX() >> 4) + dx, (centre.getZ() >> 4) + dz, true);
             }
         }
-        for (BlockPos pos : BlockPos.betweenClosed(centre.offset(-48, -2, -48), centre.offset(48, 40, 48))) {
+        for (BlockPos pos : BlockPos.betweenClosed(centre.offset(-72, -2, -72), centre.offset(72, 40, 72))) {
             if (level.getBlockState(pos).is(Blocks.BARRIER)) {
                 level.setBlock(pos, Blocks.AIR.defaultBlockState(), 2);
             }
@@ -138,6 +138,37 @@ public final class DragonPursuitGameTests {
                 helper.assertTrue(chasingTicks[0] > 300, "it should chase most of the loop, chased " + chasingTicks[0]);
                 helper.assertTrue(closestLate[0] < 12.0D, "it should close on the rider, closest " + closestLate[0]);
                 helper.assertTrue(lost > 0.0F, "it should have bitten or burnt the rider");
+                helper.succeed();
+            }
+        });
+    }
+
+    /** A Firebolt at full boost, flying a wide loop: the dragon still runs it down. */
+    @GameTest(template = EMPTY, batch = "dragon_pursuit_firebolt", timeoutTicks = 420)
+    public static void runsDownAFireboltAtFullBoost(GameTestHelper helper) {
+        loadAround(helper);
+        Vec3 centre = helper.absoluteVec(new Vec3(1.5, 18, 1.5));
+        double radius = 60.0D;
+        double speed = 10.0D;
+        BroomEntity broom = broom(helper, new Vec3(1.5 + radius, 18, 1.5));
+        broom.setBroomType(2);
+        Villager rider = riderOn(helper, broom);
+        HungarianHorntailEntity d = dragon(helper, new Vec3(1.5, 2, 1.5));
+        d.setTarget(rider);
+
+        AtomicInteger tick = new AtomicInteger();
+        double[] closestLate = {Double.MAX_VALUE};
+        helper.onEachTick(() -> {
+            int now = tick.incrementAndGet();
+            double a = now * speed / radius;
+            broom.setDeltaMovement(Vec3.ZERO);
+            broom.setPos(centre.x + Math.cos(a) * radius, centre.y, centre.z + Math.sin(a) * radius);
+            if (now > 120) closestLate[0] = Math.min(closestLate[0], d.distanceTo(rider));
+            if (now >= 400) {
+                LOGGER.info("DRAGON-PURSUIT firebolt closestLate={} speed={} riderLost={} state={}",
+                        closestLate[0], d.getDeltaMovement().length(), 1000.0F - rider.getHealth(), d.getAttackState());
+                cleanUp(d, rider, broom);
+                helper.assertTrue(closestLate[0] < 12.0D, "it should catch the Firebolt, closest " + closestLate[0]);
                 helper.succeed();
             }
         });

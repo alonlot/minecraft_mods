@@ -168,6 +168,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     /** This AIR_BREATH is fired on the wing during a chase, and goes back to the chase when done. */
     private boolean pursuitBreath;
     private int snapCooldown;
+    /** This chase's roll: if the quarry is on a Nimbus, can a full boost leave the dragon behind? */
+    private boolean nimbusEscapes;
     private int groundedQuarryTicks;
     private int farQuarryTicks;
     /** The chase velocity as flown, kept apart from deltaMovement, which vanilla's air drag shrinks every tick. */
@@ -178,6 +180,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     private Vec3 quarryLastPos;
     /** The quarry's measured velocity: a ridden broom is driven by its rider's client, so this is what it really does. */
     private Vec3 quarryVel = Vec3.ZERO;
+    /** The quarry's speed, smoothed on its own: averaging a turning velocity shrinks it, and a rider in a loop would read slow. */
+    private double quarrySpeed;
 
 
     public HungarianHorntailEntity(EntityType<? extends HungarianHorntailEntity> type, Level level) {
@@ -1071,7 +1075,9 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             this.pursuitVel = v.lengthSqr() > 1.0E-4D ? v : Vec3.directionFromRotation(-20.0F, this.getYRot()).scale(0.4D);
             this.quarryLastPos = null;
             this.quarryVel = Vec3.ZERO;
+            this.quarrySpeed = 0.0D;
             if (this.airBreathCooldown < 30) this.airBreathCooldown = 30;
+            this.nimbusEscapes = this.random.nextDouble() < DragonPursuitRules.NIMBUS_ESCAPE_CHANCE;
             if (this.snapCooldown < 20) this.snapCooldown = 20;
         }
         if (target != null) this.quarryId = target.getUUID();
@@ -1109,6 +1115,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             // A teleport (Apparition, a Portkey) is not a velocity.
             if (step.lengthSqr() < 16.0D * 16.0D) {
                 this.quarryVel = this.quarryVel.add(step.subtract(this.quarryVel).scale(0.35D));
+                this.quarrySpeed += (step.length() - this.quarrySpeed) * 0.35D;
             }
         }
         this.quarryLastPos = now;
@@ -1174,10 +1181,19 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     private void flyPursuit(LivingEntity target, double speedScale) {
         Vec3 aimCentre = target.getBoundingBox().getCenter();
         double dist = aimCentre.distanceTo(this.position());
-        double want = DragonPursuitRules.chaseSpeed(this.quarryVel.length(), dist, isRaging()) * speedScale;
+        int broomType = target.getVehicle() instanceof BroomEntity broom ? broom.getBroomType() : -1;
+        double cap = DragonPursuitRules.cap(broomType, this.nimbusEscapes, isRaging());
+        // The snap's surge may break the cap for a moment; the chase itself never does.
+        double want = Math.min(DragonPursuitRules.chaseSpeed(this.quarrySpeed, dist, cap) * speedScale,
+                cap * Math.max(1.0D, speedScale));
         double lead = DragonPursuitRules.leadTicks(dist, Math.max(want, 0.5D));
         // The mouth rides 1.65 above the origin, so aim the origin that much under the rider.
-        Vec3 aim = aimCentre.add(this.quarryVel.scale(lead)).subtract(0.0D, 1.65D, 0.0D);
+        // Lead no further than a third of the gap: at boost speed a long lead aims across the rider's loop and
+        // the dragon ends up orbiting inside it instead of closing.
+        Vec3 leadVec = this.quarryVel.scale(lead);
+        double maxLead = dist * 0.33D;
+        if (leadVec.lengthSqr() > maxLead * maxLead) leadVec = leadVec.normalize().scale(maxLead);
+        Vec3 aim = aimCentre.add(leadVec).subtract(0.0D, 1.65D, 0.0D);
 
         // A wall stopped us: vanilla zeroed that part of the motion, so stop pretending we still have it.
         if (this.horizontalCollision) {
@@ -1192,13 +1208,13 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         if (clearance < 5.0D) {
             dir = new Vec3(dir.x, Math.max(dir.y, (5.0D - clearance) * 0.15D), dir.z).normalize();
         }
-        if (obstacleAhead(heading, 6.0D + this.pursuitVel.length() * 8.0D)) {
+        if (obstacleAhead(heading, Math.min(40.0D, 6.0D + this.pursuitVel.length() * 8.0D))) {
             dir = new Vec3(dir.x * 0.5D, 0.8D, dir.z * 0.5D).normalize();
         }
 
         double[] turned = DragonPursuitRules.turnToward(
                 new double[]{heading.x, heading.y, heading.z}, new double[]{dir.x, dir.y, dir.z},
-                isRaging() ? DragonPursuitRules.TURN_RAGING : DragonPursuitRules.TURN);
+                DragonPursuitRules.turnRate(this.pursuitVel.length(), isRaging()));
         double speed = DragonPursuitRules.easeSpeed(this.pursuitVel.length(), want);
         this.pursuitVel = new Vec3(turned[0], turned[1], turned[2]).scale(speed);
         this.setDeltaMovement(this.pursuitVel);

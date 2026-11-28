@@ -4,36 +4,78 @@ package com.hogwartsmagic.entity;
  * The numbers behind the Horntail's aerial pursuit of a broom rider, kept free of game classes so they can be
  * unit-tested.
  *
- * <p>The chase is a rubber band, not a race the dragon always wins. Far behind, it flies harder than its quarry
- * and closes the gap. In range, it flies a little faster than its quarry, so it gains slowly enough to dodge. Its
- * top speed is capped below a boosting broom, and the boost runs on stamina. So the loop is: boost to break away,
- * and get caught again if the broom overheats. It also turns wide: a vector-rotation limit keeps its turning circle
- * well outside a broom's, so jinking hard makes it overshoot.
+ * <p>The chase is a rubber band. Far behind, it flies harder than its quarry and closes the gap. In range, it
+ * flies a little faster than its quarry, so it gains slowly enough to dodge. Its top speed depends on what it is
+ * chasing: it can run down a Firebolt or a basic broom even at full boost, so straight-line speed never saves
+ * you. A Nimbus is the exception: on some chases ({@link #NIMBUS_ESCAPE_CHANCE}) the dragon's top speed sits
+ * under a boosting Nimbus, and a full stamina tank is enough to leave it behind. What always works is turning:
+ * its turning circle stays well outside a broom's, so jinking hard makes it overshoot.
  */
 public final class DragonPursuitRules {
     private DragonPursuitRules() {
     }
 
-    /** Top chase speed, blocks/tick. A Firebolt cruises at 3.0 and boosts to 10, a basic broom 2.0 and 6.5. */
-    public static final double CAP = 2.4D;
-    public static final double CAP_RAGING = 2.8D;
+    /** Broom types, as BroomEntity numbers them. */
+    public static final int BASIC = 0;
+    public static final int NIMBUS = 1;
+    public static final int FIREBOLT = 2;
+    /** Top chase speed against an elytra (or anything not on a broom), blocks/tick. */
+    public static final double CAP = 3.5D;
+    /** Above a Masterwork Firebolt's boost (10 x 1.1). */
+    public static final double CAP_FIREBOLT = 11.6D;
+    /** Above a Masterwork basic broom's boost (6.5 x 1.1). */
+    public static final double CAP_BASIC = 7.6D;
+    /** Above a Masterwork Nimbus's boost (8 x 1.1): the chases it does not get away from. */
+    public static final double CAP_NIMBUS = 9.3D;
+    /** Under a plain Nimbus's boost (8): the chases it does get away from. */
+    public static final double CAP_NIMBUS_OUTRUN = 7.0D;
+    /** The share of chases a Nimbus can outrun. */
+    public static final double NIMBUS_ESCAPE_CHANCE = 0.4D;
+    /** Enraged it flies this much harder, except on a chase a Nimbus is going to win. */
+    public static final double RAGE_BONUS = 1.05D;
     /** Slowest it flies while chasing: a dragon in the air never hangs still. */
     public static final double FLOOR = 0.55D;
-    /** Max change of heading per tick (radians). At the cap that is a turning circle of roughly 30 blocks. */
+    /** Max change of heading per tick (radians) at low speed: a turning circle of about 30 blocks at 2.4. */
     public static final double TURN = 0.075D;
     public static final double TURN_RAGING = 0.095D;
+    /** Fast, the turn rate grows so the turning circle stops at this radius instead of growing without end. */
+    public static final double MAX_TURN_RADIUS = 45.0D;
     /** Beyond this the dragon has fallen behind and flies harder. */
     public static final double CATCH_UP_RANGE = 28.0D;
 
-    /** How fast the dragon wants to fly, given how fast its quarry flies and how far ahead it is. */
-    public static double chaseSpeed(double quarrySpeed, double distance, boolean raging) {
+    /**
+     * The top speed for this chase. {@code broomType} is -1 when the quarry is not on a broom;
+     * {@code nimbusEscapes} is this chase's roll against {@link #NIMBUS_ESCAPE_CHANCE}.
+     */
+    public static double cap(int broomType, boolean nimbusEscapes, boolean raging) {
+        double cap;
+        if (broomType == FIREBOLT) {
+            cap = CAP_FIREBOLT;
+        } else if (broomType == NIMBUS) {
+            if (nimbusEscapes) return CAP_NIMBUS_OUTRUN;
+            cap = CAP_NIMBUS;
+        } else if (broomType == BASIC) {
+            cap = CAP_BASIC;
+        } else {
+            cap = CAP;
+        }
+        return raging ? cap * RAGE_BONUS : cap;
+    }
+
+    /** Max heading change this tick at {@code speed}: the base rate, or enough to hold {@link #MAX_TURN_RADIUS}. */
+    public static double turnRate(double speed, boolean raging) {
+        return Math.max(raging ? TURN_RAGING : TURN, speed / MAX_TURN_RADIUS);
+    }
+
+    /** How fast the dragon wants to fly, given how fast its quarry flies, how far ahead it is, and the cap. */
+    public static double chaseSpeed(double quarrySpeed, double distance, double cap) {
         double want;
         if (distance > CATCH_UP_RANGE) {
-            want = quarrySpeed + 0.35D + (distance - CATCH_UP_RANGE) * 0.01D;
+            want = quarrySpeed * 1.06D + 0.35D + (distance - CATCH_UP_RANGE) * 0.01D;
         } else {
-            want = quarrySpeed + 0.12D;
+            // A fixed margin is nothing at boost speed, so the edge grows with the quarry's speed.
+            want = quarrySpeed * 1.04D + 0.12D;
         }
-        double cap = raging ? CAP_RAGING : CAP;
         return Math.max(FLOOR, Math.min(cap, want));
     }
 

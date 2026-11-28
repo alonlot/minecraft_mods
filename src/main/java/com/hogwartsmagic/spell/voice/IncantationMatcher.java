@@ -80,6 +80,8 @@ public final class IncantationMatcher {
         put("apparition", "Apparition");
         put("piertotum_locomotor", "Piertotum Locomotor");
         put("colloportus", "Colloportus");
+        put("riddikulus", "Riddikulus");
+        put("caelum_fascino", "Caelum Fascino");
     }
 
     private static void put(String id, String words) {

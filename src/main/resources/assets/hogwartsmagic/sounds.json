@@ -4872,5 +4872,173 @@
     "sounds": [
       {"name": "hogwartsmagic:card/puff", "stream": false}
     ]
+  },
+  "spells.voice.expelliarmus": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/expelliarmus", "stream": false}]
+  },
+  "spells.voice.glacius": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/glacius", "stream": false}]
+  },
+  "spells.voice.confringo": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/confringo", "stream": false}]
+  },
+  "spells.voice.protego": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/protego", "stream": false}]
+  },
+  "spells.voice.protego_maxima": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/protego_maxima", "stream": false}]
+  },
+  "spells.voice.lumos": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/lumos", "stream": false}]
+  },
+  "spells.voice.accio": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/accio", "stream": false}]
+  },
+  "spells.voice.wingardium_leviosa": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/wingardium_leviosa", "stream": false}]
+  },
+  "spells.voice.alohomora": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/alohomora", "stream": false}]
+  },
+  "spells.voice.incendio": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/incendio", "stream": false}]
+  },
+  "spells.voice.stupefy": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/stupefy", "stream": false}]
+  },
+  "spells.voice.revelio": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/revelio", "stream": false}]
+  },
+  "spells.voice.avada_kedavra": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/avada_kedavra", "stream": false}]
+  },
+  "spells.voice.crucio": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/crucio", "stream": false}]
+  },
+  "spells.voice.imperio": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/imperio", "stream": false}]
+  },
+  "spells.voice.fiendfyre": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/fiendfyre", "stream": false}]
+  },
+  "spells.voice.sectumsempra": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/sectumsempra", "stream": false}]
+  },
+  "spells.voice.morsmordre": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/morsmordre", "stream": false}]
+  },
+  "spells.voice.dolohov_curse": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/dolohov_curse", "stream": false}]
+  },
+  "spells.voice.incarcerous": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/incarcerous", "stream": false}]
+  },
+  "spells.voice.heal": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/heal", "stream": false}]
+  },
+  "spells.voice.tenebris_flight": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/tenebris_flight", "stream": false}]
+  },
+  "spells.voice.expecto_patronum": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/expecto_patronum", "stream": false}]
+  },
+  "spells.voice.bombarda": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/bombarda", "stream": false}]
+  },
+  "spells.voice.depulso": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/depulso", "stream": false}]
+  },
+  "spells.voice.levicorpus": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/levicorpus", "stream": false}]
+  },
+  "spells.voice.diffindo": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/diffindo", "stream": false}]
+  },
+  "spells.voice.petrificus_totalus": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/petrificus_totalus", "stream": false}]
+  },
+  "spells.voice.aqua_eructo": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/aqua_eructo", "stream": false}]
+  },
+  "spells.voice.obliviate": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/obliviate", "stream": false}]
+  },
+  "spells.voice.ascendio": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/ascendio", "stream": false}]
+  },
+  "spells.voice.confundo": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/confundo", "stream": false}]
+  },
+  "spells.voice.cave_inimicum": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/cave_inimicum", "stream": false}]
+  },
+  "spells.voice.alatus": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/alatus", "stream": false}]
+  },
+  "spells.voice.serpensortia": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/serpensortia", "stream": false}]
+  },
+  "spells.voice.arresto_momentum": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/arresto_momentum", "stream": false}]
+  },
+  "spells.voice.reparo": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/reparo", "stream": false}]
+  },
+  "spells.voice.apparition": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/apparition", "stream": false}]
+  },
+  "spells.voice.piertotum_locomotor": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/piertotum_locomotor", "stream": false}]
+  },
+  "spells.voice.colloportus": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/colloportus", "stream": false}]
+  },
+  "spells.voice.riddikulus": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/riddikulus", "stream": false}]
+  },
+  "spells.voice.caelum_fascino": {
+    "subtitle": "subtitles.hogwartsmagic.spells.voice",
+    "sounds": [{"name": "hogwartsmagic:spells/voice/caelum_fascino", "stream": false}]
   }
 }

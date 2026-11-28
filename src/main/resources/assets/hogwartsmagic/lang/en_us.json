@@ -2275,5 +2275,7 @@
   "subtitles.hogwartsmagic.card.shimmer": "Card shimmers",
   "subtitles.hogwartsmagic.card.legendary_chime": "Legendary chime",
   "subtitles.hogwartsmagic.card.walk_out": "Wizard walks out of the portrait",
-  "subtitles.hogwartsmagic.card.puff": "Puff"
+  "subtitles.hogwartsmagic.card.puff": "Puff",
+  "subtitles.hogwartsmagic.spells.voice": "Incantation spoken",
+  "gui.hogwartsmagic.spell_say_it": "Say it aloud with your wand: %s"
 }

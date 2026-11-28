@@ -609,6 +609,20 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> CARD_WALK_OUT = register("card.walk_out");
     public static final RegistryObject<SoundEvent> CARD_PUFF = register("card.puff");
 
+    /**
+     * The incantation spoken aloud when a spell is learned (one Fish Audio take per spell, made and checked against
+     * the voice recogniser by tools/spell_voice), keyed by spell id.
+     */
+    public static final java.util.Map<String, RegistryObject<SoundEvent>> SPELL_VOICE = registerSpellVoices();
+
+    private static java.util.Map<String, RegistryObject<SoundEvent>> registerSpellVoices() {
+        java.util.Map<String, RegistryObject<SoundEvent>> out = new java.util.LinkedHashMap<>();
+        for (String id : com.hogwartsmagic.spell.voice.IncantationMatcher.incantations().keySet()) {
+            out.put(id, register("spells.voice." + id));
+        }
+        return java.util.Collections.unmodifiableMap(out);
+    }
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

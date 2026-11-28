@@ -172,6 +172,9 @@ public class MagicBookItem extends Item {
                 new com.hogwartsmagic.network.SpellPackets.SyncLearnedSpellsPacket(learned),
                 net.minecraftforge.network.PacketDistributor.PLAYER.with(serverPlayer)
             );
+            if (firstTime) {
+                com.hogwartsmagic.spell.voice.SpellVoiceLessons.teach(serverPlayer, spell);
+            }
             // The first time Expecto Patronum is learned: a memory of the lake (server only, once).
             if (firstTime && spell == SpellType.EXPECTO_PATRONUM) {
                 grantPatronusMemory(serverPlayer);

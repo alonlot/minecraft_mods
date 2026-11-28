@@ -92,6 +92,10 @@ public final class DarkMagicData {
             modData.putLong(KEY_LAST_DARK_CAST, payer.level().getGameTime());
             modData.putInt(KEY_DECAY_PROGRESS, 0);
             PlayerMagicData.saveModData(payer, modData);
+            if (payer == body) {
+                // An Auror who sees it turns on the caster (a puppet's body is not blamed).
+                com.hogwartsmagic.auror.AurorJustice.onDarkCast(body, spell);
+            }
         }
         // The payer's own house counts, not the puppet's.
         float amount = DarkRules.gain(spell.getId(), Config.getDarkMagicGainMultiplier()

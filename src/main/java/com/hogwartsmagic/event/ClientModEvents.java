@@ -1291,6 +1291,7 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.WIZARD.get(), WizardRenderer::new);
         event.registerEntityRenderer(ModEntities.VOLDEMORT.get(), com.hogwartsmagic.client.VoldemortRenderer::new);
         event.registerEntityRenderer(ModEntities.STUDENT.get(), StudentRenderer::new);
+        event.registerEntityRenderer(ModEntities.AUROR.get(), com.hogwartsmagic.client.AurorRenderer::new);
         event.registerEntityRenderer(ModEntities.ACROMANTULA.get(), AcromantulaRenderer::new);
         event.registerEntityRenderer(ModEntities.BASILISK.get(), BasiliskRenderer::new);
         event.registerEntityRenderer(ModEntities.BASILISK_VENOM.get(),

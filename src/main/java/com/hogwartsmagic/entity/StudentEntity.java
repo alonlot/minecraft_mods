@@ -37,7 +37,7 @@ import java.util.EnumMap;
  * Hogwarts students - peaceful NPCs that defend villages and attack monsters/death eaters
  * Each student is randomly assigned to a house (Gryffindor, Hufflepuff, Ravenclaw, Slytherin)
  */
-public class StudentEntity extends AbstractIllager implements DisarmableWandUser {
+public class StudentEntity extends AbstractIllager implements DisarmableWandUser, CastingPose {
 
     private static final EntityDataAccessor<Boolean> DATA_IS_CASTING = SynchedEntityData.defineId(StudentEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_IS_FLYING = SynchedEntityData.defineId(StudentEntity.class, EntityDataSerializers.BOOLEAN);

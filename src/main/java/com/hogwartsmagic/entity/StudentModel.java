@@ -67,6 +67,11 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 		this.bone = root.getChild("bone");
 	}
 
+	/** The tall pointed hat; Aurors go bareheaded. */
+	public void setHatVisible(boolean visible) {
+		this.bone.visible = visible;
+	}
+
 	public static LayerDefinition createBodyLayer() {
 		MeshDefinition meshdefinition = new MeshDefinition();
 		PartDefinition partdefinition = meshdefinition.getRoot();
@@ -132,9 +137,9 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 		this.arms.yRot = 0.0F;
 		this.arms.zRot = 0.0F;
 
-		if (entity instanceof StudentEntity student) {
+		if (entity instanceof CastingPose pose && entity instanceof net.minecraft.world.entity.LivingEntity student) {
 			int id = student.getId();
-			boolean casting = student.isCasting();
+			boolean casting = pose.isCasting();
 			boolean wasCasting = LAST_CASTING.getOrDefault(id, false);
 			if (casting && !wasCasting) {
 				CAST_START_TICK.put(id, student.tickCount);

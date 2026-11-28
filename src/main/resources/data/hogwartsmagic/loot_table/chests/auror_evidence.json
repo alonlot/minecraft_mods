@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": { "type": "minecraft:uniform", "min": 3, "max": 5 },
+      "entries": [
+        { "type": "minecraft:item", "name": "hogwartsmagic:cursed_galleon", "weight": 6 },
+        { "type": "minecraft:item", "name": "hogwartsmagic:galleon", "weight": 8,
+          "functions": [ { "function": "minecraft:set_count", "count": { "type": "minecraft:uniform", "min": 3, "max": 8 } } ] },
+        { "type": "minecraft:item", "name": "hogwartsmagic:polyjuice_potion", "weight": 4 },
+        { "type": "minecraft:item", "name": "hogwartsmagic:old_portkey", "weight": 4 },
+        { "type": "minecraft:item", "name": "hogwartsmagic:summoning_memory", "weight": 2 },
+        { "type": "minecraft:item", "name": "hogwartsmagic:advanced_potion_making", "weight": 3 },
+        { "type": "minecraft:item", "name": "hogwartsmagic:rare_tome_of_mastery", "weight": 2 },
+        { "type": "minecraft:item", "name": "minecraft:chain", "weight": 6,
+          "functions": [ { "function": "minecraft:set_count", "count": { "type": "minecraft:uniform", "min": 1, "max": 4 } } ] },
+        { "type": "minecraft:item", "name": "minecraft:bone", "weight": 5,
+          "functions": [ { "function": "minecraft:set_count", "count": { "type": "minecraft:uniform", "min": 1, "max": 3 } } ] },
+        { "type": "minecraft:item", "name": "minecraft:gold_ingot", "weight": 5,
+          "functions": [ { "function": "minecraft:set_count", "count": { "type": "minecraft:uniform", "min": 1, "max": 4 } } ] },
+        { "type": "minecraft:item", "name": "minecraft:diamond", "weight": 2 }
+      ]
+    }
+  ]
+}

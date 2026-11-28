@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "hogwartsmagic:auror_tower",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 42,
+    "separation": 16,
+    "salt": 741220093
+  }
+}

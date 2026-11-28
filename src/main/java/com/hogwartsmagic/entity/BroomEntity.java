@@ -145,6 +145,16 @@ public class BroomEntity extends Entity {
         return this.entityData.get(DATA_STAMINA) & 0xFF;
     }
 
+    /**
+     * The synced stamina byte rounds UP, so it reads 0 only once the tank is truly empty, which is the
+     * same tick the server sets the lock. Rounding down made it read 0 while 0..1 stamina was left: the
+     * rider's client (canBoost) then released boost itself before the server drained the last sliver, so
+     * the tank never hit 0, never locked, and the overheat only happened when lag let that sliver drain.
+     */
+    public static byte staminaByte(float stamina) {
+        return (byte) Mth.clamp(Mth.ceil(stamina), 0, STAMINA_MAX);
+    }
+
     /** Returns true when there is enough stamina available to engage boost. */
     public boolean canBoost() {
         return !this.entityData.get(DATA_BOOST_LOCKED) && this.getStaminaPercent() > 0;
@@ -222,7 +232,7 @@ public class BroomEntity extends Entity {
         long elapsed = Math.max(0L, this.level().getGameTime() - tag.getLong(ITEM_TIME));
         this.staminaF = Mth.clamp(tag.getFloat(ITEM_STAMINA) + elapsed * 0.7F, 0.0F, STAMINA_MAX);
         this.boostLocked = tag.getBoolean(ITEM_LOCKED) && this.staminaF < STAMINA_RECOVERY_THRESHOLD;
-        this.entityData.set(DATA_STAMINA, (byte) (int) this.staminaF);
+        this.entityData.set(DATA_STAMINA, staminaByte(this.staminaF));
         this.entityData.set(DATA_BOOST_LOCKED, this.boostLocked);
     }
 
@@ -455,7 +465,7 @@ public class BroomEntity extends Entity {
                     this.boostLocked = false;
                 }
             }
-            byte staminaByte = (byte) Mth.clamp((int) this.staminaF, 0, STAMINA_MAX);
+            byte staminaByte = staminaByte(this.staminaF);
             if (this.entityData.get(DATA_STAMINA) != staminaByte) {
                 this.entityData.set(DATA_STAMINA, staminaByte);
             }

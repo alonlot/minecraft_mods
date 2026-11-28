@@ -103,6 +103,38 @@ public final class BroomPilotGameTests {
     }
 
     /** It closes in from far away, then holds a readable fight: in range, slower than its spells, nose on the mark. */
+    /**
+     * The rider's client stops sending boost once the synced stamina reads 0, so it may read 0 only when the
+     * server tank is truly empty (and so locked); otherwise held boost releases a sliver early and never overheats.
+     */
+    @GameTest(template = EMPTY, batch = "broom_stamina")
+    public static void staminaReadsEmptyOnlyWhenTheTankIs(GameTestHelper helper) {
+        for (float drain : new float[] {0.347F, 0.347F * 0.85F, 0.347F * 1.15F}) {
+            float stamina = BroomEntity.STAMINA_MAX;
+            while (stamina > 0.0F) {
+                stamina = Math.max(0.0F, stamina - drain);
+                int shown = BroomEntity.staminaByte(stamina) & 0xFF;
+                if (stamina > 0.0F && shown == 0) {
+                    helper.fail("stamina " + stamina + " reads 0% with drain " + drain + ", boost releases before overheat");
+                    return;
+                }
+                if (shown > BroomEntity.STAMINA_MAX) {
+                    helper.fail("stamina byte " + shown + " exceeds max");
+                    return;
+                }
+            }
+            if ((BroomEntity.staminaByte(stamina) & 0xFF) != 0) {
+                helper.fail("empty tank does not read 0%");
+                return;
+            }
+        }
+        if ((BroomEntity.staminaByte(BroomEntity.STAMINA_MAX) & 0xFF) != BroomEntity.STAMINA_MAX) {
+            helper.fail("full tank does not read 100%");
+            return;
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = EMPTY, batch = "broom_pilot_orbit", timeoutTicks = 520)
     public static void holdsTheFightAtSpellRange(GameTestHelper helper) {
         loadAround(helper);

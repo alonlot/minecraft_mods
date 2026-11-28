@@ -19,17 +19,30 @@ class DragonPursuitRulesTest {
 
     @Test
     void fallingBehindMakesItFlyHarder() {
-        double near = chase(DragonPursuitRules.FIREBOLT, false, 1.5D, 12.0D);
-        double far = chase(DragonPursuitRules.FIREBOLT, false, 1.5D, 50.0D);
+        double near = chase(DragonPursuitRules.BASIC, false, 1.5D, 12.0D);
+        double far = chase(DragonPursuitRules.BASIC, false, 1.5D, 50.0D);
         assertTrue(far > near, "far " + far + " should beat near " + near);
         assertTrue(near > 1.5D, "in range it still gains on its quarry");
     }
 
     @Test
-    void itRunsDownAFireboltAtFullBoost() {
-        double boost = FIREBOLT_BOOST * MASTERWORK;
-        assertTrue(chase(DragonPursuitRules.FIREBOLT, false, boost, 15.0D) > boost);
-        assertTrue(chase(DragonPursuitRules.FIREBOLT, true, boost, 15.0D) > boost, "the Nimbus roll is not a Firebolt's");
+    void aFireboltAtFullBoostAlwaysGetsAway() {
+        double plain = FIREBOLT_BOOST;
+        for (boolean roll : new boolean[]{false, true}) {
+            for (boolean raging : new boolean[]{false, true}) {
+                double cap = DragonPursuitRules.cap(DragonPursuitRules.FIREBOLT, roll, raging);
+                double dragon = DragonPursuitRules.chaseSpeed(plain, 60.0D, cap);
+                assertTrue(dragon < plain, "dragon " + dragon + " raging=" + raging);
+                double ticksToEscape = 140.0D / (plain - dragon) + 100.0D;
+                assertTrue(ticksToEscape < 288.0D, "escape takes " + ticksToEscape + " ticks");
+            }
+        }
+    }
+
+    @Test
+    void aFireboltAtCruiseIsStillCaught() {
+        // Cruise is 3.0: only the boost outflies it.
+        assertTrue(chase(DragonPursuitRules.FIREBOLT, false, 3.0D, 15.0D) > 3.0D);
     }
 
     @Test

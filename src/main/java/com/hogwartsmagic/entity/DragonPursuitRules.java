@@ -6,10 +6,10 @@ package com.hogwartsmagic.entity;
  *
  * <p>The chase is a rubber band. Far behind, it flies harder than its quarry and closes the gap. In range, it
  * flies a little faster than its quarry, so it gains slowly enough to dodge. Its top speed depends on what it is
- * chasing: it can run down a Firebolt or a basic broom even at full boost, so straight-line speed never saves
- * you. A Nimbus is the exception: on some chases ({@link #NIMBUS_ESCAPE_CHANCE}) the dragon's top speed sits
- * under a boosting Nimbus, and a full stamina tank is enough to leave it behind. What always works is turning:
- * its turning circle stays well outside a broom's, so jinking hard makes it overshoot.
+ * chasing. A Firebolt at full boost always leaves it behind: the best broom outflies a dragon. A Nimbus gets away
+ * only on some chases ({@link #NIMBUS_ESCAPE_CHANCE}); on the rest the dragon keeps up even with its boost. A
+ * basic broom never outruns it. Either way, one stamina tank of boost is enough to open the give-up gap, and its
+ * wide turning circle means jinking hard makes it overshoot.
  */
 public final class DragonPursuitRules {
     private DragonPursuitRules() {
@@ -21,8 +21,8 @@ public final class DragonPursuitRules {
     public static final int FIREBOLT = 2;
     /** Top chase speed against an elytra (or anything not on a broom), blocks/tick. */
     public static final double CAP = 3.5D;
-    /** Above a Masterwork Firebolt's boost (10 x 1.1). */
-    public static final double CAP_FIREBOLT = 11.6D;
+    /** Under a plain Firebolt's boost (10), even enraged (x1.05): a Firebolt at full speed always gets away. */
+    public static final double CAP_FIREBOLT = 8.5D;
     /** Above a Masterwork basic broom's boost (6.5 x 1.1). */
     public static final double CAP_BASIC = 7.6D;
     /** Above a Masterwork Nimbus's boost (8 x 1.1): the chases it does not get away from. */

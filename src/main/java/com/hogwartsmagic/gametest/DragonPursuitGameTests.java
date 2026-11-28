@@ -143,32 +143,41 @@ public final class DragonPursuitGameTests {
         });
     }
 
-    /** A Firebolt at full boost, flying a wide loop: the dragon still runs it down. */
-    @GameTest(template = EMPTY, batch = "dragon_pursuit_firebolt", timeoutTicks = 420)
-    public static void runsDownAFireboltAtFullBoost(GameTestHelper helper) {
+    /** A Firebolt at full boost in a straight line: the dragon falls behind and keeps falling behind. */
+    @GameTest(template = EMPTY, batch = "dragon_pursuit_firebolt", timeoutTicks = 200)
+    public static void aFireboltAtFullBoostGetsAway(GameTestHelper helper) {
         loadAround(helper);
-        Vec3 centre = helper.absoluteVec(new Vec3(1.5, 18, 1.5));
-        double radius = 60.0D;
+        ServerLevel level = helper.getLevel();
         double speed = 10.0D;
-        BroomEntity broom = broom(helper, new Vec3(1.5 + radius, 18, 1.5));
+        int flight = 110;
+        BlockPos origin = helper.absolutePos(BlockPos.ZERO);
+        // The flight line leaves the test area within ticks: force the chunks it crosses.
+        for (int cx = 0; cx <= (int) (speed * flight / 16.0D) + 4; cx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                level.setChunkForced((origin.getX() >> 4) + cx, (origin.getZ() >> 4) + dz, true);
+            }
+        }
+        Vec3 start = helper.absoluteVec(new Vec3(16.5, 24, 1.5));
+        BroomEntity broom = broom(helper, new Vec3(16.5, 24, 1.5));
         broom.setBroomType(2);
         Villager rider = riderOn(helper, broom);
         HungarianHorntailEntity d = dragon(helper, new Vec3(1.5, 2, 1.5));
         d.setTarget(rider);
 
         AtomicInteger tick = new AtomicInteger();
-        double[] closestLate = {Double.MAX_VALUE};
+        double[] gapAt40 = {0.0D};
         helper.onEachTick(() -> {
             int now = tick.incrementAndGet();
-            double a = now * speed / radius;
             broom.setDeltaMovement(Vec3.ZERO);
-            broom.setPos(centre.x + Math.cos(a) * radius, centre.y, centre.z + Math.sin(a) * radius);
-            if (now > 120) closestLate[0] = Math.min(closestLate[0], d.distanceTo(rider));
-            if (now >= 400) {
-                LOGGER.info("DRAGON-PURSUIT firebolt closestLate={} speed={} riderLost={} state={}",
-                        closestLate[0], d.getDeltaMovement().length(), 1000.0F - rider.getHealth(), d.getAttackState());
+            broom.setPos(start.x + now * speed, start.y, start.z);
+            if (now == 40) gapAt40[0] = d.distanceTo(rider);
+            if (now >= flight) {
+                double gap = d.distanceTo(rider);
+                LOGGER.info("DRAGON-PURSUIT firebolt gapAt40={} gapEnd={} dragonSpeed={} state={}",
+                        gapAt40[0], gap, d.getDeltaMovement().length(), d.getAttackState());
                 cleanUp(d, rider, broom);
-                helper.assertTrue(closestLate[0] < 12.0D, "it should catch the Firebolt, closest " + closestLate[0]);
+                helper.assertTrue(chasing(d.getAttackState()), "it should still be chasing, was " + d.getAttackState());
+                helper.assertTrue(gap > gapAt40[0] + 60.0D, "the Firebolt should pull away: " + gapAt40[0] + " -> " + gap);
                 helper.succeed();
             }
         });

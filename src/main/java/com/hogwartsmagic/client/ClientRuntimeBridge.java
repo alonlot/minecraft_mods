@@ -133,6 +133,10 @@ public final class ClientRuntimeBridge {
         ModEventsClientHooks.openSpellMenu(player);
     }
 
+    public static void openTransmuterGuide(net.minecraft.core.BlockPos pos) {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new com.hogwartsmagic.client.enchant.TransmuterGuideScreen(pos));
+    }
+
     public static void startPatronusHold(net.minecraft.world.entity.player.Player player) {
         if (com.hogwartsmagic.event.ClientModEvents.startPatronusHold()) {
             player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);

@@ -46,9 +46,22 @@ public final class SpellEnchantmentCombat {
             return;
         }
         int levels = SpellEnchantments.armourLevels(event.getEntity(), SpellEnchantments.CAVE_INIMICUM);
-        if (levels > 0) {
+        if (levels > 0 && caveInimicumPaid(event.getEntity())) {
             event.modifyVisibility(SpellEnchantments.caveInimicumVisibility(levels));
         }
+    }
+
+    /** Cave Inimicum costs a little a second while something is looking; paid once a second at most. */
+    private static boolean caveInimicumPaid(LivingEntity wearer) {
+        long now = wearer.level().getGameTime();
+        var data = wearer.getPersistentData();
+        if (now - data.getLong("hogwartsmagic:cave_paid") < 20) {
+            return data.getBoolean("hogwartsmagic:cave_ok");
+        }
+        boolean ok = SpellEnchantMana.pay(wearer, SpellEnchantMana.CAVE_INIMICUM);
+        data.putLong("hogwartsmagic:cave_paid", now);
+        data.putBoolean("hogwartsmagic:cave_ok", ok);
+        return ok;
     }
 
     /** The shield in use, or empty. */
@@ -72,7 +85,8 @@ public final class SpellEnchantmentCombat {
         Entity attacker = source.getEntity();
 
         int depulso = SpellEnchantments.level(level, SpellEnchantments.DEPULSO, shield);
-        if (depulso > 0 && direct instanceof LivingEntity melee && direct == attacker && melee != blocker) {
+        if (depulso > 0 && direct instanceof LivingEntity melee && direct == attacker && melee != blocker
+                && SpellEnchantMana.pay(blocker, SpellEnchantMana.DEPULSO)) {
             Vec3 away = melee.position().subtract(blocker.position()).multiply(1.0, 0.0, 1.0);
             if (away.lengthSqr() > 1.0E-4) {
                 away = away.normalize();
@@ -86,7 +100,8 @@ public final class SpellEnchantmentCombat {
             }
         }
 
-        if (SpellEnchantments.level(level, SpellEnchantments.PROTEGO_MAXIMA, shield) <= 0) {
+        if (SpellEnchantments.level(level, SpellEnchantments.PROTEGO_MAXIMA, shield) <= 0
+                || !SpellEnchantMana.pay(blocker, SpellEnchantMana.PROTEGO_MAXIMA)) {
             return;
         }
         if (direct instanceof AbstractArrow arrow && attacker instanceof LivingEntity shooter && shooter != blocker) {
@@ -131,8 +146,22 @@ public final class SpellEnchantmentCombat {
         var effect = event.getEffectInstance().getEffect();
         if ((effect.is(net.minecraft.world.effect.MobEffects.DARKNESS) || effect.is(net.minecraft.world.effect.MobEffects.WITHER))
                 && SpellEnchantments.level(event.getEntity(), SpellEnchantments.PATRONUS,
-                net.minecraft.world.entity.EquipmentSlot.CHEST) > 0) {
+                net.minecraft.world.entity.EquipmentSlot.CHEST) > 0
+                && SpellEnchantMana.pay(event.getEntity(), SpellEnchantMana.PATRONUS)) {
             event.setResult(net.minecraftforge.eventbus.api.Event.Result.DENY);
+            LivingEntity wearer = event.getEntity();
+            long now = wearer.level().getGameTime();
+            if (wearer.level() instanceof ServerLevel level
+                    && now - wearer.getPersistentData().getLong("hogwartsmagic:patronus_flash") > 20) {
+                // A silver flare as the guardian turns the darkness away (at most once a second).
+                wearer.getPersistentData().putLong("hogwartsmagic:patronus_flash", now);
+                level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.RING, 0xDDEEFF, 1.2f, 14),
+                        wearer.getX(), wearer.getY(0.5), wearer.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
+                level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.MOTE, 0xE8F4FF, 0.05f, 26),
+                        wearer.getX(), wearer.getY(0.5), wearer.getZ(), 10, 0.4, 0.5, 0.4, 0.02);
+                level.playSound(null, wearer.blockPosition(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS,
+                        0.8F, 1.6F);
+            }
         }
     }
 
@@ -151,7 +180,8 @@ public final class SpellEnchantmentCombat {
             weapon = attacker.getMainHandItem();
         }
         int glacius = SpellEnchantments.level(level, SpellEnchantments.GLACIUS, weapon);
-        if (glacius <= 0 || target == event.getSource().getEntity()) {
+        if (glacius <= 0 || target == event.getSource().getEntity()
+                || !SpellEnchantMana.pay(event.getSource().getEntity(), SpellEnchantMana.GLACIUS)) {
             return;
         }
         glacius = Math.min(3, glacius);
@@ -179,7 +209,7 @@ public final class SpellEnchantmentCombat {
             return;
         }
         int level = SpellEnchantments.level(event.getEntity().level(), SpellEnchantments.INCARCEROUS, weapon);
-        if (level > 0) {
+        if (level > 0 && SpellEnchantMana.pay(arrow.getOwner(), SpellEnchantMana.INCARCEROUS)) {
             IncarcerousTether.applyBolt(event.getEntity(), arrow.getOwner(), INCARCEROUS_TICKS[Math.min(2, level) - 1]);
         }
     }

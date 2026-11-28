@@ -39,6 +39,8 @@ public final class SpellEnchantments {
     public static final ResourceKey<Enchantment> ALATUS = key("alatus");
     public static final ResourceKey<Enchantment> PATRONUS = key("patronus");
     public static final ResourceKey<Enchantment> GLACIUS = key("glacius");
+    public static final ResourceKey<Enchantment> BOMBARDA_MAXIMA = key("bombarda_maxima");
+    public static final ResourceKey<Enchantment> IMPERIO = key("imperio");
 
     /** Leviosa: how long one airborne spell can hover (ticks), and how fast a hover sinks (blocks a tick). */
     public static int leviosaHoverTicks(int level) {
@@ -76,7 +78,9 @@ public final class SpellEnchantments {
             Map.entry(SpellType.WINGARDIUM_LEVIOSA, LEVIOSA),
             Map.entry(SpellType.ALATUS, ALATUS),
             Map.entry(SpellType.EXPECTO_PATRONUM, PATRONUS),
-            Map.entry(SpellType.GLACIUS, GLACIUS));
+            Map.entry(SpellType.GLACIUS, GLACIUS),
+            Map.entry(SpellType.BOMBARDA, BOMBARDA_MAXIMA),
+            Map.entry(SpellType.IMPERIO, IMPERIO));
 
     private SpellEnchantments() {
     }

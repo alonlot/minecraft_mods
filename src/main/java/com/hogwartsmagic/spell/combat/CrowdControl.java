@@ -92,11 +92,18 @@ public final class CrowdControl {
     private static int scaledNow(LivingEntity target, int baseTicks, @Nullable Entity source, long now) {
         double factor = DIMINISHING.peek(target.getUUID(), now);
         return CrowdControlMath.scaledTicks(baseTicks, factor, CombatTags.isBoss(target),
-                isPvp(target, source), Config.getPvpCrowdControlMultiplier(), wardingLevels(target));
+                isPvp(target, source), Config.getPvpCrowdControlMultiplier(), wardingNow(target));
     }
 
     public static final net.minecraft.resources.ResourceKey<net.minecraft.world.item.enchantment.Enchantment> WARDING =
             com.hogwartsmagic.spell.enchant.SpellEnchantments.WARDING;
+
+    /** Warding that holds against a hex now: none when a player wearing it has no mana left for it. */
+    private static int wardingNow(LivingEntity target) {
+        int levels = wardingLevels(target);
+        return levels > 0 && com.hogwartsmagic.spell.enchant.SpellEnchantMana.pay(target,
+                com.hogwartsmagic.spell.enchant.SpellEnchantMana.WARDING) ? levels : 0;
+    }
 
     /** Warding levels summed over {@code target}'s four armour slots. */
     public static int wardingLevels(LivingEntity target) {

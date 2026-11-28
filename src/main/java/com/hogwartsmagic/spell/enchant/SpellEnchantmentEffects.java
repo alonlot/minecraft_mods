@@ -79,8 +79,47 @@ public final class SpellEnchantmentEffects {
         if (player.tickCount % 20 == 0) {
             lumos(player, level);
         }
+        if (player.tickCount % 40 == 0
+                && SpellEnchantments.level(player, SpellEnchantments.REVELIO, EquipmentSlot.HEAD) > 0
+                && !level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, player.getBoundingBox().inflate(16.0),
+                e -> e instanceof net.minecraft.world.entity.monster.Enemy && e.isAlive()).isEmpty()) {
+            SpellEnchantMana.pay(player, SpellEnchantMana.REVELIO);
+        }
         reparo(player, level);
         leviosa(player, level);
+        ambient(player, level);
+    }
+
+    /** Small looks that tell others what a player wears: the Alatus trail and the Cave Inimicum wisps. */
+    private static void ambient(ServerPlayer player, ServerLevel level) {
+        if (player.isFallFlying() && player.tickCount % 20 == 0
+                && SpellEnchantments.level(player, SpellEnchantments.ALATUS, EquipmentSlot.CHEST) > 0) {
+            SpellEnchantMana.pay(player, SpellEnchantMana.ALATUS);
+        }
+        if (player.isFallFlying() && player.tickCount % 2 == 0
+                && SpellEnchantments.level(player, SpellEnchantments.ALATUS, EquipmentSlot.CHEST) > 0) {
+            net.minecraft.world.phys.Vec3 back = player.position().subtract(player.getDeltaMovement().normalize().scale(0.6));
+            level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.MOTE, 0xE6F2FF, 0.05f, 24),
+                    back.x, back.y + 0.4, back.z, 2, 0.25, 0.05, 0.25, 0.0);
+        }
+        if (player.tickCount % 12 == 0 && !player.isInvisible()
+                && SpellEnchantments.armourLevels(player, SpellEnchantments.CAVE_INIMICUM) > 0) {
+            level.sendParticles(com.hogwartsmagic.util.MagicParticles.SMOKE_VIOLET, player.getX(), player.getY() + 0.1,
+                    player.getZ(), 1, 0.3, 0.05, 0.3, 0.003);
+        }
+    }
+
+    /** Ascendio: a jump kicks a little ring of air off the ground. */
+    @SubscribeEvent
+    public static void onJump(net.minecraftforge.event.entity.living.LivingEvent.LivingJumpEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)
+                || SpellEnchantments.level(player, SpellEnchantments.ASCENDIO, EquipmentSlot.FEET) <= 0) {
+            return;
+        }
+        player.serverLevel().sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.RING, 0xFFFFFF, 0.7f, 10),
+                player.getX(), player.getY() + 0.05, player.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
+        player.serverLevel().sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD, player.getX(), player.getY(),
+                player.getZ(), 4, 0.2, 0.0, 0.2, 0.02);
     }
 
     /** Ticks of hover each player has spent since last on the ground (Leviosa), server thread only. */
@@ -111,6 +150,10 @@ public final class SpellEnchantmentEffects {
         if (hovered > SpellEnchantments.leviosaHoverTicks(leviosa) + 5) {
             return; // past the boots' budget: no more forgiveness (a lying client gains nothing)
         }
+        if (hovered % 10 == 1 && !SpellEnchantMana.pay(player, SpellEnchantMana.LEVIOSA)) {
+            HOVERED.put(player.getUUID(), Integer.MAX_VALUE / 2); // out of mana: this hover is over
+            return;
+        }
         player.resetFallDistance();
         if (hovered % 20 == 0) {
             player.getItemBySlot(EquipmentSlot.FEET).hurtAndBreak(1, player, EquipmentSlot.FEET);
@@ -134,6 +177,9 @@ public final class SpellEnchantmentEffects {
             return;
         }
         boolean fresh = !player.hasEffect(MobEffects.SLOW_FALLING);
+        if (fresh && !SpellEnchantMana.pay(player, SpellEnchantMana.ARRESTO)) {
+            return;
+        }
         player.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 10, 0, true, false, true));
         if (fresh) {
             player.serverLevel().sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.RING, 0xBFE6FF, 0.6f, 14),
@@ -158,6 +204,9 @@ public final class SpellEnchantmentEffects {
         if (now - since < douseDelay(douse)) {
             return;
         }
+        if (!SpellEnchantMana.pay(player, SpellEnchantMana.DOUSE_EXTINGUISH)) {
+            return;
+        }
         player.clearFire();
         BURNING_SINCE.remove(player.getUUID());
         player.getItemBySlot(EquipmentSlot.FEET).hurtAndBreak(1, player, EquipmentSlot.FEET);
@@ -180,6 +229,9 @@ public final class SpellEnchantmentEffects {
         if (SpellEnchantments.level(player, SpellEnchantments.DOUSE, EquipmentSlot.FEET) <= 0) {
             return;
         }
+        if (!SpellEnchantMana.pay(player, SpellEnchantMana.DOUSE_SOAK)) {
+            return; // out of mana: the fire burns as it would
+        }
         ItemStack boots = player.getItemBySlot(EquipmentSlot.FEET);
         boots.hurtAndBreak(Math.max(1, (int) Math.ceil(event.getAmount())), player, EquipmentSlot.FEET);
         event.setCanceled(true);
@@ -193,9 +245,14 @@ public final class SpellEnchantmentEffects {
         int light = Math.max(level.getBrightness(LightLayer.BLOCK, eyes),
                 level.getBrightness(LightLayer.SKY, eyes) - level.getSkyDarken());
         MobEffectInstance current = player.getEffect(MobEffects.NIGHT_VISION);
-        if (light < 7 && (current == null || current.getDuration() < 240)) {
+        if (light < 7 && (current == null || current.getDuration() < 240)
+                && SpellEnchantMana.pay(player, SpellEnchantMana.LUMOS)) {
             // Over 200 ticks so the screen never flickers as it runs out.
             player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 300, 0, true, false, true));
+        }
+        if (light < 7) {
+            level.sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.GLOW, 0xFFF6D8, 0.08f, 18),
+                    player.getX(), player.getEyeY() + 0.25, player.getZ(), 1, 0.05, 0.02, 0.05, 0.0);
         }
     }
 
@@ -209,8 +266,12 @@ public final class SpellEnchantmentEffects {
                 continue;
             }
             int reparo = Math.min(3, SpellEnchantments.level(level, SpellEnchantments.REPARO, stack));
-            if (reparo > 0 && player.tickCount % REPARO_PERIOD[reparo - 1] == 0) {
+            if (reparo > 0 && player.tickCount % REPARO_PERIOD[reparo - 1] == 0
+                    && SpellEnchantMana.pay(player, SpellEnchantMana.REPARO)) {
                 stack.setDamageValue(stack.getDamageValue() - 1);
+                double y = slot.getType() == EquipmentSlot.Type.HUMANOID_ARMOR ? slot.getIndex() * 0.45 + 0.1 : 1.0;
+                level.sendParticles(com.hogwartsmagic.util.MagicParticles.GLINT_GOLD, player.getX(), player.getY() + y,
+                        player.getZ(), 2, 0.25, 0.1, 0.25, 0.0);
             }
         }
     }
@@ -240,10 +301,11 @@ public final class SpellEnchantmentEffects {
         for (AccioBreak brk : ACCIO_BREAKS.values()) {
             if (brk.time() == now && brk.player().level() == event.getLevel()
                     && item.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(brk.pos())) < 1.5 * 1.5) {
-                if (brk.incendio()) {
+                if (brk.incendio() && SpellEnchantMana.pay(brk.player(), SpellEnchantMana.INCENDIO)) {
                     smelt(brk.player(), item);
                 }
-                if (brk.accio() && pull(brk.player(), item.getItem())) {
+                if (brk.accio() && SpellEnchantMana.pay(brk.player(), SpellEnchantMana.ACCIO)
+                        && pull(brk.player(), item.getItem(), item.position())) {
                     event.setCanceled(true);
                 }
                 return;
@@ -257,7 +319,8 @@ public final class SpellEnchantmentEffects {
                 || SpellEnchantments.level(player, SpellEnchantments.ACCIO, EquipmentSlot.MAINHAND) <= 0) {
             return;
         }
-        event.getDrops().removeIf(item -> pull(player, item.getItem()));
+        event.getDrops().removeIf(item -> SpellEnchantMana.pay(player, SpellEnchantMana.ACCIO)
+                && pull(player, item.getItem(), item.position()));
     }
 
     /** Incendio: a block's drop comes out as what a furnace would make of it, with the furnace's experience. */
@@ -286,12 +349,19 @@ public final class SpellEnchantmentEffects {
     }
 
     /** Puts {@code stack} into the player's inventory; true when all of it fitted (what does not stays put). */
-    private static boolean pull(ServerPlayer player, ItemStack stack) {
+    private static boolean pull(ServerPlayer player, ItemStack stack, net.minecraft.world.phys.Vec3 from) {
         if (stack.isEmpty()) {
             return false;
         }
         player.getInventory().add(stack);
         if (stack.isEmpty()) {
+            // A thread of gold from where it dropped to the hand that called it.
+            net.minecraft.world.phys.Vec3 to = player.position().add(0.0, player.getBbHeight() * 0.6, 0.0);
+            for (int i = 0; i <= 6; i++) {
+                net.minecraft.world.phys.Vec3 at = from.lerp(to, i / 6.0);
+                player.serverLevel().sendParticles(new SpellVfxOptions(SpellVfxOptions.Kind.MOTE, 0xFFD36B, 0.035f, 10),
+                        at.x, at.y + 0.2, at.z, 1, 0.02, 0.02, 0.02, 0.0);
+            }
             player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS,
                     0.2F, 1.4F + player.getRandom().nextFloat() * 0.4F);
             return true;

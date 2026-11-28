@@ -29,7 +29,9 @@ public final class SpellEnchantClient {
         long now = mc.level.getGameTime();
         if (now != revelioCheckedAt) {
             revelioCheckedAt = now;
-            revelioWorn = SpellEnchantments.level(player, SpellEnchantments.REVELIO, EquipmentSlot.HEAD) > 0;
+            revelioWorn = SpellEnchantments.level(player, SpellEnchantments.REVELIO, EquipmentSlot.HEAD) > 0
+                    && com.hogwartsmagic.spell.enchant.SpellEnchantMana.clientHas(player,
+                    com.hogwartsmagic.spell.enchant.SpellEnchantMana.REVELIO);
         }
         return revelioWorn && entity.distanceToSqr(player) < REVELIO_RANGE * REVELIO_RANGE;
     }

@@ -49,7 +49,8 @@ public final class SpellEnchantMotionClient {
             return;
         }
         int level = SpellEnchantments.level(player, SpellEnchantments.LEVIOSA, EquipmentSlot.FEET);
-        if (level <= 0 || hoverUsed >= SpellEnchantments.leviosaHoverTicks(level)) {
+        if (level <= 0 || hoverUsed >= SpellEnchantments.leviosaHoverTicks(level)
+                || !com.hogwartsmagic.spell.enchant.SpellEnchantMana.clientHas(player, com.hogwartsmagic.spell.enchant.SpellEnchantMana.LEVIOSA)) {
             return;
         }
         hoverUsed++;
@@ -62,7 +63,8 @@ public final class SpellEnchantMotionClient {
             return;
         }
         int level = SpellEnchantments.level(player, SpellEnchantments.ALATUS, EquipmentSlot.CHEST);
-        if (level <= 0) {
+        if (level <= 0 || !com.hogwartsmagic.spell.enchant.SpellEnchantMana.clientHas(player,
+                com.hogwartsmagic.spell.enchant.SpellEnchantMana.ALATUS)) {
             return;
         }
         Vec3 v = player.getDeltaMovement();

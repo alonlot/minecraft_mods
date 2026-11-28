@@ -44,6 +44,11 @@ public final class ClientSideBridge {
         invoke("openSpellMenu", new Class<?>[]{net.minecraft.world.entity.player.Player.class}, player);
     }
 
+    /** Opens the Spell Transmuter's guide (client only; a no-op on a server). */
+    public static void openTransmuterGuide(net.minecraft.core.BlockPos pos) {
+        invoke("openTransmuterGuide", new Class<?>[]{net.minecraft.core.BlockPos.class}, pos);
+    }
+
     public static void startPatronusHold(net.minecraft.world.entity.player.Player player) {
         invoke("startPatronusHold", new Class<?>[]{net.minecraft.world.entity.player.Player.class}, player);
     }

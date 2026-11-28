@@ -35,8 +35,25 @@ public final class SpellArmour {
             amount = DiffindoRules.damageAfterArmor(amount, armour,
                     target.getAttributeValue(Attributes.ARMOR_TOUGHNESS), ARMOUR_IGNORED);
         }
-        amount *= (float) com.hogwartsmagic.spell.combat.CrowdControlMath.wardingMultiplier(
-                com.hogwartsmagic.spell.combat.CrowdControl.wardingLevels(target));
+        int warding = com.hogwartsmagic.spell.combat.CrowdControl.wardingLevels(target);
+        if (warding > 0 && !com.hogwartsmagic.spell.enchant.SpellEnchantMana.pay(target,
+                com.hogwartsmagic.spell.enchant.SpellEnchantMana.WARDING)) {
+            warding = 0; // out of mana: the ward does not hold
+        }
+        amount *= (float) com.hogwartsmagic.spell.combat.CrowdControlMath.wardingMultiplier(warding);
         event.setAmount(amount);
+        if (warding > 0 && target.level() instanceof net.minecraft.server.level.ServerLevel level) {
+            // The ward takes the edge off: a pale shell flickers round the wearer.
+            level.sendParticles(new com.hogwartsmagic.spell.vfx.SpellVfxOptions(
+                            com.hogwartsmagic.spell.vfx.SpellVfxOptions.Kind.GLOW, 0xA8D8FF, 0.25f + 0.02f * warding, 8),
+                    target.getX(), target.getY(0.55), target.getZ(), 2, target.getBbWidth() * 0.3,
+                    target.getBbHeight() * 0.25, target.getBbWidth() * 0.3, 0.0);
+            level.sendParticles(new com.hogwartsmagic.spell.vfx.SpellVfxOptions(
+                            com.hogwartsmagic.spell.vfx.SpellVfxOptions.Kind.SPARK, 0xDDF0FF, 0.04f, 10),
+                    target.getX(), target.getY(0.55), target.getZ(), 6 + warding, target.getBbWidth() * 0.4,
+                    target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.08);
+            level.playSound(null, target.blockPosition(), net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_HIT,
+                    net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 1.6f);
+        }
     }
 }

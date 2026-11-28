@@ -111,6 +111,13 @@ public class SpellTransmuterBlock extends BaseEntityBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (player.isShiftKeyDown()) {
+            // Sneaking with an empty hand: the guide of what the transmuter can bind.
+            if (level.isClientSide) {
+                com.hogwartsmagic.util.ClientSideBridge.openTransmuterGuide(pos);
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide);
+        }
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }

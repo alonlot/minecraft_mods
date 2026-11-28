@@ -92,7 +92,8 @@ public final class CinematicMoments {
         }
 
         if (victim instanceof WizardEntity && owner instanceof ServerPlayer killer
-                && (source.is(DamageTypes.INDIRECT_MAGIC) || source.is(DamageTypes.MAGIC))) {
+                && (source.is(DamageTypes.INDIRECT_MAGIC) || source.is(DamageTypes.MAGIC)
+                    || source.is(com.hogwartsmagic.spell.damage.DamageSupport.SPELL))) {
             Fx.sendTo(killer, FxKinds.MOMENT, victim.getX(), victim.getY(), victim.getZ(), victim.getId(), 0.5f);
         }
     }

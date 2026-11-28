@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " D ",
+    "AEA",
+    "BBB"
+  ],
+  "key": {
+    "D": {
+      "item": "hogwartsmagic:arcane_dust"
+    },
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "E": {
+      "item": "minecraft:enchanting_table"
+    },
+    "B": {
+      "item": "minecraft:polished_blackstone"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:spell_transmuter",
+    "count": 1
+  }
+}

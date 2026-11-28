@@ -880,7 +880,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO
                                     && spell != SpellType.LUMOS && spell != SpellType.RIDDIKULUS && !shearableSheep) {
                                chipDamage = 0.1f * HousePerks.getSpellDamageMultiplier(getOwner());
-                               chipSource = this.damageSources().magic();
+                               chipSource = com.hogwartsmagic.spell.damage.DamageSupport.spell(this.level(), this, getOwner());
                                chipLanded = living.hurt(chipSource, chipDamage);
                                // hurt() is also false inside the victim's i-frames: that is not a veto.
                                if (!chipLanded && spell == SpellType.ACCIO && living.invulnerableTime > 10

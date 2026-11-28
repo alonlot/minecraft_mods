@@ -40,7 +40,7 @@ public final class AvadaSpell {
             return;
         }
         Entity owner = CombatEffects.responsible(caster);
-        DamageSource source = DamageSupport.magicFrom(target, caster);
+        DamageSource source = DamageSupport.armourlessFrom(target, caster);
         boolean landed;
         LivingEntity previousLanding = LANDING.get();
         LANDING.set(target);

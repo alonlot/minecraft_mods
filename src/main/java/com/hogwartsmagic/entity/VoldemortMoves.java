@@ -296,7 +296,7 @@ public final class VoldemortMoves {
             if (d > radius) continue;
             double f = 1.0D - 0.6D * d / radius;
             if (damage > 0.0F) {
-                e.hurt(v.damageSources().indirectMagic(v, v), (float) (damage * f));
+                e.hurt(com.hogwartsmagic.spell.damage.DamageSupport.spell(v.level(), v, v), (float) (damage * f));
             }
             Vec3 away = e.position().subtract(v.position());
             Vec3 flat = new Vec3(away.x, 0.0D, away.z);
@@ -356,7 +356,7 @@ public final class VoldemortMoves {
         level.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.LARGE_SMOKE), s.x, s.y + 0.3D, s.z, 20, 0.8D, 0.3D, 0.8D, 0.04D);
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(s, s).inflate(1.8D, 2.5D, 1.8D),
                 e -> e != v && e.isAlive() && !isHisOwn(e) && !exempt(e))) {
-            e.hurt(v.damageSources().indirectMagic(v, v), damage);
+            e.hurt(com.hogwartsmagic.spell.damage.DamageSupport.spell(v.level(), v, v), damage);
             e.setRemainingFireTicks(60);
         }
     }

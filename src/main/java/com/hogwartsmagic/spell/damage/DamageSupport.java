@@ -40,14 +40,35 @@ public final class DamageSupport {
     }
 
     /**
-     * Magic damage that credits the responsible caster, so kills drop player-kill loot and XP. Falls back to
-     * plain {@code magic()} (no attacker) when there is no responsible entity. {@code indirect_magic} is in
-     * {@code #minecraft:bypasses_armor} just like {@code magic}, so armour maths is unchanged.
+     * Spell damage that credits the responsible caster, so kills drop player-kill loot and XP. It is the
+     * {@code hogwartsmagic:spell} type: armour counts for half against it ({@link SpellArmour}) and Warding
+     * and Protection reduce it. Falls back to plain {@code magic()} (no attacker) when there is no responsible
+     * entity.
      */
     public static DamageSource magicFrom(LivingEntity target, @Nullable Entity caster) {
         Entity attacker = CombatEffects.responsible(caster);
+        return attacker == null ? target.damageSources().magic() : spell(target.level(), null, attacker);
+    }
+
+    /**
+     * The old armour-blind source: for spells that do their own armour maths (Diffindo) or whose damage is
+     * a fixed share of health (Avada), where half armour on top would count it twice.
+     */
+    public static DamageSource armourlessFrom(LivingEntity target, @Nullable Entity caster) {
+        Entity attacker = CombatEffects.responsible(caster);
         return attacker == null ? target.damageSources().magic() : target.damageSources().indirectMagic(null, attacker);
     }
+
+    /** A {@code hogwartsmagic:spell} source; {@code direct} is the projectile, if any. */
+    public static DamageSource spell(net.minecraft.world.level.Level level, @Nullable Entity direct, @Nullable Entity causing) {
+        net.minecraft.core.Holder<net.minecraft.world.damagesource.DamageType> type = level.registryAccess()
+                .registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(SPELL);
+        return new DamageSource(type, direct, causing);
+    }
+
+    public static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> SPELL =
+            net.minecraft.resources.ResourceKey.create(Registries.DAMAGE_TYPE,
+                    ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "spell"));
 
     /**
      * Who a splash (Confringo's burning debris, Bombarda's blast) may catch. With a primary target this is

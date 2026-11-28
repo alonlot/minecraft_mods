@@ -20,6 +20,23 @@ public final class CrowdControlMath {
      * @return ticks to apply, rounded to the nearest tick; 0 means nothing lands
      */
     public static int scaledTicks(int baseTicks, double diminishingFactor, boolean boss, boolean pvp, double pvpMultiplier) {
+        return scaledTicks(baseTicks, diminishingFactor, boss, pvp, pvpMultiplier, 0);
+    }
+
+    /**
+     * Each level of Warding across the worn armour takes 2% off a hex or a spell's damage, a third at most
+     * (a full Warding IV set): even the best-warded target is still plainly hurt and held by spells.
+     */
+    public static final double WARDING_PER_LEVEL = 0.02;
+    public static final double WARDING_FLOOR = 0.68;
+
+    public static double wardingMultiplier(int wardingLevels) {
+        return Math.max(WARDING_FLOOR, 1.0 - WARDING_PER_LEVEL * Math.max(0, wardingLevels));
+    }
+
+    /** As above, with {@code wardingLevels}: the Warding levels summed over the target's worn armour. */
+    public static int scaledTicks(int baseTicks, double diminishingFactor, boolean boss, boolean pvp, double pvpMultiplier,
+                                  int wardingLevels) {
         if (baseTicks <= 0 || !(diminishingFactor > 0.0)) {
             return 0;
         }
@@ -30,6 +47,7 @@ public final class CrowdControlMath {
         if (pvp) {
             ticks *= Double.isNaN(pvpMultiplier) ? 1.0 : Math.max(0.0, Math.min(1.0, pvpMultiplier));
         }
+        ticks *= wardingMultiplier(wardingLevels);
         return (int) Math.round(ticks);
     }
 }

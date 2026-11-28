@@ -1,0 +1,44 @@
+{
+  "description": {
+    "translate": "enchantment.hogwartsmagic.ascendio"
+  },
+  "supported_items": "#minecraft:enchantable/foot_armor",
+  "weight": 2,
+  "max_level": 2,
+  "min_cost": {
+    "base": 10,
+    "per_level_above_first": 8
+  },
+  "max_cost": {
+    "base": 18,
+    "per_level_above_first": 8
+  },
+  "anvil_cost": 4,
+  "slots": [
+    "feet"
+  ],
+  "effects": {
+    "minecraft:attributes": [
+      {
+        "id": "hogwartsmagic:enchantment.ascendio",
+        "attribute": "minecraft:generic.jump_strength",
+        "amount": {
+          "type": "minecraft:linear",
+          "base": 0.1,
+          "per_level_above_first": 0.1
+        },
+        "operation": "add_value"
+      },
+      {
+        "id": "hogwartsmagic:enchantment.ascendio_fall",
+        "attribute": "minecraft:generic.safe_fall_distance",
+        "amount": {
+          "type": "minecraft:linear",
+          "base": 1.0,
+          "per_level_above_first": 1.0
+        },
+        "operation": "add_value"
+      }
+    ]
+  }
+}

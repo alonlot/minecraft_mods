@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "hogwartsmagic:petrification"
+    "hogwartsmagic:petrification",
+    "hogwartsmagic:spell"
   ]
 }

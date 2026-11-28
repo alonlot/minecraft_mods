@@ -53,4 +53,12 @@ class CrowdControlMathTest {
     void bossAndPvpTogether() {
         assertEquals(18, CrowdControlMath.scaledTicks(60, 1.0, true, true, 0.6));
     }
+
+    @Test
+    void wardingShortensHexesByAThirdAtMost() {
+        assertEquals(60, CrowdControlMath.scaledTicks(60, 1.0, false, false, 0.6, 0));
+        assertEquals(55, CrowdControlMath.scaledTicks(60, 1.0, false, false, 0.6, 4));
+        assertEquals(41, CrowdControlMath.scaledTicks(60, 1.0, false, false, 0.6, 16));
+        assertEquals(41, CrowdControlMath.scaledTicks(60, 1.0, false, false, 0.6, 40));
+    }
 }

@@ -77,7 +77,7 @@ public class BasiliskVenomEntity extends ThrowableItemProjectile {
         if (victim instanceof BasiliskEntity) {
             return;
         }
-        struck.hurt(this.damageSources().indirectMagic(this, this.getOwner()), IMPACT_DAMAGE);
+        struck.hurt(com.hogwartsmagic.spell.damage.DamageSupport.spell(this.level(), this, this.getOwner()), IMPACT_DAMAGE);
         if (victim instanceof LivingEntity living) {
             living.addEffect(new MobEffectInstance(MobEffects.POISON, 140, 1));
             living.addEffect(new MobEffectInstance(MobEffects.WITHER, 60, 0));

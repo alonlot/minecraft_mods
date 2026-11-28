@@ -423,7 +423,7 @@ public enum SpellType {
     }
 
     private void triggerSteamCombo(LivingEntity target, Entity caster) {
-        if (target.hurt(target.damageSources().magic(), 2.0f)) {
+        if (target.hurt(com.hogwartsmagic.spell.damage.DamageSupport.magicFrom(target, caster), 2.0f)) {
             creditCaster(target, caster); // only a hit that landed
         }
         target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0));

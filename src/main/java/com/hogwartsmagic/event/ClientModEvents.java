@@ -1259,6 +1259,8 @@ public class ClientModEvents {
         event.registerBlockEntityRenderer(ExampleMod.TOMB_MARKER_BLOCK_ENTITY.get(),
                 com.hogwartsmagic.client.fx.CurseGlyphRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.WAND_WORKBENCH_BLOCK_ENTITY.get(), WandWorkbenchRenderer::new);
+        event.registerBlockEntityRenderer(ExampleMod.SPELL_TRANSMUTER_BLOCK_ENTITY.get(),
+                com.hogwartsmagic.client.renderer.SpellTransmuterRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.HORCRUX_BLOCK_ENTITY.get(),
                 com.hogwartsmagic.client.renderer.HorcruxHeartRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.PENSIEVE_BLOCK_ENTITY.get(),

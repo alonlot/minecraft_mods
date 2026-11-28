@@ -60,7 +60,7 @@ public final class DiffindoSpell {
         float dealt = DiffindoRules.damageAfterArmor(damage, target.getArmorValue(),
                 target.getAttributeValue(Attributes.ARMOR_TOUGHNESS), ignore);
         if (dealt > 0f) {
-            target.hurt(DamageSupport.magicFrom(target, caster), dealt);
+            target.hurt(DamageSupport.armourlessFrom(target, caster), dealt);
         }
     }
 

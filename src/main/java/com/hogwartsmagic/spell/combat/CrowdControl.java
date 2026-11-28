@@ -92,7 +92,15 @@ public final class CrowdControl {
     private static int scaledNow(LivingEntity target, int baseTicks, @Nullable Entity source, long now) {
         double factor = DIMINISHING.peek(target.getUUID(), now);
         return CrowdControlMath.scaledTicks(baseTicks, factor, CombatTags.isBoss(target),
-                isPvp(target, source), Config.getPvpCrowdControlMultiplier());
+                isPvp(target, source), Config.getPvpCrowdControlMultiplier(), wardingLevels(target));
+    }
+
+    public static final net.minecraft.resources.ResourceKey<net.minecraft.world.item.enchantment.Enchantment> WARDING =
+            com.hogwartsmagic.spell.enchant.SpellEnchantments.WARDING;
+
+    /** Warding levels summed over {@code target}'s four armour slots. */
+    public static int wardingLevels(LivingEntity target) {
+        return com.hogwartsmagic.spell.enchant.SpellEnchantments.armourLevels(target, WARDING);
     }
 
     private static boolean immuneByMode(LivingEntity target) {

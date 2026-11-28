@@ -338,6 +338,10 @@ public class ExampleMod
                     .noOcclusion()
                     .lightLevel(state -> state.hasProperty(com.hogwartsmagic.block.WardBlock.LIT)
                             && state.getValue(com.hogwartsmagic.block.WardBlock.LIT) ? 7 : 0)));
+    public static final RegistryObject<Block> SPELL_TRANSMUTER = BLOCKS.register("spell_transmuter",
+            () -> new com.hogwartsmagic.block.SpellTransmuterBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.ENCHANTING_TABLE)
+                    .noOcclusion()
+                    .lightLevel(state -> 6)));
     public static final RegistryObject<Block> HORCRUX = BLOCKS.register("horcrux",
             () -> new com.hogwartsmagic.block.HorcruxBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.CRYING_OBSIDIAN)
                     .strength(4.0f)
@@ -496,6 +500,11 @@ public class ExampleMod
             BLOCK_ENTITY_TYPES.register("gringotts_lift", () -> BlockEntityType.Builder.of(
                     com.hogwartsmagic.block.entity.GringottsLiftBlockEntity::new,
                     GRINGOTTS_LIFT.get()
+            ).build(null));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.SpellTransmuterBlockEntity>> SPELL_TRANSMUTER_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("spell_transmuter", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.SpellTransmuterBlockEntity::new,
+                    SPELL_TRANSMUTER.get()
             ).build(null));
     public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.HorcruxBlockEntity>> HORCRUX_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("horcrux", () -> BlockEntityType.Builder.of(
@@ -663,6 +672,7 @@ public class ExampleMod
     public static final RegistryObject<Item> OWL_PERCH_ITEM = ITEMS.register("owl_perch", () -> new BlockItem(OWL_PERCH.get(), new Item.Properties()));
     public static final RegistryObject<Item> FLOO_FIREPLACE_ITEM = ITEMS.register("floo_fireplace", () -> new BlockItem(FLOO_FIREPLACE.get(), new Item.Properties()));
     public static final RegistryObject<Item> WARD_ITEM = ITEMS.register("ward", () -> new BlockItem(WARD.get(), new Item.Properties()));
+    public static final RegistryObject<Item> SPELL_TRANSMUTER_ITEM = ITEMS.register("spell_transmuter", () -> new BlockItem(SPELL_TRANSMUTER.get(), new Item.Properties()));
     public static final RegistryObject<Item> HORCRUX_ITEM = ITEMS.register("horcrux", () -> new BlockItem(HORCRUX.get(), new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> CONCEALED_ROCK_ITEM = ITEMS.register("concealed_rock", () -> new BlockItem(CONCEALED_ROCK.get(), new Item.Properties()));
     public static final RegistryObject<Item> HIEROGLYPH_SANDSTONE_ITEM = ITEMS.register("hieroglyph_sandstone", () -> new BlockItem(HIEROGLYPH_SANDSTONE.get(), new Item.Properties()));
@@ -1262,6 +1272,7 @@ public class ExampleMod
                 output.accept(OWL_PERCH_ITEM.get());
                 output.accept(FLOO_FIREPLACE_ITEM.get());
                 output.accept(WARD_ITEM.get());
+                output.accept(SPELL_TRANSMUTER_ITEM.get());
                 output.accept(HORCRUX_ITEM.get());
                 output.accept(CONCEALED_ROCK_ITEM.get());
                 output.accept(HIEROGLYPH_SANDSTONE_ITEM.get());

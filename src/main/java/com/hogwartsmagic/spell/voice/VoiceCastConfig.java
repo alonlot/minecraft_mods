@@ -41,6 +41,36 @@ public final class VoiceCastConfig {
             .comment("Push-to-talk only: show what the recogniser heard when it matches no spell.")
             .define("voiceShowHeard", true);
 
+    /** The speech model. Both ship in the mod jar. */
+    public enum Model {
+        /** whisper base.en (57 MB): hears accents and short spell names much better, about twice the time. */
+        BASE("ggml-base.en-q5_1.bin"),
+        /** whisper tiny.en (31 MB): the fastest, for slow computers; mishears short spell names more. */
+        TINY("ggml-tiny.en-q5_1.bin");
+
+        public final String file;
+
+        Model(String file) {
+            this.file = file;
+        }
+    }
+
+    public static final ForgeConfigSpec.EnumValue<Model> MODEL = BUILDER
+            .comment("BASE: the better speech model (the default). TINY: faster on a slow computer, but mishears short",
+                    "spell names more. Voice practice keeps what it learned for each model apart.")
+            .defineEnum("voiceModel", Model.BASE);
+
+    public static final ForgeConfigSpec.IntValue BEAM = BUILDER
+            .comment("How many guesses the recogniser weighs at once. 1 is the fastest; higher can hear a little",
+                    "better and takes longer.")
+            .defineInRange("voiceBeamSize", 1, 1, 8);
+
+    public static final ForgeConfigSpec.BooleanValue SAVE_TAKES = BUILDER
+            .comment("Keep a recording of each take (and what was heard) in hogwartsmagic/voice/takes, to tune the",
+                    "recogniser to your voice. Off by default: with the open mic this records talk near a held wand.",
+                    "The files never leave this computer. The newest 1000 takes are kept.")
+            .define("voiceSaveTakes", false);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     private VoiceCastConfig() {

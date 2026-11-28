@@ -102,6 +102,51 @@ public final class IncantationMatcher {
     }
 
     /**
+     * The prompt with only {@code spellIds} (the spells the player knows), in the fixed order. A shorter list pulls
+     * the recogniser harder toward each name on it. Falls back to every spell when none of the ids is a spell.
+     */
+    public static String recogniserPrompt(java.util.Collection<String> spellIds) {
+        List<String> names = new ArrayList<>();
+        for (Map.Entry<String, String> e : INCANTATIONS.entrySet()) {
+            if (spellIds.contains(e.getKey())) {
+                names.add(e.getValue());
+            }
+        }
+        return names.isEmpty() ? recogniserPrompt() : "Spells: " + String.join(", ", names) + ".";
+    }
+
+    /** One thing a player can say for a spell: its incantation, or a personal alias learned in voice practice. */
+    record Phrase(String spellId, String words) {
+    }
+
+    private static final List<Phrase> BASE_LEXICON = new ArrayList<>();
+
+    static {
+        for (Map.Entry<String, String> e : INCANTATIONS.entrySet()) {
+            BASE_LEXICON.add(new Phrase(e.getKey(), e.getValue()));
+        }
+    }
+
+    /** The incantations plus the aliases (spell id to heard phrases; ids that are not spells are skipped). */
+    static List<Phrase> lexicon(Map<String, ? extends java.util.Collection<String>> aliases) {
+        if (aliases == null || aliases.isEmpty()) {
+            return BASE_LEXICON;
+        }
+        List<Phrase> out = new ArrayList<>(BASE_LEXICON);
+        for (Map.Entry<String, ? extends java.util.Collection<String>> e : aliases.entrySet()) {
+            if (!INCANTATIONS.containsKey(e.getKey())) {
+                continue;
+            }
+            for (String a : e.getValue()) {
+                if (!words(a).isEmpty()) {
+                    out.add(new Phrase(e.getKey(), a));
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
      * True when {@code heard}, said on its own, is {@code phrase} (a password, not a spell), forgiving the same slips
      * as for spells: spelling to sound ("Sherbert Lemon"), close vowels and consonants, punctuation. Extra words cost
      * as on the open mic, so the phrase inside a longer sentence does not count.
@@ -133,21 +178,45 @@ public final class IncantationMatcher {
      * lenient form, because the player pressed the key to cast.
      */
     public static Result match(String heard, boolean strict) {
-        return match(heard, strict, STRICT_EXTRA_WORD_PENALTY);
+        return match(heard, strict, STRICT_EXTRA_WORD_PENALTY, BASE_LEXICON);
+    }
+
+    /**
+     * As {@link #match(String, boolean)}, also accepting the player's own aliases (spell id to phrases the
+     * recogniser writes for that spell in this player's voice, from voice practice). An alias counts exactly like
+     * the incantation, and the margin is taken between spells, so two phrases for one spell never compete.
+     */
+    public static Result match(String heard, boolean strict, Map<String, ? extends java.util.Collection<String>> aliases) {
+        return match(heard, strict, STRICT_EXTRA_WORD_PENALTY, lexicon(aliases));
     }
 
     static Result match(String heard, boolean strict, double extraWordPenalty) {
+        return match(heard, strict, extraWordPenalty, BASE_LEXICON);
+    }
+
+    static Result match(String heard, boolean strict, double extraWordPenalty, List<Phrase> lexicon) {
         List<String> words = collapseRepeats(words(heard));
         if (words.isEmpty()) {
             return new Result(null, 1.0, 0.0);
         }
+        // Best distance per spell first (an alias and the incantation of one spell are not rivals).
+        Map<String, Double> bySpell = new LinkedHashMap<>();
+        Map<String, Phrase> bestPhrase = new LinkedHashMap<>();
+        for (Phrase p : lexicon) {
+            double d = strict
+                    ? strictDistanceToSpell(words, p.words(), extraWordPenalty)
+                    : distanceToSpell(words, p.words());
+            Double old = bySpell.get(p.spellId());
+            if (old == null || d < old) {
+                bySpell.put(p.spellId(), d);
+                bestPhrase.put(p.spellId(), p);
+            }
+        }
         double best = Double.MAX_VALUE;
         double second = Double.MAX_VALUE;
         String bestId = null;
-        for (Map.Entry<String, String> e : INCANTATIONS.entrySet()) {
-            double d = strict
-                    ? strictDistanceToSpell(words, e.getValue(), extraWordPenalty)
-                    : distanceToSpell(words, e.getValue());
+        for (Map.Entry<String, Double> e : bySpell.entrySet()) {
+            double d = e.getValue();
             if (d < best) {
                 second = best;
                 best = d;
@@ -158,7 +227,7 @@ public final class IncantationMatcher {
         }
         double margin = second - best;
         // Open mic: a sentence that names a spell never casts ("Oh Depulso", "Protego him!").
-        if (strict && bestId != null && spellInsideSentence(words, INCANTATIONS.get(bestId))) {
+        if (strict && bestId != null && spellInsideSentence(words, bestPhrase.get(bestId), lexicon)) {
             return new Result(null, best, margin);
         }
         if (bestId == null || best > MAX_DISTANCE || margin < MIN_MARGIN) {
@@ -181,19 +250,33 @@ public final class IncantationMatcher {
      * holds "Protego") still casts. A recogniser that splits one made-up word in two ("Fiend fear") has no such run.
      */
     static boolean spellInsideSentence(List<String> heardWords, String bestIncantation) {
-        List<String> bestWords = words(bestIncantation);
+        String id = null;
+        for (Map.Entry<String, String> e : INCANTATIONS.entrySet()) {
+            if (e.getValue().equals(bestIncantation)) {
+                id = e.getKey();
+            }
+        }
+        return spellInsideSentence(heardWords, new Phrase(id, bestIncantation), BASE_LEXICON);
+    }
+
+    /**
+     * {@link #spellInsideSentence(List, String)} over a lexicon with aliases: any phrase of the best spell (its
+     * incantation or an alias) counts as "the best spell itself", any phrase of another spell as another spell.
+     */
+    static boolean spellInsideSentence(List<String> heardWords, Phrase best, List<Phrase> lexicon) {
+        List<String> bestWords = words(best.words());
         String bestTarget = fold(String.join("", bestWords));
         double whole = score(fold(String.join("", heardWords)), bestTarget);
         for (int len = 1; len < heardWords.size(); len++) {
             for (int start = 0; start + len <= heardWords.size(); start++) {
                 String span = fold(String.join("", heardWords.subList(start, start + len)));
-                for (String incantation : INCANTATIONS.values()) {
-                    List<String> spellWords = words(incantation);
+                for (Phrase phrase : lexicon) {
+                    List<String> spellWords = words(phrase.words());
                     double d = score(span, fold(String.join("", spellWords)));
                     if (d > STRICT_SPAN_HIT) {
                         continue;
                     }
-                    if (incantation.equals(bestIncantation)) {
+                    if (java.util.Objects.equals(phrase.spellId(), best.spellId())) {
                         // The best spell inside the text: extra words only when the run beats the whole text
                         // ("Oh Depulso"), not when the whole is closer ("Pier totum locomotor").
                         if (d < whole) {

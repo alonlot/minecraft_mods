@@ -1,6 +1,8 @@
 package com.hogwartsmagic.client.voice;
 
 import com.hogwartsmagic.spell.voice.IncantationMatcher;
+import com.hogwartsmagic.spell.voice.VoiceAudio;
+import com.hogwartsmagic.spell.voice.VoiceCastConfig;
 import com.mojang.logging.LogUtils;
 import io.github.givimad.whisperjni.WhisperContext;
 import io.github.givimad.whisperjni.WhisperFullParams;
@@ -19,17 +21,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Offline speech to text with whisper.cpp (through whisper-jni) and the tiny English model, quantised to 32 MB.
- * Everything runs on one low-priority worker thread, never on the render thread. The model ships inside the mod
- * jar and is copied to {@code <game dir>/hogwartsmagic/voice/} on first use, because whisper.cpp reads a file.
+ * Offline speech to text with whisper.cpp (through whisper-jni) and an English model ({@link VoiceCastConfig#MODEL}:
+ * base.en by default, tiny.en for slow computers, both quantised). Everything runs on one low-priority worker thread,
+ * never on the render thread. The models ship inside the mod jar and are copied to
+ * {@code <game dir>/hogwartsmagic/voice/} on first use, because whisper.cpp reads a file. Changing the model in the
+ * config swaps it before the next take.
  *
  * <p>Any failure (no native library for this machine, a broken model file) turns voice casting off for the
  * session with one message; it never crashes the game.</p>
  */
 final class WhisperEngine {
     private static final Logger LOGGER = LogUtils.getLogger();
-    static final String MODEL_FILE = "ggml-tiny.en-q5_1.bin";
-    private static final String MODEL_RESOURCE = "/voice/" + MODEL_FILE;
     /**
      * whisper.cpp returns nothing for less than one second of audio, so takes are padded with silence: 0.3 s before
      * and after, 2 s in all at least. This is the padding the 96% spike result was measured with; a shorter pad
@@ -42,6 +44,13 @@ final class WhisperEngine {
 
     enum State { UNLOADED, LOADING, READY, FAILED }
 
+    /**
+     * One transcribed take: the text, how long the model took, which model heard it, and the take as recorded
+     * (before its level was evened out), so it can be saved for tuning.
+     */
+    record Heard(String text, long millis, VoiceCastConfig.Model model, float[] audio) {
+    }
+
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "HogwartsMagic voice recogniser");
         t.setDaemon(true);
@@ -50,8 +59,11 @@ final class WhisperEngine {
     });
     private volatile State state = State.UNLOADED;
     private volatile String failure = "";
+    /** The spells the recogniser is primed with (set from the render thread: the spells the player knows). */
+    private volatile String prompt = IncantationMatcher.recogniserPrompt();
     private WhisperJNI jni;
     private WhisperContext context;
+    private volatile VoiceCastConfig.Model loaded;
 
     State state() {
         return state;
@@ -61,26 +73,44 @@ final class WhisperEngine {
         return failure;
     }
 
+    /** The model now loaded, or the configured one before the first load. */
+    VoiceCastConfig.Model model() {
+        VoiceCastConfig.Model m = loaded;
+        return m != null ? m : VoiceCastConfig.MODEL.get();
+    }
+
+    void setPrompt(String prompt) {
+        this.prompt = prompt;
+    }
+
     /** Starts loading in the background (the first press pays the load, not the first cast). */
     void warmUp() {
         if (state == State.UNLOADED) {
             state = State.LOADING;
-            worker.execute(this::loadOnWorker);
+            worker.execute(this::ensureLoaded);
         }
     }
 
     /** Transcribes one take. Completes with "" for silence; completes exceptionally when the engine failed. */
-    CompletableFuture<String> transcribe(float[] audio, int threads) {
+    CompletableFuture<Heard> transcribe(float[] audio, int threads) {
         warmUp();
         return CompletableFuture.supplyAsync(() -> {
+            ensureLoaded();
             if (state != State.READY) {
                 throw new IllegalStateException(failure.isEmpty() ? "voice engine not loaded" : failure);
             }
-            if (rms(audio) < SILENCE_RMS) {
-                return "";
+            VoiceCastConfig.Model model = loaded;
+            if (VoiceAudio.rms(audio) < SILENCE_RMS) {
+                return new Heard("", 0, model, audio);
             }
-            float[] padded = pad(audio);
-            WhisperFullParams p = new WhisperFullParams(WhisperSamplingStrategy.GREEDY);
+            // A quiet or far microphone is raised to speech level (and a hot one lowered) before the model hears it.
+            float[] padded = pad(VoiceAudio.normalise(audio));
+            int beam = VoiceCastConfig.BEAM.get();
+            WhisperFullParams p = new WhisperFullParams(
+                    beam > 1 ? WhisperSamplingStrategy.BEAN_SEARCH : WhisperSamplingStrategy.GREEDY);
+            if (beam > 1) {
+                p.beamSearchBeamSize = beam;
+            }
             p.nThreads = threads;
             p.language = "en";
             p.noContext = true;
@@ -90,7 +120,7 @@ final class WhisperEngine {
             p.printRealtime = false;
             p.printTimestamps = false;
             p.printSpecial = false;
-            p.initialPrompt = IncantationMatcher.recogniserPrompt();
+            p.initialPrompt = prompt;
             long start = System.nanoTime();
             int code = jni.full(context, p, padded, padded.length);
             long millis = (System.nanoTime() - start) / 1_000_000L;
@@ -104,21 +134,38 @@ final class WhisperEngine {
             }
             String heard = text.toString().trim();
             // One line per take, so players can see the real speed on their own machine (logs/latest.log).
-            LOGGER.info("Voice casting: heard \"{}\" in {} ms ({} s of speech, {} threads)", heard, millis,
-                    String.format(java.util.Locale.ROOT, "%.1f", audio.length / (double) MicRecorder.TARGET_RATE), threads);
-            return heard;
+            LOGGER.info("Voice casting: heard \"{}\" in {} ms ({} s of speech, {} threads, {} model)", heard, millis,
+                    String.format(java.util.Locale.ROOT, "%.1f", audio.length / (double) MicRecorder.TARGET_RATE),
+                    threads, model.name().toLowerCase(java.util.Locale.ROOT));
+            return new Heard(heard, millis, model, audio);
         }, worker);
     }
 
-    private void loadOnWorker() {
+    /** On the worker: loads the configured model, or swaps to it when the config changed. A failure is final. */
+    private void ensureLoaded() {
+        if (state == State.FAILED) {
+            return;
+        }
+        VoiceCastConfig.Model wanted = VoiceCastConfig.MODEL.get();
+        if (state == State.READY && wanted == loaded) {
+            return;
+        }
+        state = State.LOADING;
         try {
-            Path model = extractModel();
-            WhisperJNI.loadLibrary();
-            WhisperJNI.setLibraryLogger(null); // whisper.cpp logs every call to stderr otherwise
-            jni = new WhisperJNI();
+            Path model = extractModel(wanted.file);
+            if (jni == null) {
+                WhisperJNI.loadLibrary();
+                WhisperJNI.setLibraryLogger(null); // whisper.cpp logs every call to stderr otherwise
+                jni = new WhisperJNI();
+            }
+            if (context != null) {
+                jni.free(context);
+                context = null;
+            }
             context = jni.init(model);
+            loaded = wanted;
             state = State.READY;
-            LOGGER.info("Voice casting: speech model loaded ({})", jni.getSystemInfo());
+            LOGGER.info("Voice casting: speech model {} loaded ({})", wanted.file, jni.getSystemInfo());
         } catch (Throwable t) { // UnsatisfiedLinkError on a machine with no native build is an Error
             failure = t.getClass().getSimpleName() + ": " + t.getMessage();
             state = State.FAILED;
@@ -126,17 +173,17 @@ final class WhisperEngine {
         }
     }
 
-    private static Path extractModel() throws IOException {
+    private static Path extractModel(String file) throws IOException {
         Path dir = FMLPaths.GAMEDIR.get().resolve("hogwartsmagic").resolve("voice");
-        Path target = dir.resolve(MODEL_FILE);
-        try (InputStream in = WhisperEngine.class.getResourceAsStream(MODEL_RESOURCE)) {
+        Path target = dir.resolve(file);
+        try (InputStream in = WhisperEngine.class.getResourceAsStream("/voice/" + file)) {
             if (in == null) {
-                throw new IOException("speech model missing from the mod jar: " + MODEL_RESOURCE);
+                throw new IOException("speech model missing from the mod jar: /voice/" + file);
             }
             Files.createDirectories(dir);
-            Path tmp = dir.resolve(MODEL_FILE + ".part");
-            // Copied to a .part file each session (32 MB, well under a second) and moved into place only when it
-            // differs, so a half-written file from a crash is never loaded.
+            Path tmp = dir.resolve(file + ".part");
+            // Copied to a .part file each session (under a second) and moved into place only when it differs, so
+            // a half-written file from a crash is never loaded.
             long size = Files.exists(target) ? Files.size(target) : -1;
             Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
             if (Files.size(tmp) == size) {
@@ -146,17 +193,6 @@ final class WhisperEngine {
             }
         }
         return target;
-    }
-
-    static double rms(float[] audio) {
-        if (audio.length == 0) {
-            return 0.0;
-        }
-        double sum = 0;
-        for (float f : audio) {
-            sum += f * f;
-        }
-        return Math.sqrt(sum / audio.length);
     }
 
     /** Silence before and after the take, and up to {@link #MIN_SAMPLES} in all. */

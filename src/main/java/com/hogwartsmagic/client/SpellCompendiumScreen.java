@@ -92,6 +92,12 @@ public class SpellCompendiumScreen extends Screen {
                         b -> onClose())
                 .bounds(panelLeft + PANEL_WIDTH - 72, panelTop + PANEL_HEIGHT - 26, 60, 18)
                 .build());
+        // Voice practice: teach the speech model this player's voice for the spells they know.
+        addRenderableWidget(Button.builder(
+                        Component.translatable("voice.hogwartsmagic.practice.open"),
+                        b -> this.minecraft.setScreen(new com.hogwartsmagic.client.voice.VoicePracticeScreen()))
+                .bounds(panelLeft + PANEL_WIDTH - 172, panelTop + PANEL_HEIGHT - 26, 96, 18)
+                .build());
     }
 
     private void buildRows() {

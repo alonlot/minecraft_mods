@@ -387,6 +387,8 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
             applyAirBreath(entity, t, ageInTicks, pitch);
         } else if (state == HungarianHorntailEntity.AttackState.DIVE) {
             applyDive(ageInTicks);
+        } else if (state == HungarianHorntailEntity.AttackState.AIR_SNAP) {
+            applyAirSnap(t);
         } else if (state == HungarianHorntailEntity.AttackState.LAND) {
             applyLand(t);
         } else if (state == HungarianHorntailEntity.AttackState.STAGGER) {
@@ -505,7 +507,8 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
     private void applyFlight(HorntailPoseSource entity, float ageInTicks,
                              HungarianHorntailEntity.AttackState state) {
         boolean hard = state == HungarianHorntailEntity.AttackState.TAKEOFF
-                || state == HungarianHorntailEntity.AttackState.AIR_BREATH;
+                || state == HungarianHorntailEntity.AttackState.AIR_BREATH
+                || state == HungarianHorntailEntity.AttackState.AIR_SNAP;
         float rate = hard ? 0.42F : 0.26F;
         // The beat and its amplitude come from the entity (HorntailFlightPose for the wild dragon: a fixed-rate
         // sine; the memory dragon's are matched to its path's speed and climb).
@@ -528,7 +531,9 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         this.tail3.xRot = -0.04F + beat * 0.06F;
         this.tail4.xRot = 0.0F + beat * 0.07F;
 
-        if (state == HungarianHorntailEntity.AttackState.FLY) {
+        if (state == HungarianHorntailEntity.AttackState.FLY
+                || state == HungarianHorntailEntity.AttackState.PURSUIT
+                || state == HungarianHorntailEntity.AttackState.AIR_SNAP) {
             // Bank into the turn, and pitch with the climb/descent — this is what sells real flight.
             this.body.zRot = entity.flightBank();
             this.body.xRot = entity.flightPitch(beat);
@@ -537,6 +542,21 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
             this.neck1.zRot = -roll * 0.55F;
             this.neck2.zRot = -roll * 0.35F;
         }
+    }
+
+    /** The snap on the wing: the neck coils back over the flight pose, then shoots forward as the jaws shut. */
+    private void applyAirSnap(float t) {
+        float p = clamp01(t / HungarianHorntailEntity.AIR_SNAP_DURATION);
+        float strike = (float) HungarianHorntailEntity.AIR_SNAP_STRIKE_TICK / HungarianHorntailEntity.AIR_SNAP_DURATION;
+        float coil = p < strike ? p / strike : 0.0F;
+        float lunge = p < strike ? 0.0F : Math.max(0.0F, 1.0F - (p - strike) / (1.0F - strike));
+        // Coil peaks just before the strike frame; the lunge is fullest on it and eases out after.
+        coil = Mth.sin(coil * Mth.HALF_PI);
+        this.neck1.xRot += -0.30F * coil + 0.30F * lunge;
+        this.neck2.xRot += 0.25F * coil + 0.20F * lunge;
+        this.head.xRot += -0.20F * coil + 0.30F * lunge;
+        float jawOpen = p < strike ? coil : Math.max(0.0F, 1.0F - (p - strike) / 0.10F);
+        this.jaw.xRot = 0.04F + 0.95F * jawOpen;
     }
 
     private void applyRoar(float t) {

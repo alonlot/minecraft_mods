@@ -294,6 +294,12 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         }
     }
 
+    /** The Ironbelly's fight is its own goal and stays on the ground; only the Horntail chases brooms. */
+    @Override
+    protected boolean canPursueFliers() {
+        return false;
+    }
+
     @Override
     protected net.minecraft.sounds.SoundEvent getAmbientSound() {
         return com.hogwartsmagic.ModSounds.IRONBELLY_AMBIENT.get();

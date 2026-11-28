@@ -67,7 +67,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     public enum AttackState {
         // NOTE: append new constants at the END — the ordinal is what gets synced to clients.
         NONE, ROAR, BITE, TAIL_WHIP, BREATH_WINDUP, BREATH, WING_GUST, TAKEOFF, FLY, DIVE, LAND, STAGGER,
-        AIR_BREATH;
+        AIR_BREATH, PURSUIT, AIR_SNAP;
 
         private static final AttackState[] VALUES = values();
 
@@ -107,6 +107,18 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     public static final int STAGGER_DURATION = 18;
     public static final int AIR_BREATH_DURATION = 52;
     public static final int AIR_BREATH_WINDUP = 12;
+
+    /** The snap at a broom rider in the air: coil, surge and bite, all while flying. */
+    public static final int AIR_SNAP_DURATION = 16;
+    public static final int AIR_SNAP_STRIKE_TICK = 7;
+    private static final double AIR_SNAP_REACH = 4.5D;
+    /** Past this the quarry has got away: the dragon gives up after {@link #GIVE_UP_TICKS} out there. */
+    private static final double PURSUIT_GIVE_UP_RANGE = 140.0D;
+    private static final int GIVE_UP_TICKS = 100;
+    /** Extra follow range while chasing, so a broom just out of the usual 64 is not forgotten mid-chase. */
+    private static final double PURSUIT_EXTRA_RANGE = 80.0D;
+    private static final net.minecraft.resources.ResourceLocation PURSUIT_RANGE_ID =
+            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(com.hogwartsmagic.ExampleMod.MODID, "dragon_pursuit_range");
 
     /** Total time spent airborne (FLY + AIR_BREATH) before the dragon commits to a dive. */
     private static final int FLIGHT_BUDGET = 150;
@@ -149,6 +161,23 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     private float sweepStartYaw;
     private AttackState lastGroundAttack = AttackState.NONE;
     private int repeatedAttacks;
+
+    // --- Aerial pursuit of a broom rider (server only) ---
+    /** This takeoff leads straight into a chase rather than the circle-and-stoop. */
+    private boolean pursuitTakeoff;
+    /** This AIR_BREATH is fired on the wing during a chase, and goes back to the chase when done. */
+    private boolean pursuitBreath;
+    private int snapCooldown;
+    private int groundedQuarryTicks;
+    private int farQuarryTicks;
+    /** The chase velocity as flown, kept apart from deltaMovement, which vanilla's air drag shrinks every tick. */
+    private Vec3 pursuitVel = Vec3.ZERO;
+    @javax.annotation.Nullable
+    private UUID quarryId;
+    @javax.annotation.Nullable
+    private Vec3 quarryLastPos;
+    /** The quarry's measured velocity: a ridden broom is driven by its rider's client, so this is what it really does. */
+    private Vec3 quarryVel = Vec3.ZERO;
 
 
     public HungarianHorntailEntity(EntityType<? extends HungarianHorntailEntity> type, Level level) {
@@ -375,7 +404,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     private boolean isAerial() {
         AttackState s = getAttackState();
         return s == AttackState.TAKEOFF || s == AttackState.FLY || s == AttackState.DIVE
-                || s == AttackState.LAND || s == AttackState.AIR_BREATH;
+                || s == AttackState.LAND || s == AttackState.AIR_BREATH
+                || s == AttackState.PURSUIT || s == AttackState.AIR_SNAP;
     }
 
     private boolean isBusy() {
@@ -430,6 +460,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
 
         if (this.actionCooldown > 0) this.actionCooldown--;
         if (this.airBreathCooldown > 0) this.airBreathCooldown--;
+        if (this.snapCooldown > 0) this.snapCooldown--;
+        syncPursuitRange(state);
 
         // Safety net: vanilla persists NoGravity but not the attack state, so a dragon saved in
         // mid-air would reload hovering forever. Anything not in an aerial state falls.
@@ -512,6 +544,10 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             tickDive(t);
         } else if (state == AttackState.LAND) {
             tickLand(t);
+        } else if (state == AttackState.PURSUIT) {
+            tickPursuit(t);
+        } else if (state == AttackState.AIR_SNAP) {
+            tickAirSnap(t);
         } else if (state == AttackState.STAGGER) {
             if (t >= STAGGER_DURATION) setAttackState(AttackState.NONE);
         }
@@ -859,6 +895,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         this.getNavigation().stop();
         this.hoverTargetY = groundBelowY() + HOVER_HEIGHT;
         this.flightTicks = 0;
+        this.pursuitTakeoff = false;
+        this.pursuitBreath = false;
         this.circleDir = this.random.nextBoolean() ? 1 : -1;
         LivingEntity target = this.getTarget();
         if (target != null) {
@@ -890,6 +928,13 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         }
         LivingEntity target = this.getTarget();
         if (target != null) this.getLookControl().setLookAt(target, 20.0F, 20.0F);
+        if (this.pursuitTakeoff) {
+            // Chasing something already in the air: once clear of the ground, go after it.
+            if ((t >= 10 && this.getY() - groundBelowY() >= 5.0D) || t >= TAKEOFF_DURATION) {
+                beginPursuit();
+            }
+            return;
+        }
         if (this.getY() >= this.hoverTargetY - 1.5D || t >= TAKEOFF_DURATION) {
             setAttackState(AttackState.FLY);
         }
@@ -900,6 +945,11 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         LivingEntity target = this.getTarget();
         if (target == null) {
             if (t >= 25) beginLand();
+            return;
+        }
+        // It took to the air on a broom: no more circling, go after it.
+        if (canPursueFliers() && isAirborneQuarry(target)) {
+            beginPursuit();
             return;
         }
 
@@ -935,6 +985,10 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     private void tickAirBreath(int t) {
         this.flightTicks++;
         LivingEntity target = this.getTarget();
+        if (this.pursuitBreath) {
+            tickPursuitBreath(t, target);
+            return;
+        }
         if (target == null) {
             beginLand();
             return;
@@ -966,6 +1020,330 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             } else {
                 setAttackState(AttackState.FLY);
             }
+        }
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // Aerial pursuit: a rider who takes to a broom is chased through the sky, not circled
+    // -------------------------------------------------------------------------------------------
+
+    /** Whether this dragon chases broom riders through the air (the Horntail does; the Ironbelly keeps its own fight). */
+    protected boolean canPursueFliers() {
+        return true;
+    }
+
+    /**
+     * Someone the dragon has to chase through the air to reach: on a broom with open air under it, or gliding on
+     * elytra. A broom parked on the ground, or skimming a roof, is still in biting range of a dragon on foot.
+     */
+    public static boolean isAirborneQuarry(LivingEntity target) {
+        if (target.isFallFlying()) return true;
+        if (!(target.getVehicle() instanceof BroomEntity broom)) return false;
+        if (broom.onGround()) return false;
+        Level level = broom.level();
+        BlockPos.MutableBlockPos m = broom.blockPosition().mutable();
+        for (int i = 0; i < 3; i++) {
+            m.move(Direction.DOWN);
+            if (!level.getBlockState(m).getCollisionShape(level, m).isEmpty()) return false;
+        }
+        return true;
+    }
+
+    /** Take off straight into a chase: the takeoff ends as soon as the dragon is clear of the ground. */
+    void beginPursuitTakeoff() {
+        beginTakeoff();
+        this.pursuitTakeoff = true;
+        this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 6.0F, 0.95F);
+    }
+
+    private void beginPursuit() {
+        LivingEntity target = this.getTarget();
+        boolean fresh = getAttackState() != AttackState.AIR_SNAP && getAttackState() != AttackState.AIR_BREATH;
+        setAttackState(AttackState.PURSUIT);
+        this.entityData.set(DATA_FLYING, true);
+        this.setNoGravity(true);
+        this.pursuitTakeoff = false;
+        this.pursuitBreath = false;
+        this.groundedQuarryTicks = 0;
+        this.farQuarryTicks = 0;
+        if (fresh) {
+            Vec3 v = this.getDeltaMovement();
+            this.pursuitVel = v.lengthSqr() > 1.0E-4D ? v : Vec3.directionFromRotation(-20.0F, this.getYRot()).scale(0.4D);
+            this.quarryLastPos = null;
+            this.quarryVel = Vec3.ZERO;
+            if (this.airBreathCooldown < 30) this.airBreathCooldown = 30;
+            if (this.snapCooldown < 20) this.snapCooldown = 20;
+        }
+        if (target != null) this.quarryId = target.getUUID();
+    }
+
+    /** Leave the chase for the ordinary flight: a short circle overhead, then the stoop onto them. */
+    private void dropToCircling() {
+        this.pursuitBreath = false;
+        this.flightTicks = Math.max(this.flightTicks, FLIGHT_BUDGET - 50);
+        LivingEntity target = this.getTarget();
+        if (target != null) {
+            this.circlePhase = Math.atan2(this.getZ() - target.getZ(), this.getX() - target.getX());
+        }
+        setAttackState(AttackState.FLY);
+    }
+
+    /** The quarry, re-found if a target goal dropped it mid-chase (out of sight behind a ridge, say). */
+    @javax.annotation.Nullable
+    private LivingEntity pursuitTarget() {
+        LivingEntity target = this.getTarget();
+        if (target != null && target.isAlive()) return target;
+        if (this.quarryId == null) return null;
+        Player p = this.level().getPlayerByUUID(this.quarryId);
+        if (p == null || !p.isAlive() || p.isCreative() || p.isSpectator()) return null;
+        if (this.distanceToSqr(p) > PURSUIT_GIVE_UP_RANGE * PURSUIT_GIVE_UP_RANGE) return null;
+        this.setTarget(p);
+        return p;
+    }
+
+    /** Measures the quarry's velocity from where it actually went (smoothed, so one laggy packet is not a lunge). */
+    private void trackQuarry(LivingEntity target) {
+        Vec3 now = target.position();
+        if (this.quarryLastPos != null) {
+            Vec3 step = now.subtract(this.quarryLastPos);
+            // A teleport (Apparition, a Portkey) is not a velocity.
+            if (step.lengthSqr() < 16.0D * 16.0D) {
+                this.quarryVel = this.quarryVel.add(step.subtract(this.quarryVel).scale(0.35D));
+            }
+        }
+        this.quarryLastPos = now;
+    }
+
+    private void tickPursuit(int t) {
+        LivingEntity target = pursuitTarget();
+        if (target == null) {
+            this.quarryId = null;
+            setAttackState(AttackState.FLY); // FLY with no target lands on its own
+            return;
+        }
+        trackQuarry(target);
+
+        // Landed, or knocked off the broom: back to the ground fight's rules, from the air.
+        if (!isAirborneQuarry(target)) {
+            if (++this.groundedQuarryTicks > 30) {
+                dropToCircling();
+                return;
+            }
+        } else {
+            this.groundedQuarryTicks = 0;
+        }
+
+        double dist = this.distanceTo(target);
+        if (dist > PURSUIT_GIVE_UP_RANGE) {
+            if (++this.farQuarryTicks > GIVE_UP_TICKS) {
+                // Lost them. It goes home in a temper rather than hanging in the sky forever.
+                this.quarryId = null;
+                this.setTarget(null);
+                this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 5.0F, 0.7F);
+                beginLand();
+                return;
+            }
+        } else {
+            this.farQuarryTicks = 0;
+        }
+
+        flyPursuit(target, 1.0D);
+        if (t % 7 == 0) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 3.5F, 0.95F);
+
+        Vec3 heading = this.pursuitVel.lengthSqr() > 1.0E-6D ? this.pursuitVel.normalize() : lookDir();
+        Vec3 to = target.getBoundingBox().getCenter().subtract(mouthPos());
+        double facing = to.lengthSqr() > 1.0E-4D ? heading.dot(to.normalize()) : 1.0D;
+
+        if (this.snapCooldown <= 0 && to.length() < 8.5D && facing > 0.5D) {
+            setAttackState(AttackState.AIR_SNAP);
+            return;
+        }
+        if (this.airBreathCooldown <= 0 && dist > 9.0D && dist < 22.0D && facing > 0.85D
+                && this.hasLineOfSight(target)) {
+            this.pursuitBreath = true;
+            this.breathAim = aimAt(target);
+            syncBreathAim();
+            setAttackState(AttackState.AIR_BREATH);
+        }
+    }
+
+    /**
+     * One tick of chase flight: steer the heading toward where the quarry is going, turning no faster than the
+     * dragon can, at the rubber-band speed, while staying off the ground and climbing over what is ahead.
+     */
+    private void flyPursuit(LivingEntity target, double speedScale) {
+        Vec3 aimCentre = target.getBoundingBox().getCenter();
+        double dist = aimCentre.distanceTo(this.position());
+        double want = DragonPursuitRules.chaseSpeed(this.quarryVel.length(), dist, isRaging()) * speedScale;
+        double lead = DragonPursuitRules.leadTicks(dist, Math.max(want, 0.5D));
+        // The mouth rides 1.65 above the origin, so aim the origin that much under the rider.
+        Vec3 aim = aimCentre.add(this.quarryVel.scale(lead)).subtract(0.0D, 1.65D, 0.0D);
+
+        // A wall stopped us: vanilla zeroed that part of the motion, so stop pretending we still have it.
+        if (this.horizontalCollision) {
+            this.pursuitVel = this.pursuitVel.multiply(0.4D, 1.0D, 0.4D).add(0.0D, 0.25D, 0.0D);
+        }
+
+        Vec3 heading = this.pursuitVel.lengthSqr() > 1.0E-6D ? this.pursuitVel.normalize() : lookDir();
+        Vec3 dir = aim.subtract(this.position());
+        dir = dir.lengthSqr() > 1.0E-4D ? dir.normalize() : heading;
+
+        double clearance = this.getY() - groundBelowY();
+        if (clearance < 5.0D) {
+            dir = new Vec3(dir.x, Math.max(dir.y, (5.0D - clearance) * 0.15D), dir.z).normalize();
+        }
+        if (obstacleAhead(heading, 6.0D + this.pursuitVel.length() * 8.0D)) {
+            dir = new Vec3(dir.x * 0.5D, 0.8D, dir.z * 0.5D).normalize();
+        }
+
+        double[] turned = DragonPursuitRules.turnToward(
+                new double[]{heading.x, heading.y, heading.z}, new double[]{dir.x, dir.y, dir.z},
+                isRaging() ? DragonPursuitRules.TURN_RAGING : DragonPursuitRules.TURN);
+        double speed = DragonPursuitRules.easeSpeed(this.pursuitVel.length(), want);
+        this.pursuitVel = new Vec3(turned[0], turned[1], turned[2]).scale(speed);
+        this.setDeltaMovement(this.pursuitVel);
+        faceHeading(this.pursuitVel, 14.0F);
+        this.getLookControl().setLookAt(target, 30.0F, 30.0F);
+    }
+
+    /** Is there something solid along the flight line, from the body or either wing root? */
+    private boolean obstacleAhead(Vec3 heading, double range) {
+        Vec3 centre = this.getBoundingBox().getCenter();
+        Vec3 side = leftVector().scale(this.getBbWidth() * 0.5D);
+        Vec3[] from = {centre, centre.add(side), centre.subtract(side)};
+        for (Vec3 f : from) {
+            HitResult hit = this.level().clip(new ClipContext(f, f.add(heading.scale(range)),
+                    ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+            if (hit.getType() != HitResult.Type.MISS) return true;
+        }
+        return false;
+    }
+
+    /** Fire on the wing: the chase goes on underneath it, and the jet trails the rider through every turn. */
+    private void tickPursuitBreath(int t, @javax.annotation.Nullable LivingEntity target) {
+        if (target == null) target = pursuitTarget();
+        if (target == null) {
+            this.pursuitBreath = false;
+            setAttackState(AttackState.FLY);
+            return;
+        }
+        trackQuarry(target);
+        flyPursuit(target, 0.85D);
+        if (t % 5 == 0) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 3.5F, 1.1F);
+
+        Vec3 heading = this.pursuitVel.lengthSqr() > 1.0E-6D ? this.pursuitVel.normalize() : lookDir();
+        boolean ahead = heading.dot(aimAt(target)) > 0.3D;
+        if (t < AIR_BREATH_WINDUP) {
+            if (t == 1) this.playSound(SoundEvents.FIRECHARGE_USE, 2.5F, 0.5F);
+            if (this.level() instanceof ServerLevel sl) {
+                Vec3 mouth = mouthPos();
+                sl.sendParticles(com.hogwartsmagic.spell.vfx.SpellVfx.swap(ParticleTypes.SMALL_FLAME), mouth.x, mouth.y, mouth.z, 3, 0.2D, 0.2D, 0.2D, 0.02D);
+            }
+        } else {
+            int bt = t - AIR_BREATH_WINDUP;
+            if (bt == 0) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FIRE_BREATH.get(), 4.0F, 0.65F);
+            breatheFire(bt, target, true);
+        }
+
+        // Done, or the rider got behind it (a dragon cannot breathe over its own shoulder).
+        if (t >= AIR_BREATH_DURATION || (t > AIR_BREATH_WINDUP && !ahead)) {
+            this.airBreathCooldown = isRaging() ? 45 : 80;
+            if (isAirborneQuarry(target)) {
+                beginPursuit();
+            } else {
+                dropToCircling();
+            }
+        }
+    }
+
+    private void tickAirSnap(int t) {
+        LivingEntity target = pursuitTarget();
+        if (target == null) {
+            setAttackState(AttackState.FLY);
+            return;
+        }
+        trackQuarry(target);
+        // Coil, surge on the strike, then the wings catch it again.
+        double surge = t < 3 ? 0.9D : (t <= AIR_SNAP_STRIKE_TICK ? 1.45D : 0.85D);
+        flyPursuit(target, surge);
+        if (t == 1) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_BITE.get(), 1.6F, 1.25F);
+        if (t == AIR_SNAP_STRIKE_TICK && this.struckThisState == 0) {
+            this.struckThisState = 1;
+            doAirSnap();
+        }
+        if (t >= AIR_SNAP_DURATION) {
+            this.snapCooldown = isRaging() ? 24 : 40;
+            if (isAirborneQuarry(target)) {
+                beginPursuit();
+            } else {
+                dropToCircling();
+            }
+        }
+    }
+
+    /**
+     * The jaws close on whatever is at the snout. A raging dragon's snap also tears the rider off the broom;
+     * they get slow falling for it, exactly as the Whomping Willow's swat does, or a hit at altitude would be an
+     * unavoidable kill.
+     */
+    private void doAirSnap() {
+        if (!(this.level() instanceof ServerLevel sl)) return;
+        Vec3 jaw = mouthPos();
+        float dmg = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * (isRaging() ? 0.85F : 0.7F);
+        boolean any = false;
+        for (LivingEntity victim : sl.getEntitiesOfClass(LivingEntity.class,
+                new AABB(jaw, jaw).inflate(AIR_SNAP_REACH), e -> e != this && e.isAlive())) {
+            if (victim.getBoundingBox().distanceToSqr(jaw) > AIR_SNAP_REACH * AIR_SNAP_REACH) continue;
+            any = true;
+            victim.hurt(this.damageSources().mobAttack(this), dmg);
+            victim.igniteForSeconds(3);
+            interruptIfCaster(victim);
+            if (isRaging() && victim instanceof Player p && p.getVehicle() instanceof BroomEntity) {
+                knockOffBroom(p);
+            }
+        }
+        if (any) {
+            this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_BITE.get(), 2.2F, 0.8F);
+            Fx.shake(sl, jaw, 0.9F, 14.0F, 8);
+        }
+    }
+
+    /** Same order as the Willow's swat: dismount server-side, THEN set the broom's motion, or the correction eats it. */
+    private void knockOffBroom(Player p) {
+        Vec3 fwd = this.pursuitVel.lengthSqr() > 1.0E-6D ? this.pursuitVel.normalize() : lookDir();
+        p.fallDistance = 0.0F;
+        if (p instanceof ServerPlayer sp) {
+            sp.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                    net.minecraft.world.effect.MobEffects.SLOW_FALLING, 120, 0, false, false, true));
+        }
+        Entity vehicle = p.getVehicle();
+        p.stopRiding();
+        if (vehicle instanceof BroomEntity broom && this.level() instanceof ServerLevel sl) {
+            broom.setDeltaMovement(fwd.x * 0.6D, 0.2D, fwd.z * 0.6D);
+            sl.getChunkSource().broadcast(broom,
+                    new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(broom));
+        }
+        p.setDeltaMovement(fwd.x * 1.2D, 0.4D, fwd.z * 1.2D);
+        p.hurtMarked = true;
+        if (p instanceof ServerPlayer sp) {
+            sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
+        }
+    }
+
+    /** Wears the extra follow range exactly while chasing. */
+    private void syncPursuitRange(AttackState state) {
+        boolean chasing = state == AttackState.PURSUIT || state == AttackState.AIR_SNAP
+                || (state == AttackState.AIR_BREATH && this.pursuitBreath)
+                || (state == AttackState.TAKEOFF && this.pursuitTakeoff);
+        net.minecraft.world.entity.ai.attributes.AttributeInstance range = this.getAttribute(Attributes.FOLLOW_RANGE);
+        if (range == null) return;
+        boolean has = range.hasModifier(PURSUIT_RANGE_ID);
+        if (chasing && !has) {
+            range.addTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(
+                    PURSUIT_RANGE_ID, PURSUIT_EXTRA_RANGE,
+                    net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE));
+        } else if (!chasing && has) {
+            range.removeModifier(PURSUIT_RANGE_ID);
         }
     }
 
@@ -1355,6 +1733,16 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
 
             // Aerial sequence is self-driving in the entity tick; the goal just waits it out.
             if (dragon.inAerialSequence()) {
+                return;
+            }
+
+            // Prey on a broom is out of reach of teeth and tail: take to the air after it.
+            if (dragon.canPursueFliers() && isAirborneQuarry(target)) {
+                if (dragon.canStartAction()) {
+                    dragon.beginPursuitTakeoff();
+                } else {
+                    dragon.getLookControl().setLookAt(target, 30.0F, 30.0F);
+                }
                 return;
             }
 

@@ -332,6 +332,8 @@ public class ModEntities {
                     () -> EntityType.Builder.<HungarianHorntailEntity>of(HungarianHorntailEntity::new, MobCategory.MONSTER)
                             .sized(3.0F, 3.2F)
                             .clientTrackingRange(16)
+                            // Every tick, not every third: chasing a broom it covers 2-3 blocks a tick.
+                            .updateInterval(1)
                             .fireImmune()
                             .build("hungarian_horntail"));
 

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "SKS",
+    "SAS",
+    "SSS"
+  ],
+  "key": {
+    "S": {
+      "item": "hogwartsmagic:magical_silk"
+    },
+    "A": {
+      "item": "hogwartsmagic:arcane_dust"
+    },
+    "K": {
+      "item": "minecraft:black_dye"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:death_eater_robe",
+    "count": 1
+  }
+}

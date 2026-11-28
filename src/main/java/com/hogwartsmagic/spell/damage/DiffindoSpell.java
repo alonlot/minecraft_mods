@@ -11,7 +11,6 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Sheep;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -57,8 +56,7 @@ public final class DiffindoSpell {
     }
 
     private static void sever(LivingEntity target, @Nullable Entity caster, float damage, double ignore) {
-        float dealt = DiffindoRules.damageAfterArmor(damage, target.getArmorValue(),
-                target.getAttributeValue(Attributes.ARMOR_TOUGHNESS), ignore);
+        float dealt = SpellArmour.afterArmour(target, damage, ignore, ignore);
         if (dealt > 0f) {
             target.hurt(DamageSupport.armourlessFrom(target, caster), dealt);
         }

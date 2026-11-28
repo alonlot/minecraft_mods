@@ -1090,6 +1090,30 @@ public class ExampleMod
             () -> new ArmorItem(QUIDDITCH_SHIN_GUARDS_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.LEGGINGS, new Item.Properties().stacksTo(1)));
 
     /**
+     * Battle robes of the Aurors and the Death Eaters, woven from magical silk and arcane dust: barely leather
+     * against a blade, netherite against a curse (see WizardRobeItem and SpellArmour). Both sets share one
+     * material; each piece names its own texture.
+     */
+    public static final RegistryObject<ArmorMaterial> WIZARD_ROBES_MATERIAL = ARMOR_MATERIALS.register("wizard_robes",
+            ExampleMod::createWizardRobesMaterial);
+    public static final RegistryObject<Item> AUROR_HOOD = ITEMS.register("auror_hood",
+            () -> wizardRobe(ArmorItem.Type.HELMET, com.hogwartsmagic.item.WizardRobeItem.AUROR));
+    public static final RegistryObject<Item> AUROR_COAT = ITEMS.register("auror_coat",
+            () -> wizardRobe(ArmorItem.Type.CHESTPLATE, com.hogwartsmagic.item.WizardRobeItem.AUROR));
+    public static final RegistryObject<Item> AUROR_TROUSERS = ITEMS.register("auror_trousers",
+            () -> wizardRobe(ArmorItem.Type.LEGGINGS, com.hogwartsmagic.item.WizardRobeItem.AUROR));
+    public static final RegistryObject<Item> AUROR_BOOTS = ITEMS.register("auror_boots",
+            () -> wizardRobe(ArmorItem.Type.BOOTS, com.hogwartsmagic.item.WizardRobeItem.AUROR));
+    public static final RegistryObject<Item> DEATH_EATER_HOOD = ITEMS.register("death_eater_hood",
+            () -> wizardRobe(ArmorItem.Type.HELMET, com.hogwartsmagic.item.WizardRobeItem.DEATH_EATER));
+    public static final RegistryObject<Item> DEATH_EATER_ROBE = ITEMS.register("death_eater_robe",
+            () -> wizardRobe(ArmorItem.Type.CHESTPLATE, com.hogwartsmagic.item.WizardRobeItem.DEATH_EATER));
+    public static final RegistryObject<Item> DEATH_EATER_TROUSERS = ITEMS.register("death_eater_trousers",
+            () -> wizardRobe(ArmorItem.Type.LEGGINGS, com.hogwartsmagic.item.WizardRobeItem.DEATH_EATER));
+    public static final RegistryObject<Item> DEATH_EATER_BOOTS = ITEMS.register("death_eater_boots",
+            () -> wizardRobe(ArmorItem.Type.BOOTS, com.hogwartsmagic.item.WizardRobeItem.DEATH_EATER));
+
+    /**
      * Gold off a cursed hoard. It burns, and there is always more of it than there was.
      * Deliberately NOT a Galleon: no goblin will take it at face value.
      */
@@ -1371,6 +1395,14 @@ public class ExampleMod
                 output.accept(SLYTHERIN_QUIDDITCH_ROBES.get());
                 output.accept(QUIDDITCH_SHIN_GUARDS.get());
                 output.accept(TRIWIZARD_ROBES.get());
+                output.accept(AUROR_HOOD.get());
+                output.accept(AUROR_COAT.get());
+                output.accept(AUROR_TROUSERS.get());
+                output.accept(AUROR_BOOTS.get());
+                output.accept(DEATH_EATER_HOOD.get());
+                output.accept(DEATH_EATER_ROBE.get());
+                output.accept(DEATH_EATER_TROUSERS.get());
+                output.accept(DEATH_EATER_BOOTS.get());
                 output.accept(WIZARD_SPAWN_EGG.get()); // Wizard Spawn Egg
                 output.accept(STUDENT_SPAWN_EGG.get()); // Student Spawn Egg
                 output.accept(AUROR_SPAWN_EGG.get());
@@ -1589,6 +1621,32 @@ public class ExampleMod
                 net.minecraft.sounds.SoundEvents.ARMOR_EQUIP_LEATHER,
                 () -> net.minecraft.world.item.crafting.Ingredient.of(net.minecraft.tags.ItemTags.WOOL),
                 java.util.List.of(new ArmorMaterial.Layer(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MODID, "wool_cosmetic"))),
+                0.0f,
+                0.0f
+        );
+    }
+
+    private static Item wizardRobe(ArmorItem.Type type, int set) {
+        // Diamond's durability multiplier (33): silk wears, but a spell-hit costs it no more than a blow.
+        return new com.hogwartsmagic.item.WizardRobeItem(WIZARD_ROBES_MATERIAL.getHolder().orElseThrow(), type, set,
+                new Item.Properties().stacksTo(1).durability(type.getDurability(33))
+                        .rarity(net.minecraft.world.item.Rarity.RARE));
+    }
+
+    /** Magical silk: 1 / 2 / 1 / 1 armour, no toughness, gold's enchantability, mended with magical silk. */
+    private static ArmorMaterial createWizardRobesMaterial() {
+        return new ArmorMaterial(
+                Util.make(new java.util.EnumMap<>(ArmorItem.Type.class), map -> {
+                    map.put(ArmorItem.Type.BOOTS, 1);
+                    map.put(ArmorItem.Type.LEGGINGS, 1);
+                    map.put(ArmorItem.Type.CHESTPLATE, 2);
+                    map.put(ArmorItem.Type.HELMET, 1);
+                    map.put(ArmorItem.Type.BODY, 2);
+                }),
+                25,
+                net.minecraft.sounds.SoundEvents.ARMOR_EQUIP_ELYTRA,
+                () -> net.minecraft.world.item.crafting.Ingredient.of(MAGICAL_SILK.get()),
+                java.util.List.of(new ArmorMaterial.Layer(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MODID, "wizard_robes"))),
                 0.0f,
                 0.0f
         );

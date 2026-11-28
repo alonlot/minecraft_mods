@@ -95,4 +95,31 @@ public final class SpellArmourGameTests {
             helper.succeed();
         });
     }
+
+    /** Auror robes: barely leather against a blow, netherite against a spell. */
+    @GameTest(template = EMPTY)
+    public static void wizardRobesWardSpellsNotBlows(GameTestHelper helper) {
+        Husk robed = target(helper, 0, false, 0);
+        Husk bladeTest = target(helper, 1, false, 0);
+        for (Husk husk : new Husk[]{robed, bladeTest}) {
+            husk.setItemSlot(EquipmentSlot.HEAD, new ItemStack(ExampleMod.AUROR_HOOD.get()));
+            husk.setItemSlot(EquipmentSlot.CHEST, new ItemStack(ExampleMod.AUROR_COAT.get()));
+            husk.setItemSlot(EquipmentSlot.LEGS, new ItemStack(ExampleMod.DEATH_EATER_TROUSERS.get()));
+            husk.setItemSlot(EquipmentSlot.FEET, new ItemStack(ExampleMod.DEATH_EATER_BOOTS.get()));
+        }
+        helper.runAfterDelay(3, () -> {
+            helper.assertTrue(robed.getArmorValue() == 7, "robes are 5 armour (+2 husk), got " + robed.getArmorValue());
+            // Netherite against a 10-point blow leaves ~2.8; the robes against a 10-point spell leave ~2.5.
+            float spellLoss = spellHit(helper, robed);
+            helper.assertTrue(spellLoss > 1.5F && spellLoss < 3.2F, "robes ward spells like netherite, lost " + spellLoss);
+            float before = bladeTest.getHealth();
+            bladeTest.invulnerableTime = 0;
+            bladeTest.hurt(helper.getLevel().damageSources().generic(), HIT);
+            float bladeLoss = before - bladeTest.getHealth();
+            helper.assertTrue(bladeLoss > 8.5F, "robes barely stop a blow, lost " + bladeLoss);
+            robed.discard();
+            bladeTest.discard();
+            helper.succeed();
+        });
+    }
 }

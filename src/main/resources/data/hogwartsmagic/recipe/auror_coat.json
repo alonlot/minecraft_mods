@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "SKS",
+    "SAS",
+    "SSS"
+  ],
+  "key": {
+    "S": {
+      "item": "hogwartsmagic:magical_silk"
+    },
+    "A": {
+      "item": "hogwartsmagic:arcane_dust"
+    },
+    "K": {
+      "item": "minecraft:red_dye"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:auror_coat",
+    "count": 1
+  }
+}

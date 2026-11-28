@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    "hogwartsmagic:auror_hood",
+    "hogwartsmagic:auror_coat",
+    "hogwartsmagic:auror_trousers",
+    "hogwartsmagic:auror_boots",
+    "hogwartsmagic:death_eater_hood",
+    "hogwartsmagic:death_eater_robe",
+    "hogwartsmagic:death_eater_trousers",
+    "hogwartsmagic:death_eater_boots"
+  ]
+}

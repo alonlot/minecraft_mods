@@ -1187,6 +1187,10 @@ public class ClientModEvents {
         event.registerLayerDefinition(SortingHatArmorModel.LAYER_LOCATION, SortingHatArmorModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.HouseRobeModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.HouseRobeModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.WizardHoodModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.WizardHoodModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.WizardRobeModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.WizardRobeModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.HouseScarfModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.HouseScarfModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.PointedHatModel.LAYER_LOCATION,

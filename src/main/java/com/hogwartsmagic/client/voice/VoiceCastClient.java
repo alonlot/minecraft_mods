@@ -87,6 +87,50 @@ public final class VoiceCastClient {
         return true;
     }
 
+    /** The open voice practice screen: while set, everything heard goes to it and nothing casts. */
+    private static VoicePracticeScreen practice;
+    /** {@code /voicepractice} asks for the screen; it opens on the next tick, after the chat screen has closed. */
+    private static boolean practiceRequested;
+    /** Ticks until the known spells are read again for the recogniser's prompt. */
+    private static int promptRefresh;
+    private static final int PROMPT_REFRESH_TICKS = 40;
+    /**
+     * Prime the recogniser with only the spells the player knows (true) or every spell (false). Measured with
+     * tools/spell_voice/run_bench.sh on a weak microphone (2026-11-28): open mic 35/42 against 32/42 on tiny,
+     * 38/42 against 33/42 on base. Matching still runs against every spell, so an unknown one still says so.
+     */
+    static final boolean PROMPT_KNOWN_ONLY = true;
+
+    static void requestPractice() {
+        practiceRequested = true;
+    }
+
+    /** The practice screen is open: listen with the open mic whatever the mode, and send it what is heard. */
+    static void beginPractice(VoicePracticeScreen screen) {
+        practice = screen;
+        if (phase == Phase.RECORDING || phase == Phase.TAIL) {
+            RECORDER.stopQuietly();
+            phase = Phase.IDLE;
+        }
+        ENGINE.warmUp();
+    }
+
+    static void endPractice(VoicePracticeScreen screen) {
+        if (practice == screen) {
+            practice = null;
+            OPEN_MIC.stop(); // the open mic mode starts it again next tick if a wand is held
+        }
+    }
+
+    /** The speech engine's state and model, for the practice screen. */
+    static WhisperEngine.State engineState() {
+        return ENGINE.state();
+    }
+
+    static VoiceCastConfig.Model engineModel() {
+        return ENGINE.model();
+    }
+
     /** Called at the end of every client tick. */
     public static void tick(Minecraft mc) {
         boolean down = KEY.isDown();
@@ -94,6 +138,22 @@ public final class VoiceCastClient {
         if (player == null) {
             abort();
             return;
+        }
+        if (--promptRefresh <= 0) {
+            promptRefresh = PROMPT_REFRESH_TICKS;
+            refreshPrompt(player);
+        }
+        if (practiceRequested) {
+            practiceRequested = false;
+            mc.setScreen(new VoicePracticeScreen());
+        }
+        if (practice != null) {
+            if (mc.screen != practice) {
+                endPractice(practice);
+            } else {
+                tickPractice(mc, player);
+                return;
+            }
         }
         if (VoiceCastConfig.MODE.get() == VoiceCastConfig.Mode.WAND_OPEN_MIC) {
             if (phase == Phase.RECORDING || phase == Phase.TAIL) {
@@ -147,7 +207,7 @@ public final class VoiceCastClient {
         if (keepOpen && !OPEN_MIC.isRunning() && wanted && openMicRetry == 0) {
             ENGINE.warmUp();
             int threads = VoiceCastConfig.threads(VoiceCastConfig.THREADS.get(), Runtime.getRuntime().availableProcessors());
-            if (!OPEN_MIC.start(threads, (text, error) -> mc.execute(() -> onOpenMicHeard(mc, text, error)))) {
+            if (!OPEN_MIC.start(threads, (heard, error) -> mc.execute(() -> onOpenMicHeard(mc, heard, error)))) {
                 openMicRetry = OPEN_MIC_RETRY_TICKS;
                 if (!noMicReported) {
                     noMicReported = true;
@@ -163,15 +223,64 @@ public final class VoiceCastClient {
         }
     }
 
-    private static void onOpenMicHeard(Minecraft mc, String text, Throwable error) {
+    /** Practice: keep the open mic going (any mode, wand or not) for as long as the screen is up. */
+    private static void tickPractice(Minecraft mc, Player player) {
+        if (openMicRetry > 0) {
+            openMicRetry--;
+        }
+        if (!OPEN_MIC.isRunning() && openMicRetry == 0 && ENGINE.state() != WhisperEngine.State.FAILED) {
+            int threads = VoiceCastConfig.threads(VoiceCastConfig.THREADS.get(), Runtime.getRuntime().availableProcessors());
+            if (!OPEN_MIC.start(threads, (heard, error) -> mc.execute(() -> onOpenMicHeard(mc, heard, error)))) {
+                openMicRetry = OPEN_MIC_RETRY_TICKS;
+                practice.microphoneMissing();
+            }
+        }
+    }
+
+    /** Prime the recogniser with the spells this player knows (or all, see {@link #PROMPT_KNOWN_ONLY}). */
+    private static void refreshPrompt(Player player) {
+        if (!PROMPT_KNOWN_ONLY) {
+            return;
+        }
+        java.util.List<String> known = new java.util.ArrayList<>();
+        for (SpellType s : SpellType.values()) {
+            if (MagicBookItem.isSpellLearned(player, s)) {
+                known.add(s.getId());
+            }
+        }
+        ENGINE.setPrompt(IncantationMatcher.recogniserPrompt(known));
+    }
+
+    /** The matcher with this computer's practice aliases for the model that heard the take. */
+    private static IncantationMatcher.Result match(WhisperEngine.Heard heard, boolean strict) {
+        return IncantationMatcher.match(heard.text(), strict, VoiceAliasStore.view(heard.model()));
+    }
+
+    private static void saveTake(WhisperEngine.Heard heard, String mode, IncantationMatcher.Result result) {
+        TakeLog.save(heard, mode, "", result.matched() ? result.spellId() : "", result.distance(), result.margin());
+    }
+
+    private static void onOpenMicHeard(Minecraft mc, WhisperEngine.Heard heard, Throwable error) {
         Player player = mc.player;
-        if (player == null || error != null || text == null
-                || VoiceCastConfig.MODE.get() != VoiceCastConfig.Mode.WAND_OPEN_MIC) {
+        if (player == null || error != null || heard == null) {
             return; // an engine failure is reported by the tick
         }
+        if (practice != null) {
+            if (mc.screen == practice) {
+                practice.onHeard(heard);
+            }
+            return; // practice never casts
+        }
+        if (VoiceCastConfig.MODE.get() != VoiceCastConfig.Mode.WAND_OPEN_MIC) {
+            return;
+        }
+        String text = heard.text();
         tellGargoyle(text);
         // Strict: the open mic hears all talk, so only a spell said on its own casts. Nothing is shown for talk.
-        IncantationMatcher.Result result = IncantationMatcher.match(text, true);
+        IncantationMatcher.Result result = match(heard, true);
+        if (!text.isBlank()) {
+            saveTake(heard, "open", result);
+        }
         SpellType spell = result.matched() ? byId(result.spellId()) : null;
         if (spell != null) {
             castHeard(mc, player, spell);
@@ -213,10 +322,10 @@ public final class VoiceCastClient {
         }
         phase = Phase.THINKING;
         int threads = VoiceCastConfig.threads(VoiceCastConfig.THREADS.get(), Runtime.getRuntime().availableProcessors());
-        ENGINE.transcribe(audio, threads).whenComplete((text, error) -> mc.execute(() -> onHeard(mc, text, error)));
+        ENGINE.transcribe(audio, threads).whenComplete((heard, error) -> mc.execute(() -> onHeard(mc, heard, error)));
     }
 
-    private static void onHeard(Minecraft mc, String text, Throwable error) {
+    private static void onHeard(Minecraft mc, WhisperEngine.Heard heard, Throwable error) {
         phase = Phase.WAIT_RELEASE;
         Player player = mc.player;
         if (player == null) {
@@ -229,8 +338,12 @@ public final class VoiceCastClient {
             clearActionBar(mc);
             return;
         }
+        String text = heard.text();
         boolean toldGargoyle = tellGargoyle(text);
-        IncantationMatcher.Result result = IncantationMatcher.match(text);
+        IncantationMatcher.Result result = match(heard, false);
+        if (!text.isBlank()) {
+            saveTake(heard, "ptt", result);
+        }
         SpellType spell = result.matched() ? byId(result.spellId()) : null;
         if (spell == null) {
             if (toldGargoyle) {
@@ -298,6 +411,8 @@ public final class VoiceCastClient {
     private static void abort() {
         com.hogwartsmagic.event.ClientModEvents.setVoiceOnly(false); // the next server sends its own value on login
         gargoyleListening = false;
+        practice = null;
+        practiceRequested = false;
         if (OPEN_MIC.isRunning()) {
             OPEN_MIC.stop();
         }

@@ -35,7 +35,7 @@ final class OpenMicListener {
      * Opens the microphone and starts listening. {@code onHeard} gets each transcript (or the error) on the engine
      * thread. Returns false when no microphone opens.
      */
-    boolean start(int threads, BiConsumer<String, Throwable> onHeard) {
+    boolean start(int threads, BiConsumer<WhisperEngine.Heard, Throwable> onHeard) {
         stop();
         MicRecorder.OpenLine open = MicRecorder.openLine();
         if (open == null) {
@@ -51,7 +51,7 @@ final class OpenMicListener {
         return true;
     }
 
-    private void readLoop(TargetDataLine l, float rate, int threads, BiConsumer<String, Throwable> onHeard) {
+    private void readLoop(TargetDataLine l, float rate, int threads, BiConsumer<WhisperEngine.Heard, Throwable> onHeard) {
         SpeechSegmenter segmenter = new SpeechSegmenter();
         byte[] buf = new byte[(int) (rate * 2 / 20)]; // 50 ms
         try {
@@ -65,9 +65,9 @@ final class OpenMicListener {
                     if (!busy.compareAndSet(false, true)) {
                         continue; // still working on the last one
                     }
-                    engine.transcribe(utterance, threads).whenComplete((text, error) -> {
+                    engine.transcribe(utterance, threads).whenComplete((heard, error) -> {
                         busy.set(false);
-                        onHeard.accept(text, error);
+                        onHeard.accept(heard, error);
                     });
                 }
             }
